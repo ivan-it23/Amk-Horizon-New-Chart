@@ -152,12 +152,20 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Amk-Horizon-New-Chart.h" />
+    <ClInclude Include="ChartModule.h" />
+    <ClInclude Include="DataModule.h" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="LayoutModule.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="UIModule.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Amk-Horizon-New-Chart.cpp" />
+    <ClCompile Include="ChartModule.cpp" />
+    <ClCompile Include="DataModule.cpp" />
+    <ClCompile Include="LayoutModule.cpp" />
+    <ClCompile Include="UIModule.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Amk-Horizon-New-Chart.rc" />
