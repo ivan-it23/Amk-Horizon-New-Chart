@@ -80,7 +80,7 @@ public:
     void DrawChart1(HDC hdc);
     void DrawChart2(HDC hdc);
     void LoadDataFromFile(const std::wstring& filename);
-    void HandleCommand(WPARAM wParam, LPARAM lParam);
+    bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const { return dualMode; }
     
 private:

@@ -102,7 +102,7 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
 
-   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW,
+   HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
       CW_USEDEFAULT, 0, 800, 600, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
@@ -190,8 +190,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             default:
                 if (g_chartManager)
                 {
-                    g_chartManager->HandleCommand(wParam, lParam);
-                    InvalidateRect(hWnd, NULL, TRUE);
+                    if (g_chartManager->HandleCommand(wParam, lParam))
+                    {
+                        InvalidateRect(hWnd, NULL, TRUE);
+                    }
                 }
                 return DefWindowProc(hWnd, message, wParam, lParam);
             }
@@ -311,18 +313,21 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     SendMessage(hChart1FreqCombo, CB_SETCURSEL, 0, 0);
     
     // Создание элементов управления второго графика (изначально скрыты)
-    // Используем WS_EX_TOPMOST для обеспечения правильного Z-порядка
-    hChart2DataCombo = CreateWindowEx(WS_EX_TOPMOST, L"COMBOBOX", NULL,
-        WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
-        10, 300, 180, 200, hWnd, (HMENU)IDC_CHART2_DATA_COMBO, hInst, NULL);
+    // 1. Создаем панель-контейнер, которая будет скрыта по умолчанию
+    hChart2Panel = CreateWindow(L"STATIC", NULL, WS_CHILD | WS_BORDER, 0, 0, 1, 1, hWnd, NULL, hInst, NULL);
+
+    // 2. Создаем элементы управления как дочерние окна этой панели
+    hChart2DataCombo = CreateWindow(L"COMBOBOX", NULL,
+        WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
+        10, 7, 180, 200, hChart2Panel, (HMENU)IDC_CHART2_DATA_COMBO, hInst, NULL);
     
-    hChart2FreqCombo = CreateWindowEx(WS_EX_TOPMOST, L"COMBOBOX", NULL,
-        WS_CHILD | CBS_DROPDOWNLIST,
-        200, 300, 100, 100, hWnd, (HMENU)IDC_CHART2_FREQ_COMBO, hInst, NULL);
+    hChart2FreqCombo = CreateWindow(L"COMBOBOX", NULL,
+        WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST,
+        200, 7, 100, 100, hChart2Panel, (HMENU)IDC_CHART2_FREQ_COMBO, hInst, NULL);
     
-    hChart2RefreshBtn = CreateWindowEx(WS_EX_TOPMOST, L"BUTTON", L"Refresh",
-        WS_CHILD | BS_PUSHBUTTON,
-        310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
+    hChart2RefreshBtn = CreateWindow(L"BUTTON", L"Refresh",
+        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        310, 5, 80, 25, hChart2Panel, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
     
     // Заполнение комбобоксов второго графика
     for (int i = 0; i < 9; i++)
@@ -352,21 +357,14 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     if (dualMode)
     {
-        // Режим двух графиков
-        ShowWindow(hChart2DataCombo, SW_SHOW);
-        ShowWindow(hChart2FreqCombo, SW_SHOW);
-        ShowWindow(hChart2RefreshBtn, SW_SHOW);
-        
-        // Позиционирование элементов управления второго графика
+        // Режим двух графиков: показываем и позиционируем панель
         int panel2Y = chart1Rect.bottom + MARGIN;
-        PositionChart2Controls(panel2Y);
+        SetWindowPos(hChart2Panel, NULL, MARGIN, panel2Y, width - (2 * MARGIN), PANEL_HEIGHT, SWP_NOZORDER | SWP_SHOWWINDOW);
     }
     else
     {
-        // Режим одного графика
-        ShowWindow(hChart2DataCombo, SW_HIDE);
-        ShowWindow(hChart2FreqCombo, SW_HIDE);
-        ShowWindow(hChart2RefreshBtn, SW_HIDE);
+        // Режим одного графика: скрываем панель
+        ShowWindow(hChart2Panel, SW_HIDE);
     }
 }
 
@@ -491,11 +489,12 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     file.close();
 }
 
-void ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
+bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
 {
     int wmId = LOWORD(wParam);
     int wmEvent = HIWORD(wParam);
-    
+    bool needsRedraw = false;
+
     switch (wmId)
     {
     case IDC_DUAL_MODE_CHECK:
@@ -503,17 +502,25 @@ void ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
         {
             ToggleDualMode();
             UpdateLayout(GetParent((HWND)lParam));
+            needsRedraw = true;
         }
         break;
     case IDC_CHART1_REFRESH_BTN:
         if (wmEvent == BN_CLICKED)
+        {
             RefreshChart1();
+            needsRedraw = true;
+        }
         break;
     case IDC_CHART2_REFRESH_BTN:
         if (wmEvent == BN_CLICKED)
+        {
             RefreshChart2();
+            needsRedraw = true;
+        }
         break;
     }
+    return needsRedraw;
 }
 
 void ChartManager::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData)
@@ -768,13 +775,7 @@ void ChartManager::PositionChart1Controls()
     // Этот метод может быть использован для динамического репозиционирования при необходимости
 }
 
-void ChartManager::PositionChart2Controls(int panel2Y)
-{
-    // ИСПРАВЛЕНИЕ Z-ПОРЯДКА: Используем HWND_TOP вместо SWP_NOZORDER
-    SetWindowPos(hChart2DataCombo, HWND_TOP, 10, panel2Y, 180, 25, SWP_SHOWWINDOW);
-    SetWindowPos(hChart2FreqCombo, HWND_TOP, 200, panel2Y, 100, 25, SWP_SHOWWINDOW);
-    SetWindowPos(hChart2RefreshBtn, HWND_TOP, 310, panel2Y, 80, 25, SWP_SHOWWINDOW);
-}
+
 
 bool ChartManager::ValidateLayoutConstraints(int width, int height)
 {
