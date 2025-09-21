@@ -271,7 +271,6 @@ ChartManager::ChartManager()
     , hChart2DataCombo(nullptr)
     , hChart2FreqCombo(nullptr)
     , hChart2RefreshBtn(nullptr)
-    , hChart2Panel(nullptr)
 {
     ZeroMemory(&chart1Rect, sizeof(RECT));
     ZeroMemory(&chart2Rect, sizeof(RECT));
@@ -313,21 +312,18 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     SendMessage(hChart1FreqCombo, CB_SETCURSEL, 0, 0);
     
     // Создание элементов управления второго графика (изначально скрыты)
-    // 1. Создаем панель-контейнер, которая будет скрыта по умолчанию
-    hChart2Panel = CreateWindow(L"STATIC", NULL, WS_CHILD | WS_BORDER, 0, 0, 1, 1, hWnd, NULL, hInst, NULL);
-
-    // 2. Создаем элементы управления как дочерние окна этой панели
+    // Создаем элементы управления как прямые дочерние окна главного окна (аналогично первому графику)
     hChart2DataCombo = CreateWindow(L"COMBOBOX", NULL,
-        WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
-        10, 7, 180, 200, hChart2Panel, (HMENU)IDC_CHART2_DATA_COMBO, hInst, NULL);
+        WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
+        10, 300, 180, 200, hWnd, (HMENU)IDC_CHART2_DATA_COMBO, hInst, NULL);
     
     hChart2FreqCombo = CreateWindow(L"COMBOBOX", NULL,
-        WS_VISIBLE | WS_CHILD | CBS_DROPDOWNLIST,
-        200, 7, 100, 100, hChart2Panel, (HMENU)IDC_CHART2_FREQ_COMBO, hInst, NULL);
+        WS_CHILD | CBS_DROPDOWNLIST,
+        200, 300, 100, 100, hWnd, (HMENU)IDC_CHART2_FREQ_COMBO, hInst, NULL);
     
     hChart2RefreshBtn = CreateWindow(L"BUTTON", L"Refresh",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        310, 5, 80, 25, hChart2Panel, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
+        WS_CHILD | BS_PUSHBUTTON,
+        310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
     
     // Заполнение комбобоксов второго графика
     for (int i = 0; i < 9; i++)
@@ -357,14 +353,21 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     if (dualMode)
     {
-        // Режим двух графиков: показываем и позиционируем панель
+        // Режим двух графиков: показываем и позиционируем элементы управления второго графика
         int panel2Y = chart1Rect.bottom + MARGIN;
-        SetWindowPos(hChart2Panel, NULL, MARGIN, panel2Y, width - (2 * MARGIN), PANEL_HEIGHT, SWP_NOZORDER | SWP_SHOWWINDOW);
+        PositionChart2Controls(panel2Y);
+        
+        // Показываем элементы управления второго графика
+        ShowWindow(hChart2DataCombo, SW_SHOW);
+        ShowWindow(hChart2FreqCombo, SW_SHOW);
+        ShowWindow(hChart2RefreshBtn, SW_SHOW);
     }
     else
     {
-        // Режим одного графика: скрываем панель
-        ShowWindow(hChart2Panel, SW_HIDE);
+        // Режим одного графика: скрываем элементы управления второго графика
+        ShowWindow(hChart2DataCombo, SW_HIDE);
+        ShowWindow(hChart2FreqCombo, SW_HIDE);
+        ShowWindow(hChart2RefreshBtn, SW_HIDE);
     }
 }
 
@@ -773,6 +776,14 @@ void ChartManager::PositionChart1Controls()
 {
     // Элементы управления первого графика уже позиционированы при создании
     // Этот метод может быть использован для динамического репозиционирования при необходимости
+}
+
+void ChartManager::PositionChart2Controls(int panel2Y)
+{
+    // Позиционируем элементы управления второго графика аналогично первому
+    SetWindowPos(hChart2DataCombo, HWND_TOP, 10, panel2Y, 180, 25, SWP_NOSIZE);
+    SetWindowPos(hChart2FreqCombo, HWND_TOP, 200, panel2Y, 100, 25, SWP_NOSIZE);
+    SetWindowPos(hChart2RefreshBtn, HWND_TOP, 310, panel2Y, 80, 25, SWP_NOSIZE);
 }
 
 

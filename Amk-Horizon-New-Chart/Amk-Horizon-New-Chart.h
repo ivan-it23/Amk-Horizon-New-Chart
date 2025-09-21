@@ -64,7 +64,6 @@ private:
     HWND hChart2DataCombo;
     HWND hChart2FreqCombo;
     HWND hChart2RefreshBtn;
-    HWND hChart2Panel;
     
     // Области графиков
     RECT chart1Rect;
