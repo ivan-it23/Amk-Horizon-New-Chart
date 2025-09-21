@@ -311,15 +311,16 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     SendMessage(hChart1FreqCombo, CB_SETCURSEL, 0, 0);
     
     // Создание элементов управления второго графика (изначально скрыты)
-    hChart2DataCombo = CreateWindow(L"COMBOBOX", NULL,
+    // Используем WS_EX_TOPMOST для обеспечения правильного Z-порядка
+    hChart2DataCombo = CreateWindowEx(WS_EX_TOPMOST, L"COMBOBOX", NULL,
         WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
         10, 300, 180, 200, hWnd, (HMENU)IDC_CHART2_DATA_COMBO, hInst, NULL);
     
-    hChart2FreqCombo = CreateWindow(L"COMBOBOX", NULL,
+    hChart2FreqCombo = CreateWindowEx(WS_EX_TOPMOST, L"COMBOBOX", NULL,
         WS_CHILD | CBS_DROPDOWNLIST,
         200, 300, 100, 100, hWnd, (HMENU)IDC_CHART2_FREQ_COMBO, hInst, NULL);
     
-    hChart2RefreshBtn = CreateWindow(L"BUTTON", L"Refresh",
+    hChart2RefreshBtn = CreateWindowEx(WS_EX_TOPMOST, L"BUTTON", L"Refresh",
         WS_CHILD | BS_PUSHBUTTON,
         310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
     
@@ -343,6 +344,12 @@ void ChartManager::UpdateLayout(HWND hWnd)
     int width = clientRect.right - clientRect.left;
     int height = clientRect.bottom - clientRect.top;
     
+    // Валидация ограничений компоновки
+    if (!ValidateLayoutConstraints(width, height))
+        return;
+    
+    CalculateLayout(width, height);
+    
     if (dualMode)
     {
         // Режим двух графиков
@@ -350,23 +357,9 @@ void ChartManager::UpdateLayout(HWND hWnd)
         ShowWindow(hChart2FreqCombo, SW_SHOW);
         ShowWindow(hChart2RefreshBtn, SW_SHOW);
         
-        // Первый график занимает верхнюю половину
-        chart1Rect.left = 5;
-        chart1Rect.top = 60;
-        chart1Rect.right = width - 5;
-        chart1Rect.bottom = (height - 100) / 2;
-        
         // Позиционирование элементов управления второго графика
-        int panel2Y = chart1Rect.bottom + 5;
-        SetWindowPos(hChart2DataCombo, NULL, 10, panel2Y, 180, 25, SWP_NOZORDER);
-        SetWindowPos(hChart2FreqCombo, NULL, 200, panel2Y, 100, 25, SWP_NOZORDER);
-        SetWindowPos(hChart2RefreshBtn, NULL, 310, panel2Y, 80, 25, SWP_NOZORDER);
-        
-        // Второй график занимает нижнюю половину
-        chart2Rect.left = 5;
-        chart2Rect.top = panel2Y + 35;
-        chart2Rect.right = width - 5;
-        chart2Rect.bottom = height - 5;
+        int panel2Y = chart1Rect.bottom + MARGIN;
+        PositionChart2Controls(panel2Y);
     }
     else
     {
@@ -374,12 +367,6 @@ void ChartManager::UpdateLayout(HWND hWnd)
         ShowWindow(hChart2DataCombo, SW_HIDE);
         ShowWindow(hChart2FreqCombo, SW_HIDE);
         ShowWindow(hChart2RefreshBtn, SW_HIDE);
-        
-        // Первый график занимает всё доступное пространство
-        chart1Rect.left = 5;
-        chart1Rect.top = 60;
-        chart1Rect.right = width - 5;
-        chart1Rect.bottom = height - 5;
     }
 }
 
@@ -417,6 +404,11 @@ void ChartManager::DrawChart1(HDC hdc)
 {
     if (chart1Rect.right <= chart1Rect.left || chart1Rect.bottom <= chart1Rect.top)
         return;
+    
+    // Заливаем фон графика белым цветом
+    HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &chart1Rect, hBrush);
+    DeleteObject(hBrush);
         
     // Рисуем рамку графика
     Rectangle(hdc, chart1Rect.left, chart1Rect.top, chart1Rect.right, chart1Rect.bottom);
@@ -449,6 +441,11 @@ void ChartManager::DrawChart2(HDC hdc)
 {
     if (!dualMode || chart2Rect.right <= chart2Rect.left || chart2Rect.bottom <= chart2Rect.top)
         return;
+    
+    // Заливаем фон графика белым цветом
+    HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
+    FillRect(hdc, &chart2Rect, hBrush);
+    DeleteObject(hBrush);
         
     // Рисуем рамку графика
     Rectangle(hdc, chart2Rect.left, chart2Rect.top, chart2Rect.right, chart2Rect.bottom);
@@ -720,4 +717,81 @@ int ChartManager::GetSilentTransmitterIndex(FrequencyBand freq)
 {
     // Индексы для молчащих передатчиков
     return (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+}
+
+// Вспомогательные методы для компоновки
+void ChartManager::CalculateLayout(int windowWidth, int windowHeight)
+{
+    if (dualMode)
+    {
+        // Расчет для режима двух графиков
+        // Доступное пространство = Общая высота - Фиксированные элементы
+        int menuAndPanel1Height = 60; // Меню + панель управления первого графика
+        int totalFixedHeight = menuAndPanel1Height + PANEL_HEIGHT + (4 * MARGIN) + PANEL_SPACING;
+        int availableHeight = windowHeight - totalFixedHeight;
+        
+        // Каждый график получает равную долю доступного пространства
+        int chartHeight = availableHeight / 2;
+        
+        // Убеждаемся, что высота графика не меньше минимальной
+        if (chartHeight < MIN_CHART_HEIGHT)
+            chartHeight = MIN_CHART_HEIGHT;
+        
+        // Первый график
+        chart1Rect.left = MARGIN;
+        chart1Rect.top = menuAndPanel1Height;
+        chart1Rect.right = windowWidth - MARGIN;
+        chart1Rect.bottom = chart1Rect.top + chartHeight;
+        
+        // Второй график (симметрично первому)
+        chart2Rect.left = MARGIN;
+        chart2Rect.top = chart1Rect.bottom + PANEL_HEIGHT + (2 * MARGIN);
+        chart2Rect.right = windowWidth - MARGIN;
+        chart2Rect.bottom = chart2Rect.top + chartHeight;
+    }
+    else
+    {
+        // Режим одного графика - занимает всё доступное пространство
+        chart1Rect.left = MARGIN;
+        chart1Rect.top = 60; // Меню + панель управления
+        chart1Rect.right = windowWidth - MARGIN;
+        chart1Rect.bottom = windowHeight - MARGIN;
+        
+        // Очищаем прямоугольник второго графика
+        ZeroMemory(&chart2Rect, sizeof(RECT));
+    }
+}
+
+void ChartManager::PositionChart1Controls()
+{
+    // Элементы управления первого графика уже позиционированы при создании
+    // Этот метод может быть использован для динамического репозиционирования при необходимости
+}
+
+void ChartManager::PositionChart2Controls(int panel2Y)
+{
+    // ИСПРАВЛЕНИЕ Z-ПОРЯДКА: Используем HWND_TOP вместо SWP_NOZORDER
+    SetWindowPos(hChart2DataCombo, HWND_TOP, 10, panel2Y, 180, 25, SWP_SHOWWINDOW);
+    SetWindowPos(hChart2FreqCombo, HWND_TOP, 200, panel2Y, 100, 25, SWP_SHOWWINDOW);
+    SetWindowPos(hChart2RefreshBtn, HWND_TOP, 310, panel2Y, 80, 25, SWP_SHOWWINDOW);
+}
+
+bool ChartManager::ValidateLayoutConstraints(int width, int height)
+{
+    // Минимальные размеры окна для корректной работы
+    const int MIN_WINDOW_WIDTH = 600;
+    const int MIN_WINDOW_HEIGHT = 400;
+    
+    if (width < MIN_WINDOW_WIDTH || height < MIN_WINDOW_HEIGHT)
+        return false;
+    
+    // В режиме двух графиков нужно больше места
+    if (dualMode)
+    {
+        const int MIN_DUAL_HEIGHT = 600;
+        if (height < MIN_DUAL_HEIGHT)
+            return false;
+    }
+    
+    return true;
 }

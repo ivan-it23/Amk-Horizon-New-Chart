@@ -41,6 +41,14 @@ enum class FrequencyBand {
 // Класс для управления данными и графиками
 class ChartManager {
 private:
+    // Константы компоновки
+    enum {
+        PANEL_HEIGHT = 40,
+        MARGIN = 5,
+        PANEL_SPACING = 5,
+        MIN_CHART_HEIGHT = 100
+    };
+    
     std::vector<GP_TOOL_DATA> data;
     bool dualMode;
     DataType chart1DataType;
@@ -81,4 +89,10 @@ private:
     std::wstring GetDataTypeName(DataType type);
     int GetActiveTransmitterIndex(int transmitter, FrequencyBand freq);
     int GetSilentTransmitterIndex(FrequencyBand freq);
+    
+    // Вспомогательные методы для компоновки
+    void CalculateLayout(int windowWidth, int windowHeight);
+    void PositionChart1Controls();
+    void PositionChart2Controls(int panel2Y);
+    bool ValidateLayoutConstraints(int width, int height);
 };
