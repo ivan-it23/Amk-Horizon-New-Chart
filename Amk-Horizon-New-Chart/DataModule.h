@@ -55,6 +55,8 @@ public:
 
     // Вычисления данных для графиков
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const;
+    void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData, 
+                           double minX, double maxX, double minY, double maxY) const;
     
     // Вспомогательные методы
     std::wstring GetDataTypeName(DataType type) const;

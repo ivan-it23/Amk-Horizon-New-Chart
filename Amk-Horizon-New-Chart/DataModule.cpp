@@ -22,6 +22,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
     }
     
     file.close();
+    
     return !data.empty();
 }
 
@@ -42,9 +43,22 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
 }
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
+    // Вызываем перегруженную версию без ограничений диапазона
+    CalculateChartData(type, freq, outData, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+}
+
+void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData, 
+                                   double minX, double maxX, double minY, double maxY) const {
     outData.clear();
     
     if (data.empty())
+        return;
+    
+    // Определяем диапазон индексов для отображения
+    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
+    
+    if (startIndex >= endIndex || startIndex >= data.size()) 
         return;
     
     switch (type) {
@@ -57,8 +71,9 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
         // 4 канала для активных передатчиков
         outData.resize(4);
         for (int channel = 0; channel < 4; channel++) {
-            outData[channel].reserve(data.size());
-            for (const auto& record : data) {
+            outData[channel].reserve(endIndex - startIndex);
+            for (size_t i = startIndex; i < endIndex; i++) {
+                const auto& record = data[i];
                 int index = GetActiveTransmitterIndex(channel, freq);
                 float value = 0.0f;
                 
@@ -92,8 +107,9 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     case DataType::SILENT_AMPLITUDE_RX2:
         // 1 канал для молчащих передатчиков
         outData.resize(1);
-        outData[0].reserve(data.size());
-        for (const auto& record : data) {
+        outData[0].reserve(endIndex - startIndex);
+        for (size_t i = startIndex; i < endIndex; i++) {
+            const auto& record = data[i];
             int index = GetSilentTransmitterIndex(freq);
             float value = (type == DataType::SILENT_AMPLITUDE_RX1) ? 
                 record.AM_RX_1[index] : record.AM_RX_2[index];
@@ -104,8 +120,9 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     case DataType::TEMPERATURE:
         // 1 значение температуры
         outData.resize(1);
-        outData[0].reserve(data.size());
-        for (const auto& record : data) {
+        outData[0].reserve(endIndex - startIndex);
+        for (size_t i = startIndex; i < endIndex; i++) {
+            const auto& record = data[i];
             outData[0].push_back(record.temperature);
         }
         break;
@@ -139,3 +156,4 @@ int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
     // Индексы для молчащих передатчиков
     return (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
 }
+

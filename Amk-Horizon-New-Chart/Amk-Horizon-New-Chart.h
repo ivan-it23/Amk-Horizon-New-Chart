@@ -18,6 +18,24 @@ private:
     std::unique_ptr<UIModule> uiModule;
     std::unique_ptr<LayoutModule> layoutModule;
     
+    // Структура для хранения диапазона масштабирования
+    struct ZoomRange {
+        double minX, maxX, minY, maxY;
+        bool isZoomed;
+        
+        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false) {}
+    };
+    
+    // Переменные для масштабирования
+    bool isSelecting;
+    POINT selectionStart;
+    POINT selectionEnd;
+    int activeChart; // 1 или 2, указывает на активный график для зума
+    
+    // Независимые диапазоны масштабирования для каждого графика
+    ZoomRange chart1Zoom;
+    ZoomRange chart2Zoom;
+    
 public:
     ChartManager();
     ~ChartManager();
@@ -33,8 +51,16 @@ public:
     void LoadDataFromFile(const std::wstring& filename);
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const;
+    
+    // Методы для обработки событий мыши
+    void HandleMouseDown(HWND hWnd, int x, int y);
+    void HandleMouseMove(HWND hWnd, int x, int y);
+    void HandleMouseUp(HWND hWnd, int x, int y);
+    void HandleRightClick(HWND hWnd, int x, int y);
 
 private:
     // Вспомогательные методы
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;
+    int GetChartAtPoint(int x, int y) const;
+    void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
 };

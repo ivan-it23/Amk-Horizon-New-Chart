@@ -18,12 +18,16 @@ public:
     void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData, 
                    DataType type, const std::wstring& title, bool hasData) const;
 
+    // Новый метод для отрисовки прямоугольника зума
+    void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
+
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
     void DrawChartBorder(HDC hdc, const RECT& rect) const;
     void DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& title) const;
     void DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const;
     void DrawChartAxes(HDC hdc, const RECT& plotRect) const;
+    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
 
@@ -31,4 +35,8 @@ private:
     // Вспомогательные методы для расчетов
     RECT CalculatePlotRect(const RECT& chartRect) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const;
+    
+    // Вспомогательные методы для сетки и меток
+    double CalculateNiceStep(double range, int targetSteps) const;
+    double CalculateNiceMin(double minVal, double step) const;
 };

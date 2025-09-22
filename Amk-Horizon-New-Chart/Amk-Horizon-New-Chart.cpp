@@ -7,6 +7,7 @@
 #include <fstream>
 #include <sstream>
 #include <cfloat>
+#include <cmath>
 
 #define MAX_LOADSTRING 100
 
@@ -206,6 +207,38 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             InvalidateRect(hWnd, NULL, TRUE);
         }
         break;
+    case WM_LBUTTONDOWN:
+        if (g_chartManager)
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            g_chartManager->HandleMouseDown(hWnd, x, y);
+        }
+        break;
+    case WM_MOUSEMOVE:
+        if (g_chartManager)
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            g_chartManager->HandleMouseMove(hWnd, x, y);
+        }
+        break;
+    case WM_LBUTTONUP:
+        if (g_chartManager)
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            g_chartManager->HandleMouseUp(hWnd, x, y);
+        }
+        break;
+    case WM_RBUTTONDOWN:
+        if (g_chartManager)
+        {
+            int x = LOWORD(lParam);
+            int y = HIWORD(lParam);
+            g_chartManager->HandleRightClick(hWnd, x, y);
+        }
+        break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -263,7 +296,11 @@ ChartManager::ChartManager()
     , chartModule(std::make_unique<ChartModule>())
     , uiModule(std::make_unique<UIModule>())
     , layoutModule(std::make_unique<LayoutModule>())
+    , isSelecting(false)
+    , activeChart(0)
 {
+    selectionStart.x = selectionStart.y = 0;
+    selectionEnd.x = selectionEnd.y = 0;
 }
 
 ChartManager::~ChartManager() {
@@ -324,13 +361,31 @@ void ChartManager::DrawChart1(HDC hdc)
     DataType dataType = uiModule->GetChart1DataType();
     FrequencyBand frequency = uiModule->GetChart1Frequency();
     
-    dataModule->CalculateChartData(dataType, frequency, chartData);
+    // Используем диапазон масштабирования первого графика
+    if (chart1Zoom.isZoomed) {
+        dataModule->CalculateChartData(dataType, frequency, chartData, 
+                                      chart1Zoom.minX, chart1Zoom.maxX, 
+                                      chart1Zoom.minY, chart1Zoom.maxY);
+    } else {
+        dataModule->CalculateChartData(dataType, frequency, chartData);
+    }
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(1, dataType, frequency);
     
     // Отрисовка графика
     chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData());
+    
+    // Отрисовка прямоугольника выделения, если активен первый график
+    if (isSelecting && activeChart == 1) {
+        RECT zoomRect;
+        zoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+        zoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+        zoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+        zoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+        
+        chartModule->DrawZoomRectangle(hdc, zoomRect);
+    }
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -345,18 +400,40 @@ void ChartManager::DrawChart2(HDC hdc)
     DataType dataType = uiModule->GetChart2DataType();
     FrequencyBand frequency = uiModule->GetChart2Frequency();
     
-    dataModule->CalculateChartData(dataType, frequency, chartData);
+    // Используем диапазон масштабирования второго графика
+    if (chart2Zoom.isZoomed) {
+        dataModule->CalculateChartData(dataType, frequency, chartData, 
+                                      chart2Zoom.minX, chart2Zoom.maxX, 
+                                      chart2Zoom.minY, chart2Zoom.maxY);
+    } else {
+        dataModule->CalculateChartData(dataType, frequency, chartData);
+    }
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(2, dataType, frequency);
     
     // Отрисовка графика
     chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData());
+    
+    // Отрисовка прямоугольника выделения, если активен второй график
+    if (isSelecting && activeChart == 2) {
+        RECT zoomRect;
+        zoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+        zoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+        zoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+        zoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+        
+        chartModule->DrawZoomRectangle(hdc, zoomRect);
+    }
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
 {
     dataModule->LoadDataFromFile(filename);
+    
+    // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
+    chart1Zoom.isZoomed = false;
+    chart2Zoom.isZoomed = false;
 }
 
 bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
@@ -386,4 +463,187 @@ std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, F
     else
         title += L" (2000 кГц)";
     return title;
+}
+
+void ChartManager::HandleMouseDown(HWND hWnd, int x, int y)
+{
+    if (!dataModule->HasData())
+        return;
+    
+    // Определяем, на каком графике произошел клик
+    activeChart = GetChartAtPoint(x, y);
+    if (activeChart == 0)
+        return;
+    
+    // Начинаем выделение области
+    isSelecting = true;
+    selectionStart.x = x;
+    selectionStart.y = y;
+    selectionEnd.x = x;
+    selectionEnd.y = y;
+    
+    SetCapture(hWnd);
+}
+
+void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
+{
+    if (!isSelecting)
+        return;
+    
+    // Обновляем конечную точку выделения
+    selectionEnd.x = x;
+    selectionEnd.y = y;
+    
+    // Перерисовываем окно для отображения прямоугольника выделения
+    InvalidateRect(hWnd, NULL, FALSE);
+}
+
+void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
+{
+    if (!isSelecting)
+        return;
+    
+    isSelecting = false;
+    ReleaseCapture();
+    
+    selectionEnd.x = x;
+    selectionEnd.y = y;
+    
+    // Проверяем, что выделена достаточно большая область
+    int deltaX = abs(selectionEnd.x - selectionStart.x);
+    int deltaY = abs(selectionEnd.y - selectionStart.y);
+    
+    if (deltaX > 10 && deltaY > 10) {
+        // Преобразуем экранные координаты в координаты данных
+        double minDataX, minDataY, maxDataX, maxDataY;
+        
+        ConvertScreenToDataCoords(activeChart, 
+            (std::min)(selectionStart.x, selectionEnd.x), 
+            (std::max)(selectionStart.y, selectionEnd.y), 
+            minDataX, minDataY);
+            
+        ConvertScreenToDataCoords(activeChart, 
+            (std::max)(selectionStart.x, selectionEnd.x), 
+            (std::min)(selectionStart.y, selectionEnd.y), 
+            maxDataX, maxDataY);
+        
+        // Устанавливаем новый видимый диапазон для соответствующего графика
+        if (activeChart == 1) {
+            chart1Zoom.minX = minDataX;
+            chart1Zoom.maxX = maxDataX;
+            chart1Zoom.minY = minDataY;
+            chart1Zoom.maxY = maxDataY;
+            chart1Zoom.isZoomed = true;
+        } else if (activeChart == 2) {
+            chart2Zoom.minX = minDataX;
+            chart2Zoom.maxX = maxDataX;
+            chart2Zoom.minY = minDataY;
+            chart2Zoom.maxY = maxDataY;
+            chart2Zoom.isZoomed = true;
+        }
+    }
+    
+    // Перерисовываем окно
+    InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
+{
+    // Определяем, на каком графике произошел клик
+    int chartAtPoint = GetChartAtPoint(x, y);
+    
+    // Сбрасываем масштаб только для соответствующего графика
+    if (chartAtPoint == 1) {
+        chart1Zoom.isZoomed = false;
+    } else if (chartAtPoint == 2) {
+        chart2Zoom.isZoomed = false;
+    }
+    
+    InvalidateRect(hWnd, NULL, TRUE);
+}
+
+int ChartManager::GetChartAtPoint(int x, int y) const
+{
+    const RECT& chart1Rect = layoutModule->GetChart1Rect();
+    
+    // Проверяем попадание в первый график
+    if (x >= chart1Rect.left && x <= chart1Rect.right &&
+        y >= chart1Rect.top && y <= chart1Rect.bottom) {
+        return 1;
+    }
+    
+    // Проверяем попадание во второй график (если он видим)
+    if (uiModule->IsDualMode()) {
+        const RECT& chart2Rect = layoutModule->GetChart2Rect();
+        if (x >= chart2Rect.left && x <= chart2Rect.right &&
+            y >= chart2Rect.top && y <= chart2Rect.bottom) {
+            return 2;
+        }
+    }
+    
+    return 0; // Клик вне графиков
+}
+
+void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const
+{
+    RECT chartRect;
+    std::vector<std::vector<float>> chartData;
+    
+    // Получаем полные данные для определения исходного диапазона
+    if (chartNum == 1) {
+        chartRect = layoutModule->GetChart1Rect();
+        DataType dataType = uiModule->GetChart1DataType();
+        FrequencyBand frequency = uiModule->GetChart1Frequency();
+        dataModule->CalculateChartData(dataType, frequency, chartData);
+    } else {
+        chartRect = layoutModule->GetChart2Rect();
+        DataType dataType = uiModule->GetChart2DataType();
+        FrequencyBand frequency = uiModule->GetChart2Frequency();
+        dataModule->CalculateChartData(dataType, frequency, chartData);
+    }
+    
+    // Расчет области графика (без отступов для осей)
+    RECT plotRect = chartRect;
+    plotRect.left += 50;   // Отступ для Y-оси
+    plotRect.top += 40;    // Отступ для заголовка
+    plotRect.right -= 20;  // Отступ справа
+    plotRect.bottom -= 30; // Отступ для X-оси
+    
+    if (chartData.empty() || chartData[0].empty()) {
+        dataX = dataY = 0.0;
+        return;
+    }
+    
+    // Определяем диапазон данных (полный или масштабированный)
+    double minDataX, maxDataX;
+    const ZoomRange* zoom = (chartNum == 1) ? &chart1Zoom : &chart2Zoom;
+    
+    if (zoom->isZoomed) {
+        minDataX = zoom->minX;
+        maxDataX = zoom->maxX;
+    } else {
+        minDataX = 0.0;
+        maxDataX = static_cast<double>(chartData[0].size() - 1);
+    }
+    
+    // Преобразование X координаты
+    double xRatio = static_cast<double>(screenX - plotRect.left) / (plotRect.right - plotRect.left);
+    dataX = minDataX + xRatio * (maxDataX - minDataX);
+    
+    // Преобразование Y координаты
+    float minVal = FLT_MAX, maxVal = -FLT_MAX;
+    for (const auto& channel : chartData) {
+        for (float val : channel) {
+            minVal = (std::min)(minVal, val);
+            maxVal = (std::max)(maxVal, val);
+        }
+    }
+    
+    if (minVal == maxVal) {
+        minVal -= 1.0f;
+        maxVal += 1.0f;
+    }
+    
+    double yRatio = static_cast<double>(plotRect.bottom - screenY) / (plotRect.bottom - plotRect.top);
+    dataY = minVal + yRatio * (maxVal - minVal);
 }
