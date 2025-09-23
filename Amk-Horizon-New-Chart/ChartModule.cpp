@@ -84,7 +84,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         if (channel.empty())
             continue;
             
-        HPEN hPen = CreatePen(PS_SOLID, 1, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -205,7 +205,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vec
         // Метка на оси X
         SelectObject(hdc, hAxisPen);
         wchar_t label[32];
-        swprintf_s(label, 32, L"%.0f", x);
+        swprintf_s(label, 32, L"%.1f", x);
         TextOut(hdc, screenX - 10, chartRect.bottom + 5, label, (int)wcslen(label));
         SelectObject(hdc, hGridPen);
     }
