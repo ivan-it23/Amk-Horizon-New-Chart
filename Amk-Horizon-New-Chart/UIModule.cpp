@@ -134,10 +134,10 @@ void UIModule::PopulateComboBoxes() {
     }
     
     // Заполнение комбобоксов частот
-    SendMessage(hChart1FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 кГц");
-    SendMessage(hChart1FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 кГц");
-    SendMessage(hChart2FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 кГц");
-    SendMessage(hChart2FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 кГц");
+    SendMessage(hChart1FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 kHz");
+    SendMessage(hChart1FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 kHz");
+    SendMessage(hChart2FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 kHz");
+    SendMessage(hChart2FreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 kHz");
 }
 
 void UIModule::SetInitialValues() {

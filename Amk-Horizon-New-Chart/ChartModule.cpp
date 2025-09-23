@@ -31,16 +31,6 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
     // Отрисовка заголовка
     DrawChartTitle(hdc, rect, title);
     
-    if (!hasData) {
-        DrawNoDataMessage(hdc, rect, L"Нет данных. Загрузите файл через меню Файл -> Открыть файл данных...");
-        return;
-    }
-    
-    if (chartData.empty()) {
-        DrawNoDataMessage(hdc, rect, L"Нет данных для отображения");
-        return;
-    }
-    
     // Расчет области для графика
     RECT plotRect = CalculatePlotRect(rect);
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
@@ -72,9 +62,6 @@ void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& 
     TextOut(hdc, rect.left + 10, rect.top + 10, title.c_str(), (int)title.length());
 }
 
-void ChartModule::DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const {
-    TextOut(hdc, rect.left + 10, rect.top + 40, message.c_str(), (int)message.length());
-}
 
 void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect) const {
     // X-ось
