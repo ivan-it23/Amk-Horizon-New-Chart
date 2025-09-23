@@ -87,14 +87,9 @@ void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect) const {
 }
 
 void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const {
-    // Находим минимальные и максимальные значения
+    // Находим минимальные и максимальные значения с padding
     float minVal, maxVal;
     FindMinMaxValues(chartData, minVal, maxVal);
-    
-    if (minVal == maxVal) {
-        minVal -= 1.0f;
-        maxVal += 1.0f;
-    }
     
     // Рисуем данные для каждого канала
     for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
@@ -154,46 +149,48 @@ void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartD
     minVal = FLT_MAX;
     maxVal = -FLT_MAX;
     
+    // Находим исходные минимум и максимум
     for (const auto& channel : chartData) {
         for (float val : channel) {
             minVal = (std::min)(minVal, val);
             maxVal = (std::max)(maxVal, val);
         }
     }
+    
+    // Если данных нет, устанавливаем значения по умолчанию
+    if (minVal == FLT_MAX || maxVal == -FLT_MAX) {
+        minVal = 0.0f;
+        maxVal = 1.0f;
+        return;
+    }
+    
+    // Рассчитываем диапазон данных
+    float range = maxVal - minVal;
+    
+    // Обрабатываем случай, когда все значения одинаковы или диапазон очень мал
+    if (range < 1e-6f) {
+        // Создаем искусственный диапазон вокруг значения
+        float center = (minVal + maxVal) * 0.5f;
+        float artificialRange = (std::max)(2.0f, (std::abs)(center) * 0.1f);
+        minVal = center - artificialRange * 0.5f;
+        maxVal = center + artificialRange * 0.5f;
+    } else {
+        // Добавляем 5% padding к диапазону
+        float padding = range * 0.05f;
+        minVal -= padding;
+        maxVal += padding;
+    }
 }
 
-void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
-    // Создаем полупрозрачную кисть для выделения
-    HBRUSH hBrush = CreateSolidBrush(RGB(0, 0, 255));
-    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 255));
-    
-    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-    
-    // Устанавливаем режим смешивания для полупрозрачности
-    int oldROP = SetROP2(hdc, R2_XORPEN);
-    
-    Rectangle(hdc, zoomRect.left, zoomRect.top, zoomRect.right, zoomRect.bottom);
-    
-    SetROP2(hdc, oldROP);
-    SelectObject(hdc, hOldBrush);
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hBrush);
-    DeleteObject(hPen);
-}
+
 
 void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const {
     if (chartData.empty() || chartData[0].empty())
         return;
     
-    // Находим диапазон данных
+    // Находим диапазон данных с padding
     float minVal, maxVal;
     FindMinMaxValues(chartData, minVal, maxVal);
-    
-    if (minVal == maxVal) {
-        minVal -= 1.0f;
-        maxVal += 1.0f;
-    }
     
     // Расчет "красивых" шагов для осей
     double yRange = maxVal - minVal;
@@ -284,4 +281,26 @@ double ChartModule::CalculateNiceStep(double range, int targetSteps) const {
 
 double ChartModule::CalculateNiceMin(double minVal, double step) const {
     return floor(minVal / step) * step;
+}
+
+void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
+    // Используем XOR режим для отрисовки прямоугольника выделения
+    // Это позволяет рисовать и стирать прямоугольник без повреждения фона
+    int oldROP = SetROP2(hdc, R2_XORPEN);
+    
+    // Создаем перо для прямоугольника выделения
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 255));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    // Устанавливаем прозрачную кисть, чтобы не заливать внутренность
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    
+    // Рисуем прямоугольник
+    Rectangle(hdc, zoomRect.left, zoomRect.top, zoomRect.right, zoomRect.bottom);
+    
+    // Восстанавливаем исходные настройки
+    SelectObject(hdc, hOldBrush);
+    SelectObject(hdc, hOldPen);
+    SetROP2(hdc, oldROP);
+    DeleteObject(hPen);
 }

@@ -375,17 +375,6 @@ void ChartManager::DrawChart1(HDC hdc)
     
     // Отрисовка графика
     chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData());
-    
-    // Отрисовка прямоугольника выделения, если активен первый график
-    if (isSelecting && activeChart == 1) {
-        RECT zoomRect;
-        zoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
-        zoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
-        zoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
-        zoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
-        
-        chartModule->DrawZoomRectangle(hdc, zoomRect);
-    }
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -414,17 +403,6 @@ void ChartManager::DrawChart2(HDC hdc)
     
     // Отрисовка графика
     chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData());
-    
-    // Отрисовка прямоугольника выделения, если активен второй график
-    if (isSelecting && activeChart == 2) {
-        RECT zoomRect;
-        zoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
-        zoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
-        zoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
-        zoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
-        
-        chartModule->DrawZoomRectangle(hdc, zoomRect);
-    }
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
@@ -490,18 +468,55 @@ void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
     if (!isSelecting)
         return;
     
+    // Получаем контекст устройства для прямой отрисовки
+    HDC hdc = GetDC(hWnd);
+    if (!hdc)
+        return;
+    
+    // Стираем предыдущий прямоугольник выделения (используем XOR для стирания)
+    if (selectionEnd.x != selectionStart.x || selectionEnd.y != selectionStart.y) {
+        RECT oldZoomRect;
+        oldZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+        oldZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+        oldZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+        oldZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+        
+        chartModule->DrawZoomRectangle(hdc, oldZoomRect);
+    }
+    
     // Обновляем конечную точку выделения
     selectionEnd.x = x;
     selectionEnd.y = y;
     
-    // Перерисовываем окно для отображения прямоугольника выделения
-    InvalidateRect(hWnd, NULL, FALSE);
+    // Рисуем новый прямоугольник выделения
+    RECT newZoomRect;
+    newZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+    newZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+    newZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+    newZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+    
+    chartModule->DrawZoomRectangle(hdc, newZoomRect);
+    
+    ReleaseDC(hWnd, hdc);
 }
 
 void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
 {
     if (!isSelecting)
         return;
+    
+    // Стираем последний прямоугольник выделения перед завершением
+    HDC hdc = GetDC(hWnd);
+    if (hdc) {
+        RECT lastZoomRect;
+        lastZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+        lastZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+        lastZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+        lastZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+        
+        chartModule->DrawZoomRectangle(hdc, lastZoomRect);
+        ReleaseDC(hWnd, hdc);
+    }
     
     isSelecting = false;
     ReleaseCapture();
