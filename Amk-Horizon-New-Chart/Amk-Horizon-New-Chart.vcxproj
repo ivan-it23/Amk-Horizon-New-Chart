@@ -23,7 +23,7 @@
     <ProjectGuid>{CFC20E7C-99C0-4E3B-BDBF-F2793466C3EB}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
     <RootNamespace>AmkHorizonNewChart</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.22621.0</WindowsTargetPlatformVersion>
+    <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
