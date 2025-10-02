@@ -64,6 +64,9 @@ public:
     // Методы для обработки скроллинга
     void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
     void UpdateScrollBars(HWND hWnd);
+    
+    // Метод для частичной перерисовки конкретного графика
+    void InvalidateChart(HWND hWnd, int chartNumber);
 
 private:
     // Вспомогательные методы

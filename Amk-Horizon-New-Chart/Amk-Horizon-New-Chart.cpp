@@ -647,8 +647,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     // Обновляем скроллбары после изменения зума
     UpdateScrollBars(hWnd);
     
-    // Перерисовываем окно
-    InvalidateRect(hWnd, NULL, TRUE);
+    // Перерисовываем только измененный график (избегаем мигания)
+    if (activeChart > 0) {
+        InvalidateChart(hWnd, activeChart);
+    } else {
+        InvalidateRect(hWnd, NULL, TRUE); // Если не определен график, перерисовываем всё
+    }
 }
 
 void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
@@ -666,7 +670,12 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     // Обновляем скроллбары после сброса зума
     UpdateScrollBars(hWnd);
     
-    InvalidateRect(hWnd, NULL, TRUE);
+    // Перерисовываем только измененный график (избегаем мигания)
+    if (chartAtPoint > 0) {
+        InvalidateChart(hWnd, chartAtPoint);
+    } else {
+        InvalidateRect(hWnd, NULL, TRUE); // Если не определен график, перерисовываем всё
+    }
 }
 
 int ChartManager::GetChartAtPoint(int x, int y) const {
@@ -776,8 +785,8 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     zoom->minX = newMinX;
     zoom->maxX = newMinX + viewRange;
     
-    // Перерисовываем окно
-    InvalidateRect(hWnd, NULL, TRUE);
+    // Перерисовываем только нужный график (избегаем мигания)
+    InvalidateChart(hWnd, chartNumber);
 }
 
 void ChartManager::UpdateScrollBars(HWND hWnd) {
@@ -814,4 +823,20 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
     } else {
         uiModule->ShowScrollBars(2, false);
     }
+}
+
+// Метод для частичной перерисовки конкретного графика
+void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
+    RECT chartRect;
+    
+    if (chartNumber == 1) {
+        chartRect = layoutModule->GetChart1Rect();
+    } else if (chartNumber == 2) {
+        chartRect = layoutModule->GetChart2Rect();
+    } else {
+        return; // Неверный номер графика
+    }
+    
+    // Перерисовываем только область конкретного графика
+    InvalidateRect(hWnd, &chartRect, TRUE);
 }
