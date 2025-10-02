@@ -4,6 +4,8 @@
 #include <cfloat>
 #include <cmath>
 #include <cstring>
+#include <sstream> // Для std::wstringstream
+#include <iomanip> // Для std::fixed и std::setprecision
 
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[4] = {
@@ -27,12 +29,13 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
                            DataType type, const std::wstring& title, bool hasData) const {
     // По умолчанию все передатчики включены
     std::vector<bool> allTransmittersEnabled = {true, true, true, true};
-    DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr); // Передаем nullptr для dataModule
+    DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr, 0.0, 0.0, 0.0, 0.0); // Передаем 0.0 для min/maxX/YData
 }
 
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                            DataType type, const std::wstring& title, bool hasData,
-                           const std::vector<bool>& enabledTransmitters, const DataModule* dataModule) const {
+                           const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
+                           double minXData, double maxXData, double minYData, double maxYData) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -45,11 +48,16 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
     
     // Расчет области для графика
     RECT plotRect = CalculatePlotRect(rect);
+
+    // Отрисовка осей (всегда, независимо от наличия данных)
+    DrawChartAxes(hdc, plotRect);
+
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
     
     // Отрисовка сетки и осей с метками
-    DrawGridAndAxes(hdc, plotRect, chartData, dataModule);
+    DrawGridAndAxes(hdc, plotRect, chartData, dataModule, 
+                    minXData, maxXData, minYData, maxYData); // Передаем параметры зума
     
     // Отрисовка данных
     if (hasData) {
@@ -78,6 +86,9 @@ void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& 
 
 
 void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect) const {
+    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0)); // Сплошная линия для осей
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
     // X-ось
     MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
     LineTo(hdc, plotRect.right, plotRect.bottom);
@@ -85,6 +96,9 @@ void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect) const {
     // Y-ось
     MoveToEx(hdc, plotRect.left, plotRect.top, NULL);
     LineTo(hdc, plotRect.left, plotRect.bottom);
+
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
 }
 
 void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const {
@@ -241,28 +255,45 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
 void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const {
     // Вызываем перегруженную версию с nullptr для dataModule, если он не передан.
     // Это означает, что GetDataSize() не будет использоваться в этой перегрузке.
-    DrawGridAndAxes(hdc, chartRect, chartData, nullptr);
+    DrawGridAndAxes(hdc, chartRect, chartData, nullptr, 0.0, 0.0, 0.0, 0.0); // Передаем 0.0 для min/maxX/YData
 }
 
 void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const {
-    // Отрисовка линий осей (всегда, независимо от наличия данных)
-    DrawChartAxes(hdc, chartRect);
+    // Вызываем новую перегрузку с данными о зуме по умолчанию
+    double minXData = 0.0;
+    double maxXData = 0.0;
+    if (dataModule && dataModule->HasData()) {
+        maxXData = static_cast<double>(dataModule->GetDataSize() - 1);
+    }
+    DrawGridAndAxes(hdc, chartRect, chartData, dataModule, minXData, maxXData, 0.0, 0.0);
+}
+
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, 
+                                const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const {
+    // Если данных нет, то не рисуем сетку и метки
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
 
     float minVal, maxVal;
-    FindMinMaxValues(chartData, minVal, maxVal);
+    FindMinMaxValues(chartData, minVal, maxVal, minYData, maxYData); // Передаем minYData и maxYData
 
-    // Если данных нет, или minVal == maxVal (все значения одинаковы), устанавливаем разумный диапазон по умолчанию
+    // Если minVal == maxVal (все значения одинаковы), устанавливаем разумный диапазон по умолчанию
     if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
-        minVal = 0.0f;
-        maxVal = 100.0f; // Диапазон по умолчанию
+        minVal = static_cast<float>(minYData);
+        maxVal = static_cast<float>(maxYData);
+        if (minYData == 0.0 && maxYData == 0.0) { // Если не было зума, устанавливаем диапазон по умолчанию
+            minVal = 0.0f;
+            maxVal = 100.0f;
+        }
     }
     
     // Отрисовка горизонтальных линий сетки и меток Y-оси
     double niceStepY = CalculateNiceStep(maxVal - minVal, (chartRect.bottom - chartRect.top) / 40); // Примерное количество шагов
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
 
-    while (currentYVal <= maxVal) {
-        if (currentYVal >= minVal) { // Только если значение находится внутри видимого диапазона
+    while (currentYVal <= maxVal + niceStepY / 2) { // Добавляем niceStepY / 2 для учета ошибок округления
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) { // Проверка на видимый диапазон с запасом
             long screenY = chartRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (chartRect.bottom - chartRect.top));
             HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
@@ -274,41 +305,50 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vec
             DeleteObject(hPen);
 
             // Отрисовка метки Y-оси
-            std::wstring yLabel = std::to_wstring(static_cast<int>(currentYVal)); // Простой вывод как int
+            std::wstringstream ssY;
+            ssY << std::fixed << std::setprecision(1) << currentYVal;
+            std::wstring yLabel = ssY.str();
             TextOut(hdc, chartRect.left - 40, screenY - 7, yLabel.c_str(), (int)yLabel.length());
         }
         currentYVal += niceStepY;
     }
 
-    // Отрисовка вертикальных линий сетки и меток X-оси (пока упрощенно)
-    // Предполагаем, что X-ось - это индекс данных
+    // Отрисовка вертикальных линий сетки и меток X-оси
     if (dataModule && dataModule->HasData()) {
-        int dataPoints = (int)dataModule->GetDataSize(); // Используем размер данных из DataModule
-        if (dataPoints > 1) {
-            double niceStepX = CalculateNiceStep(static_cast<double>(dataPoints - 1), (chartRect.right - chartRect.left) / 60);
-            double currentXVal = CalculateNiceMin(0, niceStepX);
+        double currentMinX = minXData; // Используем переданный диапазон
+        double currentMaxX = maxXData;
 
-            while (currentXVal < dataPoints) {
-                if (currentXVal >= 0) {
-                    long screenX = chartRect.left + (LONG)(currentXVal / (dataPoints - 1.0) * (chartRect.right - chartRect.left));
-                    HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
-                    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-                    
-                    MoveToEx(hdc, screenX, chartRect.top, NULL);
-                    LineTo(hdc, screenX, chartRect.bottom);
-                    
-                    SelectObject(hdc, hOldPen);
-                    DeleteObject(hPen);
+        if (currentMaxX == 0.0 && dataModule->GetDataSize() > 0) { // Если не был передан зум, используем полный диапазон
+            currentMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+        }
 
-                    // Отрисовка метки X-оси
-                    std::wstring xLabel = std::to_wstring(static_cast<int>(currentXVal));
-                    TextOut(hdc, screenX - 10, chartRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
-                }
-                currentXVal += niceStepX;
+        if (currentMaxX <= currentMinX) currentMaxX = currentMinX + 1; // Избегаем деления на ноль
+
+        double xRange = currentMaxX - currentMinX;
+        double niceStepX = CalculateNiceStep(xRange, (chartRect.right - chartRect.left) / 60);
+        double currentXVal = CalculateNiceMin(currentMinX, niceStepX);
+
+        while (currentXVal <= currentMaxX + niceStepX / 2) { // Добавляем niceStepX / 2 для учета ошибок округления
+            if (currentXVal >= currentMinX - niceStepX / 2 && currentXVal <= currentMaxX + niceStepX / 2) { // Проверка на видимый диапазон с запасом
+                long screenX = chartRect.left + (LONG)((currentXVal - currentMinX) / xRange * (chartRect.right - chartRect.left));
+                HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                
+                MoveToEx(hdc, screenX, chartRect.top, NULL);
+                LineTo(hdc, screenX, chartRect.bottom);
+                
+                SelectObject(hdc, hOldPen);
+                DeleteObject(hPen);
+
+                // Отрисовка метки X-оси
+                std::wstringstream ssX;
+                ssX << std::fixed << std::setprecision(1) << currentXVal;
+                std::wstring xLabel = ssX.str();
+                TextOut(hdc, screenX - 10, chartRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
             }
+            currentXVal += niceStepX;
         }
     }
-
 }
 
 
@@ -322,6 +362,10 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
 }
 
 void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const {
+    FindMinMaxValues(chartData, minVal, maxVal, 0.0, 100.0); // По умолчанию используем 0-100 для Y
+}
+
+void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const {
     minVal = FLT_MAX;
     maxVal = -FLT_MAX;
     
@@ -333,31 +377,38 @@ void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartD
         }
     }
     
-    // Если данных нет, устанавливаем значения по умолчанию
+    // Если данных нет, устанавливаем значения по умолчанию из minYPlot и maxYPlot
     if (minVal == FLT_MAX || maxVal == -FLT_MAX) {
-        minVal = 0.0f;
-        maxVal = 1.0f;
+        minVal = static_cast<float>(minYPlot);
+        maxVal = static_cast<float>(maxYPlot);
+        // Если minYPlot и maxYPlot тоже 0, то устанавливаем глобальный дефолт
+        if (minYPlot == 0.0 && maxYPlot == 0.0) {
+            minVal = 0.0f;
+            maxVal = 100.0f;
+        }
+        return;
+    }
+    
+    // Если minVal == maxVal (все значения одинаковы), устанавливаем разумный диапазон по умолчанию
+    if (minVal == maxVal) {
+        minVal = static_cast<float>(minYPlot); 
+        maxVal = static_cast<float>(maxYPlot); 
+        if (minYPlot == 0.0 && maxYPlot == 0.0) {
+            minVal = 0.0f;
+            maxVal = 100.0f;
+        }
         return;
     }
     
     // Рассчитываем диапазон данных
     float range = maxVal - minVal;
-    
-    // Обрабатываем случай, когда все значения одинаковы или диапазон очень мал
-    if (range < 1e-6f) {
-        // Создаем искусственный диапазон вокруг значения
-        float center = (minVal + maxVal) * 0.5f;
-        float artificialRange = (std::max)(2.0f, (std::abs)(center) * 0.1f);
-        minVal = center - artificialRange * 0.5f;
-        maxVal = center + artificialRange * 0.5f;
-    } else {
-        // Добавляем 5% padding к диапазону
-        float padding = range * 0.05f;
+    // Добавляем небольшой padding для лучшей визуализации, если диапазон достаточно большой
+    if (range > 0.001f) { // Избегаем деления на ноль для очень маленьких диапазонов
+        float padding = range * 0.05f; // 5% от диапазона
         minVal -= padding;
         maxVal += padding;
     }
 }
-
 
 
 double ChartModule::CalculateNiceStep(double range, int targetSteps) const {

@@ -376,7 +376,12 @@ void ChartManager::DrawChart1(HDC hdc)
     std::wstring title = BuildChartTitle(1, dataType, frequency);
     
     // Отрисовка графика
-    chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData(), enabledTransmitters, dataModule.get());
+    chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData(), 
+                           enabledTransmitters, dataModule.get(),
+                           chart1Zoom.isZoomed ? chart1Zoom.minX : 0.0,
+                           chart1Zoom.isZoomed ? chart1Zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
+                           chart1Zoom.isZoomed ? chart1Zoom.minY : -1e6, 
+                           chart1Zoom.isZoomed ? chart1Zoom.maxY : 1e6);
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -399,14 +404,19 @@ void ChartManager::DrawChart2(HDC hdc)
                                       chart2Zoom.minY, chart2Zoom.maxY);
     } else {
         dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters,
-                                      0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
+                                      0.0, static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0), -1e6, 1e6);
     }
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(2, dataType, frequency);
     
     // Отрисовка графика
-    chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData(), enabledTransmitters, dataModule.get());
+    chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData(), 
+                           enabledTransmitters, dataModule.get(),
+                           chart2Zoom.isZoomed ? chart2Zoom.minX : 0.0,
+                           chart2Zoom.isZoomed ? chart2Zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
+                           chart2Zoom.isZoomed ? chart2Zoom.minY : -1e6, 
+                           chart2Zoom.isZoomed ? chart2Zoom.maxY : 1e6);
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)

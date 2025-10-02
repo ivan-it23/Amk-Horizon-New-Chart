@@ -20,7 +20,8 @@ public:
                    DataType type, const std::wstring& title, bool hasData) const;
     void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                    DataType type, const std::wstring& title, bool hasData,
-                   const std::vector<bool>& enabledTransmitters, const DataModule* dataModule) const;
+                   const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
+                   double minXData, double maxXData, double minYData, double maxYData) const;
 
     // Новый метод для отрисовки прямоугольника зума
     void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
@@ -33,6 +34,8 @@ public:
     void DrawChartAxes(HDC hdc, const RECT& plotRect) const;
     void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
+    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, 
+                         const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
@@ -45,6 +48,7 @@ private:
     // Вспомогательные методы для расчетов
     RECT CalculatePlotRect(const RECT& chartRect) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const;
+    void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const;
     
     // Вспомогательные методы для сетки и меток
     double CalculateNiceStep(double range, int targetSteps) const;
