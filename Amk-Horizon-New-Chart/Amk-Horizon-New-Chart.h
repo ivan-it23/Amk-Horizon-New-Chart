@@ -58,6 +58,9 @@ public:
     void HandleMouseUp(HWND hWnd, int x, int y);
     void HandleRightClick(HWND hWnd, int x, int y);
 
+    // Новый метод для обработки кликов по чекбоксам легенды
+    void HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId);
+
 private:
     // Вспомогательные методы
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;

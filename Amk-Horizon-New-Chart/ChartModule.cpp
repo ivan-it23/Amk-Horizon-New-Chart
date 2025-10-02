@@ -13,6 +13,10 @@ const COLORREF ChartModule::CHANNEL_COLORS[4] = {
     RGB(255, 165, 0)   // Оранжевый - T4
 };
 
+const wchar_t* ChartModule::CHANNEL_NAMES[4] = {
+    L"T1", L"T2", L"T3", L"T4"
+};
+
 ChartModule::ChartModule() {
 }
 
@@ -21,6 +25,14 @@ ChartModule::~ChartModule() {
 
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                            DataType type, const std::wstring& title, bool hasData) const {
+    // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true};
+    DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr); // Передаем nullptr для dataModule
+}
+
+void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                           DataType type, const std::wstring& title, bool hasData,
+                           const std::vector<bool>& enabledTransmitters, const DataModule* dataModule) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -37,14 +49,16 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
         return;
     
     // Отрисовка сетки и осей с метками
-    DrawGridAndAxes(hdc, plotRect, chartData);
+    DrawGridAndAxes(hdc, plotRect, chartData, dataModule);
     
     // Отрисовка данных
-    DrawChartData(hdc, plotRect, chartData);
+    if (hasData) {
+        DrawChartData(hdc, plotRect, chartData);
+    }
     
     // Отрисовка легенды для многоканальных данных
     if (chartData.size() > 1) {
-        DrawChartLegend(hdc, rect, chartData);
+        DrawChartLegend(hdc, rect, chartData, type, enabledTransmitters);
     }
 }
 
@@ -105,23 +119,198 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
     }
 }
 
-void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const {
-    const wchar_t* channelNames[] = { L"T1", L"T2", L"T3", L"T4" };
-    
-    for (size_t i = 0; i < chartData.size() && i < 4; i++) {
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[i]);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        int legendY = rect.top + 25 + (int)i * 15;
-        MoveToEx(hdc, rect.right - 80, legendY, NULL);
-        LineTo(hdc, rect.right - 60, legendY);
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
-        
-        TextOut(hdc, rect.right - 55, legendY - 7, channelNames[i], 2);
+void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                                  DataType type, const std::vector<bool>& enabledTransmitters) const {
+    // Определяем, является ли тип данных многоканальным
+    bool isMultiChannel = false;
+    if (type == DataType::PHASE_DIFFERENCE || type == DataType::AMPLITUDE_RATIO ||
+        type == DataType::AMPLITUDE_RX1 || type == DataType::AMPLITUDE_RX2 ||
+        type == DataType::PHASE_RX1 || type == DataType::PHASE_RX2) {
+        isMultiChannel = true;
     }
+
+    if (!isMultiChannel) {
+        // Для одноканальных данных легенда отображается без чекбоксов
+        // Пока не отрисовываем легенду для одноканальных данных вообще
+        return;
+    }
+
+    int legendX = rect.right - 200; // Отступ от правого края
+    int legendY = rect.top + 10;  // Отступ сверху (ниже заголовка)
+    int lineHeight = 20;          // Высота строки легенды (теперь для каждого элемента)
+    int elementSpacing = 10;      // Промежуток между элементами легенды (чекбокс+текст)
+    int colorBoxSize = 10;        // Размер квадрата цвета
+    int checkboxSize = 12;        // Размер чекбокса
+    int currentX = legendX;       // Текущая X-позиция для отрисовки элементов
+
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+
+    for (size_t channelIdx = 0; channelIdx < 4; channelIdx++) { // Отрисовываем все 4 чекбокса для T1-T4
+        // Проверяем, что это многоканальный тип данных и у нас есть соответствующий передатчик
+        if (isMultiChannel && channelIdx < enabledTransmitters.size()) {
+            COLORREF color = CHANNEL_COLORS[channelIdx % 4];
+            HBRUSH hBrush = CreateSolidBrush(color);
+            HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+
+            // Отрисовка квадрата цвета
+            Rectangle(hdc, currentX,
+                      (LONG)(legendY + (lineHeight - colorBoxSize) / 2),
+                      currentX + colorBoxSize,
+                      (LONG)(legendY + (lineHeight + colorBoxSize) / 2));
+
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hBrush);
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+
+            currentX += colorBoxSize + 2; // Отступ после квадрата цвета
+
+            // Отрисовка чекбокса
+            RECT checkboxRect = {currentX,
+                                 (LONG)(legendY + (lineHeight - checkboxSize) / 2),
+                                 currentX + checkboxSize,
+                                 (LONG)(legendY + (lineHeight + checkboxSize) / 2)};
+            DrawFrameControl(hdc, &checkboxRect, DFC_BUTTON, DFCS_BUTTONCHECK | (enabledTransmitters[channelIdx] ? DFCS_CHECKED : 0));
+
+            currentX += checkboxSize + 2; // Отступ после чекбокса
+
+            // Отрисовка названия канала
+            TextOut(hdc, currentX, legendY, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]));
+
+            currentX += (int)wcslen(CHANNEL_NAMES[channelIdx]) * 8 + elementSpacing; // Примерный размер текста + промежуток
+        }
+    }
+
+    SelectObject(hdc, hOldFont);
 }
+
+// Обновленная DrawChartLegend (для совместимости)
+void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const {
+    // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true};
+    DrawChartLegend(hdc, rect, chartData, DataType::PHASE_DIFFERENCE, allTransmittersEnabled); // Используем PHASE_DIFFERENCE как заглушку для многоканального типа
+}
+
+
+int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const {
+    // Определяем, является ли тип данных многоканальным
+    bool isMultiChannel = false;
+    if (type == DataType::PHASE_DIFFERENCE || type == DataType::AMPLITUDE_RATIO ||
+        type == DataType::AMPLITUDE_RX1 || type == DataType::AMPLITUDE_RX2 ||
+        type == DataType::PHASE_RX1 || type == DataType::PHASE_RX2) {
+        isMultiChannel = true;
+    }
+
+    if (!isMultiChannel) {
+        return -1; // Для одноканальных данных нет чекбоксов
+    }
+
+    int legendX = chartRect.right - 200; // Отступ от правого края
+    int legendY = chartRect.top + 10;  // Отступ сверху (ниже заголовка)
+    int lineHeight = 20;          // Высота строки легенды
+    int elementSpacing = 10;      // Промежуток между элементами легенды (чекбокс+текст)
+    int colorBoxSize = 10;        // Размер квадрата цвета
+    int checkboxSize = 12;        // Размер чекбокса
+    int currentX = legendX;
+
+    for (int channelIdx = 0; channelIdx < 4; ++channelIdx) { // Только для T1-T4
+        if (isMultiChannel) {
+            currentX += colorBoxSize + 2; // Пропускаем квадрат цвета
+
+            RECT checkboxRect = {currentX,
+                                 (LONG)(legendY + (lineHeight - checkboxSize) / 2),
+                                 currentX + checkboxSize,
+                                 (LONG)(legendY + (lineHeight + checkboxSize) / 2)};
+
+            if (PtInRect(&checkboxRect, pt)) {
+                return channelIdx; // Возвращаем индекс передатчика (0-3 для T1-T4)
+            }
+
+            currentX += checkboxSize + 2; // Пропускаем чекбокс
+            currentX += (int)wcslen(CHANNEL_NAMES[channelIdx]) * 8 + elementSpacing; // Пропускаем текст + промежуток
+        }
+    }
+
+    return -1; // Не попали ни в один чекбокс
+}
+
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const {
+    // Вызываем перегруженную версию с nullptr для dataModule, если он не передан.
+    // Это означает, что GetDataSize() не будет использоваться в этой перегрузке.
+    DrawGridAndAxes(hdc, chartRect, chartData, nullptr);
+}
+
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const {
+    // Отрисовка линий осей (всегда, независимо от наличия данных)
+    DrawChartAxes(hdc, chartRect);
+
+    float minVal, maxVal;
+    FindMinMaxValues(chartData, minVal, maxVal);
+
+    // Если данных нет, или minVal == maxVal (все значения одинаковы), устанавливаем разумный диапазон по умолчанию
+    if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
+        minVal = 0.0f;
+        maxVal = 100.0f; // Диапазон по умолчанию
+    }
+    
+    // Отрисовка горизонтальных линий сетки и меток Y-оси
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (chartRect.bottom - chartRect.top) / 40); // Примерное количество шагов
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+
+    while (currentYVal <= maxVal) {
+        if (currentYVal >= minVal) { // Только если значение находится внутри видимого диапазона
+            long screenY = chartRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (chartRect.bottom - chartRect.top));
+            HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            
+            MoveToEx(hdc, chartRect.left, screenY, NULL);
+            LineTo(hdc, chartRect.right, screenY);
+            
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+
+            // Отрисовка метки Y-оси
+            std::wstring yLabel = std::to_wstring(static_cast<int>(currentYVal)); // Простой вывод как int
+            TextOut(hdc, chartRect.left - 40, screenY - 7, yLabel.c_str(), (int)yLabel.length());
+        }
+        currentYVal += niceStepY;
+    }
+
+    // Отрисовка вертикальных линий сетки и меток X-оси (пока упрощенно)
+    // Предполагаем, что X-ось - это индекс данных
+    if (dataModule && dataModule->HasData()) {
+        int dataPoints = (int)dataModule->GetDataSize(); // Используем размер данных из DataModule
+        if (dataPoints > 1) {
+            double niceStepX = CalculateNiceStep(static_cast<double>(dataPoints - 1), (chartRect.right - chartRect.left) / 60);
+            double currentXVal = CalculateNiceMin(0, niceStepX);
+
+            while (currentXVal < dataPoints) {
+                if (currentXVal >= 0) {
+                    long screenX = chartRect.left + (LONG)(currentXVal / (dataPoints - 1.0) * (chartRect.right - chartRect.left));
+                    HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                    
+                    MoveToEx(hdc, screenX, chartRect.top, NULL);
+                    LineTo(hdc, screenX, chartRect.bottom);
+                    
+                    SelectObject(hdc, hOldPen);
+                    DeleteObject(hPen);
+
+                    // Отрисовка метки X-оси
+                    std::wstring xLabel = std::to_wstring(static_cast<int>(currentXVal));
+                    TextOut(hdc, screenX - 10, chartRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                }
+                currentXVal += niceStepX;
+            }
+        }
+    }
+
+}
+
 
 RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
@@ -170,79 +359,6 @@ void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartD
 }
 
 
-
-void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const {
-    if (chartData.empty() || chartData[0].empty())
-        return;
-    
-    // Находим диапазон данных с padding
-    float minVal, maxVal;
-    FindMinMaxValues(chartData, minVal, maxVal);
-    
-    // Расчет "красивых" шагов для осей
-    double yRange = maxVal - minVal;
-    double yStep = CalculateNiceStep(yRange, 8); // Примерно 8 делений по Y
-    double yStart = CalculateNiceMin(minVal, yStep);
-    
-    size_t dataSize = chartData[0].size();
-    double xRange = static_cast<double>(dataSize - 1);
-    double xStep = CalculateNiceStep(xRange, 10); // Примерно 10 делений по X
-    double xStart = 0.0;
-    
-    // Создаем перо для сетки (светло-серое)
-    HPEN hGridPen = CreatePen(PS_SOLID, 1, RGB(220, 220, 220));
-    HPEN hAxisPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-    HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
-    
-    // Отрисовка вертикальных линий сетки и меток X
-    for (double x = xStart; x <= xRange; x += xStep) {
-        int screenX = chartRect.left + (int)(x / xRange * (chartRect.right - chartRect.left));
-        
-        // Вертикальная линия сетки
-        MoveToEx(hdc, screenX, chartRect.top, NULL);
-        LineTo(hdc, screenX, chartRect.bottom);
-        
-        // Метка на оси X
-        SelectObject(hdc, hAxisPen);
-        wchar_t label[32];
-        swprintf_s(label, 32, L"%.1f", x);
-        TextOut(hdc, screenX - 10, chartRect.bottom + 5, label, (int)wcslen(label));
-        SelectObject(hdc, hGridPen);
-    }
-    
-    // Отрисовка горизонтальных линий сетки и меток Y
-    for (double y = yStart; y <= maxVal + yStep * 0.1; y += yStep) {
-        int screenY = chartRect.bottom - (int)((y - minVal) / (maxVal - minVal) * (chartRect.bottom - chartRect.top));
-        
-        if (screenY >= chartRect.top && screenY <= chartRect.bottom) {
-            // Горизонтальная линия сетки
-            MoveToEx(hdc, chartRect.left, screenY, NULL);
-            LineTo(hdc, chartRect.right, screenY);
-            
-            // Метка на оси Y
-            SelectObject(hdc, hAxisPen);
-            wchar_t label[32];
-            swprintf_s(label, 32, L"%.2f", y);
-            TextOut(hdc, chartRect.left - 45, screenY - 7, label, (int)wcslen(label));
-            SelectObject(hdc, hGridPen);
-        }
-    }
-    
-    // Отрисовка основных осей
-    SelectObject(hdc, hAxisPen);
-    
-    // X-ось
-    MoveToEx(hdc, chartRect.left, chartRect.bottom, NULL);
-    LineTo(hdc, chartRect.right, chartRect.bottom);
-    
-    // Y-ось
-    MoveToEx(hdc, chartRect.left, chartRect.top, NULL);
-    LineTo(hdc, chartRect.left, chartRect.bottom);
-    
-    SelectObject(hdc, hOldPen);
-    DeleteObject(hGridPen);
-    DeleteObject(hAxisPen);
-}
 
 double ChartModule::CalculateNiceStep(double range, int targetSteps) const {
     if (range <= 0 || targetSteps <= 0)

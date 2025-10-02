@@ -23,6 +23,10 @@ private:
     FrequencyBand chart2Frequency;
     bool dualMode;
 
+    // Состояние включенных/отключенных передатчиков для каждого графика (T1, T2, T3, T4)
+    std::vector<bool> chart1EnabledTransmitters; // Размер 4: T1, T2, T3, T4
+    std::vector<bool> chart2EnabledTransmitters; // Размер 4: T1, T2, T3, T4
+
 public:
     UIModule();
     ~UIModule();
@@ -41,6 +45,12 @@ public:
     DataType GetChart2DataType() const { return chart2DataType; }
     FrequencyBand GetChart1Frequency() const { return chart1Frequency; }
     FrequencyBand GetChart2Frequency() const { return chart2Frequency; }
+    const std::vector<bool>& GetChart1EnabledTransmitters() const { return chart1EnabledTransmitters; }
+    const std::vector<bool>& GetChart2EnabledTransmitters() const { return chart2EnabledTransmitters; }
+
+    // Обновление состояния передатчиков
+    void SetChart1TransmitterEnabled(int transmitterIdx, bool enabled);
+    void SetChart2TransmitterEnabled(int transmitterIdx, bool enabled);
 
     // Обновление данных из элементов управления
     void RefreshChart1Settings();

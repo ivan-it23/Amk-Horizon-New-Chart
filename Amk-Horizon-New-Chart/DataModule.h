@@ -31,6 +31,14 @@ enum class DataType {
     TEMPERATURE             // Температура прибора (1 значение на запись)
 };
 
+// Типы передатчиков
+enum class Transmitter {
+    T1 = 0,
+    T2 = 1,
+    T3 = 2,
+    T4 = 3
+};
+
 // Частотные диапазоны
 enum class FrequencyBand {
     FREQ_400_KHZ,    // 400 кГц
@@ -57,9 +65,11 @@ public:
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const;
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData, 
                            double minX, double maxX, double minY, double maxY) const;
+    void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
+                            const std::vector<bool>& enabledTransmitters, double minX, double maxX, double minY, double maxY) const;
     
     // Вспомогательные методы
     std::wstring GetDataTypeName(DataType type) const;
-    int GetActiveTransmitterIndex(int transmitter, FrequencyBand freq) const;
+    int GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const;
     int GetSilentTransmitterIndex(FrequencyBand freq) const;
 };

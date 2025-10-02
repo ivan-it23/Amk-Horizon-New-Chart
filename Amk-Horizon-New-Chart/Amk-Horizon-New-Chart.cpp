@@ -360,21 +360,23 @@ void ChartManager::DrawChart1(HDC hdc)
     std::vector<std::vector<float>> chartData;
     DataType dataType = uiModule->GetChart1DataType();
     FrequencyBand frequency = uiModule->GetChart1Frequency();
+    const std::vector<bool>& enabledTransmitters = uiModule->GetChart1EnabledTransmitters();
     
     // Используем диапазон масштабирования первого графика
     if (chart1Zoom.isZoomed) {
         dataModule->CalculateChartData(dataType, frequency, chartData, 
-                                      chart1Zoom.minX, chart1Zoom.maxX, 
+                                      enabledTransmitters, chart1Zoom.minX, chart1Zoom.maxX, 
                                       chart1Zoom.minY, chart1Zoom.maxY);
     } else {
-        dataModule->CalculateChartData(dataType, frequency, chartData);
+        dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters, 
+                                      0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
     }
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(1, dataType, frequency);
     
     // Отрисовка графика
-    chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData());
+    chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData(), enabledTransmitters, dataModule.get());
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -388,21 +390,23 @@ void ChartManager::DrawChart2(HDC hdc)
     std::vector<std::vector<float>> chartData;
     DataType dataType = uiModule->GetChart2DataType();
     FrequencyBand frequency = uiModule->GetChart2Frequency();
+    const std::vector<bool>& enabledTransmitters = uiModule->GetChart2EnabledTransmitters();
     
     // Используем диапазон масштабирования второго графика
     if (chart2Zoom.isZoomed) {
         dataModule->CalculateChartData(dataType, frequency, chartData, 
-                                      chart2Zoom.minX, chart2Zoom.maxX, 
+                                      enabledTransmitters, chart2Zoom.minX, chart2Zoom.maxX, 
                                       chart2Zoom.minY, chart2Zoom.maxY);
     } else {
-        dataModule->CalculateChartData(dataType, frequency, chartData);
+        dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters,
+                                      0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
     }
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(2, dataType, frequency);
     
     // Отрисовка графика
-    chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData());
+    chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData(), enabledTransmitters, dataModule.get());
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
@@ -433,33 +437,93 @@ bool ChartManager::IsDualMode() const
     return uiModule->IsDualMode();
 }
 
-std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const
-{
-    std::wstring title = L"График " + std::to_wstring(chartNumber) + L": " + dataModule->GetDataTypeName(dataType);
-    if (frequency == FrequencyBand::FREQ_400_KHZ)
-        title += L" (400 кГц)";
-    else
-        title += L" (2000 кГц)";
+std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const {
+    std::wstring title = L"Chart ";
+    title += std::to_wstring(chartNumber);
+    title += L": ";
+    title += dataModule->GetDataTypeName(dataType); // Используем DataModule для получения имени типа данных
+    title += L" (";
+    title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L"400 kHz" : L"2000 kHz";
+    title += L")";
     return title;
 }
 
-void ChartManager::HandleMouseDown(HWND hWnd, int x, int y)
-{
+void ChartManager::HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId) {
+    DataType dataType;
+    const RECT* chartRect;
+    if (chartId == 1) {
+        dataType = uiModule->GetChart1DataType();
+        chartRect = &layoutModule->GetChart1Rect();
+    } else if (chartId == 2) {
+        dataType = uiModule->GetChart2DataType();
+        chartRect = &layoutModule->GetChart2Rect();
+    } else {
+        return; // Неверный ID графика
+    }
+
+    // Проверяем, является ли тип данных многоканальным, иначе нет чекбоксов
+    bool isMultiChannel = false;
+    if (dataType == DataType::PHASE_DIFFERENCE || dataType == DataType::AMPLITUDE_RATIO ||
+        dataType == DataType::AMPLITUDE_RX1 || dataType == DataType::AMPLITUDE_RX2 ||
+        dataType == DataType::PHASE_RX1 || dataType == DataType::PHASE_RX2) {
+        isMultiChannel = true;
+    }
+
+    if (!isMultiChannel) {
+        return; 
+    }
+
+    // Выполняем хит-тест, чтобы определить, какой чекбокс был нажат
+    POINT clickPt = {x, y};
+    int clickedTransmitterIdx = chartModule->HitTestLegendCheckbox(*chartRect, clickPt, dataType);
+
+    if (clickedTransmitterIdx != -1) {
+        if (chartId == 1) {
+            bool currentEnabled = uiModule->GetChart1EnabledTransmitters()[clickedTransmitterIdx];
+            uiModule->SetChart1TransmitterEnabled(clickedTransmitterIdx, !currentEnabled);
+        } else {
+            bool currentEnabled = uiModule->GetChart2EnabledTransmitters()[clickedTransmitterIdx];
+            uiModule->SetChart2TransmitterEnabled(clickedTransmitterIdx, !currentEnabled);
+        }
+        InvalidateRect(hWnd, NULL, FALSE); // Перерисовываем окно
+    }
+}
+
+// Обработчики событий мыши
+void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     if (!dataModule->HasData())
         return;
-    
-    // Определяем, на каком графике произошел клик
-    activeChart = GetChartAtPoint(x, y);
-    if (activeChart == 0)
-        return;
-    
-    // Начинаем выделение области
+
+    RECT chart1Rect = layoutModule->GetChart1Rect();
+    RECT chart2Rect = layoutModule->GetChart2Rect();
+
+    int clickedChart = GetChartAtPoint(x, y);
+
+    if (clickedChart != 0) {
+        activeChart = clickedChart;
+        
+        // Проверяем клик на легенду
+        DataType dataType = (activeChart == 1) ? uiModule->GetChart1DataType() : uiModule->GetChart2DataType();
+        bool isMultiChannel = (dataType == DataType::PHASE_DIFFERENCE || dataType == DataType::AMPLITUDE_RATIO ||
+                               dataType == DataType::AMPLITUDE_RX1 || dataType == DataType::AMPLITUDE_RX2 ||
+                               dataType == DataType::PHASE_RX1 || dataType == DataType::PHASE_RX2);
+
+        if (isMultiChannel) {
+            const RECT* currentChartRect = (activeChart == 1) ? &chart1Rect : &chart2Rect;
+            POINT pt = {x, y};
+            if (chartModule->HitTestLegendCheckbox(*currentChartRect, pt, dataType) != -1) {
+                HandleLegendCheckboxClick(hWnd, x, y, activeChart);
+                return;
+            }
+        }
+    }
+
     isSelecting = true;
     selectionStart.x = x;
     selectionStart.y = y;
     selectionEnd.x = x;
     selectionEnd.y = y;
-    
+
     SetCapture(hWnd);
 }
 
@@ -577,88 +641,49 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     InvalidateRect(hWnd, NULL, TRUE);
 }
 
-int ChartManager::GetChartAtPoint(int x, int y) const
-{
-    const RECT& chart1Rect = layoutModule->GetChart1Rect();
-    
-    // Проверяем попадание в первый график
-    if (x >= chart1Rect.left && x <= chart1Rect.right &&
-        y >= chart1Rect.top && y <= chart1Rect.bottom) {
+int ChartManager::GetChartAtPoint(int x, int y) const {
+    RECT chart1Rect = layoutModule->GetChart1Rect();
+    RECT chart2Rect = layoutModule->GetChart2Rect();
+
+    if (PtInRect(&chart1Rect, {x, y}))
         return 1;
-    }
-    
-    // Проверяем попадание во второй график (если он видим)
-    if (uiModule->IsDualMode()) {
-        const RECT& chart2Rect = layoutModule->GetChart2Rect();
-        if (x >= chart2Rect.left && x <= chart2Rect.right &&
-            y >= chart2Rect.top && y <= chart2Rect.bottom) {
-            return 2;
-        }
-    }
-    
-    return 0; // Клик вне графиков
+    if (uiModule->IsDualMode() && PtInRect(&chart2Rect, {x, y}))
+        return 2;
+    return 0;
 }
 
-void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const
-{
-    RECT chartRect;
-    std::vector<std::vector<float>> chartData;
-    
-    // Получаем полные данные для определения исходного диапазона
+void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const {
+    const RECT* chartRect = nullptr;
+    const ZoomRange* zoom = nullptr;
+
     if (chartNum == 1) {
-        chartRect = layoutModule->GetChart1Rect();
-        DataType dataType = uiModule->GetChart1DataType();
-        FrequencyBand frequency = uiModule->GetChart1Frequency();
-        dataModule->CalculateChartData(dataType, frequency, chartData);
-    } else {
-        chartRect = layoutModule->GetChart2Rect();
-        DataType dataType = uiModule->GetChart2DataType();
-        FrequencyBand frequency = uiModule->GetChart2Frequency();
-        dataModule->CalculateChartData(dataType, frequency, chartData);
+        chartRect = &layoutModule->GetChart1Rect();
+        zoom = &chart1Zoom;
+    } else if (chartNum == 2) {
+        chartRect = &layoutModule->GetChart2Rect();
+        zoom = &chart2Zoom;
     }
-    
-    // Расчет области графика (без отступов для осей)
-    RECT plotRect = chartRect;
-    plotRect.left += 50;   // Отступ для Y-оси
-    plotRect.top += 40;    // Отступ для заголовка
-    plotRect.right -= 20;  // Отступ справа
-    plotRect.bottom -= 30; // Отступ для X-оси
-    
-    if (chartData.empty() || chartData[0].empty()) {
-        dataX = dataY = 0.0;
+
+    if (!chartRect || !zoom || (chartRect->right - chartRect->left == 0) || (chartRect->bottom - chartRect->top == 0)) {
+        dataX = 0.0;
+        dataY = 0.0;
         return;
     }
-    
-    // Определяем диапазон данных (полный или масштабированный)
-    double minDataX, maxDataX;
-    const ZoomRange* zoom = (chartNum == 1) ? &chart1Zoom : &chart2Zoom;
-    
+
+    double plotWidth = static_cast<double>(chartRect->right - chartRect->left);
+    double plotHeight = static_cast<double>(chartRect->bottom - chartRect->top);
+
+    double xRatio = static_cast<double>(screenX - chartRect->left) / plotWidth;
+    double yRatio = static_cast<double>(chartRect->bottom - screenY) / plotHeight; // Y-axis is inverted in screen coords
+
     if (zoom->isZoomed) {
-        minDataX = zoom->minX;
-        maxDataX = zoom->maxX;
+        dataX = zoom->minX + xRatio * (zoom->maxX - zoom->minX);
+        dataY = zoom->minY + yRatio * (zoom->maxY - zoom->minY);
     } else {
-        minDataX = 0.0;
-        maxDataX = static_cast<double>(chartData[0].size() - 1);
+        // Если не зазумлено, используем полный диапазон данных (0 до data.size()-1)
+        dataX = xRatio * (dataModule->GetDataSize() - 1);
+        // Для Y-координаты без зума требуется определить глобальный мин/макс диапазон данных
+        // В этой реализации это не предусмотрено, поэтому оставим заглушку
+        dataY = yRatio; 
     }
-    
-    // Преобразование X координаты
-    double xRatio = static_cast<double>(screenX - plotRect.left) / (plotRect.right - plotRect.left);
-    dataX = minDataX + xRatio * (maxDataX - minDataX);
-    
-    // Преобразование Y координаты
-    float minVal = FLT_MAX, maxVal = -FLT_MAX;
-    for (const auto& channel : chartData) {
-        for (float val : channel) {
-            minVal = (std::min)(minVal, val);
-            maxVal = (std::max)(maxVal, val);
-        }
-    }
-    
-    if (minVal == maxVal) {
-        minVal -= 1.0f;
-        maxVal += 1.0f;
-    }
-    
-    double yRatio = static_cast<double>(plotRect.bottom - screenY) / (plotRect.bottom - plotRect.top);
-    dataY = minVal + yRatio * (maxVal - minVal);
 }

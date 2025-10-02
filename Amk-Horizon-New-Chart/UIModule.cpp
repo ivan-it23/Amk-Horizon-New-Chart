@@ -14,6 +14,8 @@ UIModule::UIModule()
     , chart1Frequency(FrequencyBand::FREQ_400_KHZ)
     , chart2Frequency(FrequencyBand::FREQ_400_KHZ)
     , dualMode(false) {
+    chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены
+    chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены
 }
 
 UIModule::~UIModule() {
@@ -84,13 +86,23 @@ void UIModule::RefreshChart1Settings() {
 }
 
 void UIModule::RefreshChart2Settings() {
-    int dataTypeIndex = (int)SendMessage(hChart2DataCombo, CB_GETCURSEL, 0, 0);
+    int dataIndex = (int)SendMessage(hChart2DataCombo, CB_GETCURSEL, 0, 0);
+    chart2DataType = (DataType)dataIndex;
+
     int freqIndex = (int)SendMessage(hChart2FreqCombo, CB_GETCURSEL, 0, 0);
-    
-    if (dataTypeIndex >= 0 && dataTypeIndex < 9)
-        chart2DataType = (DataType)dataTypeIndex;
-    if (freqIndex >= 0 && freqIndex < 2)
-        chart2Frequency = (FrequencyBand)freqIndex;
+    chart2Frequency = (FrequencyBand)freqIndex;
+}
+
+void UIModule::SetChart1TransmitterEnabled(int transmitterIdx, bool enabled) {
+    if (transmitterIdx >= 0 && transmitterIdx < chart1EnabledTransmitters.size()) {
+        chart1EnabledTransmitters[transmitterIdx] = enabled;
+    }
+}
+
+void UIModule::SetChart2TransmitterEnabled(int transmitterIdx, bool enabled) {
+    if (transmitterIdx >= 0 && transmitterIdx < chart2EnabledTransmitters.size()) {
+        chart2EnabledTransmitters[transmitterIdx] = enabled;
+    }
 }
 
 bool UIModule::HandleCommand(WPARAM wParam, LPARAM lParam, HWND hWnd) {

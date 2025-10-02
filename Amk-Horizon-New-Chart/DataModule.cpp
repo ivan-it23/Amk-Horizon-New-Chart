@@ -44,10 +44,18 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
-    CalculateChartData(type, freq, outData, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true}; // По умолчанию все передатчики включены
+    CalculateChartData(type, freq, outData, allTransmittersEnabled, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
 }
 
-void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData, 
+void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
+                                   double minX, double maxX, double minY, double maxY) const {
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true}; // По умолчанию все передатчики включены
+    CalculateChartData(type, freq, outData, allTransmittersEnabled, minX, maxX, minY, maxY);
+}
+
+void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
+                                   const std::vector<bool>& enabledTransmitters,
                                    double minX, double maxX, double minY, double maxY) const {
     outData.clear();
     
@@ -69,60 +77,65 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     case DataType::PHASE_RX1:
     case DataType::PHASE_RX2:
         // 4 канала для активных передатчиков
-        outData.resize(4);
-        for (int channel = 0; channel < 4; channel++) {
-            outData[channel].reserve(endIndex - startIndex);
-            for (size_t i = startIndex; i < endIndex; i++) {
-                const auto& record = data[i];
-                int index = GetActiveTransmitterIndex(channel, freq);
-                float value = 0.0f;
-                
+        outData.resize(4); // Четыре канала T1-T4
+        for (size_t i = startIndex; i < endIndex; ++i) {
+            const GP_TOOL_DATA& record = data[i];
+            // Общие индексы для 400кГц: T1(2), T2(3), T3(4), T4(5)
+            // Общие индексы для 2000кГц: T1(6), T2(7), T3(8), T4(9)
+            
+            for (int t = 0; t < 4; ++t) {
+                if (!enabledTransmitters[t]) continue; // Пропускаем, если передатчик отключен
+                int rxIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(t), freq);
+                if (rxIdx == -1) continue;
+
                 switch (type) {
-                case DataType::PHASE_DIFFERENCE:
-                    value = record.PH_RX_2[index] - record.PH_RX_1[index];
-                    break;
-                case DataType::AMPLITUDE_RATIO:
-                    value = (record.AM_RX_1[index] != 0.0f) ? record.AM_RX_2[index] / record.AM_RX_1[index] : 0.0f;
-                    break;
-                case DataType::AMPLITUDE_RX1:
-                    value = record.AM_RX_1[index];
-                    break;
-                case DataType::AMPLITUDE_RX2:
-                    value = record.AM_RX_2[index];
-                    break;
-                case DataType::PHASE_RX1:
-                    value = record.PH_RX_1[index];
-                    break;
-                case DataType::PHASE_RX2:
-                    value = record.PH_RX_2[index];
-                    break;
+                    case DataType::PHASE_DIFFERENCE:
+                        outData[t].push_back(record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx]);
+                        break;
+                    case DataType::AMPLITUDE_RATIO:
+                        outData[t].push_back(record.AM_RX_2[rxIdx] / record.AM_RX_1[rxIdx]);
+                        break;
+                    case DataType::AMPLITUDE_RX1:
+                        outData[t].push_back(record.AM_RX_1[rxIdx]);
+                        break;
+                    case DataType::AMPLITUDE_RX2:
+                        outData[t].push_back(record.AM_RX_2[rxIdx]);
+                        break;
+                    case DataType::PHASE_RX1:
+                        outData[t].push_back(record.PH_RX_1[rxIdx]);
+                        break;
+                    case DataType::PHASE_RX2:
+                        outData[t].push_back(record.PH_RX_2[rxIdx]);
+                        break;
+                    default: // Should not happen
+                        break;
                 }
-                
-                outData[channel].push_back(value);
             }
         }
         break;
-        
+    
     case DataType::SILENT_AMPLITUDE_RX1:
     case DataType::SILENT_AMPLITUDE_RX2:
-        // 1 канал для молчащих передатчиков
+        // 1 канал для молчащих передатчиков (без возможности выбора)
         outData.resize(1);
-        outData[0].reserve(endIndex - startIndex);
-        for (size_t i = startIndex; i < endIndex; i++) {
-            const auto& record = data[i];
-            int index = GetSilentTransmitterIndex(freq);
-            float value = (type == DataType::SILENT_AMPLITUDE_RX1) ? 
-                record.AM_RX_1[index] : record.AM_RX_2[index];
-            outData[0].push_back(value);
+        for (size_t i = startIndex; i < endIndex; ++i) {
+            const GP_TOOL_DATA& record = data[i];
+            int rxIdx = GetSilentTransmitterIndex(freq);
+            if (rxIdx == -1) continue;
+
+            if (type == DataType::SILENT_AMPLITUDE_RX1) {
+                outData[0].push_back(record.AM_RX_1[rxIdx]);
+            } else {
+                outData[0].push_back(record.AM_RX_2[rxIdx]);
+            }
         }
         break;
-        
+
     case DataType::TEMPERATURE:
-        // 1 значение температуры
+        // 1 канал для температуры (без возможности выбора)
         outData.resize(1);
-        outData[0].reserve(endIndex - startIndex);
-        for (size_t i = startIndex; i < endIndex; i++) {
-            const auto& record = data[i];
+        for (size_t i = startIndex; i < endIndex; ++i) {
+            const GP_TOOL_DATA& record = data[i];
             outData[0].push_back(record.temperature);
         }
         break;
@@ -144,16 +157,33 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
     }
 }
 
-int DataModule::GetActiveTransmitterIndex(int transmitter, FrequencyBand freq) const {
+// Вспомогательные методы
+int DataModule::GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const {
     // Индексы для активных передатчиков T1-T4
-    if (freq == FrequencyBand::FREQ_400_KHZ)
-        return 2 + transmitter; // индексы 2, 3, 4, 5
-    else
-        return 6 + transmitter; // индексы 6, 7, 8, 9
+    if (freq == FrequencyBand::FREQ_400_KHZ) {
+        switch (transmitter) {
+            case Transmitter::T1: return 2;
+            case Transmitter::T2: return 3;
+            case Transmitter::T3: return 4;
+            case Transmitter::T4: return 5;
+            default: return -1; // Should not happen
+        }
+    } else { // FREQ_2000_KHZ
+        switch (transmitter) {
+            case Transmitter::T1: return 6;
+            case Transmitter::T2: return 7;
+            case Transmitter::T3: return 8;
+            case Transmitter::T4: return 9;
+            default: return -1; // Should not happen
+        }
+    }
 }
 
 int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
     // Индексы для молчащих передатчиков
-    return (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    if (freq == FrequencyBand::FREQ_400_KHZ)
+        return 0; // индекс 0
+    else
+        return 1; // индекс 1
 }
 

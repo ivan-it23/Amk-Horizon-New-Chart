@@ -9,6 +9,7 @@ class ChartModule {
 private:
     // Цвета для разных каналов
     static const COLORREF CHANNEL_COLORS[4];
+    static const wchar_t* CHANNEL_NAMES[4]; // Добавляем статическое объявление для имен каналов
 
 public:
     ChartModule();
@@ -17,6 +18,9 @@ public:
     // Основные методы отрисовки
     void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData, 
                    DataType type, const std::wstring& title, bool hasData) const;
+    void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                   DataType type, const std::wstring& title, bool hasData,
+                   const std::vector<bool>& enabledTransmitters, const DataModule* dataModule) const;
 
     // Новый метод для отрисовки прямоугольника зума
     void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
@@ -28,8 +32,14 @@ public:
     void DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const;
     void DrawChartAxes(HDC hdc, const RECT& plotRect) const;
     void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const;
+    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
+    void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                         DataType type, const std::vector<bool>& enabledTransmitters) const;
+
+    // Хит-тест для чекбоксов в легенде
+    int HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const;
 
 private:
     // Вспомогательные методы для расчетов
