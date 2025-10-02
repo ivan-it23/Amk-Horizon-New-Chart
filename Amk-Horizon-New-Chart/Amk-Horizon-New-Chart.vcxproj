@@ -152,6 +152,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Amk-Horizon-New-Chart.h" />
+    <ClInclude Include="ChartManager.h" />
     <ClInclude Include="ChartModule.h" />
     <ClInclude Include="DataModule.h" />
     <ClInclude Include="framework.h" />
@@ -162,6 +163,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Amk-Horizon-New-Chart.cpp" />
+    <ClCompile Include="ChartManager.cpp" />
     <ClCompile Include="ChartModule.cpp" />
     <ClCompile Include="DataModule.cpp" />
     <ClCompile Include="LayoutModule.cpp" />

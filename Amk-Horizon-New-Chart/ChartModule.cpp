@@ -9,10 +9,10 @@
 
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[4] = {
-    RGB(255, 0, 0),    // Красный - T1
-    RGB(0, 255, 0),    // Зеленый - T2
-    RGB(0, 0, 255),    // Синий - T3
-    RGB(255, 165, 0)   // Оранжевый - T4
+    RGB(0, 255, 0),    // Зеленый - T1
+    RGB(255, 255, 0),  // Желтый - T2
+    RGB(255, 0, 0),    // Красный - T3
+    RGB(0, 0, 255)     // Синий - T4
 };
 
 const wchar_t* ChartModule::CHANNEL_NAMES[4] = {
