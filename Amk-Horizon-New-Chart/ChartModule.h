@@ -32,9 +32,9 @@ public:
     void DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& title) const;
     void DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const;
     void DrawChartAxes(HDC hdc, const RECT& plotRect) const;
-    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const;
-    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
-    void DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, 
+    void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
+    void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
+    void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 
                          const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;

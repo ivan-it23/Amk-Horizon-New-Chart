@@ -252,23 +252,23 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     return -1; // Не попали ни в один чекбокс
 }
 
-void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData) const {
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const {
     // Вызываем перегруженную версию с nullptr для dataModule, если он не передан.
     // Это означает, что GetDataSize() не будет использоваться в этой перегрузке.
-    DrawGridAndAxes(hdc, chartRect, chartData, nullptr, 0.0, 0.0, 0.0, 0.0); // Передаем 0.0 для min/maxX/YData
+    DrawGridAndAxes(hdc, plotRect, chartData, nullptr, 0.0, 0.0, 0.0, 0.0); // Передаем 0.0 для min/maxX/YData
 }
 
-void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const {
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const {
     // Вызываем новую перегрузку с данными о зуме по умолчанию
     double minXData = 0.0;
     double maxXData = 0.0;
     if (dataModule && dataModule->HasData()) {
         maxXData = static_cast<double>(dataModule->GetDataSize() - 1);
     }
-    DrawGridAndAxes(hdc, chartRect, chartData, dataModule, minXData, maxXData, 0.0, 0.0);
+    DrawGridAndAxes(hdc, plotRect, chartData, dataModule, minXData, maxXData, 0.0, 0.0);
 }
 
-void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vector<std::vector<float>>& chartData, 
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 
                                 const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const {
     // Если данных нет, то не рисуем сетку и метки
     if (!dataModule || !dataModule->HasData()) {
@@ -289,26 +289,31 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vec
     }
     
     // Отрисовка горизонтальных линий сетки и меток Y-оси
-    double niceStepY = CalculateNiceStep(maxVal - minVal, (chartRect.bottom - chartRect.top) / 40); // Примерное количество шагов
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40); // Примерное количество шагов
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
 
     while (currentYVal <= maxVal + niceStepY / 2) { // Добавляем niceStepY / 2 для учета ошибок округления
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) { // Проверка на видимый диапазон с запасом
-            long screenY = chartRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (chartRect.bottom - chartRect.top));
-            HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
-            MoveToEx(hdc, chartRect.left, screenY, NULL);
-            LineTo(hdc, chartRect.right, screenY);
-            
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
+            // Проверяем, что линия сетки находится в пределах области графика
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                
+                // Рисуем горизонтальную линию сетки только в пределах plotRect
+                MoveToEx(hdc, plotRect.left, screenY, NULL);
+                LineTo(hdc, plotRect.right, screenY);
+                
+                SelectObject(hdc, hOldPen);
+                DeleteObject(hPen);
 
-            // Отрисовка метки Y-оси
-            std::wstringstream ssY;
-            ssY << std::fixed << std::setprecision(1) << currentYVal;
-            std::wstring yLabel = ssY.str();
-            TextOut(hdc, chartRect.left - 40, screenY - 7, yLabel.c_str(), (int)yLabel.length());
+                // Отрисовка метки Y-оси (в области отступа слева от plotRect)
+                std::wstringstream ssY;
+                ssY << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring yLabel = ssY.str();
+                TextOut(hdc, plotRect.left - 40, screenY - 7, yLabel.c_str(), (int)yLabel.length());
+            }
         }
         currentYVal += niceStepY;
     }
@@ -325,26 +330,31 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& chartRect, const std::vec
         if (currentMaxX <= currentMinX) currentMaxX = currentMinX + 1; // Избегаем деления на ноль
 
         double xRange = currentMaxX - currentMinX;
-        double niceStepX = CalculateNiceStep(xRange, (chartRect.right - chartRect.left) / 60);
+        double niceStepX = CalculateNiceStep(xRange, (plotRect.right - plotRect.left) / 60);
         double currentXVal = CalculateNiceMin(currentMinX, niceStepX);
 
         while (currentXVal <= currentMaxX + niceStepX / 2) { // Добавляем niceStepX / 2 для учета ошибок округления
             if (currentXVal >= currentMinX - niceStepX / 2 && currentXVal <= currentMaxX + niceStepX / 2) { // Проверка на видимый диапазон с запасом
-                long screenX = chartRect.left + (LONG)((currentXVal - currentMinX) / xRange * (chartRect.right - chartRect.left));
-                HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
-                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                long screenX = plotRect.left + (LONG)((currentXVal - currentMinX) / xRange * (plotRect.right - plotRect.left));
                 
-                MoveToEx(hdc, screenX, chartRect.top, NULL);
-                LineTo(hdc, screenX, chartRect.bottom);
-                
-                SelectObject(hdc, hOldPen);
-                DeleteObject(hPen);
+                // Проверяем, что линия сетки находится в пределах области графика
+                if (screenX >= plotRect.left && screenX <= plotRect.right) {
+                    HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                    
+                    // Рисуем вертикальную линию сетки только в пределах plotRect
+                    MoveToEx(hdc, screenX, plotRect.top, NULL);
+                    LineTo(hdc, screenX, plotRect.bottom);
+                    
+                    SelectObject(hdc, hOldPen);
+                    DeleteObject(hPen);
 
-                // Отрисовка метки X-оси
-                std::wstringstream ssX;
-                ssX << std::fixed << std::setprecision(1) << currentXVal;
-                std::wstring xLabel = ssX.str();
-                TextOut(hdc, screenX - 10, chartRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                    // Отрисовка метки X-оси (в области отступа снизу от plotRect)
+                    std::wstringstream ssX;
+                    ssX << std::fixed << std::setprecision(1) << currentXVal;
+                    std::wstring xLabel = ssX.str();
+                    TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                }
             }
             currentXVal += niceStepX;
         }
