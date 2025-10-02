@@ -239,6 +239,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_chartManager->HandleRightClick(hWnd, x, y);
         }
         break;
+    case WM_HSCROLL:
+    case WM_VSCROLL:
+        if (g_chartManager)
+        {
+            g_chartManager->HandleScrollEvent(hWnd, wParam, lParam);
+        }
+        break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -335,6 +342,9 @@ void ChartManager::UpdateLayout(HWND hWnd)
         int panel2Y = layoutModule->GetChart2PanelY();
         uiModule->PositionChart2Controls(panel2Y);
     }
+    
+    // Обновляем скроллбары после изменения компоновки
+    UpdateScrollBars(hWnd);
 }
 
 void ChartManager::ToggleDualMode()
@@ -375,13 +385,14 @@ void ChartManager::DrawChart1(HDC hdc)
     // Формируем заголовок
     std::wstring title = BuildChartTitle(1, dataType, frequency);
     
-    // Отрисовка графика
+    // Отрисовка графика (оси скрыты, если применен зум)
+    bool showAxes = !chart1Zoom.isZoomed;
     chartModule->DrawChart(hdc, chart1Rect, chartData, dataType, title, dataModule->HasData(), 
                            enabledTransmitters, dataModule.get(),
                            chart1Zoom.isZoomed ? chart1Zoom.minX : 0.0,
                            chart1Zoom.isZoomed ? chart1Zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
                            chart1Zoom.isZoomed ? chart1Zoom.minY : -1e6, 
-                           chart1Zoom.isZoomed ? chart1Zoom.maxY : 1e6);
+                           chart1Zoom.isZoomed ? chart1Zoom.maxY : 1e6, showAxes);
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -410,13 +421,14 @@ void ChartManager::DrawChart2(HDC hdc)
     // Формируем заголовок
     std::wstring title = BuildChartTitle(2, dataType, frequency);
     
-    // Отрисовка графика
+    // Отрисовка графика (оси скрыты, если применен зум)
+    bool showAxes = !chart2Zoom.isZoomed;
     chartModule->DrawChart(hdc, chart2Rect, chartData, dataType, title, dataModule->HasData(), 
                            enabledTransmitters, dataModule.get(),
                            chart2Zoom.isZoomed ? chart2Zoom.minX : 0.0,
                            chart2Zoom.isZoomed ? chart2Zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
                            chart2Zoom.isZoomed ? chart2Zoom.minY : -1e6, 
-                           chart2Zoom.isZoomed ? chart2Zoom.maxY : 1e6);
+                           chart2Zoom.isZoomed ? chart2Zoom.maxY : 1e6, showAxes);
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
@@ -632,6 +644,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
         }
     }
     
+    // Обновляем скроллбары после изменения зума
+    UpdateScrollBars(hWnd);
+    
     // Перерисовываем окно
     InvalidateRect(hWnd, NULL, TRUE);
 }
@@ -647,6 +662,9 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     } else if (chartAtPoint == 2) {
         chart2Zoom.isZoomed = false;
     }
+    
+    // Обновляем скроллбары после сброса зума
+    UpdateScrollBars(hWnd);
     
     InvalidateRect(hWnd, NULL, TRUE);
 }
@@ -695,5 +713,105 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
         // Для Y-координаты без зума требуется определить глобальный мин/макс диапазон данных
         // В этой реализации это не предусмотрено, поэтому оставим заглушку
         dataY = yRatio; 
+    }
+}
+
+// Методы для обработки скроллинга
+void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
+    HWND hScrollBar = (HWND)lParam;
+    int scrollCode = LOWORD(wParam);
+    
+    // Определяем, какой скроллбар был использован (только горизонтальные)
+    int chartNumber = 0;
+    
+    if (hScrollBar == uiModule->GetHScrollBar(1)) {
+        chartNumber = 1;
+    } else if (hScrollBar == uiModule->GetHScrollBar(2)) {
+        chartNumber = 2;
+    } else {
+        return; // Неизвестный скроллбар
+    }
+    
+    // Получаем текущую информацию о скроллбаре
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(SCROLLINFO);
+    si.fMask = SIF_ALL;
+    GetScrollInfo(hScrollBar, SB_CTL, &si);
+    
+    int newPos = si.nPos;
+    
+    // Обрабатываем различные команды скроллинга
+    switch (scrollCode) {
+        case SB_LINEUP:
+            newPos = (std::max)(si.nMin, si.nPos - 1);
+            break;
+        case SB_LINEDOWN:
+            newPos = (std::min)(si.nMax - (int)si.nPage + 1, si.nPos + 1);
+            break;
+        case SB_PAGEUP:
+            newPos = (std::max)(si.nMin, si.nPos - (int)si.nPage);
+            break;
+        case SB_PAGEDOWN:
+            newPos = (std::min)(si.nMax - (int)si.nPage + 1, si.nPos + (int)si.nPage);
+            break;
+        case SB_THUMBTRACK:
+        case SB_THUMBPOSITION:
+            newPos = si.nTrackPos;
+            break;
+        default:
+            return;
+    }
+    
+    // Обновляем позицию скроллбара
+    si.nPos = newPos;
+    SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
+    
+    // Обновляем диапазон зума на основе новой позиции скроллбара (только горизонтальный)
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    
+    // Горизонтальный скроллинг (ось X)
+    double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
+    double viewRange = zoom->maxX - zoom->minX;
+    double newMinX = (newPos / 100.0) * (totalRange - viewRange);
+    zoom->minX = newMinX;
+    zoom->maxX = newMinX + viewRange;
+    
+    // Перерисовываем окно
+    InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::UpdateScrollBars(HWND hWnd) {
+    // Обновляем скроллбар для первого графика
+    if (chart1Zoom.isZoomed) {
+        uiModule->ShowScrollBars(1, true);
+        uiModule->UpdateScrollBarPositions(1, layoutModule->GetChart1Rect());
+        
+        // Настраиваем диапазон горизонтального скроллбара
+        double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
+        double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
+        
+        int hScrollPos = static_cast<int>((chart1Zoom.minX / (totalDataRange - viewRangeX)) * 100);
+        uiModule->SetScrollBarRange(1, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+    } else {
+        uiModule->ShowScrollBars(1, false);
+    }
+    
+    // Обновляем скроллбар для второго графика (если в режиме двух графиков)
+    if (uiModule->IsDualMode()) {
+        if (chart2Zoom.isZoomed) {
+            uiModule->ShowScrollBars(2, true);
+            uiModule->UpdateScrollBarPositions(2, layoutModule->GetChart2Rect());
+            
+            // Настраиваем диапазон горизонтального скроллбара
+            double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
+            double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
+            
+            int hScrollPos = static_cast<int>((chart2Zoom.minX / (totalDataRange - viewRangeX)) * 100);
+            uiModule->SetScrollBarRange(2, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+        } else {
+            uiModule->ShowScrollBars(2, false);
+        }
+    } else {
+        uiModule->ShowScrollBars(2, false);
     }
 }

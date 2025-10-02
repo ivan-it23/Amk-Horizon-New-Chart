@@ -26,16 +26,16 @@ ChartModule::~ChartModule() {
 }
 
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
-                           DataType type, const std::wstring& title, bool hasData) const {
+                           DataType type, const std::wstring& title, bool hasData, bool showAxes) const {
     // По умолчанию все передатчики включены
     std::vector<bool> allTransmittersEnabled = {true, true, true, true};
-    DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr, 0.0, 0.0, 0.0, 0.0); // Передаем 0.0 для min/maxX/YData
+    DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr, 0.0, 0.0, 0.0, 0.0, showAxes);
 }
 
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                            DataType type, const std::wstring& title, bool hasData,
                            const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
-                           double minXData, double maxXData, double minYData, double maxYData) const {
+                           double minXData, double maxXData, double minYData, double maxYData, bool showAxes) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -49,8 +49,8 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
     // Расчет области для графика
     RECT plotRect = CalculatePlotRect(rect);
 
-    // Отрисовка осей (всегда, независимо от наличия данных)
-    DrawChartAxes(hdc, plotRect);
+    // Отрисовка осей (только если не заменены скроллбарами)
+    DrawChartAxes(hdc, plotRect, showAxes);
 
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
@@ -85,7 +85,9 @@ void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& 
 }
 
 
-void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect) const {
+void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect, bool showAxes) const {
+    if (!showAxes) return; // Не рисуем оси, если они заменены скроллбарами
+    
     HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0)); // Сплошная линия для осей
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
 
@@ -367,7 +369,7 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     plotRect.left += 50;   // Отступ для Y-оси
     plotRect.top += 40;    // Отступ для заголовка
     plotRect.right -= 20;  // Отступ справа
-    plotRect.bottom -= 30; // Отступ для X-оси
+    plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
 }
 

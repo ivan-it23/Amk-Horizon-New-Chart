@@ -16,6 +16,10 @@ private:
     HWND hChart2FreqCombo;
     HWND hChart2RefreshBtn;
 
+    // Скроллбары для графиков (показываются только при зуме)
+    HWND hChart1HScrollBar;  // Горизонтальный скроллбар для первого графика
+    HWND hChart2HScrollBar;  // Горизонтальный скроллбар для второго графика
+
     // Состояние элементов управления
     DataType chart1DataType;
     DataType chart2DataType;
@@ -58,6 +62,12 @@ public:
 
     // Обработка команд
     bool HandleCommand(WPARAM wParam, LPARAM lParam, HWND hWnd);
+
+    // Управление скроллбарами
+    void ShowScrollBars(int chartNumber, bool show);
+    void UpdateScrollBarPositions(int chartNumber, const RECT& chartRect);
+    void SetScrollBarRange(int chartNumber, int min, int max, int page, int pos);
+    HWND GetHScrollBar(int chartNumber) const;
 
 private:
     // Вспомогательные методы

@@ -17,11 +17,11 @@ public:
 
     // Основные методы отрисовки
     void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData, 
-                   DataType type, const std::wstring& title, bool hasData) const;
+                   DataType type, const std::wstring& title, bool hasData, bool showAxes = true) const;
     void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                    DataType type, const std::wstring& title, bool hasData,
                    const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
-                   double minXData, double maxXData, double minYData, double maxYData) const;
+                   double minXData, double maxXData, double minYData, double maxYData, bool showAxes = true) const;
 
     // Новый метод для отрисовки прямоугольника зума
     void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
@@ -31,7 +31,7 @@ public:
     void DrawChartBorder(HDC hdc, const RECT& rect) const;
     void DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& title) const;
     void DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const;
-    void DrawChartAxes(HDC hdc, const RECT& plotRect) const;
+    void DrawChartAxes(HDC hdc, const RECT& plotRect, bool showAxes = true) const;
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 

@@ -61,6 +61,10 @@ public:
     // Новый метод для обработки кликов по чекбоксам легенды
     void HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId);
 
+    // Методы для обработки скроллинга
+    void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
+    void UpdateScrollBars(HWND hWnd);
+
 private:
     // Вспомогательные методы
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;

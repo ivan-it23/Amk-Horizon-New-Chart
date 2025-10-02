@@ -26,6 +26,10 @@
 #define IDC_CHART2_FREQ_COMBO	1006
 #define IDC_CHART2_REFRESH_BTN	1007
 
+// Скроллбары для графиков (только горизонтальные)
+#define IDC_CHART1_HSCROLL		1008
+#define IDC_CHART2_HSCROLL		1009
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

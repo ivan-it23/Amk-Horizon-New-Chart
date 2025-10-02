@@ -9,6 +9,8 @@ UIModule::UIModule()
     , hChart2DataCombo(nullptr)
     , hChart2FreqCombo(nullptr)
     , hChart2RefreshBtn(nullptr)
+    , hChart1HScrollBar(nullptr)
+    , hChart2HScrollBar(nullptr)
     , chart1DataType(DataType::PHASE_DIFFERENCE)
     , chart2DataType(DataType::AMPLITUDE_RATIO)
     , chart1Frequency(FrequencyBand::FREQ_400_KHZ)
@@ -51,6 +53,15 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2RefreshBtn = CreateWindow(L"BUTTON", L"Refresh",
         WS_CHILD | BS_PUSHBUTTON,
         310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
+
+    // Создание горизонтальных скроллбаров (изначально скрыты)
+    hChart1HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
+        WS_CHILD | SBS_HORZ,
+        0, 0, 100, 20, hWnd, (HMENU)IDC_CHART1_HSCROLL, hInst, NULL);
+    
+    hChart2HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
+        WS_CHILD | SBS_HORZ,
+        0, 0, 100, 20, hWnd, (HMENU)IDC_CHART2_HSCROLL, hInst, NULL);
 
     // Заполнение комбобоксов и установка начальных значений
     PopulateComboBoxes();
@@ -157,4 +168,67 @@ void UIModule::SetInitialValues() {
     SendMessage(hChart2DataCombo, CB_SETCURSEL, 1, 0);  // Amplitude Ratio
     SendMessage(hChart1FreqCombo, CB_SETCURSEL, 0, 0);  // 400 кГц
     SendMessage(hChart2FreqCombo, CB_SETCURSEL, 0, 0);  // 400 кГц
+}
+
+// Методы для управления скроллбарами
+void UIModule::ShowScrollBars(int chartNumber, bool show) {
+    int showFlag = show ? SW_SHOW : SW_HIDE;
+    
+    if (chartNumber == 1) {
+        ShowWindow(hChart1HScrollBar, showFlag);
+    } else if (chartNumber == 2) {
+        ShowWindow(hChart2HScrollBar, showFlag);
+    }
+}
+
+void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) {
+    const int SCROLLBAR_SIZE = 15; // Уменьшенный размер скроллбара
+    const int MARGIN_LEFT = 50;    // Отступ слева (для Y-оси)
+    const int MARGIN_RIGHT = 20;   // Отступ справа
+    const int MARGIN_BOTTOM = 5;   // Отступ снизу от края графика
+    
+    if (chartNumber == 1) {
+        // Горизонтальный скроллбар располагается ВНУТРИ области графика, в нижней части
+        SetWindowPos(hChart1HScrollBar, HWND_TOP, 
+                     chartRect.left + MARGIN_LEFT, 
+                     chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
+                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT, 
+                     SCROLLBAR_SIZE,
+                     SWP_NOZORDER);
+    } else if (chartNumber == 2) {
+        // Горизонтальный скроллбар для второго графика
+        SetWindowPos(hChart2HScrollBar, HWND_TOP,
+                     chartRect.left + MARGIN_LEFT, 
+                     chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
+                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT, 
+                     SCROLLBAR_SIZE,
+                     SWP_NOZORDER);
+    }
+}
+
+void UIModule::SetScrollBarRange(int chartNumber, int min, int max, int page, int pos) {
+    HWND hScrollBar = nullptr;
+    
+    if (chartNumber == 1) {
+        hScrollBar = hChart1HScrollBar;
+    } else if (chartNumber == 2) {
+        hScrollBar = hChart2HScrollBar;
+    }
+    
+    if (hScrollBar) {
+        SCROLLINFO si = {};
+        si.cbSize = sizeof(SCROLLINFO);
+        si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+        si.nMin = min;
+        si.nMax = max;
+        si.nPage = page;
+        si.nPos = pos;
+        SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
+    }
+}
+
+HWND UIModule::GetHScrollBar(int chartNumber) const {
+    if (chartNumber == 1) return hChart1HScrollBar;
+    if (chartNumber == 2) return hChart2HScrollBar;
+    return nullptr;
 }
