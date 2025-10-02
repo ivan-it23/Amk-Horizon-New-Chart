@@ -298,7 +298,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
             
             // Проверяем, что линия сетки находится в пределах области графика
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
-                HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
                 HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                 
                 // Рисуем горизонтальную линию сетки только в пределах plotRect
@@ -339,7 +339,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 
                 // Проверяем, что линия сетки находится в пределах области графика
                 if (screenX >= plotRect.left && screenX <= plotRect.right) {
-                    HPEN hPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+                    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
                     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                     
                     // Рисуем вертикальную линию сетки только в пределах plotRect
