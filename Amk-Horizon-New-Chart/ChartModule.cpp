@@ -1,5 +1,6 @@
 #include "framework.h"
 #include "ChartModule.h"
+#include "SchematicModule.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -469,4 +470,452 @@ void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
     SelectObject(hdc, hOldPen);
     SetROP2(hdc, oldROP);
     DeleteObject(hPen);
+}
+
+// Методы для поддержки двойных осей ординат
+void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                                   const std::vector<CurveDefinition>& curves,
+                                   const std::vector<std::vector<float>>& leftAxisData,
+                                   const std::vector<std::vector<float>>& rightAxisData,
+                                   const std::wstring& title, bool hasData) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика
+    RECT plotRect = CalculatePlotRect(rect);
+    
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Отрисовка сетки и осей
+    DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData);
+    
+    // Отрисовка левой и правой осей с подписями
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+    
+    if (!leftAxisData.empty()) {
+        DrawLeftAxis(hdc, plotRect, leftAxisData, leftUnits);
+    }
+    if (!rightAxisData.empty()) {
+        DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
+    }
+    
+    // Отрисовка данных
+    if (hasData) {
+        DrawDualAxisData(hdc, plotRect, curves, leftAxisData, rightAxisData);
+    }
+    
+    // Отрисовка легенды
+    if (!curves.empty()) {
+        DrawDualAxisLegend(hdc, rect, curves);
+    }
+}
+
+void ChartModule::DrawDualAxisBackground(HDC hdc, const RECT& rect) const {
+    // Используем тот же фон, что и для обычных графиков
+    DrawChartBackground(hdc, rect);
+}
+
+void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData) const {
+    // Находим диапазоны для обеих осей
+    float leftMin = FLT_MAX, leftMax = -FLT_MAX;
+    float rightMin = FLT_MAX, rightMax = -FLT_MAX;
+    
+    // Диапазон левой оси
+    for (const auto& channel : leftAxisData) {
+        for (float val : channel) {
+            leftMin = (std::min)(leftMin, val);
+            leftMax = (std::max)(leftMax, val);
+        }
+    }
+    
+    // Диапазон правой оси
+    for (const auto& channel : rightAxisData) {
+        for (float val : channel) {
+            rightMin = (std::min)(rightMin, val);
+            rightMax = (std::max)(rightMax, val);
+        }
+    }
+    
+    // Добавляем padding
+    if (leftMin != FLT_MAX && leftMax != -FLT_MAX && leftMin != leftMax) {
+        float leftRange = leftMax - leftMin;
+        float leftPadding = leftRange * 0.05f;
+        leftMin -= leftPadding;
+        leftMax += leftPadding;
+    }
+    
+    if (rightMin != FLT_MAX && rightMax != -FLT_MAX && rightMin != rightMax) {
+        float rightRange = rightMax - rightMin;
+        float rightPadding = rightRange * 0.05f;
+        rightMin -= rightPadding;
+        rightMax += rightPadding;
+    }
+    
+    // Отрисовка горизонтальных линий сетки (основываемся на левой оси)
+    if (leftMin != FLT_MAX && leftMax != -FLT_MAX) {
+        double niceStepY = CalculateNiceStep(leftMax - leftMin, (plotRect.bottom - plotRect.top) / 40);
+        double currentYVal = CalculateNiceMin(leftMin, niceStepY);
+
+        while (currentYVal <= leftMax + niceStepY / 2) {
+            if (currentYVal >= leftMin - niceStepY / 2 && currentYVal <= leftMax + niceStepY / 2) {
+                long screenY = plotRect.bottom - (LONG)((currentYVal - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+                
+                if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(230, 230, 230));
+                    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                    
+                    MoveToEx(hdc, plotRect.left, screenY, NULL);
+                    LineTo(hdc, plotRect.right, screenY);
+                    
+                    SelectObject(hdc, hOldPen);
+                    DeleteObject(hPen);
+                }
+            }
+            currentYVal += niceStepY;
+        }
+    }
+}
+
+void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect, 
+                              const std::vector<std::vector<float>>& leftAxisData,
+                              const std::string& units) const {
+    if (leftAxisData.empty()) return;
+    
+    // Находим диапазон левой оси
+    float minVal = FLT_MAX, maxVal = -FLT_MAX;
+    for (const auto& channel : leftAxisData) {
+        for (float val : channel) {
+            minVal = (std::min)(minVal, val);
+            maxVal = (std::max)(maxVal, val);
+        }
+    }
+    
+    if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
+        minVal = 0.0f;
+        maxVal = 100.0f;
+    } else {
+        float range = maxVal - minVal;
+        float padding = range * 0.05f;
+        minVal -= padding;
+        maxVal += padding;
+    }
+    
+    // Рисуем левую ось
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    MoveToEx(hdc, plotRect.left, plotRect.top, NULL);
+    LineTo(hdc, plotRect.left, plotRect.bottom);
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+    
+    // Рисуем метки левой оси
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    SetBkMode(hdc, TRANSPARENT);
+    
+    while (currentYVal <= maxVal + niceStepY / 2) {
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                TextOut(hdc, plotRect.left - 45, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
+    }
+    
+    // Подпись единиц измерения левой оси
+    if (!units.empty()) {
+        std::wstring wunits(units.begin(), units.end());
+        TextOut(hdc, plotRect.left - 45, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+    }
+}
+
+void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect, 
+                               const std::vector<std::vector<float>>& rightAxisData,
+                               const std::string& units) const {
+    if (rightAxisData.empty()) return;
+    
+    // Находим диапазон правой оси
+    float minVal = FLT_MAX, maxVal = -FLT_MAX;
+    for (const auto& channel : rightAxisData) {
+        for (float val : channel) {
+            minVal = (std::min)(minVal, val);
+            maxVal = (std::max)(maxVal, val);
+        }
+    }
+    
+    if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
+        minVal = 0.0f;
+        maxVal = 100.0f;
+    } else {
+        float range = maxVal - minVal;
+        float padding = range * 0.05f;
+        minVal -= padding;
+        maxVal += padding;
+    }
+    
+    // Рисуем правую ось
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    MoveToEx(hdc, plotRect.right, plotRect.top, NULL);
+    LineTo(hdc, plotRect.right, plotRect.bottom);
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+    
+    // Рисуем метки правой оси
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    SetBkMode(hdc, TRANSPARENT);
+    
+    while (currentYVal <= maxVal + niceStepY / 2) {
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                TextOut(hdc, plotRect.right + 5, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
+    }
+    
+    // Подпись единиц измерения правой оси
+    if (!units.empty()) {
+        std::wstring wunits(units.begin(), units.end());
+        TextOut(hdc, plotRect.right + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+    }
+}
+
+void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
+                                  const std::vector<CurveDefinition>& curves,
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData) const {
+    // Находим диапазоны для обеих осей
+    float leftMin = FLT_MAX, leftMax = -FLT_MAX;
+    float rightMin = FLT_MAX, rightMax = -FLT_MAX;
+    
+    // Диапазон левой оси
+    for (const auto& channel : leftAxisData) {
+        for (float val : channel) {
+            leftMin = (std::min)(leftMin, val);
+            leftMax = (std::max)(leftMax, val);
+        }
+    }
+    
+    // Диапазон правой оси
+    for (const auto& channel : rightAxisData) {
+        for (float val : channel) {
+            rightMin = (std::min)(rightMin, val);
+            rightMax = (std::max)(rightMax, val);
+        }
+    }
+    
+    // Добавляем padding и проверяем корректность диапазонов
+    if (leftMin != FLT_MAX && leftMax != -FLT_MAX && leftMin != leftMax) {
+        float leftRange = leftMax - leftMin;
+        float leftPadding = leftRange * 0.05f;
+        leftMin -= leftPadding;
+        leftMax += leftPadding;
+    } else {
+        leftMin = 0.0f;
+        leftMax = 100.0f;
+    }
+    
+    if (rightMin != FLT_MAX && rightMax != -FLT_MAX && rightMin != rightMax) {
+        float rightRange = rightMax - rightMin;
+        float rightPadding = rightRange * 0.05f;
+        rightMin -= rightPadding;
+        rightMax += rightPadding;
+    } else {
+        rightMin = 0.0f;
+        rightMax = 100.0f;
+    }
+    
+    // Отрисовка кривых левой оси (сплошные линии)
+    size_t leftIndex = 0;
+    for (size_t i = 0; i < curves.size() && leftIndex < leftAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 0) continue;
+        
+        const auto& channel = leftAxisData[leftIndex];
+        if (channel.empty()) {
+            leftIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = 0; j < channel.size(); j++) {
+            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        leftIndex++;
+    }
+    
+    // Отрисовка кривых правой оси (пунктирные линии)
+    size_t rightIndex = 0;
+    for (size_t i = 0; i < curves.size() && rightIndex < rightAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 1) continue;
+        
+        const auto& channel = rightAxisData[rightIndex];
+        if (channel.empty()) {
+            rightIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = 0; j < channel.size(); j++) {
+            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        rightIndex++;
+    }
+}
+
+void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
+                                    const std::vector<CurveDefinition>& curves) const {
+    int legendX = rect.right - 250; // Больше места для двойной легенды
+    int legendY = rect.top + 10;
+    int lineHeight = 20;
+    int currentY = legendY;
+    
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+    
+    // Группируем кривые по осям
+    std::vector<const CurveDefinition*> leftAxisCurves;
+    std::vector<const CurveDefinition*> rightAxisCurves;
+    
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0) {
+            leftAxisCurves.push_back(&curve);
+        } else {
+            rightAxisCurves.push_back(&curve);
+        }
+    }
+    
+    // Отрисовка легенды левой оси
+    if (!leftAxisCurves.empty()) {
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, legendX, currentY, L"Левая ось:", 10);
+        currentY += lineHeight;
+        
+        for (const auto* curve : leftAxisCurves) {
+            // Цветной квадрат
+            HBRUSH hBrush = CreateSolidBrush(curve->color);
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+            Rectangle(hdc, legendX + 10, currentY + 5, legendX + 20, currentY + 15);
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hBrush);
+            
+            // Линия (сплошная)
+            HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            MoveToEx(hdc, legendX + 25, currentY + 10, NULL);
+            LineTo(hdc, legendX + 40, currentY + 10);
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+            
+            // Название
+            std::wstring name(curve->displayName.begin(), curve->displayName.end());
+            TextOut(hdc, legendX + 45, currentY + 2, name.c_str(), (int)name.length());
+            
+            currentY += lineHeight;
+        }
+    }
+    
+    // Отрисовка легенды правой оси
+    if (!rightAxisCurves.empty()) {
+        currentY += 5; // Дополнительный отступ
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, legendX, currentY, L"Правая ось:", 11);
+        currentY += lineHeight;
+        
+        for (const auto* curve : rightAxisCurves) {
+            // Цветной квадрат
+            HBRUSH hBrush = CreateSolidBrush(curve->color);
+            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+            Rectangle(hdc, legendX + 10, currentY + 5, legendX + 20, currentY + 15);
+            SelectObject(hdc, hOldBrush);
+            DeleteObject(hBrush);
+            
+            // Линия (пунктирная)
+            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            MoveToEx(hdc, legendX + 25, currentY + 10, NULL);
+            LineTo(hdc, legendX + 40, currentY + 10);
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+            
+            // Название
+            std::wstring name(curve->displayName.begin(), curve->displayName.end());
+            TextOut(hdc, legendX + 45, currentY + 2, name.c_str(), (int)name.length());
+            
+            currentY += lineHeight;
+        }
+    }
+    
+    SelectObject(hdc, hOldFont);
 }

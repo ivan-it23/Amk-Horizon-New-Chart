@@ -1,0 +1,128 @@
+#pragma once
+
+#include "framework.h"
+#include "SchematicModule.h"
+#include "DataModule.h"
+#include <vector>
+#include <string>
+#include <memory>
+
+// Класс для управления выбором и конфигурацией кривых
+class CurveSelectionModule {
+private:
+    // Стандартные цвета для кривых (4 цвета для T1-T4)
+    static const COLORREF CURVE_COLORS[4];
+    
+    // Текущие конфигурации для каждого графика
+    ChartConfiguration chart1Config;
+    ChartConfiguration chart2Config;
+    
+public:
+    CurveSelectionModule();
+    ~CurveSelectionModule();
+    
+    // Основные методы управления кривыми
+    std::vector<CurveDefinition> GetAvailableCurves(const SchematicSelection& selection) const;
+    void ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config);
+    ChartConfiguration GetChartConfiguration(int chartNumber) const;
+    
+    // Управление пресетами
+    void ApplyPreset(PresetType preset, int chartNumber, FrequencyBand frequency);
+    ChartConfiguration CreatePresetConfiguration(PresetType preset, FrequencyBand frequency) const;
+    
+    // Копирование настроек между графиками
+    void CopySettings(int fromChart, int toChart);
+    bool HasConfiguration(int chartNumber) const;
+    
+    // Валидация и проверки
+    bool ValidateConfiguration(const ChartConfiguration& config) const;
+    std::string GetConfigurationError(const ChartConfiguration& config) const;
+    
+    // Вычисление данных для кривых
+    void CalculateCurveData(const ChartConfiguration& config, 
+                           const DataModule* dataModule,
+                           std::vector<std::vector<float>>& leftAxisData,
+                           std::vector<std::vector<float>>& rightAxisData,
+                           std::vector<CurveDefinition>& leftAxisCurves,
+                           std::vector<CurveDefinition>& rightAxisCurves) const;
+    
+private:
+    // Методы определения доступных кривых для различных выборов
+    void AddTwoReceiversCurves(std::vector<CurveDefinition>& curves, 
+                              const SchematicSelection& selection) const;
+    void AddSingleReceiverCurves(std::vector<CurveDefinition>& curves, 
+                                const SchematicSelection& selection) const;
+    void AddTransmitterCurves(std::vector<CurveDefinition>& curves, 
+                             const SchematicSelection& selection) const;
+    void AddSilentTransmitterCurves(std::vector<CurveDefinition>& curves, 
+                                   const SchematicSelection& selection) const;
+    
+    // Вспомогательные методы создания кривых
+    CurveDefinition CreateRatioCurve(int transmitterIndex, FrequencyBand frequency) const;
+    CurveDefinition CreateDifferenceCurve(int transmitterIndex, FrequencyBand frequency) const;
+    CurveDefinition CreateAmplitudeCurve(int transmitterIndex, int receiverIndex, 
+                                        FrequencyBand frequency) const;
+    CurveDefinition CreatePhaseCurve(int transmitterIndex, int receiverIndex, 
+                                    FrequencyBand frequency) const;
+    CurveDefinition CreateSilentAmplitudeCurve(int receiverIndex, FrequencyBand frequency) const;
+    
+    // Методы для работы с цветами и стилями
+    COLORREF GetCurveColor(int transmitterIndex) const;
+    int GetLineStyle(int yAxisGroup) const;  // PS_SOLID для левой оси, PS_DASH для правой
+    
+    // Методы для создания пресетов
+    ChartConfiguration CreateAllAmplitudesR1Preset(FrequencyBand frequency) const;
+    ChartConfiguration CreateAllAmplitudesR2Preset(FrequencyBand frequency) const;
+    ChartConfiguration CreateAllPhasesR1Preset(FrequencyBand frequency) const;
+    ChartConfiguration CreateAllPhasesR2Preset(FrequencyBand frequency) const;
+    ChartConfiguration CreateAmplitudeRatiosPreset(FrequencyBand frequency) const;
+    ChartConfiguration CreatePhaseDifferencesPreset(FrequencyBand frequency) const;
+    
+    // Вспомогательные методы для вычисления данных
+    void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
+                           const DataModule* dataModule, std::vector<float>& outData) const;
+    void CalculateDifferenceData(int transmitterIndex, FrequencyBand frequency,
+                                const DataModule* dataModule, std::vector<float>& outData) const;
+    void CalculateAmplitudeData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
+                               const DataModule* dataModule, std::vector<float>& outData) const;
+    void CalculatePhaseData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
+                           const DataModule* dataModule, std::vector<float>& outData) const;
+    void CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
+                                     const DataModule* dataModule, std::vector<float>& outData) const;
+    
+    // Методы для работы с индексами данных
+    int GetActiveTransmitterIndex(int transmitterIndex, FrequencyBand frequency) const;
+    int GetSilentTransmitterIndex(FrequencyBand frequency) const;
+    
+    // Генерация уникальных идентификаторов кривых
+    std::string GenerateCurveId(ElementType element, int elementIndex, 
+                               DataType dataType, FrequencyBand frequency, 
+                               int receiverIndex = -1) const;
+    std::string GenerateDisplayName(ElementType element, int elementIndex, 
+                                   DataType dataType, int receiverIndex = -1) const;
+    std::string GetDataTypeDisplayName(DataType dataType) const;
+    std::string GetFrequencyDisplayName(FrequencyBand frequency) const;
+    std::string GetUnitsForDataType(DataType dataType) const;
+    
+    // Вспомогательные методы
+    void SortCurvesByType(std::vector<CurveDefinition>& curves) const;
+    int GetDataTypePriority(DataType dataType) const;
+};
+
+// Вспомогательные функции для работы с кривыми
+namespace CurveUtils {
+    // Проверка совместимости типов данных для двойных осей
+    bool CanUseDualAxis(const std::vector<CurveDefinition>& curves);
+    
+    // Группировка кривых по осям
+    void GroupCurvesByAxis(const std::vector<CurveDefinition>& curves,
+                          std::vector<CurveDefinition>& leftAxisCurves,
+                          std::vector<CurveDefinition>& rightAxisCurves);
+    
+    // Определение единиц измерения для оси
+    std::string DetermineAxisUnits(const std::vector<CurveDefinition>& axisCurves);
+    
+    // Валидация конфигурации кривых
+    bool ValidateCurveConfiguration(const std::vector<CurveDefinition>& curves, 
+                                   std::string& errorMessage);
+}

@@ -4,6 +4,10 @@
 #include <string>
 #include <cstdint>
 
+// Forward declarations
+struct CurveDefinition;
+struct ChartConfiguration;
+
 // Структура данных прибора
 struct GP_TOOL_DATA {
     uint32_t signature;      // Сигнатура для идентификации данных
@@ -61,15 +65,77 @@ public:
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
 
-    // Вычисления данных для графиков
+    // Вычисления данных для графиков (существующие методы для обратной совместимости)
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const;
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData, 
                            double minX, double maxX, double minY, double maxY) const;
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
                             const std::vector<bool>& enabledTransmitters, double minX, double maxX, double minY, double maxY) const;
     
+    // Новые оптимизированные методы для работы с конфигурациями кривых
+    void CalculateChartDataFromConfiguration(const ChartConfiguration& config,
+                                           std::vector<std::vector<float>>& leftAxisData,
+                                           std::vector<std::vector<float>>& rightAxisData) const;
+    
+    void CalculateChartDataFromConfiguration(const ChartConfiguration& config,
+                                           std::vector<std::vector<float>>& leftAxisData,
+                                           std::vector<std::vector<float>>& rightAxisData,
+                                           double minX, double maxX, double minY, double maxY) const;
+    
+    // Новые методы для работы с произвольными кривыми
+    void CalculateCustomCurveData(const std::vector<CurveDefinition>& curves,
+                                 std::vector<std::vector<float>>& leftAxisData,
+                                 std::vector<std::vector<float>>& rightAxisData) const;
+    
+    void CalculateCustomCurveData(const std::vector<CurveDefinition>& curves,
+                                 std::vector<std::vector<float>>& leftAxisData,
+                                 std::vector<std::vector<float>>& rightAxisData,
+                                 double minX, double maxX, double minY, double maxY) const;
+    
+    // Вычисление данных для отдельной кривой
+    void CalculateSingleCurveData(const CurveDefinition& curve, 
+                                 std::vector<float>& outData) const;
+    
+    void CalculateSingleCurveData(const CurveDefinition& curve, 
+                                 std::vector<float>& outData,
+                                 double minX, double maxX, double minY, double maxY) const;
+    
+    // Группировка кривых по осям
+    void GroupCurvesByAxis(const std::vector<CurveDefinition>& curves,
+                          std::vector<CurveDefinition>& leftAxisCurves,
+                          std::vector<CurveDefinition>& rightAxisCurves) const;
+    
     // Вспомогательные методы
     std::wstring GetDataTypeName(DataType type) const;
     int GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const;
     int GetSilentTransmitterIndex(FrequencyBand freq) const;
+    
+private:
+    // Внутренние методы для вычисления различных типов данных
+    void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
+                           std::vector<float>& outData, 
+                           double minX, double maxX) const;
+    
+    void CalculateDifferenceData(int transmitterIndex, FrequencyBand frequency,
+                                std::vector<float>& outData,
+                                double minX, double maxX) const;
+    
+    void CalculateAmplitudeData(int transmitterIndex, int receiverIndex, 
+                               FrequencyBand frequency, std::vector<float>& outData,
+                               double minX, double maxX) const;
+    
+    void CalculatePhaseData(int transmitterIndex, int receiverIndex, 
+                           FrequencyBand frequency, std::vector<float>& outData,
+                           double minX, double maxX) const;
+    
+    void CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
+                                     std::vector<float>& outData,
+                                     double minX, double maxX) const;
+    
+    // Вспомогательные методы для работы с индексами
+    int GetDataArrayIndex(int transmitterIndex, int receiverIndex, 
+                         FrequencyBand frequency) const;
+    
+    bool IsValidDataRange(double minX, double maxX) const;
+    std::pair<size_t, size_t> GetDataIndexRange(double minX, double maxX) const;
 };

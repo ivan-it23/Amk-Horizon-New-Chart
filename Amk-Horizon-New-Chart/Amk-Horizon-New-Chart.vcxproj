@@ -91,6 +91,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -106,6 +107,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -123,6 +125,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>WIN32;NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -142,6 +145,7 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_WINDOWS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp14</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -154,10 +158,12 @@
     <ClInclude Include="Amk-Horizon-New-Chart.h" />
     <ClInclude Include="ChartManager.h" />
     <ClInclude Include="ChartModule.h" />
+    <ClInclude Include="CurveSelectionModule.h" />
     <ClInclude Include="DataModule.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LayoutModule.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="SchematicModule.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="UIModule.h" />
   </ItemGroup>
@@ -165,8 +171,10 @@
     <ClCompile Include="Amk-Horizon-New-Chart.cpp" />
     <ClCompile Include="ChartManager.cpp" />
     <ClCompile Include="ChartModule.cpp" />
+    <ClCompile Include="CurveSelectionModule.cpp" />
     <ClCompile Include="DataModule.cpp" />
     <ClCompile Include="LayoutModule.cpp" />
+    <ClCompile Include="SchematicModule.cpp" />
     <ClCompile Include="UIModule.cpp" />
   </ItemGroup>
   <ItemGroup>

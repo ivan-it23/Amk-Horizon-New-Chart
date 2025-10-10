@@ -4,6 +4,9 @@
 #include "DataModule.h"
 #include <vector>
 
+// Предварительное объявление
+struct CurveDefinition;
+
 // Класс для отрисовки графиков
 class ChartModule {
 private:
@@ -25,6 +28,13 @@ public:
 
     // Новый метод для отрисовки прямоугольника зума
     void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
+    
+    // Методы для поддержки двойных осей
+    void DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                          const std::vector<CurveDefinition>& curves,
+                          const std::vector<std::vector<float>>& leftAxisData,
+                          const std::vector<std::vector<float>>& rightAxisData,
+                          const std::wstring& title, bool hasData) const;
 
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
@@ -43,6 +53,24 @@ public:
 
     // Хит-тест для чекбоксов в легенде
     int HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const;
+    
+    // Методы для двойных осей
+    void DrawDualAxisBackground(HDC hdc, const RECT& rect) const;
+    void DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
+                         const std::vector<std::vector<float>>& leftAxisData,
+                         const std::vector<std::vector<float>>& rightAxisData) const;
+    void DrawLeftAxis(HDC hdc, const RECT& plotRect, 
+                     const std::vector<std::vector<float>>& leftAxisData,
+                     const std::string& units) const;
+    void DrawRightAxis(HDC hdc, const RECT& plotRect, 
+                      const std::vector<std::vector<float>>& rightAxisData,
+                      const std::string& units) const;
+    void DrawDualAxisData(HDC hdc, const RECT& plotRect,
+                         const std::vector<CurveDefinition>& curves,
+                         const std::vector<std::vector<float>>& leftAxisData,
+                         const std::vector<std::vector<float>>& rightAxisData) const;
+    void DrawDualAxisLegend(HDC hdc, const RECT& rect,
+                           const std::vector<CurveDefinition>& curves) const;
 
 private:
     // Вспомогательные методы для расчетов

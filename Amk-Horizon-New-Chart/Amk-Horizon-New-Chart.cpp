@@ -188,6 +188,21 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 break;
+            // Обработка кнопок схемы прибора
+            case IDC_CHART1_SCHEMATIC_BTN:
+                if (g_chartManager)
+                {
+                    g_chartManager->ShowSchematicDialog(hWnd, 1);
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+                break;
+            case IDC_CHART2_SCHEMATIC_BTN:
+                if (g_chartManager)
+                {
+                    g_chartManager->ShowSchematicDialog(hWnd, 2);
+                    InvalidateRect(hWnd, NULL, TRUE);
+                }
+                break;
             default:
                 if (g_chartManager)
                 {
@@ -246,6 +261,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_chartManager->HandleScrollEvent(hWnd, wParam, lParam);
         }
         break;
+    case WM_USER + 100: // Пользовательское сообщение для обновления графика после применения настроек схемы
+        if (g_chartManager)
+        {
+            int chartNumber = static_cast<int>(wParam);
+            if (chartNumber >= 1 && chartNumber <= 2)
+            {
+                // Обновляем конкретный график после применения настроек
+                InvalidateRect(hWnd, NULL, TRUE);
+            }
+        }
+        break;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -296,5 +322,3 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
     }
     return (INT_PTR)FALSE;
 }
-
-// Основная логика приложения теперь находится в ChartManager

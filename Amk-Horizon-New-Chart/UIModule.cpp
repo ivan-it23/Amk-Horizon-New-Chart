@@ -6,9 +6,11 @@ UIModule::UIModule()
     , hChart1DataCombo(nullptr)
     , hChart1FreqCombo(nullptr)
     , hChart1RefreshBtn(nullptr)
+    , hChart1SchematicBtn(nullptr)
     , hChart2DataCombo(nullptr)
     , hChart2FreqCombo(nullptr)
     , hChart2RefreshBtn(nullptr)
+    , hChart2SchematicBtn(nullptr)
     , hChart1HScrollBar(nullptr)
     , hChart2HScrollBar(nullptr)
     , chart1DataType(DataType::PHASE_DIFFERENCE)
@@ -41,6 +43,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         420, 28, 80, 25, hWnd, (HMENU)IDC_CHART1_REFRESH_BTN, hInst, NULL);
     
+    hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Схема прибора",
+        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        510, 28, 100, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
+    
     // Создание элементов управления второго графика (изначально скрыты)
     hChart2DataCombo = CreateWindow(L"COMBOBOX", NULL,
         WS_CHILD | CBS_DROPDOWNLIST | WS_VSCROLL,
@@ -53,6 +59,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2RefreshBtn = CreateWindow(L"BUTTON", L"Refresh",
         WS_CHILD | BS_PUSHBUTTON,
         310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
+    
+    hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Схема прибора",
+        WS_CHILD | BS_PUSHBUTTON,
+        400, 300, 100, 25, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
 
     // Создание горизонтальных скроллбаров (изначально скрыты)
     hChart1HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
@@ -73,12 +83,14 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hChart2DataCombo, showFlag);
     ShowWindow(hChart2FreqCombo, showFlag);
     ShowWindow(hChart2RefreshBtn, showFlag);
+    ShowWindow(hChart2SchematicBtn, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hChart2DataCombo, HWND_TOP, 10, panel2Y, 180, 25, SWP_NOSIZE);
     SetWindowPos(hChart2FreqCombo, HWND_TOP, 200, panel2Y, 100, 25, SWP_NOSIZE);
     SetWindowPos(hChart2RefreshBtn, HWND_TOP, 310, panel2Y, 80, 25, SWP_NOSIZE);
+    SetWindowPos(hChart2SchematicBtn, HWND_TOP, 400, panel2Y, 100, 25, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {
@@ -231,4 +243,25 @@ HWND UIModule::GetHScrollBar(int chartNumber) const {
     if (chartNumber == 1) return hChart1HScrollBar;
     if (chartNumber == 2) return hChart2HScrollBar;
     return nullptr;
+}
+
+// Методы для установки настроек (для синхронизации с новой системой кривых)
+void UIModule::SetChart1DataType(DataType dataType) {
+    chart1DataType = dataType;
+    SendMessage(hChart1DataCombo, CB_SETCURSEL, static_cast<int>(dataType), 0);
+}
+
+void UIModule::SetChart1Frequency(FrequencyBand frequency) {
+    chart1Frequency = frequency;
+    SendMessage(hChart1FreqCombo, CB_SETCURSEL, static_cast<int>(frequency), 0);
+}
+
+void UIModule::SetChart2DataType(DataType dataType) {
+    chart2DataType = dataType;
+    SendMessage(hChart2DataCombo, CB_SETCURSEL, static_cast<int>(dataType), 0);
+}
+
+void UIModule::SetChart2Frequency(FrequencyBand frequency) {
+    chart2Frequency = frequency;
+    SendMessage(hChart2FreqCombo, CB_SETCURSEL, static_cast<int>(frequency), 0);
 }

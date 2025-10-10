@@ -12,9 +12,11 @@ private:
     HWND hChart1DataCombo;
     HWND hChart1FreqCombo;
     HWND hChart1RefreshBtn;
+    HWND hChart1SchematicBtn;  // Кнопка схемы прибора для первого графика
     HWND hChart2DataCombo;
     HWND hChart2FreqCombo;
     HWND hChart2RefreshBtn;
+    HWND hChart2SchematicBtn;  // Кнопка схемы прибора для второго графика
 
     // Скроллбары для графиков (показываются только при зуме)
     HWND hChart1HScrollBar;  // Горизонтальный скроллбар для первого графика
@@ -51,6 +53,12 @@ public:
     FrequencyBand GetChart2Frequency() const { return chart2Frequency; }
     const std::vector<bool>& GetChart1EnabledTransmitters() const { return chart1EnabledTransmitters; }
     const std::vector<bool>& GetChart2EnabledTransmitters() const { return chart2EnabledTransmitters; }
+    
+    // Установка настроек (для синхронизации с новой системой кривых)
+    void SetChart1DataType(DataType dataType);
+    void SetChart1Frequency(FrequencyBand frequency);
+    void SetChart2DataType(DataType dataType);
+    void SetChart2Frequency(FrequencyBand frequency);
 
     // Обновление состояния передатчиков
     void SetChart1TransmitterEnabled(int transmitterIdx, bool enabled);

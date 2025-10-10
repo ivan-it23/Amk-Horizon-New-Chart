@@ -9,6 +9,15 @@
 #include <commdlg.h>
 #include <memory>
 
+// Предварительные объявления новых модулей
+class SchematicModule;
+class CurveSelectionModule;
+
+// Forward declarations для структур
+struct CurveDefinition;
+struct ChartConfiguration;
+enum class PresetType;
+
 // Главный класс приложения с модульной архитектурой
 class ChartManager {
 private:
@@ -17,6 +26,8 @@ private:
     std::unique_ptr<ChartModule> chartModule;
     std::unique_ptr<UIModule> uiModule;
     std::unique_ptr<LayoutModule> layoutModule;
+    std::unique_ptr<SchematicModule> schematicModule;
+    std::unique_ptr<CurveSelectionModule> curveSelectionModule;
     
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
@@ -67,8 +78,41 @@ public:
     
     // Метод для частичной перерисовки конкретного графика
     void InvalidateChart(HWND hWnd, int chartNumber);
+    
+    // Метод для отображения схемы прибора
+    void ShowSchematicDialog(HWND hWnd, int chartNumber);
+    
+    // Методы для работы с конфигурациями кривых
+    void ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config);
+    ChartConfiguration GetChartConfiguration(int chartNumber) const;
+    bool HasCurveConfiguration(int chartNumber) const;
+    
+    // Методы для копирования настроек между графиками
+    void CopyChartSettings(int fromChart, int toChart);
+    
+    // Методы для применения пресетов
+    void ApplyPreset(int chartNumber, PresetType preset, FrequencyBand frequency);
+    
+    // Методы для обработки событий от диалогового окна схемы
+    void HandleSchematicDialogResult(HWND hWnd, int chartNumber, bool applied);
+    void HandlePresetCommand(HWND hWnd, int chartNumber, int presetId, FrequencyBand frequency);
+    void HandleCopySettingsCommand(HWND hWnd, int fromChart, int toChart);
+    
+    // Методы для обеспечения совместимости
+    void ResetToLegacyMode(int chartNumber);
+    bool IsUsingNewCurveSystem(int chartNumber) const;
+    void SynchronizeLegacyUIWithNewSystem(int chartNumber);
+    void HandleLegacyUIChange(HWND hWnd, int chartNumber);
 
 private:
+    // Методы для новой системы кривых
+    void DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber);
+    void DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumber);
+    
+    // Вспомогательные методы для интеграции
+    void UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumber);
+    void SynchronizeUIWithConfiguration(int chartNumber);
+    bool ValidateChartConfiguration(const ChartConfiguration& config) const;
     // Вспомогательные методы
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;
     int GetChartAtPoint(int x, int y) const;
