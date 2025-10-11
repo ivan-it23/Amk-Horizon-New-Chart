@@ -43,9 +43,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         420, 28, 80, 25, hWnd, (HMENU)IDC_CHART1_REFRESH_BTN, hInst, NULL);
     
-    hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Схема прибора",
+    hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        510, 28, 100, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
+        510, 28, 120, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
     
     // Создание элементов управления второго графика (изначально скрыты)
     hChart2DataCombo = CreateWindow(L"COMBOBOX", NULL,
@@ -60,9 +60,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | BS_PUSHBUTTON,
         310, 300, 80, 25, hWnd, (HMENU)IDC_CHART2_REFRESH_BTN, hInst, NULL);
     
-    hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Схема прибора",
+    hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
         WS_CHILD | BS_PUSHBUTTON,
-        400, 300, 100, 25, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
+        400, 300, 120, 25, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
 
     // Создание горизонтальных скроллбаров (изначально скрыты)
     hChart1HScrollBar = CreateWindow(L"SCROLLBAR", NULL,

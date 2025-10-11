@@ -114,7 +114,7 @@ bool CurveSelectionModule::ValidateConfiguration(const ChartConfiguration& confi
 
 std::string CurveSelectionModule::GetConfigurationError(const ChartConfiguration& config) const {
     if (config.curves.empty()) {
-        return "Не выбрано ни одной кривой для отображения";
+        return "No curves selected for display";
     }
     
     // Проверяем, что хотя бы одна кривая включена
@@ -129,7 +129,7 @@ std::string CurveSelectionModule::GetConfigurationError(const ChartConfiguration
     }
     
     if (!hasEnabledCurve) {
-        return "Все кривые отключены";
+        return "All curves are disabled";
     }
     
     // Проверяем совместимость типов данных для двойных осей
@@ -145,7 +145,7 @@ std::string CurveSelectionModule::GetConfigurationError(const ChartConfiguration
         }
         
         if (config.hasDualAxis && (!hasLeftAxisCurves || !hasRightAxisCurves)) {
-            return "Для двойных осей необходимы кривые на обеих осях";
+            return "Dual axis requires curves on both axes";
         }
     }
     
@@ -606,27 +606,27 @@ std::string CurveSelectionModule::GetDataTypeDisplayName(DataType dataType) cons
         case DataType::AMPLITUDE_RX2:
         case DataType::SILENT_AMPLITUDE_RX1:
         case DataType::SILENT_AMPLITUDE_RX2:
-            return "Амплитуда";
+            return "Amplitude";
         case DataType::PHASE_RX1:
         case DataType::PHASE_RX2:
-            return "Фаза";
+            return "Phase";
         case DataType::AMPLITUDE_RATIO:
-            return "Отношение амплитуд";
+            return "Amplitude Ratio";
         case DataType::PHASE_DIFFERENCE:
-            return "Разность фаз";
+            return "Phase Difference";
         default:
-            return "Неизвестно";
+            return "Unknown";
     }
 }
 
 std::string CurveSelectionModule::GetFrequencyDisplayName(FrequencyBand frequency) const {
     switch (frequency) {
         case FrequencyBand::FREQ_400_KHZ:
-            return "400";
+            return "400 kHz";
         case FrequencyBand::FREQ_2000_KHZ:
-            return "2000";
+            return "2000 kHz";
         default:
-            return "UNK";
+            return "Unknown";
     }
 }
 
@@ -636,13 +636,13 @@ std::string CurveSelectionModule::GetUnitsForDataType(DataType dataType) const {
         case DataType::AMPLITUDE_RX2:
         case DataType::SILENT_AMPLITUDE_RX1:
         case DataType::SILENT_AMPLITUDE_RX2:
-            return "В";
+            return "V";
         case DataType::PHASE_RX1:
         case DataType::PHASE_RX2:
         case DataType::PHASE_DIFFERENCE:
-            return "°";
+            return "deg";
         case DataType::AMPLITUDE_RATIO:
-            return "В/В";
+            return "V/V";
         default:
             return "";
     }
@@ -680,7 +680,7 @@ namespace CurveUtils {
     bool ValidateCurveConfiguration(const std::vector<CurveDefinition>& curves, 
                                    std::string& errorMessage) {
         if (curves.empty()) {
-            errorMessage = "Нет кривых для валидации";
+            errorMessage = "No curves to validate";
             return false;
         }
         
@@ -696,7 +696,7 @@ namespace CurveUtils {
                     leftAxisUnits = curve.units;
                     hasLeftAxis = true;
                 } else if (leftAxisUnits != curve.units) {
-                    errorMessage = "Несовместимые единицы измерения на левой оси";
+                    errorMessage = "Incompatible units on left axis";
                     return false;
                 }
             } else if (curve.yAxisGroup == 1) {
@@ -704,7 +704,7 @@ namespace CurveUtils {
                     rightAxisUnits = curve.units;
                     hasRightAxis = true;
                 } else if (rightAxisUnits != curve.units) {
-                    errorMessage = "Несовместимые единицы измерения на правой оси";
+                    errorMessage = "Incompatible units on right axis";
                     return false;
                 }
             }
@@ -763,3 +763,48 @@ int CurveSelectionModule::GetDataTypePriority(DataType dataType) const {
             return 999; // Неизвестные типы в конце
     }
 }
+
+// Вспомогательные функции для работы с кодировкой
+namespace {
+    // Конвертация из UTF-8 в широкую строку для отображения
+    std::wstring Utf8ToWide(const std::string& utf8str) {
+        if (utf8str.empty()) return std::wstring();
+        
+        int size_needed = MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], (int)utf8str.size(), NULL, 0);
+        std::wstring wstrTo(size_needed, 0);
+        MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], (int)utf8str.size(), &wstrTo[0], size_needed);
+        return wstrTo;
+    }
+    
+    // Конвертация из широкой строки в UTF-8
+    std::string WideToUtf8(const std::wstring& wstr) {
+        if (wstr.empty()) return std::string();
+        
+        int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+        std::string strTo(size_needed, 0);
+        WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+        return strTo;
+    }
+}
+
+// Вспомогательные функции для конвертации кодировки (если понадобятся)
+std::wstring Utf8ToWide(const std::string& utf8str) {
+    if (utf8str.empty()) return std::wstring();
+    
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], (int)utf8str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, &utf8str[0], (int)utf8str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
+std::string WideToUtf8(const std::wstring& wstr) {
+    if (wstr.empty()) return std::string();
+    
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), NULL, 0, NULL, NULL);
+    std::string strTo(size_needed, 0);
+    WideCharToMultiByte(CP_UTF8, 0, &wstr[0], (int)wstr.size(), &strTo[0], size_needed, NULL, NULL);
+    return strTo;
+}
+
+
+

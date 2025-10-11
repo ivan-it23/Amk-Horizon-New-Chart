@@ -991,7 +991,7 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                 SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
                 
                 // Устанавливаем заголовок окна
-                std::wstring title = L"Схема прибора - График " + std::to_wstring(pSchematic->targetChartNumber);
+                std::wstring title = L"Device Schematic - Chart " + std::to_wstring(pSchematic->targetChartNumber);
                 SetWindowText(hDlg, title.c_str());
                 
                 // Инициализируем элементы управления
@@ -1173,3 +1173,4 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
     }
     return (INT_PTR)FALSE;
 }
+
