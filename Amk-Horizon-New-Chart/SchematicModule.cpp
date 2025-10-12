@@ -442,57 +442,62 @@ void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
 RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType type, int index) {
     RECT rect;
     int elementWidth = 70, elementHeight = 45;
-    int spacing = 15;
-    int margin = 30;
+    int spacing = 10;
+    int margin = 20;
     
-    // Рассчитываем общую ширину для центрирования
+    // Рассчитываем общую ширину для центрирования всех 8 элементов в одну линию
     int totalWidth = schemaRect.right - schemaRect.left;
-    int availableWidth = totalWidth - 2 * margin;
+    int totalElements = 8; // T3, T1, R1, R2, T2, T4, Silent R1, Silent R2
+    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
+    int startX = schemaRect.left + (totalWidth - totalElementsWidth) / 2;
+    
+    // Все элементы располагаются в одну горизонтальную линию по центру
+    int centerY = schemaRect.top + (schemaRect.bottom - schemaRect.top - elementHeight) / 2;
+    
+    // Определяем позицию элемента в горизонтальной линии
+    int positionIndex = -1;
     
     switch (type) {
         case ElementType::TRANSMITTER:
             {
-                // Передатчики T3, T1, R1, R2, T2, T4 (слева направо)
-                int transmitterOrder[4] = {1, 0, 2, 3}; // T1=0, T2=2, T3=1, T4=3 -> порядок T3,T1,T2,T4
-                int orderIndex = 0;
-                for (int i = 0; i < 4; i++) {
-                    if (transmitterOrder[i] == index) {
-                        orderIndex = i;
-                        break;
-                    }
+                // Порядок передатчиков: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5)
+                switch (index) {
+                    case 0: positionIndex = 1; break; // T1 -> позиция 1
+                    case 1: positionIndex = 4; break; // T2 -> позиция 4  
+                    case 2: positionIndex = 0; break; // T3 -> позиция 0
+                    case 3: positionIndex = 5; break; // T4 -> позиция 5
                 }
-                
-                // Позиции: T3(0), T1(1), пропуск для приемников, T2(2), T4(3)
-                int xOffset;
-                if (orderIndex == 0) xOffset = 0; // T3
-                else if (orderIndex == 1) xOffset = 1; // T1  
-                else if (orderIndex == 2) xOffset = 4; // T2
-                else xOffset = 5; // T4
-                
-                rect.left = schemaRect.left + margin + xOffset * (elementWidth + spacing);
-                rect.top = schemaRect.top + 20;
             }
             break;
             
         case ElementType::RECEIVER:
             {
-                // Приемники R1, R2 в центре между передатчиками
-                rect.left = schemaRect.left + margin + (2 + index) * (elementWidth + spacing);
-                rect.top = schemaRect.top + 80;
+                // Приемники: R1(pos 2), R2(pos 3)
+                positionIndex = 2 + index; // R1=2, R2=3
             }
             break;
             
         case ElementType::SILENT_TX:
             {
-                // Молчащие передатчики справа
-                rect.left = schemaRect.left + totalWidth - margin - (2 - index) * (elementWidth + spacing);
-                rect.top = schemaRect.top + 140;
+                // Молчащие передатчики: Silent R1(pos 6), Silent R2(pos 7)
+                positionIndex = 6 + index; // Silent R1=6, Silent R2=7
             }
             break;
     }
     
-    rect.right = rect.left + elementWidth;
-    rect.bottom = rect.top + elementHeight;
+    // Вычисляем координаты на основе позиции
+    if (positionIndex >= 0) {
+        rect.left = startX + positionIndex * (elementWidth + spacing);
+        rect.top = centerY;
+        rect.right = rect.left + elementWidth;
+        rect.bottom = rect.top + elementHeight;
+    } else {
+        // Fallback на случай ошибки
+        rect.left = schemaRect.left + margin;
+        rect.top = centerY;
+        rect.right = rect.left + elementWidth;
+        rect.bottom = rect.top + elementHeight;
+    }
     
     return rect;
 }
@@ -789,86 +794,70 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
 
 // Дополнительные методы отрисовки схемы
 void SchematicModule::DrawSchematicConnections(HDC hdc, const RECT& rect) {
-    // Создаем перо для соединительных линий
-    HPEN connectionPen = CreatePen(PS_DOT, 1, RGB(120, 120, 120));
-    HPEN oldPen = (HPEN)SelectObject(hdc, connectionPen);
+    // В горизонтальной схеме соединительные линии не нужны
+    // Все элементы расположены в логическом порядке слева направо
+    // Можно добавить декоративные элементы или разделители между группами
     
-    // Находим позиции приемников для рисования линий
-    RECT r1Rect, r2Rect;
-    bool foundR1 = false, foundR2 = false;
-    std::vector<RECT> transmitterRects;
+    HPEN separatorPen = CreatePen(PS_SOLID, 1, RGB(180, 180, 180));
+    HPEN oldPen = (HPEN)SelectObject(hdc, separatorPen);
     
-    for (const auto& element : schematicElements) {
-        if (element.type == ElementType::RECEIVER) {
-            if (element.index == 0) {
-                r1Rect = element.rect;
-                foundR1 = true;
-            } else if (element.index == 1) {
-                r2Rect = element.rect;
-                foundR2 = true;
-            }
-        } else if (element.type == ElementType::TRANSMITTER) {
-            transmitterRects.push_back(element.rect);
-        }
-    }
+    // Рассчитываем позиции для разделителей между группами элементов
+    int elementWidth = 70, spacing = 10;
+    int totalElements = 8;
+    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
+    int startX = rect.left + (rect.right - rect.left - totalElementsWidth) / 2;
+    int centerY = rect.top + (rect.bottom - rect.top) / 2;
     
-    // Рисуем соединительные линии от передатчиков к приемникам
-    if (foundR1 && foundR2 && !transmitterRects.empty()) {
-        for (const auto& txRect : transmitterRects) {
-            int txCenterX = txRect.left + (txRect.right - txRect.left) / 2;
-            int txBottomY = txRect.bottom;
-            
-            // Рисуем изогнутые линии к приемникам
-            int r1CenterX = r1Rect.left + (r1Rect.right - r1Rect.left) / 2;
-            int r1TopY = r1Rect.top;
-            int r2CenterX = r2Rect.left + (r2Rect.right - r2Rect.left) / 2;
-            int r2TopY = r2Rect.top;
-            
-            // Промежуточная точка для изогнутых линий
-            int midY = txBottomY + (r1TopY - txBottomY) / 2;
-            
-            // Линия к R1 (изогнутая)
-            MoveToEx(hdc, txCenterX, txBottomY, NULL);
-            LineTo(hdc, txCenterX, midY);
-            LineTo(hdc, r1CenterX, midY);
-            LineTo(hdc, r1CenterX, r1TopY);
-            
-            // Линия к R2 (изогнутая)
-            MoveToEx(hdc, txCenterX, txBottomY, NULL);
-            LineTo(hdc, txCenterX, midY);
-            LineTo(hdc, r2CenterX, midY);
-            LineTo(hdc, r2CenterX, r2TopY);
-        }
-    }
+    // Разделитель между T1 и R1 (после позиции 1)
+    int sep1X = startX + 2 * (elementWidth + spacing) - spacing/2;
+    MoveToEx(hdc, sep1X, centerY - 30, NULL);
+    LineTo(hdc, sep1X, centerY + 75);
     
-    // Рисуем стрелки на концах линий для указания направления сигнала
-    DrawConnectionArrows(hdc, transmitterRects, r1Rect, r2Rect);
+    // Разделитель между R2 и T2 (после позиции 3)  
+    int sep2X = startX + 4 * (elementWidth + spacing) - spacing/2;
+    MoveToEx(hdc, sep2X, centerY - 30, NULL);
+    LineTo(hdc, sep2X, centerY + 75);
+    
+    // Разделитель между T4 и Silent R1 (после позиции 5)
+    int sep3X = startX + 6 * (elementWidth + spacing) - spacing/2;
+    MoveToEx(hdc, sep3X, centerY - 30, NULL);
+    LineTo(hdc, sep3X, centerY + 75);
     
     SelectObject(hdc, oldPen);
-    DeleteObject(connectionPen);
+    DeleteObject(separatorPen);
 }
+
 
 void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
     // Устанавливаем шрифт для подписей
-    HFONT labelFont = CreateFont(14, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+    HFONT labelFont = CreateFont(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
                                 DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
                                 DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
     HFONT oldFont = (HFONT)SelectObject(hdc, labelFont);
     
-    SetTextColor(hdc, RGB(60, 60, 60));
+    SetTextColor(hdc, RGB(80, 80, 80));
     SetBkMode(hdc, TRANSPARENT);
     
-    // Подпись для передатчиков
-    RECT transmitterLabelRect = {rect.left + 10, rect.top + 5, rect.right - 10, rect.top + 20};
-    DrawText(hdc, L"Transmitters", -1, &transmitterLabelRect, DT_LEFT | DT_SINGLELINE);
+    // Поскольку все элементы теперь в одной линии, добавляем подписи под каждым элементом
+    // Получаем позиции элементов для подписей
+    int elementWidth = 70, spacing = 10;
+    int totalElements = 8;
+    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
+    int startX = rect.left + (rect.right - rect.left - totalElementsWidth) / 2;
+    int centerY = rect.top + (rect.bottom - rect.top) / 2;
+    int labelY = centerY + 45 + 5; // Под элементами
     
-    // Подпись для приемников
-    RECT receiverLabelRect = {rect.left + 10, rect.top + 65, rect.right - 10, rect.top + 80};
-    DrawText(hdc, L"Receivers", -1, &receiverLabelRect, DT_LEFT | DT_SINGLELINE);
+    // Подписи типов элементов под соответствующими позициями
+    std::wstring labels[8] = {
+        L"(Transmitter)", L"(Transmitter)", L"(Receiver)", L"(Receiver)", 
+        L"(Transmitter)", L"(Transmitter)", L"(Silent TX)", L"(Silent TX)"
+    };
     
-    // Подпись для молчащих передатчиков
-    RECT silentLabelRect = {rect.left + 10, rect.top + 125, rect.right - 10, rect.top + 140};
-    DrawText(hdc, L"Silent Transmitters", -1, &silentLabelRect, DT_LEFT | DT_SINGLELINE);
+    for (int i = 0; i < 8; i++) {
+        int labelX = startX + i * (elementWidth + spacing);
+        RECT labelRect = {labelX, labelY, labelX + elementWidth, labelY + 15};
+        DrawText(hdc, labels[i].c_str(), -1, &labelRect, DT_CENTER | DT_SINGLELINE);
+    }
     
     SelectObject(hdc, oldFont);
     DeleteObject(labelFont);
@@ -876,40 +865,34 @@ void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
 
 void SchematicModule::DrawConnectionArrows(HDC hdc, const std::vector<RECT>& transmitterRects, 
                                           const RECT& r1Rect, const RECT& r2Rect) {
-    // Создаем перо для стрелок
-    HPEN arrowPen = CreatePen(PS_SOLID, 2, RGB(80, 80, 80));
-    HPEN oldPen = (HPEN)SelectObject(hdc, arrowPen);
-    HBRUSH arrowBrush = CreateSolidBrush(RGB(80, 80, 80));
-    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, arrowBrush);
+    // В горизонтальной схеме стрелки не нужны, так как логика понятна из расположения
+    // Можно добавить небольшие индикаторы направления сигнала, если необходимо
     
-    int arrowSize = 6;
+    // Создаем перо для индикаторов
+    HPEN indicatorPen = CreatePen(PS_SOLID, 1, RGB(120, 120, 120));
+    HPEN oldPen = (HPEN)SelectObject(hdc, indicatorPen);
     
-    // Рисуем стрелки на приемниках (указывают на входящий сигнал)
+    // Добавляем небольшие стрелки над приемниками для указания входящего сигнала
+    int arrowSize = 4;
+    
+    // Стрелка над R1
     int r1CenterX = r1Rect.left + (r1Rect.right - r1Rect.left) / 2;
-    int r1TopY = r1Rect.top;
+    int r1TopY = r1Rect.top - 8;
+    
+    MoveToEx(hdc, r1CenterX - arrowSize, r1TopY - arrowSize, NULL);
+    LineTo(hdc, r1CenterX, r1TopY);
+    LineTo(hdc, r1CenterX + arrowSize, r1TopY - arrowSize);
+    
+    // Стрелка над R2
     int r2CenterX = r2Rect.left + (r2Rect.right - r2Rect.left) / 2;
-    int r2TopY = r2Rect.top;
+    int r2TopY = r2Rect.top - 8;
     
-    // Стрелка на R1
-    POINT r1Arrow[3] = {
-        {r1CenterX, r1TopY - 2},
-        {r1CenterX - arrowSize, r1TopY - arrowSize - 2},
-        {r1CenterX + arrowSize, r1TopY - arrowSize - 2}
-    };
-    Polygon(hdc, r1Arrow, 3);
+    MoveToEx(hdc, r2CenterX - arrowSize, r2TopY - arrowSize, NULL);
+    LineTo(hdc, r2CenterX, r2TopY);
+    LineTo(hdc, r2CenterX + arrowSize, r2TopY - arrowSize);
     
-    // Стрелка на R2
-    POINT r2Arrow[3] = {
-        {r2CenterX, r2TopY - 2},
-        {r2CenterX - arrowSize, r2TopY - arrowSize - 2},
-        {r2CenterX + arrowSize, r2TopY - arrowSize - 2}
-    };
-    Polygon(hdc, r2Arrow, 3);
-    
-    SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
-    DeleteObject(arrowBrush);
-    DeleteObject(arrowPen);
+    DeleteObject(indicatorPen);
 }
 
 // Методы для интеллектуальной обработки выбора элементов
