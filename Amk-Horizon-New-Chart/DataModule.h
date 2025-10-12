@@ -110,8 +110,7 @@ public:
     int GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const;
     int GetSilentTransmitterIndex(FrequencyBand freq) const;
     
-private:
-    // Внутренние методы для вычисления различных типов данных
+    // Методы для вычисления различных типов данных (публичные для использования в CurveSelectionModule)
     void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
                            std::vector<float>& outData, 
                            double minX, double maxX) const;
@@ -131,6 +130,8 @@ private:
     void CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                      std::vector<float>& outData,
                                      double minX, double maxX) const;
+    
+private:
     
     // Вспомогательные методы для работы с индексами
     int GetDataArrayIndex(int transmitterIndex, int receiverIndex, 

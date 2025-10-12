@@ -519,32 +519,77 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
 // Методы вычисления данных (заглушки)
 void CurveSelectionModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
                                              const DataModule* dataModule, std::vector<float>& outData) const {
-    // TODO: Реализовать вычисление отношений амплитуд
-    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        outData.clear();
+        return;
+    }
+    
+    // Используем полный диапазон данных
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    
+    // Вызываем метод DataModule для вычисления отношений амплитуд
+    dataModule->CalculateRatioData(transmitterIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand frequency,
                                                   const DataModule* dataModule, std::vector<float>& outData) const {
-    // TODO: Реализовать вычисление разностей фаз
-    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        outData.clear();
+        return;
+    }
+    
+    // Используем полный диапазон данных
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    
+    // Вызываем метод DataModule для вычисления разностей фаз
+    dataModule->CalculateDifferenceData(transmitterIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
                                                  const DataModule* dataModule, std::vector<float>& outData) const {
-    // TODO: Реализовать вычисление амплитуд
-    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        outData.clear();
+        return;
+    }
+    
+    // Используем полный диапазон данных
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    
+    // Вызываем метод DataModule для вычисления амплитуд
+    dataModule->CalculateAmplitudeData(transmitterIndex, receiverIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculatePhaseData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
                                              const DataModule* dataModule, std::vector<float>& outData) const {
-    // TODO: Реализовать вычисление фаз
-    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        outData.clear();
+        return;
+    }
+    
+    // Используем полный диапазон данных
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    
+    // Вызываем метод DataModule для вычисления фаз
+    dataModule->CalculatePhaseData(transmitterIndex, receiverIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                                        const DataModule* dataModule, std::vector<float>& outData) const {
-    // TODO: Реализовать вычисление амплитуд молчащих передатчиков
-    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        outData.clear();
+        return;
+    }
+    
+    // Используем полный диапазон данных
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    
+    // Вызываем метод DataModule для вычисления амплитуд молчащих передатчиков
+    dataModule->CalculateSilentAmplitudeData(receiverIndex, frequency, outData, minX, maxX);
 }
 
 // Генерация идентификаторов и имен
