@@ -374,6 +374,15 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     return plotRect;
 }
 
+RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
+    RECT plotRect = chartRect;
+    plotRect.left += 50;   // Отступ для левой Y-оси
+    plotRect.top += 40;    // Отступ для заголовка
+    plotRect.right -= 80;  // Увеличенный отступ для правой Y-оси и её подписей
+    plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
+    return plotRect;
+}
+
 void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const {
     FindMinMaxValues(chartData, minVal, maxVal, 0.0, 100.0); // По умолчанию используем 0-100 для Y
 }
@@ -488,8 +497,8 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     // Отрисовка заголовка
     DrawChartTitle(hdc, rect, title);
     
-    // Расчет области для графика
-    RECT plotRect = CalculatePlotRect(rect);
+    // Расчет области для графика с двойными осями
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
     
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
@@ -681,12 +690,14 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
         maxVal += padding;
     }
     
-    // Рисуем правую ось
+    // Рисуем правую ось с отступом от края
+    int rightAxisX = plotRect.right + 40; // Отступ 40 пикселей от области графика
+    
     HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
-    MoveToEx(hdc, plotRect.right, plotRect.top, NULL);
-    LineTo(hdc, plotRect.right, plotRect.bottom);
+    MoveToEx(hdc, rightAxisX, plotRect.top, NULL);
+    LineTo(hdc, rightAxisX, plotRect.bottom);
     
     SelectObject(hdc, hOldPen);
     DeleteObject(hPen);
@@ -706,7 +717,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
                 std::wstringstream ss;
                 ss << std::fixed << std::setprecision(1) << currentYVal;
                 std::wstring label = ss.str();
-                TextOut(hdc, plotRect.right + 5, screenY - 7, label.c_str(), (int)label.length());
+                TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
             }
         }
         currentYVal += niceStepY;
@@ -715,7 +726,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     // Подпись единиц измерения правой оси
     if (!units.empty()) {
         std::wstring wunits(units.begin(), units.end());
-        TextOut(hdc, plotRect.right + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+        TextOut(hdc, rightAxisX + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
 }
 

@@ -75,6 +75,7 @@ public:
 private:
     // Вспомогательные методы для расчетов
     RECT CalculatePlotRect(const RECT& chartRect) const;
+    RECT CalculateDualAxisPlotRect(const RECT& chartRect) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const;
     
