@@ -151,7 +151,7 @@ std::string CurveSelectionModule::GetConfigurationError(const ChartConfiguration
     
     // Проверяем максимальное количество кривых
     if (enabledCurvesCount > 8) {
-        return "Слишком много кривых для отображения (максимум 8)";
+        return "Too many curves for display (maximum 8)";
     }
     
     return ""; // Конфигурация корректна
@@ -293,7 +293,7 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             
             // Обновляем отображаемое имя для ясности
             amplitudeCurve.displayName = "T" + std::to_string(txIndex + 1) + 
-                                        " Амплитуда R" + std::to_string(rxIndex + 1);
+                                        " Amplitude R" + std::to_string(rxIndex + 1);
             curves.push_back(amplitudeCurve);
             
             // Фаза (правая ось)
@@ -303,7 +303,7 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             
             // Обновляем отображаемое имя для ясности
             phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
-                                    " Фаза R" + std::to_string(rxIndex + 1);
+                                    " Phase R" + std::to_string(rxIndex + 1);
             curves.push_back(phaseCurve);
         }
     }
@@ -322,7 +322,7 @@ void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinitio
             silentCurve.color = RGB(128, 128, 128); // Серый цвет для молчащих
             
             // Обновляем отображаемое имя
-            silentCurve.displayName = "Молчащий R" + std::to_string(i + 1) + " Амплитуда";
+            silentCurve.displayName = "Silent R" + std::to_string(i + 1) + " Amplitude";
             
             curves.push_back(silentCurve);
         }
@@ -336,7 +336,7 @@ CurveDefinition CurveSelectionModule::CreateRatioCurve(int transmitterIndex, Fre
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
                                           DataType::AMPLITUDE_RATIO);
     
-    CurveDefinition curve(id, name, "В/В", ElementType::TRANSMITTER, transmitterIndex, 
+    CurveDefinition curve(id, name, "V/V", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::AMPLITUDE_RATIO, frequency);
     curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 0; // Левая ось по умолчанию
@@ -351,7 +351,7 @@ CurveDefinition CurveSelectionModule::CreateDifferenceCurve(int transmitterIndex
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
                                           DataType::PHASE_DIFFERENCE);
     
-    CurveDefinition curve(id, name, "°", ElementType::TRANSMITTER, transmitterIndex, 
+    CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::PHASE_DIFFERENCE, frequency);
     curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 1; // Правая ось для фаз
@@ -366,7 +366,7 @@ CurveDefinition CurveSelectionModule::CreateAmplitudeCurve(int transmitterIndex,
     std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency, receiverIndex);
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
-    CurveDefinition curve(id, name, "В", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "V", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
     curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 0; // Левая ось для амплитуд
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
@@ -380,7 +380,7 @@ CurveDefinition CurveSelectionModule::CreatePhaseCurve(int transmitterIndex, int
     std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency, receiverIndex);
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
-    CurveDefinition curve(id, name, "°", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
     curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 1; // Правая ось для фаз
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
@@ -393,7 +393,7 @@ CurveDefinition CurveSelectionModule::CreateSilentAmplitudeCurve(int receiverInd
     std::string id = GenerateCurveId(ElementType::SILENT_TX, receiverIndex, dataType, frequency);
     std::string name = GenerateDisplayName(ElementType::SILENT_TX, receiverIndex, dataType);
     
-    CurveDefinition curve(id, name, "В", ElementType::SILENT_TX, receiverIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "V", ElementType::SILENT_TX, receiverIndex, dataType, frequency);
     curve.color = RGB(128, 128, 128); // Серый цвет для молчащих
     curve.yAxisGroup = 0; // Левая ось для амплитуд
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
@@ -425,7 +425,7 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR1Preset(FrequencyBa
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "В";
+    config.leftAxisUnits = "V";
     config.hasDualAxis = false;
     
     return config;
@@ -442,7 +442,7 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBa
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "В";
+    config.leftAxisUnits = "V";
     config.hasDualAxis = false;
     
     return config;
@@ -459,7 +459,7 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR1Preset(FrequencyBand f
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "°";
+    config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
     
     return config;
@@ -476,7 +476,7 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR2Preset(FrequencyBand f
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "°";
+    config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
     
     return config;
@@ -493,7 +493,7 @@ ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBa
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "В/В";
+    config.leftAxisUnits = "V/V";
     config.hasDualAxis = false;
     
     return config;
@@ -510,7 +510,7 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "°";
+    config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
     
     return config;
@@ -587,7 +587,7 @@ std::string CurveSelectionModule::GenerateDisplayName(ElementType element, int e
             oss << "R" << (elementIndex + 1) << " ";
             break;
         case ElementType::SILENT_TX:
-            oss << "Молчащий R" << (elementIndex + 1) << " ";
+            oss << "Silent R" << (elementIndex + 1) << " ";
             break;
     }
     

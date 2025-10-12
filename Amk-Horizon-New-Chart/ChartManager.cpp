@@ -619,7 +619,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                            leftAxisCurves, rightAxisCurves);
     
     // Формируем заголовок
-    std::wstring title = L"График " + std::to_wstring(chartNumber) + L" (Пользовательские кривые)";
+    std::wstring title = L"Chart " + std::to_wstring(chartNumber) + L" (Custom Curves)";
     
     // Проверяем, нужны ли двойные оси
     if (config.hasDualAxis && !rightAxisData.empty()) {

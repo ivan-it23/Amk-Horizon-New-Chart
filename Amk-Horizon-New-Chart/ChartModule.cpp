@@ -859,7 +859,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     // Отрисовка легенды левой оси
     if (!leftAxisCurves.empty()) {
         SetTextColor(hdc, RGB(0, 0, 0));
-        TextOut(hdc, legendX, currentY, L"Левая ось:", 10);
+        TextOut(hdc, legendX, currentY, L"Left Axis:", 10);
         currentY += lineHeight;
         
         for (const auto* curve : leftAxisCurves) {
@@ -890,7 +890,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     if (!rightAxisCurves.empty()) {
         currentY += 5; // Дополнительный отступ
         SetTextColor(hdc, RGB(0, 0, 0));
-        TextOut(hdc, legendX, currentY, L"Правая ось:", 11);
+        TextOut(hdc, legendX, currentY, L"Right Axis:", 11);
         currentY += lineHeight;
         
         for (const auto* curve : rightAxisCurves) {

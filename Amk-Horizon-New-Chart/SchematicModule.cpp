@@ -506,9 +506,9 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
     // Инициализируем комбобокс частоты
     HWND hFreqCombo = GetDlgItem(hDlg, IDC_FREQUENCY_COMBO);
     if (hFreqCombo) {
-        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 кГц");
-        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 кГц");
-        SendMessage(hFreqCombo, CB_SETCURSEL, 0, 0); // Выбираем 400 кГц по умолчанию
+        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 kHz");
+        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 kHz");
+        SendMessage(hFreqCombo, CB_SETCURSEL, 0, 0); // Выбираем 400 kHz по умолчанию
         currentSelection.frequency = FrequencyBand::FREQ_400_KHZ;
     }
     
@@ -575,7 +575,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     LVCOLUMN column = {};
     column.mask = LVCF_TEXT | LVCF_WIDTH;
     column.cx = 350;
-    column.pszText = const_cast<LPWSTR>(L"Кривая");
+    column.pszText = const_cast<LPWSTR>(L"Curve");
     ListView_InsertColumn(hCurveList, 0, &column);
     
     // Добавляем доступные кривые в ListView
@@ -589,9 +589,9 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         
         // Добавляем индикатор оси
         if (curve.yAxisGroup == 0) {
-            displayText += L" [Левая ось]";
+            displayText += L" [Left Axis]";
         } else {
-            displayText += L" [Правая ось]";
+            displayText += L" [Right Axis]";
         }
         
         LVITEM item = {};
@@ -860,15 +860,15 @@ void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
     
     // Подпись для передатчиков
     RECT transmitterLabelRect = {rect.left + 10, rect.top + 5, rect.right - 10, rect.top + 20};
-    DrawText(hdc, L"Передатчики", -1, &transmitterLabelRect, DT_LEFT | DT_SINGLELINE);
+    DrawText(hdc, L"Transmitters", -1, &transmitterLabelRect, DT_LEFT | DT_SINGLELINE);
     
     // Подпись для приемников
     RECT receiverLabelRect = {rect.left + 10, rect.top + 65, rect.right - 10, rect.top + 80};
-    DrawText(hdc, L"Приемники", -1, &receiverLabelRect, DT_LEFT | DT_SINGLELINE);
+    DrawText(hdc, L"Receivers", -1, &receiverLabelRect, DT_LEFT | DT_SINGLELINE);
     
     // Подпись для молчащих передатчиков
     RECT silentLabelRect = {rect.left + 10, rect.top + 125, rect.right - 10, rect.top + 140};
-    DrawText(hdc, L"Молчащие передатчики", -1, &silentLabelRect, DT_LEFT | DT_SINGLELINE);
+    DrawText(hdc, L"Silent Transmitters", -1, &silentLabelRect, DT_LEFT | DT_SINGLELINE);
     
     SelectObject(hdc, oldFont);
     DeleteObject(labelFont);
