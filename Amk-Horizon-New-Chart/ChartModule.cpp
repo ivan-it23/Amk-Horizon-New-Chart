@@ -147,7 +147,8 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         maxXData = minXData + 1; // Избегаем деления на ноль
     }
     
-    double xRange = maxXData - minXData;
+    // Полный диапазон данных (от 0 до размера массива)
+    double fullXRange = static_cast<double>(chartData.empty() || chartData[0].empty() ? 1 : chartData[0].size() - 1);
     
     // Рисуем данные для каждого канала
     for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
@@ -160,9 +161,16 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         
         bool firstPoint = true;
         for (size_t i = 0; i < channel.size(); i++) {
-            // Вычисляем реальную X координату на основе диапазона данных
-            double realX = minXData + (i * xRange / (channel.size() - 1));
-            int x = plotRect.left + (int)((realX - minXData) / xRange * (plotRect.right - plotRect.left));
+            // Реальная X координата в данных (индекс i соответствует реальной позиции в данных)
+            double realX = static_cast<double>(i);
+            
+            // Проверяем, находится ли точка в видимом диапазоне zoom
+            if (realX < minXData || realX > maxXData) {
+                continue; // Пропускаем точки вне видимого диапазона
+            }
+            
+            // Вычисляем экранные координаты относительно видимого диапазона
+            int x = plotRect.left + (int)((realX - minXData) / (maxXData - minXData) * (plotRect.right - plotRect.left));
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {

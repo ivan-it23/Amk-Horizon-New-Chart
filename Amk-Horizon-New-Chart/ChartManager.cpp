@@ -685,15 +685,10 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
         zoom = &chart2Zoom;
     }
     
-    // Вычисляем данные с учетом zoom
-    if (zoom->isZoomed) {
-        dataModule->CalculateChartData(dataType, frequency, chartData, 
-                                      enabledTransmitters, zoom->minX, zoom->maxX, 
-                                      zoom->minY, zoom->maxY);
-    } else {
-        dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters, 
-                                      0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
-    }
+    // Вычисляем данные БЕЗ фильтрации по zoom (фильтрация будет визуальной при отрисовке)
+    // Это аналогично тому, как работает Device Schematic
+    dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters, 
+                                  0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
     
     // Формируем заголовок
     std::wstring title = BuildChartTitle(chartNumber, dataType, frequency);
