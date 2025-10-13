@@ -10,7 +10,13 @@
 // Класс для управления выбором и конфигурацией кривых
 class CurveSelectionModule {
 private:
-    // Стандартные цвета для кривых (4 цвета для T1-T4)
+    // Цветовые палитры для разных осей
+    static const COLORREF LEFT_AXIS_COLORS[4];   // Приоритетные цвета для левой оси (T1-T4)
+    static const COLORREF RIGHT_AXIS_COLORS[4];  // Альтернативные цвета для правой оси (T1-T4)
+    static const COLORREF SILENT_COLOR;          // Цвет для молчащих передатчиков
+    static const COLORREF TEMPERATURE_COLOR;     // Цвет для температуры
+    
+    // Старый массив для обратной совместимости
     static const COLORREF CURVE_COLORS[4];
     
     // Текущие конфигурации для каждого графика
@@ -46,6 +52,15 @@ public:
                            std::vector<CurveDefinition>& leftAxisCurves,
                            std::vector<CurveDefinition>& rightAxisCurves) const;
     
+    // Перегрузка с поддержкой zoom
+    void CalculateCurveData(const ChartConfiguration& config, 
+                           const DataModule* dataModule,
+                           std::vector<std::vector<float>>& leftAxisData,
+                           std::vector<std::vector<float>>& rightAxisData,
+                           std::vector<CurveDefinition>& leftAxisCurves,
+                           std::vector<CurveDefinition>& rightAxisCurves,
+                           double minX, double maxX, double minY, double maxY) const;
+    
 private:
     // Методы определения доступных кривых для различных выборов
     void AddTwoReceiversCurves(std::vector<CurveDefinition>& curves, 
@@ -67,7 +82,9 @@ private:
     CurveDefinition CreateSilentAmplitudeCurve(int receiverIndex, FrequencyBand frequency) const;
     
     // Методы для работы с цветами и стилями
-    COLORREF GetCurveColor(int transmitterIndex) const;
+    COLORREF GetCurveColor(int transmitterIndex) const;  // Старый метод для обратной совместимости
+    COLORREF GetCurveColorForAxis(int transmitterIndex, int yAxisGroup) const;  // Новый метод с учетом оси
+    COLORREF GetSpecialDataColor(DataType dataType) const;  // Цвета для специальных типов данных
     int GetLineStyle(int yAxisGroup) const;  // PS_SOLID для левой оси, PS_DASH для правой
     
     // Методы для создания пресетов

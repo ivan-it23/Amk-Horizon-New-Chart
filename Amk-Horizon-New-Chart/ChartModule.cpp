@@ -60,9 +60,9 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
     DrawGridAndAxes(hdc, plotRect, chartData, dataModule, 
                     minXData, maxXData, minYData, maxYData); // Передаем параметры зума
     
-    // Отрисовка данных
+    // Отрисовка данных с учетом zoom
     if (hasData) {
-        DrawChartData(hdc, plotRect, chartData);
+        DrawChartData(hdc, plotRect, chartData, minXData, maxXData);
     }
     
     // Отрисовка легенды для многоканальных данных
@@ -121,6 +121,48 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         bool firstPoint = true;
         for (size_t i = 0; i < channel.size(); i++) {
             int x = plotRect.left + (int)((double)i / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+    }
+}
+
+// Перегрузка с поддержкой zoom для правильного отображения X координат
+void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                                double minXData, double maxXData) const {
+    // Находим минимальные и максимальные значения с padding
+    float minVal, maxVal;
+    FindMinMaxValues(chartData, minVal, maxVal);
+    
+    if (maxXData <= minXData) {
+        maxXData = minXData + 1; // Избегаем деления на ноль
+    }
+    
+    double xRange = maxXData - minXData;
+    
+    // Рисуем данные для каждого канала
+    for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
+        const auto& channel = chartData[channelIdx];
+        if (channel.empty())
+            continue;
+            
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t i = 0; i < channel.size(); i++) {
+            // Вычисляем реальную X координату на основе диапазона данных
+            double realX = minXData + (i * xRange / (channel.size() - 1));
+            int x = plotRect.left + (int)((realX - minXData) / xRange * (plotRect.right - plotRect.left));
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
@@ -503,8 +545,67 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
     
-    // Отрисовка сетки и осей
+    // Отрисовка сетки и осей (без оси X для старой версии)
     DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData);
+    
+    // Отрисовка левой и правой осей с подписями
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+    
+    if (!leftAxisData.empty()) {
+        DrawLeftAxis(hdc, plotRect, leftAxisData, leftUnits);
+    }
+    if (!rightAxisData.empty()) {
+        DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
+    }
+    
+    // Отрисовка данных
+    if (hasData) {
+        DrawDualAxisData(hdc, plotRect, curves, leftAxisData, rightAxisData);
+    }
+    
+    // Отрисовка легенды
+    if (!curves.empty()) {
+        DrawDualAxisLegend(hdc, rect, curves);
+    }
+}
+
+// Перегрузка с поддержкой zoom
+void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                                   const std::vector<CurveDefinition>& curves,
+                                   const std::vector<std::vector<float>>& leftAxisData,
+                                   const std::vector<std::vector<float>>& rightAxisData,
+                                   const std::wstring& title, bool hasData,
+                                   double minXData, double maxXData, 
+                                   double minYData, double maxYData, bool showAxes) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика с двойными осями
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
+    
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Отрисовка сетки и осей с учетом zoom (включая ось X)
+    if (showAxes) {
+        DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData, minXData, maxXData);
+    }
     
     // Отрисовка левой и правой осей с подписями
     std::string leftUnits, rightUnits;
@@ -601,6 +702,52 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
             }
             currentYVal += niceStepY;
         }
+    }
+}
+
+// Перегрузка с поддержкой оси X
+void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData,
+                                  double minXData, double maxXData) const {
+    // Сначала рисуем обычную сетку для Y осей
+    DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData);
+    
+    // Теперь добавляем ось X
+    if (maxXData <= minXData) {
+        maxXData = minXData + 1; // Избегаем деления на ноль
+    }
+    
+    double xRange = maxXData - minXData;
+    double niceStepX = CalculateNiceStep(xRange, (plotRect.right - plotRect.left) / 60);
+    double currentXVal = CalculateNiceMin(minXData, niceStepX);
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    SetBkMode(hdc, TRANSPARENT);
+    
+    while (currentXVal <= maxXData + niceStepX / 2) {
+        if (currentXVal >= minXData - niceStepX / 2 && currentXVal <= maxXData + niceStepX / 2) {
+            long screenX = plotRect.left + (LONG)((currentXVal - minXData) / xRange * (plotRect.right - plotRect.left));
+            
+            if (screenX >= plotRect.left && screenX <= plotRect.right) {
+                // Рисуем вертикальную линию сетки
+                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                
+                MoveToEx(hdc, screenX, plotRect.top, NULL);
+                LineTo(hdc, screenX, plotRect.bottom);
+                
+                SelectObject(hdc, hOldPen);
+                DeleteObject(hPen);
+                
+                // Отрисовка метки X-оси с одной цифрой после запятой
+                std::wstringstream ssX;
+                ssX << std::fixed << std::setprecision(1) << currentXVal;
+                std::wstring xLabel = ssX.str();
+                TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+            }
+        }
+        currentXVal += niceStepX;
     }
 }
 

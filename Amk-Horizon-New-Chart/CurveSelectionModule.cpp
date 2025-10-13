@@ -4,11 +4,32 @@
 #include <sstream>
 
 // Определение стандартных цветов для кривых T1-T4
+// Цвета для левой оси (приоритетные цвета для T1-T4)
+const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[4] = {
+    RGB(0, 128, 0),    // T1 - Зелёный (привычный цвет)
+    RGB(255, 255, 0),  // T2 - Жёлтый (привычный цвет)
+    RGB(255, 0, 0),    // T3 - Красный (привычный цвет)
+    RGB(0, 0, 255)     // T4 - Синий (привычный цвет)
+};
+
+// Цвета для правой оси (альтернативные цвета для T1-T4)
+const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[4] = {
+    RGB(0, 100, 100),  // T1 - Тёмно-бирюзовый
+    RGB(139, 69, 19),  // T2 - Коричневый
+    RGB(128, 0, 128),  // T3 - Фиолетовый
+    RGB(255, 20, 147)  // T4 - Розовый
+};
+
+// Специальные цвета для других типов данных
+const COLORREF CurveSelectionModule::SILENT_COLOR = RGB(128, 0, 128);  // Фиолетовый для молчащих
+const COLORREF CurveSelectionModule::TEMPERATURE_COLOR = RGB(255, 165, 0); // Оранжевый для температуры
+
+// Старый массив для обратной совместимости (теперь не используется)
 const COLORREF CurveSelectionModule::CURVE_COLORS[4] = {
-    RGB(255, 0, 0),    // T1 - Красный
-    RGB(0, 0, 255),    // T2 - Синий  
-    RGB(0, 128, 0),    // T3 - Зеленый
-    RGB(255, 165, 0)   // T4 - Оранжевый
+    RGB(0, 128, 0),    // T1 - Зелёный
+    RGB(255, 255, 0),  // T2 - Жёлтый
+    RGB(255, 0, 0),    // T3 - Красный
+    RGB(0, 0, 255)     // T4 - Синий
 };
 
 // Реализация CurveSelectionModule
@@ -222,6 +243,73 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
     }
 }
 
+// Перегрузка с поддержкой zoom
+void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config, 
+                                             const DataModule* dataModule,
+                                             std::vector<std::vector<float>>& leftAxisData,
+                                             std::vector<std::vector<float>>& rightAxisData,
+                                             std::vector<CurveDefinition>& leftAxisCurves,
+                                             std::vector<CurveDefinition>& rightAxisCurves,
+                                             double minX, double maxX, double minY, double maxY) const {
+    // Очищаем выходные данные
+    leftAxisData.clear();
+    rightAxisData.clear();
+    leftAxisCurves.clear();
+    rightAxisCurves.clear();
+    
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+    
+    // Разделяем кривые по осям
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled) continue;
+        
+        std::vector<float> curveData;
+        
+        // Вычисляем данные в зависимости от типа кривой с учетом zoom
+        switch (curve.dataType) {
+            case DataType::AMPLITUDE_RATIO:
+                dataModule->CalculateRatioData(curve.elementIndex, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::PHASE_DIFFERENCE:
+                dataModule->CalculateDifferenceData(curve.elementIndex, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::AMPLITUDE_RX1:
+            case DataType::AMPLITUDE_RX2:
+                {
+                    int receiverIndex = (curve.dataType == DataType::AMPLITUDE_RX1) ? 0 : 1;
+                    dataModule->CalculateAmplitudeData(curve.elementIndex, receiverIndex, curve.frequency, curveData, minX, maxX);
+                }
+                break;
+            case DataType::PHASE_RX1:
+            case DataType::PHASE_RX2:
+                {
+                    int receiverIndex = (curve.dataType == DataType::PHASE_RX1) ? 0 : 1;
+                    dataModule->CalculatePhaseData(curve.elementIndex, receiverIndex, curve.frequency, curveData, minX, maxX);
+                }
+                break;
+            case DataType::SILENT_AMPLITUDE_RX1:
+                dataModule->CalculateSilentAmplitudeData(0, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::SILENT_AMPLITUDE_RX2:
+                dataModule->CalculateSilentAmplitudeData(1, curve.frequency, curveData, minX, maxX);
+                break;
+            default:
+                continue; // Неподдерживаемый тип данных
+        }
+        
+        // Добавляем данные к соответствующей оси
+        if (curve.yAxisGroup == 0) {
+            leftAxisData.push_back(curveData);
+            leftAxisCurves.push_back(curve);
+        } else {
+            rightAxisData.push_back(curveData);
+            rightAxisCurves.push_back(curve);
+        }
+    }
+}
+
 // Методы для добавления кривых различных типов
 void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& curves, 
                                                 const SchematicSelection& selection) const {
@@ -319,7 +407,7 @@ void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinitio
             CurveDefinition silentCurve = CreateSilentAmplitudeCurve(i, selection.frequency);
             silentCurve.yAxisGroup = 0; // Левая ось (амплитуды)
             silentCurve.enabled = true;
-            silentCurve.color = RGB(128, 128, 128); // Серый цвет для молчащих
+            // Цвет уже установлен в CreateSilentAmplitudeCurve() через GetSpecialDataColor()
             
             // Обновляем отображаемое имя
             silentCurve.displayName = "Silent R" + std::to_string(i + 1) + " Amplitude";
@@ -338,8 +426,8 @@ CurveDefinition CurveSelectionModule::CreateRatioCurve(int transmitterIndex, Fre
     
     CurveDefinition curve(id, name, "V/V", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::AMPLITUDE_RATIO, frequency);
-    curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 0; // Левая ось по умолчанию
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
     
     return curve;
@@ -353,8 +441,8 @@ CurveDefinition CurveSelectionModule::CreateDifferenceCurve(int transmitterIndex
     
     CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::PHASE_DIFFERENCE, frequency);
-    curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 1; // Правая ось для фаз
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
     
     return curve;
@@ -367,8 +455,8 @@ CurveDefinition CurveSelectionModule::CreateAmplitudeCurve(int transmitterIndex,
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
     CurveDefinition curve(id, name, "V", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
-    curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 0; // Левая ось для амплитуд
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
     
     return curve;
@@ -381,8 +469,8 @@ CurveDefinition CurveSelectionModule::CreatePhaseCurve(int transmitterIndex, int
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
     CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
-    curve.color = GetCurveColor(transmitterIndex);
     curve.yAxisGroup = 1; // Правая ось для фаз
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
     
     return curve;
@@ -394,19 +482,42 @@ CurveDefinition CurveSelectionModule::CreateSilentAmplitudeCurve(int receiverInd
     std::string name = GenerateDisplayName(ElementType::SILENT_TX, receiverIndex, dataType);
     
     CurveDefinition curve(id, name, "V", ElementType::SILENT_TX, receiverIndex, dataType, frequency);
-    curve.color = RGB(128, 128, 128); // Серый цвет для молчащих
     curve.yAxisGroup = 0; // Левая ось для амплитуд
+    curve.color = GetSpecialDataColor(dataType); // Фиолетовый цвет для молчащих
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
     
     return curve;
 }
 
-// Вспомогательные методы
+// Вспомогательные методы для работы с цветами
 COLORREF CurveSelectionModule::GetCurveColor(int transmitterIndex) const {
+    // Старый метод для обратной совместимости - использует цвета левой оси
+    return GetCurveColorForAxis(transmitterIndex, 0);
+}
+
+COLORREF CurveSelectionModule::GetCurveColorForAxis(int transmitterIndex, int yAxisGroup) const {
     if (transmitterIndex >= 0 && transmitterIndex < 4) {
-        return CURVE_COLORS[transmitterIndex];
+        if (yAxisGroup == 0) {
+            // Левая ось - приоритетные цвета для T1-T4
+            return LEFT_AXIS_COLORS[transmitterIndex];
+        } else {
+            // Правая ось - альтернативные цвета для T1-T4
+            return RIGHT_AXIS_COLORS[transmitterIndex];
+        }
     }
     return RGB(0, 0, 0); // Черный по умолчанию
+}
+
+COLORREF CurveSelectionModule::GetSpecialDataColor(DataType dataType) const {
+    switch (dataType) {
+        case DataType::SILENT_AMPLITUDE_RX1:
+        case DataType::SILENT_AMPLITUDE_RX2:
+            return SILENT_COLOR;  // Фиолетовый для молчащих передатчиков
+        case DataType::TEMPERATURE:
+            return TEMPERATURE_COLOR;  // Оранжевый для температуры
+        default:
+            return RGB(128, 128, 128);  // Серый для неизвестных типов
+    }
 }
 
 int CurveSelectionModule::GetLineStyle(int yAxisGroup) const {

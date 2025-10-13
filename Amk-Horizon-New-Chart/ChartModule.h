@@ -35,6 +35,15 @@ public:
                           const std::vector<std::vector<float>>& leftAxisData,
                           const std::vector<std::vector<float>>& rightAxisData,
                           const std::wstring& title, bool hasData) const;
+    
+    // Перегрузка с поддержкой zoom
+    void DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                          const std::vector<CurveDefinition>& curves,
+                          const std::vector<std::vector<float>>& leftAxisData,
+                          const std::vector<std::vector<float>>& rightAxisData,
+                          const std::wstring& title, bool hasData,
+                          double minXData, double maxXData, 
+                          double minYData, double maxYData, bool showAxes = true) const;
 
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
@@ -47,6 +56,10 @@ public:
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 
                          const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
+    
+    // Перегрузка с поддержкой zoom для правильного отображения X координат
+    void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                      double minXData, double maxXData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                          DataType type, const std::vector<bool>& enabledTransmitters) const;
@@ -59,6 +72,12 @@ public:
     void DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
                          const std::vector<std::vector<float>>& leftAxisData,
                          const std::vector<std::vector<float>>& rightAxisData) const;
+    
+    // Перегрузка с поддержкой оси X
+    void DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
+                         const std::vector<std::vector<float>>& leftAxisData,
+                         const std::vector<std::vector<float>>& rightAxisData,
+                         double minXData, double maxXData) const;
     void DrawLeftAxis(HDC hdc, const RECT& plotRect, 
                      const std::vector<std::vector<float>>& leftAxisData,
                      const std::string& units) const;

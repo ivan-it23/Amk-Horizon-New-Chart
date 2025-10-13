@@ -608,25 +608,43 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
     if (config.curves.empty()) return;
     
-    // Вычисляем данные для кривых
+    // Получаем параметры zoom
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    
+    // Вычисляем данные для кривых с учетом zoom
     std::vector<std::vector<float>> leftAxisData;
     std::vector<std::vector<float>> rightAxisData;
     std::vector<CurveDefinition> leftAxisCurves;
     std::vector<CurveDefinition> rightAxisCurves;
     
-    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                           leftAxisData, rightAxisData,
-                                           leftAxisCurves, rightAxisCurves);
+    if (zoom->isZoomed) {
+        // Используем zoom параметры
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                               leftAxisData, rightAxisData,
+                                               leftAxisCurves, rightAxisCurves,
+                                               zoom->minX, zoom->maxX, zoom->minY, zoom->maxY);
+    } else {
+        // Используем полный диапазон данных
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                               leftAxisData, rightAxisData,
+                                               leftAxisCurves, rightAxisCurves);
+    }
     
     // Формируем заголовок
     std::wstring title = L"Chart " + std::to_wstring(chartNumber) + L" (Custom Curves)";
     
     // Проверяем, нужны ли двойные оси
     if (config.hasDualAxis && !rightAxisData.empty()) {
-        // Используем новый метод для двойных осей
+        // Используем новый метод для двойных осей с поддержкой zoom
+        // Всегда показываем оси (включая ось X)
+        bool showAxes = true;
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                      leftAxisData, rightAxisData,
-                                     title, dataModule->HasData());
+                                     title, dataModule->HasData(),
+                                     zoom->isZoomed ? zoom->minX : 0.0,
+                                     zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
+                                     zoom->isZoomed ? zoom->minY : -1e6,
+                                     zoom->isZoomed ? zoom->maxY : 1e6, showAxes);
     } else {
         // Используем обычный метод для одной оси
         if (!leftAxisData.empty()) {
@@ -634,9 +652,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             DataType legacyType = DataType::PHASE_DIFFERENCE; // Заглушка
             std::vector<bool> enabledTransmitters = {true, true, true, true};
             
-            // Применяем масштабирование если есть
-            ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
-            bool showAxes = !zoom->isZoomed;
+            // Применяем масштабирование если есть (всегда показываем оси)
+            bool showAxes = true;
             
             chartModule->DrawChart(hdc, chartRect, leftAxisData, legacyType, title, 
                                  dataModule->HasData(), enabledTransmitters, dataModule.get(),
@@ -668,7 +685,7 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
         zoom = &chart2Zoom;
     }
     
-    // Вычисляем данные
+    // Вычисляем данные с учетом zoom
     if (zoom->isZoomed) {
         dataModule->CalculateChartData(dataType, frequency, chartData, 
                                       enabledTransmitters, zoom->minX, zoom->maxX, 
@@ -681,8 +698,8 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Формируем заголовок
     std::wstring title = BuildChartTitle(chartNumber, dataType, frequency);
     
-    // Отрисовка графика
-    bool showAxes = !zoom->isZoomed;
+    // Отрисовка графика (всегда показываем оси)
+    bool showAxes = true;
     chartModule->DrawChart(hdc, chartRect, chartData, dataType, title, dataModule->HasData(), 
                            enabledTransmitters, dataModule.get(),
                            zoom->isZoomed ? zoom->minX : 0.0,
