@@ -618,11 +618,11 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     std::vector<CurveDefinition> rightAxisCurves;
     
     if (zoom->isZoomed) {
-        // Используем zoom параметры
+        // Используем zoom параметры (только для X, Y автоматически по данным)
         curveSelectionModule->CalculateCurveData(config, dataModule.get(),
                                                leftAxisData, rightAxisData,
                                                leftAxisCurves, rightAxisCurves,
-                                               zoom->minX, zoom->maxX, zoom->minY, zoom->maxY);
+                                               zoom->minX, zoom->maxX, -1e6, 1e6);
     } else {
         // Используем полный диапазон данных
         curveSelectionModule->CalculateCurveData(config, dataModule.get(),
@@ -643,8 +643,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                      title, dataModule->HasData(),
                                      zoom->isZoomed ? zoom->minX : 0.0,
                                      zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                     zoom->isZoomed ? zoom->minY : -1e6,
-                                     zoom->isZoomed ? zoom->maxY : 1e6, showAxes);
+                                     -1e6, 1e6, showAxes); // Y всегда автоматически
     } else {
         // Используем обычный метод для одной оси
         if (!leftAxisData.empty()) {
@@ -659,8 +658,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                  dataModule->HasData(), enabledTransmitters, dataModule.get(),
                                  zoom->isZoomed ? zoom->minX : 0.0,
                                  zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                 zoom->isZoomed ? zoom->minY : -1e6, 
-                                 zoom->isZoomed ? zoom->maxY : 1e6, showAxes);
+                                 -1e6, 1e6, showAxes); // Y всегда автоматически
         }
     }
 }
@@ -699,8 +697,7 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
                            enabledTransmitters, dataModule.get(),
                            zoom->isZoomed ? zoom->minX : 0.0,
                            zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                           zoom->isZoomed ? zoom->minY : -1e6, 
-                           zoom->isZoomed ? zoom->maxY : 1e6, showAxes);
+                           -1e6, 1e6, showAxes); // Y всегда автоматически
 }
 
 // Методы для работы с конфигурациями кривых
