@@ -24,6 +24,22 @@ const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[4] = {
 const COLORREF CurveSelectionModule::SILENT_COLOR = RGB(128, 0, 128);  // Фиолетовый для молчащих
 const COLORREF CurveSelectionModule::TEMPERATURE_COLOR = RGB(255, 165, 0); // Оранжевый для температуры
 
+// Расширенная палитра для умного назначения цветов (12 уникальных цветов)
+const COLORREF CurveSelectionModule::EXTENDED_PALETTE[12] = {
+    RGB(0, 128, 0),      // 0 - Зелёный (T1 приоритет)
+    RGB(255, 255, 0),    // 1 - Жёлтый (T2 приоритет)
+    RGB(255, 0, 0),      // 2 - Красный (T3 приоритет)
+    RGB(0, 0, 255),      // 3 - Синий (T4 приоритет)
+    RGB(0, 100, 100),    // 4 - Тёмно-бирюзовый
+    RGB(139, 69, 19),    // 5 - Коричневый
+    RGB(128, 0, 128),    // 6 - Фиолетовый
+    RGB(255, 20, 147),   // 7 - Розовый
+    RGB(255, 140, 0),    // 8 - Тёмно-оранжевый
+    RGB(0, 128, 128),    // 9 - Бирюзовый
+    RGB(128, 128, 0),    // 10 - Оливковый
+    RGB(75, 0, 130)      // 11 - Индиго
+};
+
 // Старый массив для обратной совместимости (теперь не используется)
 const COLORREF CurveSelectionModule::CURVE_COLORS[4] = {
     RGB(0, 128, 0),    // T1 - Зелёный
@@ -322,12 +338,16 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
         CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
         ratioCurve.yAxisGroup = 0; // Левая ось
         ratioCurve.enabled = true; // По умолчанию включена
+        // Умное назначение цвета с учетом уже созданных кривых
+        ratioCurve.color = AssignSmartColor(curves, i, ratioCurve.yAxisGroup);
         curves.push_back(ratioCurve);
         
         // Разность фаз (правая ось, единицы: градусы)
         CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
         differenceCurve.yAxisGroup = 1; // Правая ось
         differenceCurve.enabled = true; // По умолчанию включена
+        // Умное назначение цвета с учетом уже созданных кривых
+        differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
         curves.push_back(differenceCurve);
     }
 }
@@ -354,12 +374,16 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
         CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
         amplitudeCurve.yAxisGroup = 0; // Левая ось
         amplitudeCurve.enabled = true; // По умолчанию включена
+        // Умное назначение цвета с учетом уже созданных кривых
+        amplitudeCurve.color = AssignSmartColor(curves, i, amplitudeCurve.yAxisGroup);
         curves.push_back(amplitudeCurve);
         
         // Фаза (правая ось)
         CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
         phaseCurve.yAxisGroup = 1; // Правая ось
         phaseCurve.enabled = false; // По умолчанию отключена для избежания перегрузки
+        // Умное назначение цвета с учетом уже созданных кривых
+        phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
         curves.push_back(phaseCurve);
     }
 }
@@ -382,6 +406,9 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             // Обновляем отображаемое имя для ясности
             amplitudeCurve.displayName = "T" + std::to_string(txIndex + 1) + 
                                         " Amplitude R" + std::to_string(rxIndex + 1);
+            
+            // Умное назначение цвета с учетом уже созданных кривых
+            amplitudeCurve.color = AssignSmartColor(curves, txIndex, amplitudeCurve.yAxisGroup);
             curves.push_back(amplitudeCurve);
             
             // Фаза (правая ось)
@@ -392,6 +419,9 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             // Обновляем отображаемое имя для ясности
             phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
                                     " Phase R" + std::to_string(rxIndex + 1);
+            
+            // Умное назначение цвета с учетом уже созданных кривых
+            phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
             curves.push_back(phaseCurve);
         }
     }
@@ -518,6 +548,58 @@ COLORREF CurveSelectionModule::GetSpecialDataColor(DataType dataType) const {
         default:
             return RGB(128, 128, 128);  // Серый для неизвестных типов
     }
+}
+
+COLORREF CurveSelectionModule::AssignSmartColor(const std::vector<CurveDefinition>& existingCurves, 
+                                                int transmitterIndex, int yAxisGroup) const {
+    // Собираем уже использованные цвета на ОБЕИХ осях
+    // ВАЖНО: Учитываем ВСЕ кривые (включенные и отключенные), чтобы избежать конфликтов
+    // ВАЖНО: Учитываем цвета с обеих осей, чтобы избежать совпадений между осями
+    std::vector<COLORREF> usedColors;
+    for (const auto& curve : existingCurves) {
+        // Собираем цвета со ВСЕХ осей, не только с текущей
+        usedColors.push_back(curve.color);
+    }
+    
+    // Проверяем, можно ли использовать приоритетный цвет для T1-T4 на левой оси
+    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < 4) {
+        COLORREF priorityColor = LEFT_AXIS_COLORS[transmitterIndex];
+        
+        // Проверяем, не используется ли уже этот цвет
+        bool colorUsed = false;
+        for (COLORREF usedColor : usedColors) {
+            if (usedColor == priorityColor) {
+                colorUsed = true;
+                break;
+            }
+        }
+        
+        // Если цвет свободен, используем приоритетный
+        if (!colorUsed) {
+            return priorityColor;
+        }
+    }
+    
+    // Если приоритетный цвет занят или это правая ось, ищем первый свободный из расширенной палитры
+    for (int i = 0; i < 12; i++) {
+        COLORREF candidateColor = EXTENDED_PALETTE[i];
+        
+        // Проверяем, не используется ли этот цвет НА ЛЮБОЙ ИЗ ОСЕЙ
+        bool colorUsed = false;
+        for (COLORREF usedColor : usedColors) {
+            if (usedColor == candidateColor) {
+                colorUsed = true;
+                break;
+            }
+        }
+        
+        if (!colorUsed) {
+            return candidateColor;
+        }
+    }
+    
+    // Если все цвета заняты (маловероятно), возвращаем цвет по модулю
+    return EXTENDED_PALETTE[existingCurves.size() % 12];
 }
 
 int CurveSelectionModule::GetLineStyle(int yAxisGroup) const {

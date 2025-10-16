@@ -16,6 +16,9 @@ private:
     static const COLORREF SILENT_COLOR;          // Цвет для молчащих передатчиков
     static const COLORREF TEMPERATURE_COLOR;     // Цвет для температуры
     
+    // Расширенная палитра для умного назначения цветов (12 цветов)
+    static const COLORREF EXTENDED_PALETTE[12];
+    
     // Старый массив для обратной совместимости
     static const COLORREF CURVE_COLORS[4];
     
@@ -85,6 +88,8 @@ private:
     COLORREF GetCurveColor(int transmitterIndex) const;  // Старый метод для обратной совместимости
     COLORREF GetCurveColorForAxis(int transmitterIndex, int yAxisGroup) const;  // Новый метод с учетом оси
     COLORREF GetSpecialDataColor(DataType dataType) const;  // Цвета для специальных типов данных
+    COLORREF AssignSmartColor(const std::vector<CurveDefinition>& existingCurves, 
+                             int transmitterIndex, int yAxisGroup) const;  // Умное назначение цветов
     int GetLineStyle(int yAxisGroup) const;  // PS_SOLID для левой оси, PS_DASH для правой
     
     // Методы для создания пресетов

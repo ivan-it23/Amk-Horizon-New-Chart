@@ -389,6 +389,66 @@ const COLORREF CHANNEL_COLORS[4] = {
 };
 ```
 
+### Система умного назначения цветов
+
+#### Расширенная палитра (12 цветов)
+```cpp
+const COLORREF EXTENDED_PALETTE[12] = {
+    RGB(0, 128, 0),      // Зелёный (приоритет T1 на левой оси)
+    RGB(255, 255, 0),    // Жёлтый (приоритет T2 на левой оси)
+    RGB(255, 0, 0),      // Красный (приоритет T3 на левой оси)
+    RGB(0, 0, 255),      // Синий (приоритет T4 на левой оси)
+    RGB(0, 100, 100),    // Тёмно-бирюзовый
+    RGB(139, 69, 19),    // Коричневый
+    RGB(128, 0, 128),    // Фиолетовый
+    RGB(255, 20, 147),   // Розовый
+    RGB(255, 140, 0),    // Тёмно-оранжевый
+    RGB(0, 128, 128),    // Бирюзовый
+    RGB(128, 128, 0),    // Оливковый
+    RGB(75, 0, 130)      // Индиго
+};
+```
+
+#### Алгоритм умного назначения цветов
+```cpp
+COLORREF AssignSmartColor(const std::vector<CurveDefinition>& existingCurves,
+                         int transmitterIndex, int yAxisGroup) {
+    // 1. Собираем уже использованные цвета на этой оси
+    std::vector<COLORREF> usedColors;
+    for (const auto& curve : existingCurves) {
+        if (curve.yAxisGroup == yAxisGroup && curve.enabled) {
+            usedColors.push_back(curve.color);
+        }
+    }
+    
+    // 2. Для T1-T4 на левой оси используем приоритетные цвета
+    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < 4) {
+        COLORREF priorityColor = LEFT_AXIS_COLORS[transmitterIndex];
+        if (!IsColorUsed(priorityColor, usedColors)) {
+            return priorityColor;
+        }
+    }
+    
+    // 3. Ищем первый свободный цвет из расширенной палитры
+    for (int i = 0; i < 12; i++) {
+        COLORREF candidateColor = EXTENDED_PALETTE[i];
+        if (!IsColorUsed(candidateColor, usedColors)) {
+            return candidateColor;
+        }
+    }
+    
+    // 4. Если все цвета заняты, возвращаем чёрный
+    return RGB(0, 0, 0);
+}
+```
+
+#### Логика назначения цветов
+- **Приоритет для T1-T4 на левой оси**: Каждому передатчику назначается свой приоритетный цвет (зелёный, жёлтый, красный, синий)
+- **Анализ использованных цветов**: Перед назначением проверяются уже использованные цвета на той же оси
+- **Избежание конфликтов**: Если приоритетный цвет занят, выбирается первый свободный из расширенной палитры
+- **Поддержка до 12 кривых**: Расширенная палитра позволяет различать до 12 кривых на одной оси
+- **Независимость осей**: Цвета назначаются независимо для левой и правой осей
+
 ### Цвета элементов схемы
 ```cpp
 const COLORREF TRANSMITTER_COLOR = RGB(180, 100, 100);  // Приглушенный красный
