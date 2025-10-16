@@ -12,6 +12,43 @@ const COLORREF SchematicModule::RECEIVER_COLOR = RGB(100, 180, 100);     // Пр
 const COLORREF SchematicModule::SILENT_TX_COLOR = RGB(128, 128, 128);    // Серый
 const COLORREF SchematicModule::SELECTION_COLOR = RGB(255, 255, 0);      // Желтый для выделения
 
+// Константы для рамки основных элементов
+const COLORREF FRAME_BACKGROUND = RGB(245, 245, 245);  // Светло-серый фон
+const COLORREF FRAME_BORDER = RGB(180, 180, 180);      // Тёмно-серая граница
+const int FRAME_PADDING = 15;                          // Отступ внутри рамки
+const int FRAME_BORDER_WIDTH = 1;                      // Толщина границы
+const int FRAME_CORNER_RADIUS = 8;                     // Радиус скругления углов
+
+// Константы для градиентов элементов
+// Передатчики (Transmitters)
+const COLORREF TX_GRADIENT_START = RGB(200, 120, 120);
+const COLORREF TX_GRADIENT_END = RGB(170, 90, 90);
+const COLORREF TX_ACTIVE_GRADIENT_START = RGB(230, 130, 130);
+const COLORREF TX_ACTIVE_GRADIENT_END = RGB(200, 100, 100);
+const COLORREF TX_HOVER_GRADIENT_START = RGB(215, 125, 125);
+const COLORREF TX_HOVER_GRADIENT_END = RGB(185, 95, 95);
+
+// Приемники (Receivers)
+const COLORREF RX_GRADIENT_START = RGB(120, 200, 120);
+const COLORREF RX_GRADIENT_END = RGB(90, 170, 90);
+const COLORREF RX_ACTIVE_GRADIENT_START = RGB(130, 230, 130);
+const COLORREF RX_ACTIVE_GRADIENT_END = RGB(100, 200, 100);
+const COLORREF RX_HOVER_GRADIENT_START = RGB(125, 215, 125);
+const COLORREF RX_HOVER_GRADIENT_END = RGB(95, 185, 95);
+
+// Молчащие передатчики (Silent)
+const COLORREF SILENT_GRADIENT_START = RGB(160, 160, 160);
+const COLORREF SILENT_GRADIENT_END = RGB(130, 130, 130);
+const COLORREF SILENT_ACTIVE_GRADIENT_START = RGB(180, 180, 180);
+const COLORREF SILENT_ACTIVE_GRADIENT_END = RGB(150, 150, 150);
+const COLORREF SILENT_HOVER_GRADIENT_START = RGB(170, 170, 170);
+const COLORREF SILENT_HOVER_GRADIENT_END = RGB(140, 140, 140);
+
+// Константы для тени
+const int SHADOW_OFFSET_X = 2;
+const int SHADOW_OFFSET_Y = 2;
+const COLORREF SHADOW_COLOR = RGB(200, 200, 200);  // Светло-серая тень
+
 // Реализация CurveDefinition
 CurveDefinition::CurveDefinition() 
     : yAxisGroup(0), enabled(false), color(RGB(0, 0, 0)), lineStyle(PS_SOLID),
@@ -144,7 +181,8 @@ void ChartConfiguration::UpdateAxisConfiguration() {
 }
 
 // Реализация SchematicModule
-SchematicModule::SchematicModule() : curveSelectionModule(nullptr), targetChartNumber(1) {
+SchematicModule::SchematicModule() 
+    : curveSelectionModule(nullptr), targetChartNumber(1), hoveredElement(nullptr) {
 }
 
 SchematicModule::~SchematicModule() {
@@ -169,71 +207,199 @@ bool SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber, ChartCon
     return false; // Пользователь отменил или закрыл окно
 }
 
-void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
-    // Очищаем фон
-    HBRUSH bgBrush = CreateSolidBrush(RGB(240, 240, 240));
-    FillRect(hdc, &rect, bgBrush);
-    DeleteObject(bgBrush);
+void SchematicModule::DrawElementShadow(HDC hdc, const RECT& rect) {
+    // Создаём смещённый прямоугольник для тени
+    RECT shadowRect = {
+        rect.left + SHADOW_OFFSET_X,
+        rect.top + SHADOW_OFFSET_Y,
+        rect.right + SHADOW_OFFSET_X,
+        rect.bottom + SHADOW_OFFSET_Y
+    };
     
-    // Рассчитываем компоновку элементов
-    CalculateSchematicLayout(rect);
+    // Рисуем полупрозрачную тень
+    HBRUSH shadowBrush = CreateSolidBrush(SHADOW_COLOR);
+    HPEN shadowPen = CreatePen(PS_SOLID, 1, SHADOW_COLOR);
     
-    // Отрисовываем все элементы схемы
-    for (const auto& element : schematicElements) {
-        std::wstring label = GetElementLabel(element.type, element.index);
-        DrawElement(hdc, element.rect, element.type, element.index, element.selected, label);
-    }
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, shadowBrush);
+    HPEN oldPen = (HPEN)SelectObject(hdc, shadowPen);
     
-    // Отрисовываем соединительные линии между элементами
-    DrawSchematicConnections(hdc, rect);
-    
-    // Добавляем подписи групп элементов
-    DrawGroupLabels(hdc, rect);
-}
-
-void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType type, 
-                                 int index, bool selected, const std::wstring& label) {
-    // Определяем цвет элемента
-    COLORREF fillColor, borderColor;
-    switch (type) {
-        case ElementType::TRANSMITTER:
-            fillColor = TRANSMITTER_COLOR;
-            borderColor = RGB(140, 80, 80);  // Более темная рамка
-            break;
-        case ElementType::RECEIVER:
-            fillColor = RECEIVER_COLOR;
-            borderColor = RGB(80, 140, 80);  // Более темная рамка
-            break;
-        case ElementType::SILENT_TX:
-            fillColor = SILENT_TX_COLOR;
-            borderColor = RGB(100, 100, 100); // Более темная рамка
-            break;
-        default:
-            fillColor = RGB(200, 200, 200);
-            borderColor = RGB(100, 100, 100);
-    }
-    
-    // Создаем кисть для заливки и перо для рамки
-    HBRUSH fillBrush = CreateSolidBrush(fillColor);
-    HPEN borderPen = CreatePen(PS_SOLID, 2, borderColor);
-    
-    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, fillBrush);
-    HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
-    
-    // Рисуем скругленный прямоугольник для более современного вида
-    int cornerRadius = 8;
-    RoundRect(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom,
-              cornerRadius, cornerRadius);
-    
-    // Если элемент выбран, рисуем рамку выделения
-    if (selected) {
-        DrawSelectionHighlight(hdc, elementRect);
-    }
+    // Рисуем скруглённый прямоугольник для тени
+    RoundRect(hdc, shadowRect.left, shadowRect.top,
+              shadowRect.right, shadowRect.bottom, 8, 8);
     
     // Восстанавливаем объекты GDI
     SelectObject(hdc, oldBrush);
     SelectObject(hdc, oldPen);
-    DeleteObject(fillBrush);
+    DeleteObject(shadowBrush);
+    DeleteObject(shadowPen);
+}
+
+void SchematicModule::DrawGradientRect(HDC hdc, const RECT& rect, COLORREF colorStart, COLORREF colorEnd) {
+    // Простая эмуляция вертикального градиента через GDI
+    // Рисуем множество горизонтальных линий с плавным переходом цвета
+    
+    int height = rect.bottom - rect.top;
+    if (height <= 0) return;
+    
+    // Извлекаем компоненты цветов
+    int r1 = GetRValue(colorStart), g1 = GetGValue(colorStart), b1 = GetBValue(colorStart);
+    int r2 = GetRValue(colorEnd), g2 = GetGValue(colorEnd), b2 = GetBValue(colorEnd);
+    
+    // Рисуем градиент построчно
+    for (int y = 0; y < height; y++) {
+        // Вычисляем промежуточный цвет
+        float ratio = (float)y / (float)height;
+        int r = r1 + (int)((r2 - r1) * ratio);
+        int g = g1 + (int)((g2 - g1) * ratio);
+        int b = b1 + (int)((b2 - b1) * ratio);
+        
+        COLORREF color = RGB(r, g, b);
+        HPEN pen = CreatePen(PS_SOLID, 1, color);
+        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+        
+        // Рисуем горизонтальную линию
+        MoveToEx(hdc, rect.left, rect.top + y, NULL);
+        LineTo(hdc, rect.right, rect.top + y);
+        
+        SelectObject(hdc, oldPen);
+        DeleteObject(pen);
+    }
+}
+
+void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
+    // Используем двойную буферизацию для плавной отрисовки без мерцания
+    int width = rect.right - rect.left;
+    int height = rect.bottom - rect.top;
+    
+    // Создаём буфер в памяти
+    HDC memDC = CreateCompatibleDC(hdc);
+    HBITMAP memBitmap = CreateCompatibleBitmap(hdc, width, height);
+    HBITMAP oldBitmap = (HBITMAP)SelectObject(memDC, memBitmap);
+    
+    // Смещаем координаты для рисования в буфере
+    SetViewportOrgEx(memDC, -rect.left, -rect.top, NULL);
+    
+    // Очищаем фон в буфере
+    HBRUSH bgBrush = CreateSolidBrush(RGB(240, 240, 240));
+    FillRect(memDC, &rect, bgBrush);
+    DeleteObject(bgBrush);
+    
+    // Рассчитываем компоновку элементов (только если нужно)
+    if (schematicElements.empty()) {
+        CalculateSchematicLayout(rect);
+    }
+    
+    // Отрисовываем рамку для основных элементов (T1-T4, R1-R2)
+    if (deviceFrameRect.right > deviceFrameRect.left && 
+        deviceFrameRect.bottom > deviceFrameRect.top) {
+        DrawDeviceFrame(memDC, deviceFrameRect);
+    }
+    
+    // Отрисовываем все элементы схемы
+    for (const auto& element : schematicElements) {
+        std::wstring label = GetElementLabel(element.type, element.index);
+        DrawElement(memDC, element.rect, element.type, element.index, element.selected, element.hovered, label);
+    }
+    
+    // Отрисовываем соединительные линии между элементами
+    DrawSchematicConnections(memDC, rect);
+    
+    // Добавляем подписи групп элементов
+    DrawGroupLabels(memDC, rect);
+    
+    // Копируем буфер на экран
+    BitBlt(hdc, rect.left, rect.top, width, height, memDC, rect.left, rect.top, SRCCOPY);
+    
+    // Очищаем ресурсы
+    SelectObject(memDC, oldBitmap);
+    DeleteObject(memBitmap);
+    DeleteDC(memDC);
+}
+
+void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType type, 
+                                 int index, bool selected, bool hovered, const std::wstring& label) {
+    // Определяем цвета градиента и рамки в зависимости от типа и состояния
+    COLORREF gradientStart, gradientEnd, borderColor;
+    int borderWidth = 2;
+    
+    // Выбираем цвета в зависимости от типа элемента и его состояния
+    switch (type) {
+        case ElementType::TRANSMITTER:
+            if (selected) {
+                gradientStart = TX_ACTIVE_GRADIENT_START;
+                gradientEnd = TX_ACTIVE_GRADIENT_END;
+                borderColor = RGB(180, 60, 60);
+                borderWidth = 3;
+            } else if (hovered) {
+                gradientStart = TX_HOVER_GRADIENT_START;
+                gradientEnd = TX_HOVER_GRADIENT_END;
+                borderColor = RGB(160, 70, 70);
+            } else {
+                gradientStart = TX_GRADIENT_START;
+                gradientEnd = TX_GRADIENT_END;
+                borderColor = RGB(140, 80, 80);
+            }
+            break;
+            
+        case ElementType::RECEIVER:
+            if (selected) {
+                gradientStart = RX_ACTIVE_GRADIENT_START;
+                gradientEnd = RX_ACTIVE_GRADIENT_END;
+                borderColor = RGB(60, 180, 60);
+                borderWidth = 3;
+            } else if (hovered) {
+                gradientStart = RX_HOVER_GRADIENT_START;
+                gradientEnd = RX_HOVER_GRADIENT_END;
+                borderColor = RGB(70, 160, 70);
+            } else {
+                gradientStart = RX_GRADIENT_START;
+                gradientEnd = RX_GRADIENT_END;
+                borderColor = RGB(80, 140, 80);
+            }
+            break;
+            
+        case ElementType::SILENT_TX:
+            if (selected) {
+                gradientStart = SILENT_ACTIVE_GRADIENT_START;
+                gradientEnd = SILENT_ACTIVE_GRADIENT_END;
+                borderColor = RGB(80, 80, 80);
+                borderWidth = 3;
+            } else if (hovered) {
+                gradientStart = SILENT_HOVER_GRADIENT_START;
+                gradientEnd = SILENT_HOVER_GRADIENT_END;
+                borderColor = RGB(90, 90, 90);
+            } else {
+                gradientStart = SILENT_GRADIENT_START;
+                gradientEnd = SILENT_GRADIENT_END;
+                borderColor = RGB(100, 100, 100);
+            }
+            break;
+            
+        default:
+            gradientStart = RGB(200, 200, 200);
+            gradientEnd = RGB(180, 180, 180);
+            borderColor = RGB(100, 100, 100);
+    }
+    
+    // Рисуем тень элемента
+    DrawElementShadow(hdc, elementRect);
+    
+    // Рисуем градиентную заливку
+    DrawGradientRect(hdc, elementRect, gradientStart, gradientEnd);
+    
+    // Рисуем рамку поверх градиента
+    HPEN borderPen = CreatePen(PS_SOLID, borderWidth, borderColor);
+    HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+    
+    // Рисуем скругленный прямоугольник для рамки
+    int cornerRadius = 8;
+    RoundRect(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom,
+              cornerRadius, cornerRadius);
+    
+    // Восстанавливаем объекты GDI
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
     DeleteObject(borderPen);
     
     // Настраиваем текст
@@ -300,6 +466,28 @@ void SchematicModule::UpdateSelection(ElementType type, int index, bool selected
                 currentSelection.silentTx[index] = selected;
             }
             break;
+    }
+}
+
+void SchematicModule::UpdateHoverState(int x, int y) {
+    // Находим элемент под курсором
+    ElementRect* newHovered = FindElementAt(x, y);
+    
+    // Если hover состояние изменилось
+    if (newHovered != hoveredElement) {
+        // Сбрасываем предыдущий hover
+        if (hoveredElement) {
+            hoveredElement->hovered = false;
+        }
+        
+        // Устанавливаем новый hover
+        if (newHovered) {
+            newHovered->hovered = true;
+        }
+        
+        hoveredElement = newHovered;
+        
+        // Перерисовка будет вызвана из обработчика WM_MOUSEMOVE
     }
 }
 
@@ -400,17 +588,17 @@ std::wstring SchematicModule::GetElementTooltip(ElementType type, int index) con
 
 void SchematicModule::DrawTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
     std::wstring label = L"T" + std::to_wstring(index + 1);
-    DrawElement(hdc, rect, ElementType::TRANSMITTER, index, selected, label);
+    DrawElement(hdc, rect, ElementType::TRANSMITTER, index, selected, false, label);
 }
 
 void SchematicModule::DrawReceiver(HDC hdc, const RECT& rect, int index, bool selected) {
     std::wstring label = L"R" + std::to_wstring(index + 1);
-    DrawElement(hdc, rect, ElementType::RECEIVER, index, selected, label);
+    DrawElement(hdc, rect, ElementType::RECEIVER, index, selected, false, label);
 }
 
 void SchematicModule::DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
     std::wstring label = L"Silent R" + std::to_wstring(index + 1);
-    DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, label);
+    DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, false, label);
 }
 
 void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
@@ -441,59 +629,68 @@ void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
 
 RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType type, int index) {
     RECT rect;
-    int elementWidth = 70, elementHeight = 45;
-    int spacing = 10;
-    int margin = 20;
+    const int elementWidth = 70;
+    const int elementHeight = 45;
+    const int spacing = 12;  // Отступ между элементами
+    const int frameToSilentSpacing = 25;  // Отступ между рамкой и молчащими
     
-    // Рассчитываем общую ширину для центрирования всех 8 элементов в одну линию
-    int totalWidth = schemaRect.right - schemaRect.left;
-    int totalElements = 8; // T3, T1, R1, R2, T2, T4, Silent R1, Silent R2
-    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
-    int startX = schemaRect.left + (totalWidth - totalElementsWidth) / 2;
+    // Рассчитываем ширину рамки (6 элементов: T1-T4, R1-R2)
+    const int frameElementsCount = 6;
+    const int frameWidth = frameElementsCount * elementWidth + (frameElementsCount - 1) * spacing + 2 * FRAME_PADDING;
     
-    // Все элементы располагаются в одну горизонтальную линию по центру
-    int centerY = schemaRect.top + (schemaRect.bottom - schemaRect.top - elementHeight) / 2;
+    // Рассчитываем общую ширину (рамка + отступ + 2 молчащих)
+    const int totalWidth = frameWidth + frameToSilentSpacing + 2 * elementWidth + spacing;
+    
+    // Центрируем всю компоновку
+    const int startX = schemaRect.left + (schemaRect.right - schemaRect.left - totalWidth) / 2;
+    const int centerY = schemaRect.top + (schemaRect.bottom - schemaRect.top - elementHeight) / 2;
     
     // Определяем позицию элемента в горизонтальной линии
+    // ПРАВИЛЬНЫЙ порядок: T3(0), T1(1), R1(2), R2(3), T2(4), T4(5), Silent R1(6), Silent R2(7)
     int positionIndex = -1;
+    int currentX = startX + FRAME_PADDING;  // Начинаем внутри рамки
     
     switch (type) {
         case ElementType::TRANSMITTER:
             {
-                // Порядок передатчиков: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5)
+                // Передатчики в порядке: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5)
                 switch (index) {
                     case 0: positionIndex = 1; break; // T1 -> позиция 1
-                    case 1: positionIndex = 4; break; // T2 -> позиция 4  
+                    case 1: positionIndex = 4; break; // T2 -> позиция 4
                     case 2: positionIndex = 0; break; // T3 -> позиция 0
                     case 3: positionIndex = 5; break; // T4 -> позиция 5
                 }
+                currentX += positionIndex * (elementWidth + spacing);
             }
             break;
             
         case ElementType::RECEIVER:
             {
-                // Приемники: R1(pos 2), R2(pos 3)
-                positionIndex = 2 + index; // R1=2, R2=3
+                // Приемники R1-R2 в центре (позиции 2-3)
+                positionIndex = 2 + index;  // R1=2, R2=3
+                currentX += positionIndex * (elementWidth + spacing);
             }
             break;
             
         case ElementType::SILENT_TX:
             {
-                // Молчащие передатчики: Silent R1(pos 6), Silent R2(pos 7)
-                positionIndex = 6 + index; // Silent R1=6, Silent R2=7
+                // Молчащие передатчики вне рамки (позиции 6-7)
+                positionIndex = 6 + index;  // Silent R1=6, Silent R2=7
+                // Начинаем после рамки
+                currentX = startX + frameWidth + frameToSilentSpacing + index * (elementWidth + spacing);
             }
             break;
     }
     
-    // Вычисляем координаты на основе позиции
+    // Вычисляем координаты
     if (positionIndex >= 0) {
-        rect.left = startX + positionIndex * (elementWidth + spacing);
+        rect.left = currentX;
         rect.top = centerY;
         rect.right = rect.left + elementWidth;
         rect.bottom = rect.top + elementHeight;
     } else {
         // Fallback на случай ошибки
-        rect.left = schemaRect.left + margin;
+        rect.left = schemaRect.left + 20;
         rect.top = centerY;
         rect.right = rect.left + elementWidth;
         rect.bottom = rect.top + elementHeight;
@@ -504,6 +701,32 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
 
 void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     InitializeSchematicElements(schemaRect);
+    
+    // Рассчитываем координаты рамки для основных элементов (T1-T4, R1-R2)
+    // Рамка должна охватывать элементы с позициями 0-5 (T3, T1, R1, R2, T2, T4)
+    
+    if (schematicElements.size() >= 6) {
+        // Находим минимальные и максимальные координаты для первых 6 элементов
+        int minX = INT_MAX, minY = INT_MAX;
+        int maxX = INT_MIN, maxY = INT_MIN;
+        
+        for (size_t i = 0; i < 6; i++) {
+            const RECT& rect = schematicElements[i].rect;
+            minX = (minX < (int)rect.left) ? minX : (int)rect.left;
+            minY = (minY < (int)rect.top) ? minY : (int)rect.top;
+            maxX = (maxX > (int)rect.right) ? maxX : (int)rect.right;
+            maxY = (maxY > (int)rect.bottom) ? maxY : (int)rect.bottom;
+        }
+        
+        // Добавляем отступы для рамки
+        deviceFrameRect.left = minX - FRAME_PADDING;
+        deviceFrameRect.top = minY - FRAME_PADDING;
+        deviceFrameRect.right = maxX + FRAME_PADDING;
+        deviceFrameRect.bottom = maxY + FRAME_PADDING;
+    } else {
+        // Если элементов меньше 6, рамка не отрисовывается
+        deviceFrameRect = {0, 0, 0, 0};
+    }
 }
 
 // Методы для работы с диалоговым окном
@@ -707,6 +930,9 @@ void SchematicModule::HandleCopyFromChart(HWND hDlg) {
 }
 
 void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
+    // Обновляем hover состояние элементов
+    UpdateHoverState(x, y);
+    
     ElementRect* element = FindElementAt(x, y);
     
     if (element) {
@@ -716,6 +942,15 @@ void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
         // Можно добавить показ подсказки с информацией об элементе
         std::wstring tooltip = GetElementTooltip(element->type, element->index);
         // TODO: Показать tooltip (можно использовать SetWindowText для статусной строки)
+        
+        // Перерисовываем область схемы для отображения hover эффекта
+        HWND hSchematicArea = GetDlgItem(hDlg, IDC_SCHEMATIC_AREA);
+        if (hSchematicArea) {
+            RECT schematicRect;
+            GetClientRect(hSchematicArea, &schematicRect);
+            MapWindowPoints(hSchematicArea, hDlg, (POINT*)&schematicRect, 2);
+            InvalidateRect(hDlg, &schematicRect, FALSE);
+        }
     } else {
         // Обычный курсор
         SetCursor(LoadCursor(NULL, IDC_ARROW));
@@ -793,38 +1028,30 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
 }
 
 // Дополнительные методы отрисовки схемы
+void SchematicModule::DrawDeviceFrame(HDC hdc, const RECT& frameRect) {
+    // Рисуем фон рамки
+    HBRUSH bgBrush = CreateSolidBrush(FRAME_BACKGROUND);
+    HPEN borderPen = CreatePen(PS_SOLID, FRAME_BORDER_WIDTH, FRAME_BORDER);
+    
+    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, bgBrush);
+    HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
+    
+    // Рисуем скруглённый прямоугольник для рамки
+    RoundRect(hdc, frameRect.left, frameRect.top, 
+              frameRect.right, frameRect.bottom,
+              FRAME_CORNER_RADIUS, FRAME_CORNER_RADIUS);
+    
+    // Восстанавливаем объекты GDI
+    SelectObject(hdc, oldBrush);
+    SelectObject(hdc, oldPen);
+    DeleteObject(bgBrush);
+    DeleteObject(borderPen);
+}
+
 void SchematicModule::DrawSchematicConnections(HDC hdc, const RECT& rect) {
     // В горизонтальной схеме соединительные линии не нужны
     // Все элементы расположены в логическом порядке слева направо
-    // Можно добавить декоративные элементы или разделители между группами
-    
-    HPEN separatorPen = CreatePen(PS_SOLID, 1, RGB(180, 180, 180));
-    HPEN oldPen = (HPEN)SelectObject(hdc, separatorPen);
-    
-    // Рассчитываем позиции для разделителей между группами элементов
-    int elementWidth = 70, spacing = 10;
-    int totalElements = 8;
-    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
-    int startX = rect.left + (rect.right - rect.left - totalElementsWidth) / 2;
-    int centerY = rect.top + (rect.bottom - rect.top) / 2;
-    
-    // Разделитель между T1 и R1 (после позиции 1)
-    int sep1X = startX + 2 * (elementWidth + spacing) - spacing/2;
-    MoveToEx(hdc, sep1X, centerY - 30, NULL);
-    LineTo(hdc, sep1X, centerY + 75);
-    
-    // Разделитель между R2 и T2 (после позиции 3)  
-    int sep2X = startX + 4 * (elementWidth + spacing) - spacing/2;
-    MoveToEx(hdc, sep2X, centerY - 30, NULL);
-    LineTo(hdc, sep2X, centerY + 75);
-    
-    // Разделитель между T4 и Silent R1 (после позиции 5)
-    int sep3X = startX + 6 * (elementWidth + spacing) - spacing/2;
-    MoveToEx(hdc, sep3X, centerY - 30, NULL);
-    LineTo(hdc, sep3X, centerY + 75);
-    
-    SelectObject(hdc, oldPen);
-    DeleteObject(separatorPen);
+    // Разделители убраны для чистого современного вида
 }
 
 
@@ -847,17 +1074,8 @@ void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
     int centerY = rect.top + (rect.bottom - rect.top) / 2;
     int labelY = centerY + 45 + 5; // Под элементами
     
-    // Подписи типов элементов под соответствующими позициями
-    std::wstring labels[8] = {
-        L"(Transmitter)", L"(Transmitter)", L"(Receiver)", L"(Receiver)", 
-        L"(Transmitter)", L"(Transmitter)", L"(Silent TX)", L"(Silent TX)"
-    };
-    
-    for (int i = 0; i < 8; i++) {
-        int labelX = startX + i * (elementWidth + spacing);
-        RECT labelRect = {labelX, labelY, labelX + elementWidth, labelY + 15};
-        DrawText(hdc, labels[i].c_str(), -1, &labelRect, DT_CENTER | DT_SINGLELINE);
-    }
+    // Подписи типов элементов убраны для более чистого вида
+    // Пользователи ИАТК понимают обозначения T1-T4, R1-R2, Silent R1-R2 без дополнительных пояснений
     
     SelectObject(hdc, oldFont);
     DeleteObject(labelFont);

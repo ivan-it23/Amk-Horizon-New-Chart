@@ -91,13 +91,16 @@ private:
         ElementType type;
         int index;
         bool selected;
+        bool hovered;  // Новое поле для hover состояния
         
         ElementRect(const RECT& r, ElementType t, int idx) 
-            : rect(r), type(t), index(idx), selected(false) {}
+            : rect(r), type(t), index(idx), selected(false), hovered(false) {}
     };
     
     std::vector<ElementRect> schematicElements;  // Элементы схемы для хит-теста
     SchematicSelection currentSelection;         // Текущий выбор элементов
+    ElementRect* hoveredElement;                 // Указатель на элемент под курсором
+    RECT deviceFrameRect;                        // Координаты рамки для основных элементов
     
     // Указатель на модуль выбора кривых (устанавливается извне)
     CurveSelectionModule* curveSelectionModule;
@@ -123,11 +126,12 @@ public:
     // Методы отрисовки схемы
     void RenderSchematic(HDC hdc, const RECT& rect);
     void DrawElement(HDC hdc, const RECT& elementRect, ElementType type, 
-                    int index, bool selected, const std::wstring& label);
+                    int index, bool selected, bool hovered, const std::wstring& label);
     
     // Обработка взаимодействия
     bool HandleElementClick(int x, int y);
     void UpdateSelection(ElementType type, int index, bool selected);
+    void UpdateHoverState(int x, int y);  // Новый метод для обработки hover
     bool IsSelectionCompatible(ElementType type, int index) const;
     void ClearIncompatibleSelections(ElementType newType);
     void SynchronizeElementStates();
@@ -156,6 +160,7 @@ public:
     bool ApplyCurrentCurveConfiguration();
     
     // Дополнительные методы отрисовки схемы
+    void DrawDeviceFrame(HDC hdc, const RECT& frameRect);
     void DrawSchematicConnections(HDC hdc, const RECT& rect);
     void DrawGroupLabels(HDC hdc, const RECT& rect);
     void DrawConnectionArrows(HDC hdc, const std::vector<RECT>& transmitterRects, 
@@ -167,6 +172,8 @@ private:
     void DrawReceiver(HDC hdc, const RECT& rect, int index, bool selected);
     void DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected);
     void DrawSelectionHighlight(HDC hdc, const RECT& rect);
+    void DrawGradientRect(HDC hdc, const RECT& rect, COLORREF colorStart, COLORREF colorEnd);
+    void DrawElementShadow(HDC hdc, const RECT& rect);
     
     // Расчет позиций элементов
     RECT CalculateElementRect(const RECT& schemaRect, ElementType type, int index);
