@@ -5,6 +5,7 @@
 #include <sstream>
 #include <commctrl.h>
 #include <algorithm>
+#include <map>
 
 // Определение цветов для элементов схемы
 const COLORREF SchematicModule::TRANSMITTER_COLOR = RGB(180, 100, 100);  // Приглушенный красный
@@ -731,13 +732,57 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
 
 // Методы для работы с диалоговым окном
 void SchematicModule::InitializeDialogControls(HWND hDlg) {
+    // Пытаемся восстановить текущую конфигурацию графика
+    bool hasExistingConfig = false;
+    if (curveSelectionModule && curveSelectionModule->HasConfiguration(targetChartNumber)) {
+        // Получаем текущую конфигурацию графика
+        ChartConfiguration existingConfig = curveSelectionModule->GetChartConfiguration(targetChartNumber);
+        
+        if (!existingConfig.IsEmpty()) {
+            hasExistingConfig = true;
+            
+            // Восстанавливаем выбор элементов схемы из конфигурации
+            // Анализируем кривые, чтобы определить, какие элементы были выбраны
+            currentSelection.Clear();
+            
+            for (const auto& curve : existingConfig.curves) {
+                // Восстанавливаем частоту из первой кривой
+                currentSelection.frequency = curve.frequency;
+                
+                // Восстанавливаем выбор элементов на основе типа кривой
+                switch (curve.sourceElement) {
+                    case ElementType::TRANSMITTER:
+                        if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
+                            currentSelection.transmitters[curve.elementIndex] = true;
+                        }
+                        break;
+                    case ElementType::RECEIVER:
+                        if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
+                            currentSelection.receivers[curve.elementIndex] = true;
+                        }
+                        break;
+                    case ElementType::SILENT_TX:
+                        if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
+                            currentSelection.silentTx[curve.elementIndex] = true;
+                        }
+                        break;
+                }
+            }
+            
+            // Сохраняем кривые с их состоянием enabled
+            currentAvailableCurves = existingConfig.curves;
+        }
+    }
+    
     // Инициализируем комбобокс частоты
     HWND hFreqCombo = GetDlgItem(hDlg, IDC_FREQUENCY_COMBO);
     if (hFreqCombo) {
         SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 kHz");
         SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 kHz");
-        SendMessage(hFreqCombo, CB_SETCURSEL, 0, 0); // Выбираем 400 kHz по умолчанию
-        currentSelection.frequency = FrequencyBand::FREQ_400_KHZ;
+        
+        // Устанавливаем частоту из восстановленной конфигурации или по умолчанию
+        int freqIndex = (currentSelection.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+        SendMessage(hFreqCombo, CB_SETCURSEL, freqIndex, 0);
     }
     
     // Инициализируем область схемы
@@ -746,6 +791,11 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         RECT schematicRect;
         GetClientRect(hSchematicArea, &schematicRect);
         InitializeSchematicElements(schematicRect);
+        
+        // Синхронизируем визуальное состояние элементов с восстановленным выбором
+        if (hasExistingConfig) {
+            SetCurrentSelection(currentSelection);
+        }
     }
     
     // Обновляем список доступных кривых
@@ -756,13 +806,26 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     HWND hCurveList = GetDlgItem(hDlg, IDC_CURVE_LIST);
     if (!hCurveList) return;
     
-    // Очищаем ListView
+    // Очищаем ListView (удаляем все элементы и колонки)
     ListView_DeleteAllItems(hCurveList);
+    
+    // Удаляем все существующие колонки
+    int columnCount = Header_GetItemCount(ListView_GetHeader(hCurveList));
+    for (int i = columnCount - 1; i >= 0; i--) {
+        ListView_DeleteColumn(hCurveList, i);
+    }
     
     if (!currentSelection.IsValid()) {
         // Показываем сообщение об ошибке выбора
         std::string error = currentSelection.GetValidationError();
         std::wstring werror(error.begin(), error.end());
+        
+        // Создаём одну колонку для сообщения об ошибке
+        LVCOLUMN column = {};
+        column.mask = LVCF_TEXT | LVCF_WIDTH;
+        column.cx = 350;
+        column.pszText = const_cast<LPWSTR>(L"Message");
+        ListView_InsertColumn(hCurveList, 0, &column);
         
         LVITEM item = {};
         item.mask = LVIF_TEXT;
@@ -774,6 +837,13 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     }
     
     if (!curveSelectionModule) {
+        // Создаём одну колонку для сообщения об ошибке
+        LVCOLUMN column = {};
+        column.mask = LVCF_TEXT | LVCF_WIDTH;
+        column.cx = 350;
+        column.pszText = const_cast<LPWSTR>(L"Message");
+        ListView_InsertColumn(hCurveList, 0, &column);
+        
         LVITEM item = {};
         item.mask = LVIF_TEXT;
         item.iItem = 0;
@@ -786,7 +856,32 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     // Получаем доступные кривые на основе текущего выбора
     std::vector<CurveDefinition> availableCurves = curveSelectionModule->GetAvailableCurves(currentSelection);
     
+    // Если у нас уже есть сохранённые кривые (из существующей конфигурации),
+    // синхронизируем состояние enabled с новыми доступными кривыми
+    if (!currentAvailableCurves.empty()) {
+        // Создаём карту ID -> enabled для быстрого поиска
+        std::map<std::string, bool> savedEnabledStates;
+        for (const auto& savedCurve : currentAvailableCurves) {
+            savedEnabledStates[savedCurve.id] = savedCurve.enabled;
+        }
+        
+        // Применяем сохранённые состояния к новым кривым
+        for (auto& curve : availableCurves) {
+            auto it = savedEnabledStates.find(curve.id);
+            if (it != savedEnabledStates.end()) {
+                curve.enabled = it->second;
+            }
+        }
+    }
+    
     if (availableCurves.empty()) {
+        // Создаём одну колонку для сообщения
+        LVCOLUMN column = {};
+        column.mask = LVCF_TEXT | LVCF_WIDTH;
+        column.cx = 350;
+        column.pszText = const_cast<LPWSTR>(L"Message");
+        ListView_InsertColumn(hCurveList, 0, &column);
+        
         LVITEM item = {};
         item.mask = LVIF_TEXT;
         item.iItem = 0;
@@ -796,43 +891,170 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         return;
     }
     
-    // Настраиваем ListView для чекбоксов
+    // Настраиваем ListView для чекбоксов и группировки
     ListView_SetExtendedListViewStyle(hCurveList, LVS_EX_CHECKBOXES | LVS_EX_FULLROWSELECT);
     
-    // Добавляем колонку
-    LVCOLUMN column = {};
-    column.mask = LVCF_TEXT | LVCF_WIDTH;
-    column.cx = 350;
-    column.pszText = const_cast<LPWSTR>(L"Curve");
-    ListView_InsertColumn(hCurveList, 0, &column);
+    // Включаем группировку в ListView
+    ListView_EnableGroupView(hCurveList, TRUE);
     
-    // Добавляем доступные кривые в ListView
+    // Группируем кривые по элементам (T1-T4, R1-R2)
+    std::map<int, std::vector<size_t>> curvesByElement; // Ключ: elementIndex, Значение: индексы кривых
+    std::vector<int> elementOrder; // Порядок элементов
+    
     for (size_t i = 0; i < availableCurves.size(); i++) {
         const auto& curve = availableCurves[i];
+        int elementKey = curve.elementIndex;
         
-        std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
-        displayText += L" (";
-        displayText += std::wstring(curve.units.begin(), curve.units.end());
-        displayText += L")";
-        
-        // Добавляем индикатор оси
-        if (curve.yAxisGroup == 0) {
-            displayText += L" [Left Axis]";
-        } else {
-            displayText += L" [Right Axis]";
+        if (curvesByElement.find(elementKey) == curvesByElement.end()) {
+            elementOrder.push_back(elementKey);
         }
         
-        LVITEM item = {};
-        item.mask = LVIF_TEXT | LVIF_PARAM;
-        item.iItem = static_cast<int>(i);
-        item.iSubItem = 0;
-        item.pszText = const_cast<LPWSTR>(displayText.c_str());
-        item.lParam = static_cast<LPARAM>(i); // Сохраняем индекс кривой
+        curvesByElement[elementKey].push_back(i);
+    }
+    
+    int numElements = static_cast<int>(elementOrder.size());
+    int selectedReceivers = currentSelection.GetSelectedReceiversCount();
+    
+    // Создаём одну колонку для всех кривых
+    LVCOLUMN column = {};
+    column.mask = LVCF_TEXT | LVCF_WIDTH;
+    column.cx = 400;
+    column.pszText = const_cast<LPWSTR>(L"Available Curves");
+    ListView_InsertColumn(hCurveList, 0, &column);
+    
+    // Специальный случай: R1 + R2 (Ratios & Differences) - без группировки
+    if (selectedReceivers == 2 && numElements > 1) {
+        // Отключаем группировку для этого случая
+        ListView_EnableGroupView(hCurveList, FALSE);
         
-        int itemIndex = ListView_InsertItem(hCurveList, &item);
+        // Добавляем все кривые без группировки
+        for (size_t i = 0; i < availableCurves.size(); i++) {
+            const auto& curve = availableCurves[i];
+            
+            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            displayText += L" (";
+            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += L")";
+            
+            if (curve.yAxisGroup == 0) {
+                displayText += L" [Left Axis]";
+            } else {
+                displayText += L" [Right Axis]";
+            }
+            
+            LVITEM item = {};
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = static_cast<int>(i);
+            item.iSubItem = 0;
+            item.pszText = const_cast<LPWSTR>(displayText.c_str());
+            item.lParam = static_cast<LPARAM>(i);
+            
+            int itemIndex = ListView_InsertItem(hCurveList, &item);
+            ListView_SetCheckState(hCurveList, itemIndex, curve.enabled ? TRUE : FALSE);
+        }
+    }
+    // Один элемент - без группировки
+    else if (numElements == 1) {
+        // Отключаем группировку
+        ListView_EnableGroupView(hCurveList, FALSE);
         
-        // Устанавливаем состояние чекбокса
-        ListView_SetCheckState(hCurveList, itemIndex, curve.enabled ? TRUE : FALSE);
+        int elementIndex = elementOrder[0];
+        
+        for (size_t curveIdx : curvesByElement[elementIndex]) {
+            const auto& curve = availableCurves[curveIdx];
+            
+            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            displayText += L" (";
+            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += L")";
+            
+            if (curve.yAxisGroup == 0) {
+                displayText += L" [Left Axis]";
+            } else {
+                displayText += L" [Right Axis]";
+            }
+            
+            LVITEM item = {};
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = static_cast<int>(curveIdx);
+            item.iSubItem = 0;
+            item.pszText = const_cast<LPWSTR>(displayText.c_str());
+            item.lParam = static_cast<LPARAM>(curveIdx);
+            
+            int itemIndex = ListView_InsertItem(hCurveList, &item);
+            ListView_SetCheckState(hCurveList, itemIndex, curve.enabled ? TRUE : FALSE);
+        }
+    }
+    // Несколько элементов - используем группировку
+    else {
+        // Создаём группы для каждого элемента
+        for (int groupIndex = 0; groupIndex < numElements; groupIndex++) {
+            int elementIndex = elementOrder[groupIndex];
+            size_t firstCurveIdx = curvesByElement[elementIndex][0];
+            ElementType elementType = availableCurves[firstCurveIdx].sourceElement;
+            
+            // Определяем заголовок группы
+            std::wstring groupHeader;
+            switch (elementType) {
+                case ElementType::TRANSMITTER:
+                    groupHeader = L"T" + std::to_wstring(elementIndex + 1);
+                    break;
+                case ElementType::RECEIVER:
+                    groupHeader = L"R" + std::to_wstring(elementIndex + 1);
+                    break;
+                case ElementType::SILENT_TX:
+                    groupHeader = L"Silent R" + std::to_wstring(elementIndex + 1);
+                    break;
+                default:
+                    groupHeader = L"Group " + std::to_wstring(groupIndex + 1);
+            }
+            
+            // Создаём группу
+            LVGROUP group = {};
+            group.cbSize = sizeof(LVGROUP);
+            group.mask = LVGF_HEADER | LVGF_GROUPID | LVGF_STATE;
+            group.pszHeader = const_cast<LPWSTR>(groupHeader.c_str());
+            group.iGroupId = groupIndex;
+            group.state = LVGS_NORMAL | LVGS_COLLAPSIBLE;
+            group.stateMask = LVGS_NORMAL | LVGS_COLLAPSIBLE;
+            
+            ListView_InsertGroup(hCurveList, groupIndex, &group);
+        }
+        
+        // Добавляем кривые в соответствующие группы
+        int globalItemIndex = 0;
+        for (int groupIndex = 0; groupIndex < numElements; groupIndex++) {
+            int elementIndex = elementOrder[groupIndex];
+            const auto& curvesInGroup = curvesByElement[elementIndex];
+            
+            for (size_t curveIdx : curvesInGroup) {
+                const auto& curve = availableCurves[curveIdx];
+                
+                std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+                displayText += L" (";
+                displayText += std::wstring(curve.units.begin(), curve.units.end());
+                displayText += L")";
+                
+                if (curve.yAxisGroup == 0) {
+                    displayText += L" [Left Axis]";
+                } else {
+                    displayText += L" [Right Axis]";
+                }
+                
+                LVITEM item = {};
+                item.mask = LVIF_TEXT | LVIF_PARAM | LVIF_GROUPID;
+                item.iItem = globalItemIndex;
+                item.iSubItem = 0;
+                item.pszText = const_cast<LPWSTR>(displayText.c_str());
+                item.lParam = static_cast<LPARAM>(curveIdx);
+                item.iGroupId = groupIndex;
+                
+                int itemIndex = ListView_InsertItem(hCurveList, &item);
+                ListView_SetCheckState(hCurveList, itemIndex, curve.enabled ? TRUE : FALSE);
+                
+                globalItemIndex++;
+            }
+        }
     }
     
     // Сохраняем доступные кривые для последующего использования

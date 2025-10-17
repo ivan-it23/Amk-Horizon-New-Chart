@@ -437,7 +437,10 @@ void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinitio
             CurveDefinition silentCurve = CreateSilentAmplitudeCurve(i, selection.frequency);
             silentCurve.yAxisGroup = 0; // Левая ось (амплитуды)
             silentCurve.enabled = true;
-            // Цвет уже установлен в CreateSilentAmplitudeCurve() через GetSpecialDataColor()
+            
+            // Используем умное назначение цвета вместо фиксированного фиолетового
+            // Передаём индекс элемента (i) для выбора цвета из палитры
+            silentCurve.color = AssignSmartColor(curves, i, silentCurve.yAxisGroup);
             
             // Обновляем отображаемое имя
             silentCurve.displayName = "Silent R" + std::to_string(i + 1) + " Amplitude";

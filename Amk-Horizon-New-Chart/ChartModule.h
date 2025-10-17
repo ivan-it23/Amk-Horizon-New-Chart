@@ -63,6 +63,10 @@ public:
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                          DataType type, const std::vector<bool>& enabledTransmitters) const;
+    
+    // Новый метод для отрисовки легенды с кастомными кривыми
+    void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                         const std::vector<CurveDefinition>& curves) const;
 
     // Хит-тест для чекбоксов в легенде
     int HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const;

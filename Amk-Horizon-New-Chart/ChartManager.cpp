@@ -647,18 +647,15 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     } else {
         // Используем обычный метод для одной оси
         if (!leftAxisData.empty()) {
-            // Преобразуем кривые в старый формат для совместимости
-            DataType legacyType = DataType::PHASE_DIFFERENCE; // Заглушка
-            std::vector<bool> enabledTransmitters = {true, true, true, true};
-            
-            // Применяем масштабирование если есть (всегда показываем оси)
+            // Отрисовываем график с кастомными кривыми
+            // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
             bool showAxes = true;
-            
-            chartModule->DrawChart(hdc, chartRect, leftAxisData, legacyType, title, 
-                                 dataModule->HasData(), enabledTransmitters, dataModule.get(),
-                                 zoom->isZoomed ? zoom->minX : 0.0,
-                                 zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                 -1e6, 1e6, showAxes); // Y всегда автоматически
+            chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
+                                         leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось
+                                         title, dataModule->HasData(),
+                                         zoom->isZoomed ? zoom->minX : 0.0,
+                                         zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
+                                         -1e6, 1e6, showAxes);
         }
     }
 }
