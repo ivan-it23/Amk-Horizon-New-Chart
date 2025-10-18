@@ -66,7 +66,7 @@ CurveDefinition::CurveDefinition(const std::string& id, const std::string& name,
 }
 
 // Реализация SchematicSelection
-SchematicSelection::SchematicSelection() : frequency(FrequencyBand::FREQ_400_KHZ) {
+SchematicSelection::SchematicSelection() : frequency(FrequencyBand::FREQ_400_KHZ), dataFilter(DataTypeFilter::ALL) {
     transmitters.resize(4, false);  // T1-T4
     receivers.resize(2, false);     // R1-R2
     silentTx.resize(2, false);      // Молчащие для R1 и R2
@@ -77,6 +77,7 @@ void SchematicSelection::Clear() {
     std::fill(receivers.begin(), receivers.end(), false);
     std::fill(silentTx.begin(), silentTx.end(), false);
     frequency = FrequencyBand::FREQ_400_KHZ;
+    dataFilter = DataTypeFilter::ALL;
 }
 
 bool SchematicSelection::IsValid() const {
@@ -444,6 +445,9 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     element->selected = newState;
     UpdateSelection(element->type, element->index, newState);
     
+    // При ручном выборе элементов сбрасываем фильтр на ALL
+    currentSelection.dataFilter = DataTypeFilter::ALL;
+    
     // Обновляем визуальное состояние всех элементов
     SynchronizeElementStates();
     
@@ -769,6 +773,9 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 }
             }
             
+            // Определяем фильтр типов данных по существующим кривым
+            currentSelection.dataFilter = DetermineDataFilterFromCurves(existingConfig.curves);
+            
             // Сохраняем кривые с их состоянием enabled
             currentAvailableCurves = existingConfig.curves;
         }
@@ -1067,33 +1074,46 @@ void SchematicModule::HandleFrequencyChange(HWND hDlg) {
         int selection = (int)SendMessage(hFreqCombo, CB_GETCURSEL, 0, 0);
         currentSelection.frequency = (selection == 0) ? FrequencyBand::FREQ_400_KHZ : FrequencyBand::FREQ_2000_KHZ;
         
+        // При изменении частоты сохраняем текущий фильтр (не сбрасываем)
+        // Это позволяет пользователю менять частоту без потери выбранного пресета
+        
         // Обновляем список доступных кривых
         UpdateAvailableCurves(hDlg);
     }
 }
 
 void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
-    // Очищаем текущий выбор
+    // Очищаем текущий выбор (включая старые кривые)
     currentSelection.Clear();
+    currentAvailableCurves.clear();
     
-    // Применяем пресет
+    // Применяем пресет с соответствующим фильтром типов данных
     switch (presetId) {
         case IDC_PRESET_ALL_AMP_R1:
             currentSelection.receivers[0] = true; // R1
+            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
             break;
         case IDC_PRESET_ALL_AMP_R2:
             currentSelection.receivers[1] = true; // R2
+            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
             break;
         case IDC_PRESET_ALL_PHASE_R1:
             currentSelection.receivers[0] = true; // R1
+            currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
             break;
         case IDC_PRESET_ALL_PHASE_R2:
             currentSelection.receivers[1] = true; // R2
+            currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
             break;
         case IDC_PRESET_RATIOS:
+            currentSelection.receivers[0] = true; // R1
+            currentSelection.receivers[1] = true; // R2
+            currentSelection.dataFilter = DataTypeFilter::RATIO_ONLY;
+            break;
         case IDC_PRESET_DIFFERENCES:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
+            currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
             break;
     }
     
@@ -1247,6 +1267,67 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     curveSelectionModule->ApplyCurveConfiguration(targetChartNumber, config);
     
     return true;
+}
+
+DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<CurveDefinition>& curves) const {
+    if (curves.empty()) {
+        return DataTypeFilter::ALL;
+    }
+    
+    // Подсчитываем типы данных в кривых
+    bool hasAmplitudes = false;
+    bool hasPhases = false;
+    bool hasRatios = false;
+    bool hasDifferences = false;
+    
+    for (const auto& curve : curves) {
+        switch (curve.dataType) {
+            case DataType::AMPLITUDE_RX1:
+            case DataType::AMPLITUDE_RX2:
+            case DataType::SILENT_AMPLITUDE_RX1:
+            case DataType::SILENT_AMPLITUDE_RX2:
+                hasAmplitudes = true;
+                break;
+            case DataType::PHASE_RX1:
+            case DataType::PHASE_RX2:
+                hasPhases = true;
+                break;
+            case DataType::AMPLITUDE_RATIO:
+                hasRatios = true;
+                break;
+            case DataType::PHASE_DIFFERENCE:
+                hasDifferences = true;
+                break;
+            default:
+                break;
+        }
+    }
+    
+    // Определяем фильтр на основе найденных типов
+    // Приоритет: специфичные фильтры (RATIO_ONLY, DIFFERENCE_ONLY) > общие (AMPLITUDE_ONLY, PHASE_ONLY) > ALL
+    
+    // Если есть только отношения амплитуд
+    if (hasRatios && !hasDifferences && !hasAmplitudes && !hasPhases) {
+        return DataTypeFilter::RATIO_ONLY;
+    }
+    
+    // Если есть только разности фаз
+    if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases) {
+        return DataTypeFilter::DIFFERENCE_ONLY;
+    }
+    
+    // Если есть только амплитуды (без отношений)
+    if (hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences) {
+        return DataTypeFilter::AMPLITUDE_ONLY;
+    }
+    
+    // Если есть только фазы (без разностей)
+    if (hasPhases && !hasAmplitudes && !hasRatios && !hasDifferences) {
+        return DataTypeFilter::PHASE_ONLY;
+    }
+    
+    // Если есть смешанные типы или неопределённая комбинация
+    return DataTypeFilter::ALL;
 }
 
 // Дополнительные методы отрисовки схемы

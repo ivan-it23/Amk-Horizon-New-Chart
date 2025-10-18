@@ -333,22 +333,32 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     // 1. Отношения амплитуд R2/R1 для каждого передатчика T1-T4
     // 2. Разности фаз R2-R1 для каждого передатчика T1-T4
     
+    // Проверяем фильтр типов данных
+    bool addRatios = (selection.dataFilter == DataTypeFilter::ALL || 
+                      selection.dataFilter == DataTypeFilter::RATIO_ONLY);
+    bool addDifferences = (selection.dataFilter == DataTypeFilter::ALL || 
+                           selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY);
+    
     for (int i = 0; i < 4; i++) {
         // Отношение амплитуд (левая ось, единицы: В/В)
-        CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
-        ratioCurve.yAxisGroup = 0; // Левая ось
-        ratioCurve.enabled = true; // По умолчанию включена
-        // Умное назначение цвета с учетом уже созданных кривых
-        ratioCurve.color = AssignSmartColor(curves, i, ratioCurve.yAxisGroup);
-        curves.push_back(ratioCurve);
+        if (addRatios) {
+            CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
+            ratioCurve.yAxisGroup = 0; // Левая ось
+            ratioCurve.enabled = true; // По умолчанию включена
+            // Умное назначение цвета с учетом уже созданных кривых
+            ratioCurve.color = AssignSmartColor(curves, i, ratioCurve.yAxisGroup);
+            curves.push_back(ratioCurve);
+        }
         
         // Разность фаз (правая ось, единицы: градусы)
-        CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
-        differenceCurve.yAxisGroup = 1; // Правая ось
-        differenceCurve.enabled = true; // По умолчанию включена
-        // Умное назначение цвета с учетом уже созданных кривых
-        differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
-        curves.push_back(differenceCurve);
+        if (addDifferences) {
+            CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
+            differenceCurve.yAxisGroup = (addRatios ? 1 : 0); // Правая ось если есть ratios, иначе левая
+            differenceCurve.enabled = true; // По умолчанию включена
+            // Умное назначение цвета с учетом уже созданных кривых
+            differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
+            curves.push_back(differenceCurve);
+        }
     }
 }
 
@@ -369,22 +379,32 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     // 1. Амплитуды для всех передатчиков T1-T4 (левая ось, Вольты)
     // 2. Фазы для всех передатчиков T1-T4 (правая ось, градусы)
     
+    // Проверяем фильтр типов данных
+    bool addAmplitudes = (selection.dataFilter == DataTypeFilter::ALL || 
+                          selection.dataFilter == DataTypeFilter::AMPLITUDE_ONLY);
+    bool addPhases = (selection.dataFilter == DataTypeFilter::ALL || 
+                      selection.dataFilter == DataTypeFilter::PHASE_ONLY);
+    
     for (int i = 0; i < 4; i++) {
         // Амплитуда (левая ось)
-        CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
-        amplitudeCurve.yAxisGroup = 0; // Левая ось
-        amplitudeCurve.enabled = true; // По умолчанию включена
-        // Умное назначение цвета с учетом уже созданных кривых
-        amplitudeCurve.color = AssignSmartColor(curves, i, amplitudeCurve.yAxisGroup);
-        curves.push_back(amplitudeCurve);
+        if (addAmplitudes) {
+            CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
+            amplitudeCurve.yAxisGroup = 0; // Левая ось
+            amplitudeCurve.enabled = true; // По умолчанию включена
+            // Умное назначение цвета с учетом уже созданных кривых
+            amplitudeCurve.color = AssignSmartColor(curves, i, amplitudeCurve.yAxisGroup);
+            curves.push_back(amplitudeCurve);
+        }
         
         // Фаза (правая ось)
-        CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
-        phaseCurve.yAxisGroup = 1; // Правая ось
-        phaseCurve.enabled = false; // По умолчанию отключена для избежания перегрузки
-        // Умное назначение цвета с учетом уже созданных кривых
-        phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
-        curves.push_back(phaseCurve);
+        if (addPhases) {
+            CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
+            phaseCurve.yAxisGroup = (addAmplitudes ? 1 : 0); // Правая ось если есть амплитуды, иначе левая
+            phaseCurve.enabled = true; // Включена по умолчанию для пресетов
+            // Умное назначение цвета с учетом уже созданных кривых
+            phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
+            curves.push_back(phaseCurve);
+        }
     }
 }
 

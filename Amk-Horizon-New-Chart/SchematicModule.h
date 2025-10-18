@@ -39,12 +39,22 @@ struct CurveDefinition {
                    int index, DataType type, FrequencyBand freq);
 };
 
+// Фильтр типов данных для пресетов
+enum class DataTypeFilter {
+    ALL,                    // Все типы данных (по умолчанию)
+    AMPLITUDE_ONLY,         // Только амплитуды
+    PHASE_ONLY,             // Только фазы
+    RATIO_ONLY,             // Только отношения амплитуд
+    DIFFERENCE_ONLY         // Только разности фаз
+};
+
 // Выбор элементов на схеме прибора
 struct SchematicSelection {
     std::vector<bool> transmitters;  // T1-T4 [4 элемента]
     std::vector<bool> receivers;     // R1-R2 [2 элемента]  
     std::vector<bool> silentTx;      // Молчащие передатчики [2 элемента] для R1 и R2
     FrequencyBand frequency;         // Выбранная частота
+    DataTypeFilter dataFilter;       // Фильтр типов данных для пресетов
     
     SchematicSelection();
     void Clear();
@@ -158,6 +168,9 @@ public:
     void HandleCurveCheckboxChange(HWND hDlg, int itemIndex);
     void ValidateCurrentCurveConfiguration(HWND hDlg);
     bool ApplyCurrentCurveConfiguration();
+    
+    // Определение фильтра по существующим кривым
+    DataTypeFilter DetermineDataFilterFromCurves(const std::vector<CurveDefinition>& curves) const;
     
     // Дополнительные методы отрисовки схемы
     void DrawDeviceFrame(HDC hdc, const RECT& frameRect);
