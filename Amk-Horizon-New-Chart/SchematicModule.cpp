@@ -101,6 +101,13 @@ std::string SchematicSelection::GetValidationError() const {
     int transmitters = GetSelectedTransmittersCount();
     int silent = GetSelectedSilentCount();
     
+    // Для пресетов (dataFilter != ALL) валидация всегда проходит
+    // Кривые генерируются на основе фильтра, а не выбранных элементов
+    if (dataFilter != DataTypeFilter::ALL) {
+        return ""; // Пресет всегда валиден
+    }
+    
+    // Для ручного выбора (dataFilter == ALL) проверяем выбранные элементы
     // Должен быть выбран хотя бы один элемент
     if (receivers == 0 && transmitters == 0 && silent == 0) {
         return "Выберите элементы для построения графика";
@@ -745,36 +752,66 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         if (!existingConfig.IsEmpty()) {
             hasExistingConfig = true;
             
-            // Восстанавливаем выбор элементов схемы из конфигурации
-            // Анализируем кривые, чтобы определить, какие элементы были выбраны
+            // Очищаем текущий выбор
             currentSelection.Clear();
             
-            for (const auto& curve : existingConfig.curves) {
-                // Восстанавливаем частоту из первой кривой
-                currentSelection.frequency = curve.frequency;
-                
-                // Восстанавливаем выбор элементов на основе типа кривой
-                switch (curve.sourceElement) {
-                    case ElementType::TRANSMITTER:
-                        if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
-                            currentSelection.transmitters[curve.elementIndex] = true;
-                        }
-                        break;
-                    case ElementType::RECEIVER:
-                        if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
-                            currentSelection.receivers[curve.elementIndex] = true;
-                        }
-                        break;
-                    case ElementType::SILENT_TX:
-                        if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
-                            currentSelection.silentTx[curve.elementIndex] = true;
-                        }
-                        break;
-                }
+            // Восстанавливаем частоту из первой кривой
+            if (!existingConfig.curves.empty()) {
+                currentSelection.frequency = existingConfig.curves[0].frequency;
             }
             
             // Определяем фильтр типов данных по существующим кривым
             currentSelection.dataFilter = DetermineDataFilterFromCurves(existingConfig.curves);
+            
+            // ВАЖНО: Восстанавливаем элементы схемы ТОЛЬКО для режима ручного выбора (dataFilter == ALL)
+            // Для пресетов (dataFilter != ALL) элементы схемы должны оставаться неактивными
+            if (currentSelection.dataFilter == DataTypeFilter::ALL) {
+                // Режим ручного выбора - восстанавливаем элементы схемы из кривых
+                for (const auto& curve : existingConfig.curves) {
+                    switch (curve.sourceElement) {
+                        case ElementType::TRANSMITTER:
+                            if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
+                                currentSelection.transmitters[curve.elementIndex] = true;
+                            }
+                            break;
+                        case ElementType::RECEIVER:
+                            if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
+                                currentSelection.receivers[curve.elementIndex] = true;
+                            }
+                            break;
+                        case ElementType::SILENT_TX:
+                            if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
+                                currentSelection.silentTx[curve.elementIndex] = true;
+                            }
+                            break;
+                    }
+                }
+            }
+            else {
+                // Для пресетов (dataFilter != ALL) элементы схемы НЕ подсвечиваются,
+                // НО нужно восстановить информацию о приемниках для генерации кривых
+                // Определяем приемники по типу данных в кривых
+                for (const auto& curve : existingConfig.curves) {
+                    switch (curve.dataType) {
+                        case DataType::AMPLITUDE_RX1:
+                        case DataType::PHASE_RX1:
+                            currentSelection.receivers[0] = true; // R1
+                            break;
+                        case DataType::AMPLITUDE_RX2:
+                        case DataType::PHASE_RX2:
+                            currentSelection.receivers[1] = true; // R2
+                            break;
+                        case DataType::AMPLITUDE_RATIO:
+                        case DataType::PHASE_DIFFERENCE:
+                            // Для отношений и разностей нужны оба приемника
+                            currentSelection.receivers[0] = true; // R1
+                            currentSelection.receivers[1] = true; // R2
+                            break;
+                        default:
+                            break;
+                    }
+                }
+            }
             
             // Сохраняем кривые с их состоянием enabled
             currentAvailableCurves = existingConfig.curves;
@@ -801,7 +838,17 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         
         // Синхронизируем визуальное состояние элементов с восстановленным выбором
         if (hasExistingConfig) {
-            SetCurrentSelection(currentSelection);
+            // Для пресетов (dataFilter != ALL) элементы схемы НЕ подсвечиваются
+            if (currentSelection.dataFilter == DataTypeFilter::ALL) {
+                // Режим ручного выбора - синхронизируем элементы схемы
+                SetCurrentSelection(currentSelection);
+            }
+            else {
+                // Режим пресета - все элементы схемы неактивны
+                for (auto& element : schematicElements) {
+                    element.selected = false;
+                }
+            }
         }
     }
     
@@ -1117,8 +1164,11 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             break;
     }
     
-    // Обновляем отображение
-    SetCurrentSelection(currentSelection);
+    // Для пресетов НЕ синхронизируем элементы схемы (они должны оставаться неактивными)
+    // Просто очищаем выбор всех элементов схемы
+    for (auto& element : schematicElements) {
+        element.selected = false;
+    }
     
     // Перерисовываем схему
     HWND hSchematicArea = GetDlgItem(hDlg, IDC_SCHEMATIC_AREA);

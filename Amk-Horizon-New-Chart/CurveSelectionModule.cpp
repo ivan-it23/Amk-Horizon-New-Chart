@@ -67,22 +67,41 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
     int selectedTransmitters = selection.GetSelectedTransmittersCount();
     int selectedSilent = selection.GetSelectedSilentCount();
     
-    // Логика определения доступных кривых на основе выбора
-    if (selectedReceivers == 2) {
-        // Два приемника -> отношения амплитуд и разности фаз (4 кривые T1-T4)
-        AddTwoReceiversCurves(curves, selection);
+    // РЕЖИМ ПРЕСЕТА: Если dataFilter != ALL, генерируем кривые на основе фильтра
+    // Элементы схемы не используются (все false)
+    if (selection.dataFilter != DataTypeFilter::ALL) {
+        // Определяем, какой метод вызвать на основе фильтра
+        if (selection.dataFilter == DataTypeFilter::RATIO_ONLY || 
+            selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY) {
+            // Отношения амплитуд или разности фаз -> используем логику для двух приемников
+            AddTwoReceiversCurves(curves, selection);
+        }
+        else if (selection.dataFilter == DataTypeFilter::AMPLITUDE_ONLY || 
+                 selection.dataFilter == DataTypeFilter::PHASE_ONLY) {
+            // Амплитуды или фазы -> используем логику для одного приемника
+            // Нужно определить, какой приемник (по умолчанию R1, индекс 0)
+            AddSingleReceiverCurves(curves, selection);
+        }
     }
-    else if (selectedReceivers == 1) {
-        // Один приемник -> амплитуды и фазы для T1-T4 (8 кривых)
-        AddSingleReceiverCurves(curves, selection);
-    }
-    else if (selectedTransmitters > 0) {
-        // Выбранные передатчики -> амплитуды и фазы для R1 и R2
-        AddTransmitterCurves(curves, selection);
-    }
-    else if (selectedSilent > 0) {
-        // Молчащие передатчики -> только амплитуды для соответствующих приемников
-        AddSilentTransmitterCurves(curves, selection);
+    // РЕЖИМ РУЧНОГО ВЫБОРА: Если dataFilter == ALL, используем выбранные элементы схемы
+    else {
+        // Логика определения доступных кривых на основе выбора элементов
+        if (selectedReceivers == 2) {
+            // Два приемника -> отношения амплитуд и разности фаз (4 кривые T1-T4)
+            AddTwoReceiversCurves(curves, selection);
+        }
+        else if (selectedReceivers == 1) {
+            // Один приемник -> амплитуды и фазы для T1-T4 (8 кривых)
+            AddSingleReceiverCurves(curves, selection);
+        }
+        else if (selectedTransmitters > 0) {
+            // Выбранные передатчики -> амплитуды и фазы для R1 и R2
+            AddTransmitterCurves(curves, selection);
+        }
+        else if (selectedSilent > 0) {
+            // Молчащие передатчики -> только амплитуды для соответствующих приемников
+            AddSilentTransmitterCurves(curves, selection);
+        }
     }
     
     // Сортируем кривые по типу данных и передатчикам для удобства
@@ -366,11 +385,19 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
                                                   const SchematicSelection& selection) const {
     // Определяем, какой приемник выбран
     int receiverIndex = -1;
+    
+    // Режим ручного выбора: ищем выбранный приемник
     for (int i = 0; i < 2; i++) {
         if (selection.receivers[i]) {
             receiverIndex = i;
             break;
         }
+    }
+    
+    // Режим пресета: если приемник не выбран, используем R1 по умолчанию (индекс 0)
+    // Это нужно для пресетов "All Ampl R1/R2" и "All Phase R1/R2"
+    if (receiverIndex == -1 && selection.dataFilter != DataTypeFilter::ALL) {
+        receiverIndex = 0; // По умолчанию R1
     }
     
     if (receiverIndex == -1) return;
