@@ -1310,18 +1310,44 @@ void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
 }
 
 void SchematicModule::HandleCurveCheckboxChange(HWND hDlg, int itemIndex) {
-    if (itemIndex < 0 || itemIndex >= static_cast<int>(currentAvailableCurves.size())) {
-        return;
-    }
-    
     HWND hCurveList = GetDlgItem(hDlg, IDC_CURVE_LIST);
     if (!hCurveList) return;
+    
+    // ИСПРАВЛЕНО: Получаем реальный индекс кривой из lParam
+    LVITEM item = {};
+    item.mask = LVIF_PARAM;
+    item.iItem = itemIndex;
+    
+    if (!ListView_GetItem(hCurveList, &item)) {
+        return; // Не удалось получить элемент
+    }
+    
+    int curveIndex = static_cast<int>(item.lParam);
+    
+    // Проверяем границы массива
+    if (curveIndex < 0 || curveIndex >= static_cast<int>(currentAvailableCurves.size())) {
+        return;
+    }
     
     // Получаем новое состояние чекбокса
     BOOL isChecked = ListView_GetCheckState(hCurveList, itemIndex);
     
-    // Обновляем состояние кривой
-    currentAvailableCurves[itemIndex].enabled = (isChecked == TRUE);
+    // ОТЛАДКА: Выводим информацию об изменении чекбокса
+    char debugMsg[256];
+    sprintf_s(debugMsg, "=== HandleCurveCheckboxChange ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "ListView item index: %d, Real curve index: %d, New state: %s\n", 
+             itemIndex, curveIndex, isChecked ? "CHECKED" : "UNCHECKED");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "Curve: %s\n", currentAvailableCurves[curveIndex].displayName.c_str());
+    OutputDebugStringA(debugMsg);
+    
+    // ИСПРАВЛЕНО: Обновляем состояние кривой по правильному индексу
+    currentAvailableCurves[curveIndex].enabled = (isChecked == TRUE);
+    
+    sprintf_s(debugMsg, "Updated curve enabled state to: %s\n", currentAvailableCurves[curveIndex].enabled ? "true" : "false");
+    OutputDebugStringA(debugMsg);
+    OutputDebugStringA("=== END HandleCurveCheckboxChange ===\n");
     
     // Можно добавить дополнительную логику, например:
     // - Проверка совместимости выбранных кривых
@@ -1363,6 +1389,26 @@ void SchematicModule::ValidateCurrentCurveConfiguration(HWND hDlg) {
 bool SchematicModule::ApplyCurrentCurveConfiguration() {
     if (!curveSelectionModule) return false;
     
+    // ОТЛАДКА: Выводим информацию о применяемой конфигурации
+    char debugMsg[256];
+    sprintf_s(debugMsg, "=== ApplyCurrentCurveConfiguration ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "Total curves in configuration: %zu\n", currentAvailableCurves.size());
+    OutputDebugStringA(debugMsg);
+    
+    int enabledCount = 0;
+    for (size_t i = 0; i < currentAvailableCurves.size(); i++) {
+        const auto& curve = currentAvailableCurves[i];
+        sprintf_s(debugMsg, "Curve %zu: %s, Enabled: %s, DataType: %d, yAxisGroup: %d\n", 
+                 i, curve.displayName.c_str(), curve.enabled ? "YES" : "NO", 
+                 static_cast<int>(curve.dataType), curve.yAxisGroup);
+        OutputDebugStringA(debugMsg);
+        if (curve.enabled) enabledCount++;
+    }
+    
+    sprintf_s(debugMsg, "Total enabled curves: %d\n", enabledCount);
+    OutputDebugStringA(debugMsg);
+    
     // Создаем конфигурацию из текущих кривых
     ChartConfiguration config;
     config.curves = currentAvailableCurves;
@@ -1370,11 +1416,18 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     
     // Валидируем конфигурацию
     if (!curveSelectionModule->ValidateConfiguration(config)) {
+        OutputDebugStringA("Configuration validation FAILED\n");
+        OutputDebugStringA("=== END ApplyCurrentCurveConfiguration ===\n");
         return false;
     }
     
+    OutputDebugStringA("Configuration validation PASSED\n");
+    
     // Применяем конфигурацию к соответствующему графику
     curveSelectionModule->ApplyCurveConfiguration(targetChartNumber, config);
+    
+    OutputDebugStringA("Configuration applied successfully\n");
+    OutputDebugStringA("=== END ApplyCurrentCurveConfiguration ===\n");
     
     return true;
 }
