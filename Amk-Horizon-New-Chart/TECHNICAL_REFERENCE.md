@@ -257,7 +257,7 @@ private:
 ### Логика выбора элементов схемы
 
 ```cpp
-// Правила валидации выбора
+// Правила валидации выбора (ОБНОВЛЕНО в версии 2.1.1)
 bool SchematicSelection::IsValid() const {
     int receivers = GetSelectedReceiversCount();
     int transmitters = GetSelectedTransmittersCount();
@@ -273,8 +273,9 @@ bool SchematicSelection::IsValid() const {
         return false;
     }
     
-    // Молчащие передатчики нельзя комбинировать с активными элементами
-    if (silent > 0 && (transmitters > 0 || receivers > 0)) {
+    // ИСПРАВЛЕНО: Разрешены комбинации молчащих с активными элементами
+    // Запрещена только комбинация: оба приемника + молчащие
+    if (silent > 0 && receivers == 2) {
         return false;
     }
     

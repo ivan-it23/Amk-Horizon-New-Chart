@@ -118,9 +118,10 @@ std::string SchematicSelection::GetValidationError() const {
         return "Нельзя одновременно выбирать передатчики и приемники";
     }
     
-    // Молчащие передатчики нельзя комбинировать с активными элементами
-    if (silent > 0 && (transmitters > 0 || receivers > 0)) {
-        return "Молчащие передатчики нельзя комбинировать с активными элементами";
+    // ИСПРАВЛЕНО: Разрешаем комбинации молчащих передатчиков с активными элементами
+    // Запрещена только комбинация приемников R1+R2 с молчащими передатчиками
+    if (silent > 0 && receivers == 2) {
+        return "Нельзя одновременно выбирать оба приемника и молчащие передатчики";
     }
     
     return ""; // Выбор корректен
@@ -436,16 +437,26 @@ bool SchematicModule::HandleElementClick(int x, int y) {
         return false;
     }
     
+    // ОТЛАДКА: Выводим информацию о клике
+    char debugMsg[256];
+    sprintf_s(debugMsg, "=== HandleElementClick ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "Click: Type=%d, Index=%d, CurrentlySelected=%s\n", 
+             static_cast<int>(element->type), element->index,
+             element->selected ? "true" : "false");
+    OutputDebugStringA(debugMsg);
+    
     // Проверяем логику выбора элементов
     bool newState = !element->selected;
     
-    // Применяем правила взаимоисключения
-    if (newState) {
-        // Если выбираем новый элемент, проверяем совместимость
-        if (!IsSelectionCompatible(element->type, element->index)) {
-            // Очищаем несовместимые выборы
-            ClearIncompatibleSelections(element->type);
-        }
+    // ИСПРАВЛЕНО: Применяем правила взаимоисключения ТОЛЬКО если выбираем новый элемент
+    // И ТОЛЬКО если есть реальная несовместимость
+    if (newState && !IsSelectionCompatible(element->type, element->index)) {
+        sprintf_s(debugMsg, "Selection not compatible, clearing incompatible selections\n");
+        OutputDebugStringA(debugMsg);
+        
+        // Очищаем несовместимые выборы
+        ClearIncompatibleSelections(element->type);
     }
     
     // Обновляем состояние элемента
@@ -457,6 +468,20 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     
     // Обновляем визуальное состояние всех элементов
     SynchronizeElementStates();
+    
+    // ОТЛАДКА: Выводим итоговое состояние
+    OutputDebugStringA("Final selection state after click:\n");
+    for (int i = 0; i < 4; i++) {
+        sprintf_s(debugMsg, "  T%d: %s\n", i + 1, currentSelection.transmitters[i] ? "selected" : "not selected");
+        OutputDebugStringA(debugMsg);
+    }
+    for (int i = 0; i < 2; i++) {
+        sprintf_s(debugMsg, "  R%d: %s\n", i + 1, currentSelection.receivers[i] ? "selected" : "not selected");
+        OutputDebugStringA(debugMsg);
+        sprintf_s(debugMsg, "  Silent R%d: %s\n", i + 1, currentSelection.silentTx[i] ? "selected" : "not selected");
+        OutputDebugStringA(debugMsg);
+    }
+    OutputDebugStringA("=== END HandleElementClick ===\n");
     
     return true;
 }
@@ -767,25 +792,60 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
             // Для пресетов (dataFilter != ALL) элементы схемы должны оставаться неактивными
             if (currentSelection.dataFilter == DataTypeFilter::ALL) {
                 // Режим ручного выбора - восстанавливаем элементы схемы из кривых
+                
+                // ОТЛАДКА: Выводим информацию о восстанавливаемых кривых
+                OutputDebugStringA("=== RESTORING CONFIGURATION ===\n");
+                char debugMsg[256];
+                sprintf_s(debugMsg, "Total curves to restore: %zu\n", existingConfig.curves.size());
+                OutputDebugStringA(debugMsg);
+                
                 for (const auto& curve : existingConfig.curves) {
+                    // ОТЛАДКА: Информация о каждой кривой
+                    sprintf_s(debugMsg, "Curve: %s, SourceElement: %d, ElementIndex: %d, Enabled: %s\n", 
+                             curve.id.c_str(), 
+                             static_cast<int>(curve.sourceElement), 
+                             curve.elementIndex,
+                             curve.enabled ? "true" : "false");
+                    OutputDebugStringA(debugMsg);
+                    
                     switch (curve.sourceElement) {
                         case ElementType::TRANSMITTER:
                             if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
                                 currentSelection.transmitters[curve.elementIndex] = true;
+                                sprintf_s(debugMsg, "  -> Restored transmitter T%d\n", curve.elementIndex + 1);
+                                OutputDebugStringA(debugMsg);
                             }
                             break;
                         case ElementType::RECEIVER:
                             if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
                                 currentSelection.receivers[curve.elementIndex] = true;
+                                sprintf_s(debugMsg, "  -> Restored receiver R%d\n", curve.elementIndex + 1);
+                                OutputDebugStringA(debugMsg);
                             }
                             break;
                         case ElementType::SILENT_TX:
                             if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
                                 currentSelection.silentTx[curve.elementIndex] = true;
+                                sprintf_s(debugMsg, "  -> Restored silent R%d\n", curve.elementIndex + 1);
+                                OutputDebugStringA(debugMsg);
                             }
                             break;
                     }
                 }
+                
+                // ОТЛАДКА: Итоговое состояние выбора
+                OutputDebugStringA("Final selection state:\n");
+                for (int i = 0; i < 4; i++) {
+                    sprintf_s(debugMsg, "  T%d: %s\n", i + 1, currentSelection.transmitters[i] ? "selected" : "not selected");
+                    OutputDebugStringA(debugMsg);
+                }
+                for (int i = 0; i < 2; i++) {
+                    sprintf_s(debugMsg, "  R%d: %s\n", i + 1, currentSelection.receivers[i] ? "selected" : "not selected");
+                    OutputDebugStringA(debugMsg);
+                    sprintf_s(debugMsg, "  Silent R%d: %s\n", i + 1, currentSelection.silentTx[i] ? "selected" : "not selected");
+                    OutputDebugStringA(debugMsg);
+                }
+                OutputDebugStringA("=== END RESTORE ===\n");
             }
             else {
                 // Для пресетов (dataFilter != ALL) элементы схемы НЕ подсвечиваются,
@@ -1324,19 +1384,33 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
         return DataTypeFilter::ALL;
     }
     
+    // ОТЛАДКА: Выводим информацию о кривых
+    char debugMsg[256];
+    sprintf_s(debugMsg, "=== DetermineDataFilterFromCurves ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "Total curves: %zu\n", curves.size());
+    OutputDebugStringA(debugMsg);
+    
     // Подсчитываем типы данных в кривых
     bool hasAmplitudes = false;
     bool hasPhases = false;
     bool hasRatios = false;
     bool hasDifferences = false;
+    bool hasSilentAmplitudes = false;
     
     for (const auto& curve : curves) {
+        sprintf_s(debugMsg, "Curve: %s, DataType: %d, SourceElement: %d\n", 
+                 curve.id.c_str(), static_cast<int>(curve.dataType), static_cast<int>(curve.sourceElement));
+        OutputDebugStringA(debugMsg);
+        
         switch (curve.dataType) {
             case DataType::AMPLITUDE_RX1:
             case DataType::AMPLITUDE_RX2:
+                hasAmplitudes = true;
+                break;
             case DataType::SILENT_AMPLITUDE_RX1:
             case DataType::SILENT_AMPLITUDE_RX2:
-                hasAmplitudes = true;
+                hasSilentAmplitudes = true;
                 break;
             case DataType::PHASE_RX1:
             case DataType::PHASE_RX2:
@@ -1353,31 +1427,45 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
         }
     }
     
+    sprintf_s(debugMsg, "Data types found: Ampl=%s, Silent=%s, Phase=%s, Ratio=%s, Diff=%s\n",
+             hasAmplitudes ? "yes" : "no",
+             hasSilentAmplitudes ? "yes" : "no", 
+             hasPhases ? "yes" : "no",
+             hasRatios ? "yes" : "no",
+             hasDifferences ? "yes" : "no");
+    OutputDebugStringA(debugMsg);
+    
     // Определяем фильтр на основе найденных типов
-    // Приоритет: специфичные фильтры (RATIO_ONLY, DIFFERENCE_ONLY) > общие (AMPLITUDE_ONLY, PHASE_ONLY) > ALL
+    // ИСПРАВЛЕНО: Учитываем молчащие передатчики
+    
+    DataTypeFilter result = DataTypeFilter::ALL;
     
     // Если есть только отношения амплитуд
-    if (hasRatios && !hasDifferences && !hasAmplitudes && !hasPhases) {
-        return DataTypeFilter::RATIO_ONLY;
+    if (hasRatios && !hasDifferences && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes) {
+        result = DataTypeFilter::RATIO_ONLY;
     }
-    
     // Если есть только разности фаз
-    if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases) {
-        return DataTypeFilter::DIFFERENCE_ONLY;
+    else if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes) {
+        result = DataTypeFilter::DIFFERENCE_ONLY;
     }
-    
-    // Если есть только амплитуды (без отношений)
-    if (hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences) {
-        return DataTypeFilter::AMPLITUDE_ONLY;
+    // Если есть только обычные амплитуды (без отношений и молчащих)
+    else if (hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences && !hasSilentAmplitudes) {
+        result = DataTypeFilter::AMPLITUDE_ONLY;
     }
-    
     // Если есть только фазы (без разностей)
-    if (hasPhases && !hasAmplitudes && !hasRatios && !hasDifferences) {
-        return DataTypeFilter::PHASE_ONLY;
+    else if (hasPhases && !hasAmplitudes && !hasRatios && !hasDifferences && !hasSilentAmplitudes) {
+        result = DataTypeFilter::PHASE_ONLY;
+    }
+    // ИСПРАВЛЕНО: Если есть только молчащие передатчики или смешанные типы - ALL
+    else {
+        result = DataTypeFilter::ALL;
     }
     
-    // Если есть смешанные типы или неопределённая комбинация
-    return DataTypeFilter::ALL;
+    sprintf_s(debugMsg, "Determined filter: %d\n", static_cast<int>(result));
+    OutputDebugStringA(debugMsg);
+    OutputDebugStringA("=== END DetermineDataFilterFromCurves ===\n");
+    
+    return result;
 }
 
 // Дополнительные методы отрисовки схемы
@@ -1468,45 +1556,64 @@ void SchematicModule::DrawConnectionArrows(HDC hdc, const std::vector<RECT>& tra
 
 // Методы для интеллектуальной обработки выбора элементов
 bool SchematicModule::IsSelectionCompatible(ElementType type, int index) const {
-    // Проверяем правила совместимости выбора элементов
+    // ИСПРАВЛЕНО: Обновленные правила совместимости выбора элементов
     
     // Правило 1: Нельзя одновременно выбирать передатчики и приемники
     if (type == ElementType::TRANSMITTER) {
-        return currentSelection.GetSelectedReceiversCount() == 0 && 
-               currentSelection.GetSelectedSilentCount() == 0;
+        return currentSelection.GetSelectedReceiversCount() == 0;
     }
     
     if (type == ElementType::RECEIVER) {
-        return currentSelection.GetSelectedTransmittersCount() == 0 && 
-               currentSelection.GetSelectedSilentCount() == 0;
+        return currentSelection.GetSelectedTransmittersCount() == 0;
     }
     
-    // Правило 2: Молчащие передатчики нельзя комбинировать с активными элементами
+    // ИСПРАВЛЕНО: Молчащие передатчики МОЖНО комбинировать с активными элементами
+    // Запрещена только комбинация: оба приемника (R1+R2) + молчащие
     if (type == ElementType::SILENT_TX) {
-        return currentSelection.GetSelectedTransmittersCount() == 0 && 
-               currentSelection.GetSelectedReceiversCount() == 0;
+        // Разрешаем комбинации с передатчиками и одним приемником
+        // Запрещаем только комбинацию с двумя приемниками
+        return currentSelection.GetSelectedReceiversCount() < 2;
     }
     
     return true;
 }
 
 void SchematicModule::ClearIncompatibleSelections(ElementType newType) {
-    // Очищаем несовместимые выборы в зависимости от нового типа
+    // ИСПРАВЛЕНО: Минимальная очистка - только реально несовместимые элементы
+    
+    char debugMsg[256];
+    sprintf_s(debugMsg, "ClearIncompatibleSelections for type: %d\n", static_cast<int>(newType));
+    OutputDebugStringA(debugMsg);
     
     if (newType == ElementType::TRANSMITTER) {
-        // Очищаем приемники и молчащие передатчики
-        std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
-        std::fill(currentSelection.silentTx.begin(), currentSelection.silentTx.end(), false);
+        // Передатчики несовместимы только с приемниками
+        if (currentSelection.GetSelectedReceiversCount() > 0) {
+            OutputDebugStringA("  Clearing receivers (incompatible with transmitters)\n");
+            std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
+        }
+        // Молчащие передатчики СОВМЕСТИМЫ с активными передатчиками - НЕ очищаем
     }
     else if (newType == ElementType::RECEIVER) {
-        // Очищаем передатчики и молчащие передатчики
-        std::fill(currentSelection.transmitters.begin(), currentSelection.transmitters.end(), false);
-        std::fill(currentSelection.silentTx.begin(), currentSelection.silentTx.end(), false);
+        // Приемники несовместимы только с передатчиками
+        if (currentSelection.GetSelectedTransmittersCount() > 0) {
+            OutputDebugStringA("  Clearing transmitters (incompatible with receivers)\n");
+            std::fill(currentSelection.transmitters.begin(), currentSelection.transmitters.end(), false);
+        }
+        
+        // Если выбираем второй приемник, очищаем молчащие (R1+R2+Silent запрещено)
+        int selectedReceivers = currentSelection.GetSelectedReceiversCount();
+        if (selectedReceivers >= 1 && currentSelection.GetSelectedSilentCount() > 0) {
+            OutputDebugStringA("  Clearing silent transmitters (R1+R2+Silent not allowed)\n");
+            std::fill(currentSelection.silentTx.begin(), currentSelection.silentTx.end(), false);
+        }
     }
     else if (newType == ElementType::SILENT_TX) {
-        // Очищаем все активные элементы
-        std::fill(currentSelection.transmitters.begin(), currentSelection.transmitters.end(), false);
-        std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
+        // Молчащие передатчики несовместимы только с R1+R2 одновременно
+        if (currentSelection.GetSelectedReceiversCount() == 2) {
+            OutputDebugStringA("  Clearing receivers (R1+R2+Silent not allowed)\n");
+            std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
+        }
+        // С передатчиками и одним приемником молчащие СОВМЕСТИМЫ - НЕ очищаем
     }
 }
 
@@ -1532,6 +1639,10 @@ void SchematicModule::SynchronizeElementStates() {
         }
     }
 }
+
+
+
+
 
 // Процедура диалогового окна схемы прибора
 INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
