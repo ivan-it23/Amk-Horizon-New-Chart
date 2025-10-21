@@ -15,9 +15,9 @@ const COLORREF SchematicModule::SELECTION_COLOR = RGB(255, 255, 0);      // Же
 
 // Константы для рамки основных элементов
 const COLORREF FRAME_BACKGROUND = RGB(245, 245, 245);  // Светло-серый фон
-const COLORREF FRAME_BORDER = RGB(180, 180, 180);      // Тёмно-серая граница
+const COLORREF FRAME_BORDER = RGB(100, 100, 100);      // Тёмно-серая граница (сделано темнее)
 const int FRAME_PADDING = 15;                          // Отступ внутри рамки
-const int FRAME_BORDER_WIDTH = 1;                      // Толщина границы
+const int FRAME_BORDER_WIDTH = 2;                      // Толщина границы (увеличено с 1 до 2)
 const int FRAME_CORNER_RADIUS = 8;                     // Радиус скругления углов
 
 // Константы для градиентов элементов
@@ -201,6 +201,14 @@ SchematicModule::~SchematicModule() {
 bool SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber, ChartConfiguration& config) {
     targetChartNumber = chartNumber;
     
+    // ИСПРАВЛЕНИЕ: Очищаем элементы и рамку перед открытием диалога
+    // Это гарантирует, что при каждом открытии элементы будут пересчитаны заново
+    OutputDebugStringA("=== ShowSchematicDialog ===\n");
+    OutputDebugStringA("Clearing schematicElements and deviceFrameRect before opening dialog\n");
+    schematicElements.clear();
+    deviceFrameRect = {0, 0, 0, 0};
+    hoveredElement = nullptr;
+    
     // Создаем модальное диалоговое окно
     HINSTANCE hInst = GetModuleHandle(NULL);
     
@@ -211,9 +219,12 @@ bool SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber, ChartCon
     if (result == IDOK) {
         // Пользователь нажал "Применить" - обновляем конфигурацию
         // TODO: Здесь будет логика применения настроек
+        OutputDebugStringA("Dialog closed with OK\n");
         return true;
     }
     
+    OutputDebugStringA("Dialog closed with Cancel\n");
+    OutputDebugStringA("=== END ShowSchematicDialog ===\n");
     return false; // Пользователь отменил или закрыл окно
 }
 
@@ -294,16 +305,45 @@ void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
     FillRect(memDC, &rect, bgBrush);
     DeleteObject(bgBrush);
     
-    // Рассчитываем компоновку элементов (только если нужно)
-    if (schematicElements.empty()) {
+    // Рассчитываем компоновку элементов (если элементы пустые ИЛИ рамка не инициализирована)
+    if (schematicElements.empty() || 
+        (deviceFrameRect.left == 0 && deviceFrameRect.top == 0 && 
+         deviceFrameRect.right == 0 && deviceFrameRect.bottom == 0)) {
         CalculateSchematicLayout(rect);
+    }
+    
+    // ОТЛАДКА: Выводим координаты рамки и элементов
+    char debugMsg[512];
+    sprintf_s(debugMsg, "=== RenderSchematic ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "Input rect: left=%d, top=%d, right=%d, bottom=%d\n",
+             rect.left, rect.top, rect.right, rect.bottom);
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "deviceFrameRect: left=%d, top=%d, right=%d, bottom=%d\n",
+             deviceFrameRect.left, deviceFrameRect.top, deviceFrameRect.right, deviceFrameRect.bottom);
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "schematicElements.size() = %zu\n", schematicElements.size());
+    OutputDebugStringA(debugMsg);
+    
+    // Выводим координаты первых 3 элементов для отладки
+    if (schematicElements.size() >= 3) {
+        for (size_t i = 0; i < 3; i++) {
+            sprintf_s(debugMsg, "Element[%zu]: left=%d, top=%d, right=%d, bottom=%d\n",
+                     i, schematicElements[i].rect.left, schematicElements[i].rect.top,
+                     schematicElements[i].rect.right, schematicElements[i].rect.bottom);
+            OutputDebugStringA(debugMsg);
+        }
     }
     
     // Отрисовываем рамку для основных элементов (T1-T4, R1-R2)
     if (deviceFrameRect.right > deviceFrameRect.left && 
         deviceFrameRect.bottom > deviceFrameRect.top) {
+        OutputDebugStringA("Drawing device frame...\n");
         DrawDeviceFrame(memDC, deviceFrameRect);
+    } else {
+        OutputDebugStringA("Device frame NOT drawn - invalid coordinates\n");
     }
+    OutputDebugStringA("=== END RenderSchematic ===\n");
     
     // Отрисовываем все элементы схемы
     for (const auto& element : schematicElements) {
@@ -737,18 +777,35 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
 }
 
 void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
+    // ОТЛАДКА
+    char debugMsg[256];
+    sprintf_s(debugMsg, "=== CalculateSchematicLayout ===\n");
+    OutputDebugStringA(debugMsg);
+    sprintf_s(debugMsg, "schemaRect: left=%d, top=%d, right=%d, bottom=%d\n",
+             schemaRect.left, schemaRect.top, schemaRect.right, schemaRect.bottom);
+    OutputDebugStringA(debugMsg);
+    
     InitializeSchematicElements(schemaRect);
+    
+    sprintf_s(debugMsg, "After InitializeSchematicElements: size=%zu\n", schematicElements.size());
+    OutputDebugStringA(debugMsg);
     
     // Рассчитываем координаты рамки для основных элементов (T1-T4, R1-R2)
     // Рамка должна охватывать элементы с позициями 0-5 (T3, T1, R1, R2, T2, T4)
     
     if (schematicElements.size() >= 6) {
+        OutputDebugStringA("Calculating frame rect for first 6 elements...\n");
+        
         // Находим минимальные и максимальные координаты для первых 6 элементов
         int minX = INT_MAX, minY = INT_MAX;
         int maxX = INT_MIN, maxY = INT_MIN;
         
         for (size_t i = 0; i < 6; i++) {
             const RECT& rect = schematicElements[i].rect;
+            sprintf_s(debugMsg, "Element %zu: left=%d, top=%d, right=%d, bottom=%d\n",
+                     i, rect.left, rect.top, rect.right, rect.bottom);
+            OutputDebugStringA(debugMsg);
+            
             minX = (minX < (int)rect.left) ? minX : (int)rect.left;
             minY = (minY < (int)rect.top) ? minY : (int)rect.top;
             maxX = (maxX > (int)rect.right) ? maxX : (int)rect.right;
@@ -760,10 +817,52 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
         deviceFrameRect.top = minY - FRAME_PADDING;
         deviceFrameRect.right = maxX + FRAME_PADDING;
         deviceFrameRect.bottom = maxY + FRAME_PADDING;
+        
+        sprintf_s(debugMsg, "Calculated deviceFrameRect: left=%d, top=%d, right=%d, bottom=%d\n",
+                 deviceFrameRect.left, deviceFrameRect.top, deviceFrameRect.right, deviceFrameRect.bottom);
+        OutputDebugStringA(debugMsg);
     } else {
+        OutputDebugStringA("WARNING: Not enough elements for frame (need 6, have less)\n");
         // Если элементов меньше 6, рамка не отрисовывается
         deviceFrameRect = {0, 0, 0, 0};
     }
+    
+    // ИСПРАВЛЕНИЕ: Синхронизируем состояние элементов с currentSelection
+    // После создания элементов нужно восстановить их состояние selected
+    OutputDebugStringA("Synchronizing element states with currentSelection...\n");
+    for (auto& element : schematicElements) {
+        switch (element.type) {
+            case ElementType::TRANSMITTER:
+                if (element.index < currentSelection.transmitters.size()) {
+                    element.selected = currentSelection.transmitters[element.index];
+                    if (element.selected) {
+                        sprintf_s(debugMsg, "  Element T%d marked as SELECTED\n", element.index + 1);
+                        OutputDebugStringA(debugMsg);
+                    }
+                }
+                break;
+            case ElementType::RECEIVER:
+                if (element.index < currentSelection.receivers.size()) {
+                    element.selected = currentSelection.receivers[element.index];
+                    if (element.selected) {
+                        sprintf_s(debugMsg, "  Element R%d marked as SELECTED\n", element.index + 1);
+                        OutputDebugStringA(debugMsg);
+                    }
+                }
+                break;
+            case ElementType::SILENT_TX:
+                if (element.index < currentSelection.silentTx.size()) {
+                    element.selected = currentSelection.silentTx[element.index];
+                    if (element.selected) {
+                        sprintf_s(debugMsg, "  Element Silent R%d marked as SELECTED\n", element.index + 1);
+                        OutputDebugStringA(debugMsg);
+                    }
+                }
+                break;
+        }
+    }
+    
+    OutputDebugStringA("=== END CalculateSchematicLayout ===\n");
 }
 
 // Методы для работы с диалоговым окном
@@ -1313,7 +1412,6 @@ void SchematicModule::HandleCurveCheckboxChange(HWND hDlg, int itemIndex) {
     HWND hCurveList = GetDlgItem(hDlg, IDC_CURVE_LIST);
     if (!hCurveList) return;
     
-    // ИСПРАВЛЕНО: Получаем реальный индекс кривой из lParam
     LVITEM item = {};
     item.mask = LVIF_PARAM;
     item.iItem = itemIndex;
@@ -1332,7 +1430,7 @@ void SchematicModule::HandleCurveCheckboxChange(HWND hDlg, int itemIndex) {
     // Получаем новое состояние чекбокса
     BOOL isChecked = ListView_GetCheckState(hCurveList, itemIndex);
     
-    // ОТЛАДКА: Выводим информацию об изменении чекбокса
+
     char debugMsg[256];
     sprintf_s(debugMsg, "=== HandleCurveCheckboxChange ===\n");
     OutputDebugStringA(debugMsg);
@@ -1342,17 +1440,14 @@ void SchematicModule::HandleCurveCheckboxChange(HWND hDlg, int itemIndex) {
     sprintf_s(debugMsg, "Curve: %s\n", currentAvailableCurves[curveIndex].displayName.c_str());
     OutputDebugStringA(debugMsg);
     
-    // ИСПРАВЛЕНО: Обновляем состояние кривой по правильному индексу
+
     currentAvailableCurves[curveIndex].enabled = (isChecked == TRUE);
     
     sprintf_s(debugMsg, "Updated curve enabled state to: %s\n", currentAvailableCurves[curveIndex].enabled ? "true" : "false");
     OutputDebugStringA(debugMsg);
     OutputDebugStringA("=== END HandleCurveCheckboxChange ===\n");
     
-    // Можно добавить дополнительную логику, например:
-    // - Проверка совместимости выбранных кривых
-    // - Автоматическое назначение осей
-    // - Предварительный просмотр конфигурации
+
     
     ValidateCurrentCurveConfiguration(hDlg);
 }

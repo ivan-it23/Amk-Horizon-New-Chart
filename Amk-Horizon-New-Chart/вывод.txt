@@ -1,0 +1,590 @@
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\Desktop\Amk-Horizon-New-Chart\x64\Debug\Amk-Horizon-New-Chart.exe". Символы загружены.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntdll.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\KernelBase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\user32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\win32u.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32full.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp_win.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\comdlg32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcrt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\combase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\rpcrt4.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\SHCore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shlwapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shell32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\advapi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sechost.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcrypt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp140d.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbased.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140d.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140d.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\vcruntime140d.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\imm32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\uxtheme.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msctf.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleaut32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextShaping.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.6456_none_60b8a6cb71f64256\comctl32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel.appcore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcryptprimitives.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextInputFramework.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreMessaging.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreUIComponents.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ws2_32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntmarta.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\WinTypes.dll"
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ole32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\clbcatq.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\windows.storage.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wldp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dui70.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\duser.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dwmapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Program Files\Common Files\microsoft shared\ink\tiptsf.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\edputil.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ExplorerFrame.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d2d1.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WindowsCodecs.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\profapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\thumbcache.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\policymanager.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp110_win.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DataExchange.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d3d11.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dcomp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dxgi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.appcore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msftedit.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Globalization.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47mrm.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47Langs.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\globinputhost.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\propsys.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cfgmgr32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\xmllite.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleacc.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\UIAutomationCore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sxs.dll". Невозможно найти или открыть PDB-файл.
+mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFE2991A726: (caller: 00007FFE29919B39) ReturnHr(1) tid(4758) 8002801D Библиотека не зарегистрирована.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atlthunk.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\StructuredQuery.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.FileExplorer.Common.dll". Невозможно найти или открыть PDB-файл.
+Поток 0x22fc завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\iertutil.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\srvcli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\netutils.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Storage.Search.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.StateRepositoryPS.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\linkinfo.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\IconCodecService.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\mpr.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\drprov.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winsta.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntlanman.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davclnt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davhlpr.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wkscli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cscapi.dll". Невозможно найти или открыть PDB-файл.
+Вызвано исключение по адресу 0x00007FFE28CF5369 (KernelBase.dll) в Amk-Horizon-New-Chart.exe: 0x000006BA: Сервер RPC недоступен.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\apphelp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dlnashext.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PlayToDevice.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DevDispItemProvider.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntshrui.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sspicli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\MMDevAPI.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\devobj.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wpdshext.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_91a399b0cc88bc24\GdiPlus.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PortableDeviceApi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\setupapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wintrust.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\crypt32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msasn1.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorShell.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorAPI.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wtsapi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winmm.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\actxprxy.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\AppData\Local\Microsoft\OneDrive\25.184.0921.0004\FileSyncShell64.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\userenv.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\secur32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\version.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wininet.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cryptbase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\GROOVEEX.DLL". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcr100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atl100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\coml2.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\networkexplorer.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\urlmon.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\msftedit.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\xmllite.dll"
+Поток 0x3180 завершился с кодом 0 (0x0).
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== HandleElementClick ===
+Click: Type=0, Index=2, CurrentlySelected=false
+Final selection state after click:
+  T1: not selected
+  T2: not selected
+  T3: selected
+  T4: not selected
+  R1: not selected
+  Silent R1: not selected
+  R2: not selected
+  Silent R2: not selected
+=== END HandleElementClick ===
+=== GetAvailableCurves DEBUG ===
+Selected receivers: 0, transmitters: 1, silent: 0
+  T1: not selected
+  T2: not selected
+  T3: selected
+  T4: not selected
+  R1: not selected
+  Silent R1: not selected
+  R2: not selected
+  Silent R2: not selected
+Adding transmitter curves
+Total curves generated: 4
+=== END GetAvailableCurves ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== HandleElementClick ===
+Click: Type=0, Index=0, CurrentlySelected=false
+Final selection state after click:
+  T1: selected
+  T2: not selected
+  T3: selected
+  T4: not selected
+  R1: not selected
+  Silent R1: not selected
+  R2: not selected
+  Silent R2: not selected
+=== END HandleElementClick ===
+=== GetAvailableCurves DEBUG ===
+Selected receivers: 0, transmitters: 2, silent: 0
+  T1: selected
+  T2: not selected
+  T3: selected
+  T4: not selected
+  R1: not selected
+  Silent R1: not selected
+  R2: not selected
+  Silent R2: not selected
+Adding transmitter curves
+Total curves generated: 8
+=== END GetAvailableCurves ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 0, Real curve index: 0, New state: UNCHECKED
+Curve: T3 Amplitude R1
+Updated curve enabled state to: false
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 0, Real curve index: 0, New state: CHECKED
+Curve: T3 Amplitude R1
+Updated curve enabled state to: true
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 1, Real curve index: 1, New state: UNCHECKED
+Curve: T3 Amplitude R2
+Updated curve enabled state to: false
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 1, Real curve index: 1, New state: CHECKED
+Curve: T3 Amplitude R2
+Updated curve enabled state to: true
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 4, Real curve index: 2, New state: UNCHECKED
+Curve: T3 Phase R1
+Updated curve enabled state to: false
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 4, Real curve index: 2, New state: CHECKED
+Curve: T3 Phase R1
+Updated curve enabled state to: true
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 5, Real curve index: 3, New state: UNCHECKED
+Curve: T3 Phase R2
+Updated curve enabled state to: false
+=== END HandleCurveCheckboxChange ===
+=== HandleCurveCheckboxChange ===
+ListView item index: 5, Real curve index: 3, New state: CHECKED
+Curve: T3 Phase R2
+Updated curve enabled state to: true
+=== END HandleCurveCheckboxChange ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== RenderSchematic ===
+deviceFrameRect: left=0, top=0, right=0, bottom=0
+schematicElements.size() = 8
+Device frame NOT drawn - invalid coordinates
+=== END RenderSchematic ===
+=== ApplyCurrentCurveConfiguration ===
+Total curves in configuration: 8
+Curve 0: T1 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 0
+Curve 1: T1 Amplitude R2, Enabled: YES, DataType: 3, yAxisGroup: 0
+Curve 2: T3 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 0
+Curve 3: T3 Amplitude R2, Enabled: YES, DataType: 3, yAxisGroup: 0
+Curve 4: T1 Phase R1, Enabled: NO, DataType: 4, yAxisGroup: 1
+Curve 5: T1 Phase R2, Enabled: NO, DataType: 5, yAxisGroup: 1
+Curve 6: T3 Phase R1, Enabled: NO, DataType: 4, yAxisGroup: 1
+Curve 7: T3 Phase R2, Enabled: NO, DataType: 5, yAxisGroup: 1
+Total enabled curves: 4
+Configuration validation PASSED
+Configuration applied successfully
+=== END ApplyCurrentCurveConfiguration ===
