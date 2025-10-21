@@ -110,18 +110,18 @@ std::string SchematicSelection::GetValidationError() const {
     // Для ручного выбора (dataFilter == ALL) проверяем выбранные элементы
     // Должен быть выбран хотя бы один элемент
     if (receivers == 0 && transmitters == 0 && silent == 0) {
-        return "Выберите элементы для построения графика";
+        return "Please select elements to build the chart";
     }
     
     // Нельзя одновременно выбирать передатчики и приемники
     if (transmitters > 0 && receivers > 0) {
-        return "Нельзя одновременно выбирать передатчики и приемники";
+        return "Cannot select transmitters and receivers simultaneously";
     }
     
     // ИСПРАВЛЕНО: Разрешаем комбинации молчащих передатчиков с активными элементами
     // Запрещена только комбинация приемников R1+R2 с молчащими передатчиками
     if (silent > 0 && receivers == 2) {
-        return "Нельзя одновременно выбирать оба приемника и молчащие передатчики";
+        return "Cannot select both receivers and silent transmitters simultaneously";
     }
     
     return ""; // Выбор корректен
@@ -613,13 +613,13 @@ std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const
 std::wstring SchematicModule::GetElementTooltip(ElementType type, int index) const {
     switch (type) {
         case ElementType::TRANSMITTER:
-            return L"Передатчик T" + std::to_wstring(index + 1) + L" - нажмите для выбора";
+            return L"Transmitter T" + std::to_wstring(index + 1) + L" - click to select";
         case ElementType::RECEIVER:
-            return L"Приемник R" + std::to_wstring(index + 1) + L" - нажмите для выбора";
+            return L"Receiver R" + std::to_wstring(index + 1) + L" - click to select";
         case ElementType::SILENT_TX:
-            return L"Молчащий передатчик для R" + std::to_wstring(index + 1) + L" - нажмите для выбора";
+            return L"Silent transmitter for R" + std::to_wstring(index + 1) + L" - click to select";
         default:
-            return L"Неизвестный элемент";
+            return L"Unknown element";
     }
 }
 
@@ -962,7 +962,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         item.mask = LVIF_TEXT;
         item.iItem = 0;
         item.iSubItem = 0;
-        item.pszText = const_cast<LPWSTR>(L"Модуль выбора кривых не инициализирован");
+        item.pszText = const_cast<LPWSTR>(L"Curve selection module not initialized");
         ListView_InsertItem(hCurveList, &item);
         return;
     }
@@ -1000,7 +1000,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         item.mask = LVIF_TEXT;
         item.iItem = 0;
         item.iSubItem = 0;
-        item.pszText = const_cast<LPWSTR>(L"Нет доступных кривых для данного выбора");
+        item.pszText = const_cast<LPWSTR>(L"No available curves for current selection");
         ListView_InsertItem(hCurveList, &item);
         return;
     }
@@ -1242,7 +1242,7 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
 
 void SchematicModule::HandleCopyFromChart(HWND hDlg) {
     if (!curveSelectionModule) {
-        MessageBox(hDlg, L"Модуль выбора кривых не инициализирован", L"Ошибка", MB_OK | MB_ICONERROR);
+        MessageBox(hDlg, L"Curve selection module not initialized", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
     
@@ -1251,16 +1251,16 @@ void SchematicModule::HandleCopyFromChart(HWND hDlg) {
     
     // Проверяем, есть ли конфигурация у источника
     if (!curveSelectionModule->HasConfiguration(sourceChart)) {
-        std::wstring message = L"График " + std::to_wstring(sourceChart) + L" не имеет настроек кривых для копирования";
-        MessageBox(hDlg, message.c_str(), L"Информация", MB_OK | MB_ICONINFORMATION);
+        std::wstring message = L"Chart " + std::to_wstring(sourceChart) + L" has no curve settings to copy";
+        MessageBox(hDlg, message.c_str(), L"Information", MB_OK | MB_ICONINFORMATION);
         return;
     }
     
     // Спрашиваем подтверждение у пользователя
-    std::wstring confirmMessage = L"Скопировать настройки с графика " + std::to_wstring(sourceChart) + 
-                                 L" на график " + std::to_wstring(targetChartNumber) + L"?";
+    std::wstring confirmMessage = L"Copy settings from Chart " + std::to_wstring(sourceChart) + 
+                                 L" to Chart " + std::to_wstring(targetChartNumber) + L"?";
     
-    int result = MessageBox(hDlg, confirmMessage.c_str(), L"Подтверждение копирования", 
+    int result = MessageBox(hDlg, confirmMessage.c_str(), L"Confirm Copy", 
                            MB_YESNO | MB_ICONQUESTION);
     
     if (result == IDYES) {
@@ -1277,7 +1277,7 @@ void SchematicModule::HandleCopyFromChart(HWND hDlg) {
         UpdateAvailableCurves(hDlg);
         
         // Показываем сообщение об успехе
-        MessageBox(hDlg, L"Настройки успешно скопированы", L"Успех", MB_OK | MB_ICONINFORMATION);
+        MessageBox(hDlg, L"Settings copied successfully", L"Success", MB_OK | MB_ICONINFORMATION);
     }
 }
 
@@ -1378,9 +1378,9 @@ void SchematicModule::ValidateCurrentCurveConfiguration(HWND hDlg) {
     if (!error.empty()) {
         // TODO: Показать ошибку в статусной области диалога
         // Пока что просто обновляем заголовок окна
-        std::wstring title = L"Схема прибора - График " + std::to_wstring(targetChartNumber);
+        std::wstring title = L"Device Schematic - Chart " + std::to_wstring(targetChartNumber);
         if (!error.empty()) {
-            title += L" [Ошибка конфигурации]";
+            title += L" [Configuration Error]";
         }
         SetWindowText(hDlg, title.c_str());
     }
@@ -1846,14 +1846,14 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                             if (pSchematic->ApplyCurrentCurveConfiguration()) {
                                 EndDialog(hDlg, IDOK);
                             } else {
-                                MessageBox(hDlg, L"Ошибка применения конфигурации кривых", L"Ошибка", MB_OK | MB_ICONERROR);
+                                MessageBox(hDlg, L"Error applying curve configuration", L"Error", MB_OK | MB_ICONERROR);
                             }
                         } else {
                             // Показываем сообщение об ошибке
                             if (pSchematic) {
                                 std::string error = pSchematic->GetCurrentSelection().GetValidationError();
                                 std::wstring werror(error.begin(), error.end());
-                                MessageBox(hDlg, werror.c_str(), L"Ошибка выбора", MB_OK | MB_ICONWARNING);
+                                MessageBox(hDlg, werror.c_str(), L"Selection Error", MB_OK | MB_ICONWARNING);
                             }
                         }
                         return (INT_PTR)TRUE;
