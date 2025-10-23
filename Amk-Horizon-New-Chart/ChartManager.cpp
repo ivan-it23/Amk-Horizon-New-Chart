@@ -71,12 +71,14 @@ void ChartManager::ToggleDualMode()
 
 void ChartManager::RefreshChart1()
 {
-    uiModule->RefreshChart1Settings();
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Настройки управляются через Device Schematic
 }
 
 void ChartManager::RefreshChart2()
 {
-    uiModule->RefreshChart2Settings();
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Настройки управляются через Device Schematic
 }
 
 void ChartManager::DrawChart1(HDC hdc)
@@ -163,21 +165,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             UpdateLayout(hWnd);
             return needsRedraw;
             
-        case IDC_CHART1_DATA_COMBO:
-        case IDC_CHART1_FREQ_COMBO:
-        case IDC_CHART1_REFRESH_BTN:
-            // Изменения в элементах управления первого графика
-            needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
-            HandleLegacyUIChange(hWnd, 1);
-            break;
-            
-        case IDC_CHART2_DATA_COMBO:
-        case IDC_CHART2_FREQ_COMBO:
-        case IDC_CHART2_REFRESH_BTN:
-            // Изменения в элементах управления второго графика
-            needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
-            HandleLegacyUIChange(hWnd, 2);
-            break;
+
             
         default:
             // Передаем остальные команды в UIModule
@@ -205,44 +193,8 @@ std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, F
 }
 
 void ChartManager::HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId) {
-    DataType dataType;
-    const RECT* chartRect;
-    if (chartId == 1) {
-        dataType = uiModule->GetChart1DataType();
-        chartRect = &layoutModule->GetChart1Rect();
-    } else if (chartId == 2) {
-        dataType = uiModule->GetChart2DataType();
-        chartRect = &layoutModule->GetChart2Rect();
-    } else {
-        return; // Неверный ID графика
-    }
-
-    // Проверяем, является ли тип данных многоканальным, иначе нет чекбоксов
-    bool isMultiChannel = false;
-    if (dataType == DataType::PHASE_DIFFERENCE || dataType == DataType::AMPLITUDE_RATIO ||
-        dataType == DataType::AMPLITUDE_RX1 || dataType == DataType::AMPLITUDE_RX2 ||
-        dataType == DataType::PHASE_RX1 || dataType == DataType::PHASE_RX2) {
-        isMultiChannel = true;
-    }
-
-    if (!isMultiChannel) {
-        return; 
-    }
-
-    // Выполняем хит-тест, чтобы определить, какой чекбокс был нажат
-    POINT clickPt = {x, y};
-    int clickedTransmitterIdx = chartModule->HitTestLegendCheckbox(*chartRect, clickPt, dataType);
-
-    if (clickedTransmitterIdx != -1) {
-        if (chartId == 1) {
-            bool currentEnabled = uiModule->GetChart1EnabledTransmitters()[clickedTransmitterIdx];
-            uiModule->SetChart1TransmitterEnabled(clickedTransmitterIdx, !currentEnabled);
-        } else {
-            bool currentEnabled = uiModule->GetChart2EnabledTransmitters()[clickedTransmitterIdx];
-            uiModule->SetChart2TransmitterEnabled(clickedTransmitterIdx, !currentEnabled);
-        }
-        InvalidateRect(hWnd, NULL, FALSE); // Перерисовываем окно
-    }
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Управление кривыми происходит только через Device Schematic
 }
 
 // Обработчики событий мыши
@@ -257,21 +209,6 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     if (clickedChart != 0) {
         activeChart = clickedChart;
-        
-        // Проверяем клик на легенду
-        DataType dataType = (activeChart == 1) ? uiModule->GetChart1DataType() : uiModule->GetChart2DataType();
-        bool isMultiChannel = (dataType == DataType::PHASE_DIFFERENCE || dataType == DataType::AMPLITUDE_RATIO ||
-                               dataType == DataType::AMPLITUDE_RX1 || dataType == DataType::AMPLITUDE_RX2 ||
-                               dataType == DataType::PHASE_RX1 || dataType == DataType::PHASE_RX2);
-
-        if (isMultiChannel) {
-            const RECT* currentChartRect = (activeChart == 1) ? &chart1Rect : &chart2Rect;
-            POINT pt = {x, y};
-            if (chartModule->HitTestLegendCheckbox(*currentChartRect, pt, dataType) != -1) {
-                HandleLegendCheckboxClick(hWnd, x, y, activeChart);
-                return;
-            }
-        }
     }
 
     isSelecting = true;
@@ -661,40 +598,29 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 }
 
 void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumber) {
-    // Старая система отрисовки для обратной совместимости
-    std::vector<std::vector<float>> chartData;
-    DataType dataType;
-    FrequencyBand frequency;
-    std::vector<bool> enabledTransmitters;
-    ZoomRange* zoom;
+    // Отрисовываем сообщение о необходимости настройки через Device Schematic
+    std::wstring title = L"Chart " + std::to_wstring(chartNumber);
+    std::vector<std::vector<float>> emptyData;
+    std::vector<bool> emptyTransmitters(4, false);
     
-    if (chartNumber == 1) {
-        dataType = uiModule->GetChart1DataType();
-        frequency = uiModule->GetChart1Frequency();
-        enabledTransmitters = uiModule->GetChart1EnabledTransmitters();
-        zoom = &chart1Zoom;
-    } else {
-        dataType = uiModule->GetChart2DataType();
-        frequency = uiModule->GetChart2Frequency();
-        enabledTransmitters = uiModule->GetChart2EnabledTransmitters();
-        zoom = &chart2Zoom;
-    }
+    chartModule->DrawChart(hdc, chartRect, emptyData, DataType::PHASE_DIFFERENCE, 
+                          title, false, emptyTransmitters, dataModule.get(),
+                          0.0, 1.0, -1.0, 1.0, true);
     
-    // Вычисляем данные БЕЗ фильтрации по zoom (фильтрация будет визуальной при отрисовке)
-    // Это аналогично тому, как работает Device Schematic
-    dataModule->CalculateChartData(dataType, frequency, chartData, enabledTransmitters, 
-                                  0.0, static_cast<double>(dataModule->GetDataSize() - 1), -1e6, 1e6);
+    // Рисуем текст с инструкцией
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(100, 100, 100));
+    HFONT hFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                            DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     
-    // Формируем заголовок
-    std::wstring title = BuildChartTitle(chartNumber, dataType, frequency);
+    std::wstring message = L"Click 'Device Schematic' to configure this chart";
+    RECT textRect = chartRect;
+    DrawText(hdc, message.c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     
-    // Отрисовка графика (всегда показываем оси)
-    bool showAxes = true;
-    chartModule->DrawChart(hdc, chartRect, chartData, dataType, title, dataModule->HasData(), 
-                           enabledTransmitters, dataModule.get(),
-                           zoom->isZoomed ? zoom->minX : 0.0,
-                           zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                           -1e6, 1e6, showAxes); // Y всегда автоматически
+    SelectObject(hdc, hOldFont);
+    DeleteObject(hFont);
 }
 
 // Методы для работы с конфигурациями кривых
@@ -877,47 +803,8 @@ bool ChartManager::IsUsingNewCurveSystem(int chartNumber) const {
 }
 
 void ChartManager::SynchronizeLegacyUIWithNewSystem(int chartNumber) {
-    if (!IsUsingNewCurveSystem(chartNumber) || !uiModule) {
-        return;
-    }
-    
-    // Получаем конфигурацию новой системы
-    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
-    
-    if (config.curves.empty()) {
-        return;
-    }
-    
-    // Пытаемся найти соответствие в старой системе
-    // Если все кривые одного типа, можем синхронизировать комбобоксы
-    DataType legacyType = DataType::PHASE_DIFFERENCE;
-    FrequencyBand legacyFreq = FrequencyBand::FREQ_400_KHZ;
-    bool canSync = true;
-    
-    if (!config.curves.empty()) {
-        // Берем тип и частоту от первой кривой
-        legacyType = config.curves[0].dataType;
-        legacyFreq = config.curves[0].frequency;
-        
-        // Проверяем, что все кривые имеют одинаковый тип и частоту
-        for (const auto& curve : config.curves) {
-            if (curve.dataType != legacyType || curve.frequency != legacyFreq) {
-                canSync = false;
-                break;
-            }
-        }
-    }
-    
-    // Если можем синхронизировать, обновляем старые элементы UI
-    if (canSync) {
-        if (chartNumber == 1) {
-            uiModule->SetChart1DataType(legacyType);
-            uiModule->SetChart1Frequency(legacyFreq);
-        } else if (chartNumber == 2) {
-            uiModule->SetChart2DataType(legacyType);
-            uiModule->SetChart2Frequency(legacyFreq);
-        }
-    }
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Все управляется только через Device Schematic
 }
 
 void ChartManager::HandleLegacyUIChange(HWND hWnd, int chartNumber) {

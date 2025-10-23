@@ -19,12 +19,7 @@
 
 // Элементы управления
 #define IDC_DUAL_MODE_CHECK		1001
-#define IDC_CHART1_DATA_COMBO	1002
-#define IDC_CHART1_FREQ_COMBO	1003
-#define IDC_CHART1_REFRESH_BTN	1004
-#define IDC_CHART2_DATA_COMBO	1005
-#define IDC_CHART2_FREQ_COMBO	1006
-#define IDC_CHART2_REFRESH_BTN	1007
+// ID 1002-1007 зарезервированы (ранее использовались для удаленных элементов)
 
 // Скроллбары для графиков (только горизонтальные)
 #define IDC_CHART1_HSCROLL		1008
