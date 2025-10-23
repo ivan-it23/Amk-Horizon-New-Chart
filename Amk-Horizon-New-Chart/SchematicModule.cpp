@@ -6,6 +6,7 @@
 #include <commctrl.h>
 #include <algorithm>
 #include <map>
+#include <set>
 
 // Определение цветов для элементов схемы
 const COLORREF SchematicModule::TRANSMITTER_COLOR = RGB(180, 100, 100);  // Приглушенный красный
@@ -898,37 +899,111 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 sprintf_s(debugMsg, "Total curves to restore: %zu\n", existingConfig.curves.size());
                 OutputDebugStringA(debugMsg);
                 
+                // ИСПРАВЛЕНИЕ: Сначала анализируем типы данных кривых для определения выбора
+                // Ключевое отличие между выбором приёмников и передатчиков:
+                // - Если выбран приёмник R1/R2: кривые для ВСЕХ 4 передатчиков (T1-T4)
+                // - Если выбраны передатчики: кривые только для ВЫБРАННЫХ передатчиков
+                
+                bool hasRX1Types = false, hasRX2Types = false;
+                bool hasRatioOrDiff = false;
+                bool hasTransmitterSource = false;
+                bool hasSilentSource = false;
+                
+                // Подсчитываем уникальные передатчики в кривых
+                std::set<int> uniqueTransmitters;
+                
                 for (const auto& curve : existingConfig.curves) {
-                    // ОТЛАДКА: Информация о каждой кривой
-                    sprintf_s(debugMsg, "Curve: %s, SourceElement: %d, ElementIndex: %d, Enabled: %s\n", 
-                             curve.id.c_str(), 
-                             static_cast<int>(curve.sourceElement), 
-                             curve.elementIndex,
-                             curve.enabled ? "true" : "false");
-                    OutputDebugStringA(debugMsg);
+                    // Анализируем тип данных
+                    if (curve.dataType == DataType::AMPLITUDE_RX1 || curve.dataType == DataType::PHASE_RX1) {
+                        hasRX1Types = true;
+                    }
+                    if (curve.dataType == DataType::AMPLITUDE_RX2 || curve.dataType == DataType::PHASE_RX2) {
+                        hasRX2Types = true;
+                    }
+                    if (curve.dataType == DataType::AMPLITUDE_RATIO || curve.dataType == DataType::PHASE_DIFFERENCE) {
+                        hasRatioOrDiff = true;
+                    }
                     
-                    switch (curve.sourceElement) {
-                        case ElementType::TRANSMITTER:
+                    // Анализируем источник
+                    if (curve.sourceElement == ElementType::TRANSMITTER) {
+                        hasTransmitterSource = true;
+                        uniqueTransmitters.insert(curve.elementIndex);
+                    }
+                    if (curve.sourceElement == ElementType::SILENT_TX) {
+                        hasSilentSource = true;
+                    }
+                }
+                
+                sprintf_s(debugMsg, "Analysis: hasRX1Types=%d, hasRX2Types=%d, hasRatioOrDiff=%d, hasTransmitterSource=%d, hasSilentSource=%d, uniqueTransmitters=%zu\n",
+                         hasRX1Types, hasRX2Types, hasRatioOrDiff, hasTransmitterSource, hasSilentSource, uniqueTransmitters.size());
+                OutputDebugStringA(debugMsg);
+                
+                // Определяем, что было выбрано на схеме
+                if (hasRatioOrDiff) {
+                    // Выбраны оба приемника R1+R2
+                    currentSelection.receivers[0] = true;
+                    currentSelection.receivers[1] = true;
+                    OutputDebugStringA("  -> Restored receivers R1+R2 (ratio/diff detected)\n");
+                }
+                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
+                    // Выбран только приемник R1 (кривые для ВСЕХ 4 передатчиков с R1)
+                    currentSelection.receivers[0] = true;
+                    OutputDebugStringA("  -> Restored receiver R1 (RX1 types for all 4 transmitters detected)\n");
+                }
+                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
+                    // Выбран только приемник R2 (кривые для ВСЕХ 4 передатчиков с R2)
+                    currentSelection.receivers[1] = true;
+                    OutputDebugStringA("  -> Restored receiver R2 (RX2 types for all 4 transmitters detected)\n");
+                }
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < 4) {
+                    // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 4 передатчиков)
+                    // Восстанавливаем передатчики из sourceElement
+                    for (const auto& curve : existingConfig.curves) {
+                        if (curve.sourceElement == ElementType::TRANSMITTER) {
                             if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
                                 currentSelection.transmitters[curve.elementIndex] = true;
                                 sprintf_s(debugMsg, "  -> Restored transmitter T%d\n", curve.elementIndex + 1);
                                 OutputDebugStringA(debugMsg);
                             }
-                            break;
-                        case ElementType::RECEIVER:
-                            if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
-                                currentSelection.receivers[curve.elementIndex] = true;
-                                sprintf_s(debugMsg, "  -> Restored receiver R%d\n", curve.elementIndex + 1);
-                                OutputDebugStringA(debugMsg);
+                        }
+                    }
+                }
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
+                    // Особый случай: есть кривые для всех 4 передатчиков с обоими приёмниками
+                    // Это может быть либо выбор всех 4 передатчиков, либо какая-то другая комбинация
+                    // Проверяем количество кривых: если их 16 (4 передатчика × 2 приёмника × 2 типа данных), 
+                    // то скорее всего выбраны все передатчики
+                    if (existingConfig.curves.size() >= 16) {
+                        // Восстанавливаем все передатчики
+                        for (int i = 0; i < 4; i++) {
+                            currentSelection.transmitters[i] = true;
+                            sprintf_s(debugMsg, "  -> Restored transmitter T%d (all transmitters case)\n", i + 1);
+                            OutputDebugStringA(debugMsg);
+                        }
+                    } else {
+                        // Восстанавливаем только те передатчики, которые есть в кривых
+                        for (const auto& curve : existingConfig.curves) {
+                            if (curve.sourceElement == ElementType::TRANSMITTER) {
+                                if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
+                                    currentSelection.transmitters[curve.elementIndex] = true;
+                                    sprintf_s(debugMsg, "  -> Restored transmitter T%d\n", curve.elementIndex + 1);
+                                    OutputDebugStringA(debugMsg);
+                                }
                             }
-                            break;
-                        case ElementType::SILENT_TX:
+                        }
+                    }
+                }
+                
+                // Восстанавливаем молчащие передатчики
+                if (hasSilentSource) {
+                    for (const auto& curve : existingConfig.curves) {
+                        if (curve.sourceElement == ElementType::SILENT_TX) {
                             if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
                                 currentSelection.silentTx[curve.elementIndex] = true;
                                 sprintf_s(debugMsg, "  -> Restored silent R%d\n", curve.elementIndex + 1);
                                 OutputDebugStringA(debugMsg);
                             }
-                            break;
+                        }
                     }
                 }
                 
