@@ -510,24 +510,59 @@ double ChartModule::CalculateNiceMin(double minVal, double step) const {
 }
 
 void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
-    // Используем XOR режим для отрисовки прямоугольника выделения
-    // Это позволяет рисовать и стирать прямоугольник без повреждения фона
-    int oldROP = SetROP2(hdc, R2_XORPEN);
+    // Сохраняем текущий режим отрисовки
+    int oldROP = SetROP2(hdc, R2_NOTXORPEN);
     
-    // Создаем перо для прямоугольника выделения
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 255));
+    // Создаем яркое оранжевое перо с пунктирной линией для рамки
+    LOGBRUSH lb;
+    lb.lbStyle = BS_SOLID;
+    lb.lbColor = RGB(255, 140, 0); // Яркий оранжевый
+    lb.lbHatch = 0;
+    
+    // Создаем расширенное перо с пунктирным стилем для рамки
+    DWORD penStyle[2] = {8, 4}; // 8 пикселей линия, 4 пикселя пробел
+    HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, 2, &lb, 2, penStyle);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
-    // Устанавливаем прозрачную кисть, чтобы не заливать внутренность
+    // Устанавливаем прозрачную кисть (без заливки)
     HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
     
-    // Рисуем прямоугольник
+    // Рисуем прямоугольник рамки
     Rectangle(hdc, zoomRect.left, zoomRect.top, zoomRect.right, zoomRect.bottom);
+    
+    // Рисуем внутреннюю сетку для лучшей визуализации выделяемой области
+    // Создаем более тонкое перо для сетки (1 пиксель)
+    HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(255, 165, 0)); // Чуть светлее оранжевый для сетки
+    SelectObject(hdc, hGridPen);
+    
+    int width = zoomRect.right - zoomRect.left;
+    int height = zoomRect.bottom - zoomRect.top;
+    
+    // Рисуем вертикальные линии сетки (делим на 7 частей - 6 линий)
+    if (width > 70) { // Рисуем сетку только если область достаточно большая
+        int stepX = width / 7;
+        for (int i = 1; i < 7; i++) {
+            int x = zoomRect.left + i * stepX;
+            MoveToEx(hdc, x, zoomRect.top, NULL);
+            LineTo(hdc, x, zoomRect.bottom);
+        }
+    }
+    
+    // Рисуем горизонтальные линии сетки (делим на 7 частей - 6 линий)
+    if (height > 70) { // Рисуем сетку только если область достаточно большая
+        int stepY = height / 7;
+        for (int i = 1; i < 7; i++) {
+            int y = zoomRect.top + i * stepY;
+            MoveToEx(hdc, zoomRect.left, y, NULL);
+            LineTo(hdc, zoomRect.right, y);
+        }
+    }
     
     // Восстанавливаем исходные настройки
     SelectObject(hdc, hOldBrush);
     SelectObject(hdc, hOldPen);
     SetROP2(hdc, oldROP);
+    DeleteObject(hGridPen);
     DeleteObject(hPen);
 }
 

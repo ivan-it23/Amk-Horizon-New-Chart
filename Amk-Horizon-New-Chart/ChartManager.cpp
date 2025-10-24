@@ -230,7 +230,7 @@ void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
     if (!hdc)
         return;
     
-    // Стираем предыдущий прямоугольник выделения (используем XOR для стирания)
+    // Стираем предыдущий прямоугольник выделения (используем R2_NOT для стирания)
     if (selectionEnd.x != selectionStart.x || selectionEnd.y != selectionStart.y) {
         RECT oldZoomRect;
         oldZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
