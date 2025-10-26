@@ -62,6 +62,9 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     // Обновляем скроллбары после изменения компоновки
     UpdateScrollBars(hWnd);
+    
+    // Обновляем элементы управления X Range
+    UpdateXRangeUI(hWnd);
 }
 
 void ChartManager::ToggleDualMode()
@@ -165,7 +168,25 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             UpdateLayout(hWnd);
             return needsRedraw;
             
-
+        case IDC_XRANGE_APPLY_BTN:
+            // Применение пользовательского диапазона X для Chart 1
+            HandleXRangeApply(hWnd, 1);
+            return true;
+            
+        case IDC_XRANGE_RESET_BTN:
+            // Сброс диапазона X к полному для Chart 1
+            HandleXRangeReset(hWnd, 1);
+            return true;
+            
+        case IDC_XRANGE2_APPLY_BTN:
+            // Применение пользовательского диапазона X для Chart 2
+            HandleXRangeApply(hWnd, 2);
+            return true;
+            
+        case IDC_XRANGE2_RESET_BTN:
+            // Сброс диапазона X к полному для Chart 2
+            HandleXRangeReset(hWnd, 2);
+            return true;
             
         default:
             // Передаем остальные команды в UIModule
@@ -815,5 +836,105 @@ void ChartManager::HandleLegacyUIChange(HWND hWnd, int chartNumber) {
         
         // Обновляем график
         InvalidateChart(hWnd, chartNumber);
+    }
+}
+
+// Методы для обработки X Range
+void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
+    if (!dataModule || !dataModule->HasData()) {
+        wchar_t message[256];
+        swprintf_s(message, L"No data loaded for Chart %d", chartNumber);
+        MessageBox(hWnd, message, L"X Range", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    
+    // Получаем значения из полей ввода для указанного графика
+    double fromX, toX;
+    uiModule->GetXRangeValues(chartNumber, fromX, toX);
+    
+    // Валидация входных данных
+    if (fromX >= toX) {
+        wchar_t message[256];
+        swprintf_s(message, L"Chart %d: 'From' value must be less than 'To' value", chartNumber);
+        MessageBox(hWnd, message, L"X Range Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
+    if (fromX < 0 || toX > dataSize || fromX > dataSize || toX < 0) {
+        wchar_t message[256];
+        swprintf_s(message, L"Chart %d: X Range must be between 0 and %.1f", chartNumber, dataSize);
+        MessageBox(hWnd, message, L"X Range Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // Применяем диапазон к указанному графику
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    zoom->minX = fromX;
+    zoom->maxX = toX;
+    zoom->minY = -1e6; // Y автоматически по данным
+    zoom->maxY = 1e6;
+    zoom->isZoomed = true;
+    
+    // Обновляем скроллбары
+    UpdateScrollBars(hWnd);
+    
+    // Обновляем UI
+    UpdateXRangeUI(hWnd);
+    
+    // Перерисовываем графики
+    InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
+    // Сбрасываем масштабирование для указанного графика
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    zoom->isZoomed = false;
+    
+    // Обновляем скроллбары
+    UpdateScrollBars(hWnd);
+    
+    // Обновляем UI
+    UpdateXRangeUI(hWnd);
+    
+    // Перерисовываем графики
+    InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::UpdateXRangeUI(HWND hWnd) {
+    if (!dataModule || !dataModule->HasData()) {
+        uiModule->ResetXRangeControls(1);
+        uiModule->ResetXRangeControls(2);
+        return;
+    }
+    
+    // Обновляем элементы управления для Chart 1
+    double minX1, maxX1;
+    bool isCustomRange1 = chart1Zoom.isZoomed;
+    
+    if (isCustomRange1) {
+        minX1 = chart1Zoom.minX;
+        maxX1 = chart1Zoom.maxX;
+    } else {
+        minX1 = 0.0;
+        maxX1 = static_cast<double>(dataModule->GetDataSize() - 1);
+    }
+    
+    uiModule->UpdateXRangeControls(1, minX1, maxX1, isCustomRange1);
+    
+    // Обновляем элементы управления для Chart 2 (если в Dual Mode)
+    if (uiModule->IsDualMode()) {
+        double minX2, maxX2;
+        bool isCustomRange2 = chart2Zoom.isZoomed;
+        
+        if (isCustomRange2) {
+            minX2 = chart2Zoom.minX;
+            maxX2 = chart2Zoom.maxX;
+        } else {
+            minX2 = 0.0;
+            maxX2 = static_cast<double>(dataModule->GetDataSize() - 1);
+        }
+        
+        uiModule->UpdateXRangeControls(2, minX2, maxX2, isCustomRange2);
     }
 }

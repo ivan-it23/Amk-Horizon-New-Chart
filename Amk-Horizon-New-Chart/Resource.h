@@ -43,6 +43,22 @@
 #define IDC_COPY_FROM_CHART			1022
 #define IDC_APPLY_SETTINGS			1023
 
+// Элементы управления X Range в панели инструментов (Chart 1)
+#define IDC_XRANGE_FROM_EDIT		1024
+#define IDC_XRANGE_TO_EDIT			1025
+#define IDC_XRANGE_APPLY_BTN		1026
+#define IDC_XRANGE_RESET_BTN		1027
+#define IDC_XRANGE_FROM_LABEL		1028
+#define IDC_XRANGE_TO_LABEL			1029
+
+// Элементы управления X Range для Chart 2
+#define IDC_XRANGE2_FROM_EDIT		1030
+#define IDC_XRANGE2_TO_EDIT			1031
+#define IDC_XRANGE2_APPLY_BTN		1032
+#define IDC_XRANGE2_RESET_BTN		1033
+#define IDC_XRANGE2_FROM_LABEL		1034
+#define IDC_XRANGE2_TO_LABEL		1035
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

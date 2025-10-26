@@ -16,6 +16,22 @@ private:
     HWND hChart1HScrollBar;  // Горизонтальный скроллбар для первого графика
     HWND hChart2HScrollBar;  // Горизонтальный скроллбар для второго графика
 
+    // Элементы управления X Range для Chart 1 (в панели инструментов)
+    HWND hXRangeFromLabel;   // Метка "X Range:"
+    HWND hXRangeFromEdit;    // Поле ввода начальной точки
+    HWND hXRangeToLabel;     // Метка "to"
+    HWND hXRangeToEdit;      // Поле ввода конечной точки
+    HWND hXRangeApplyBtn;    // Кнопка "Apply"
+    HWND hXRangeResetBtn;    // Кнопка "Reset"
+
+    // Элементы управления X Range для Chart 2 (рядом с кнопкой Device Schematic)
+    HWND hXRange2FromLabel;  // Метка "X Range:"
+    HWND hXRange2FromEdit;   // Поле ввода начальной точки
+    HWND hXRange2ToLabel;    // Метка "to"
+    HWND hXRange2ToEdit;     // Поле ввода конечной точки
+    HWND hXRange2ApplyBtn;   // Кнопка "Apply"
+    HWND hXRange2ResetBtn;   // Кнопка "Reset"
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -50,6 +66,12 @@ public:
     void UpdateScrollBarPositions(int chartNumber, const RECT& chartRect);
     void SetScrollBarRange(int chartNumber, int min, int max, int page, int pos);
     HWND GetHScrollBar(int chartNumber) const;
+
+    // Управление X Range (chartNumber: 1 или 2)
+    void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);
+    void GetXRangeValues(int chartNumber, double& fromX, double& toX) const;
+    void SetXRangeValues(int chartNumber, double fromX, double toX);
+    void ResetXRangeControls(int chartNumber);
 
 private:
     // Вспомогательные методы удалены после рефакторинга

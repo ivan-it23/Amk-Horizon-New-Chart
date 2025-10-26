@@ -76,6 +76,11 @@ public:
     void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
     void UpdateScrollBars(HWND hWnd);
     
+    // Методы для обработки X Range
+    void HandleXRangeApply(HWND hWnd, int chartNumber);
+    void HandleXRangeReset(HWND hWnd, int chartNumber);
+    void UpdateXRangeUI(HWND hWnd);
+    
     // Метод для частичной перерисовки конкретного графика
     void InvalidateChart(HWND hWnd, int chartNumber);
     
