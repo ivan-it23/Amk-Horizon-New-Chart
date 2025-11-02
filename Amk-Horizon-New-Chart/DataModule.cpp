@@ -115,7 +115,11 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                     
                     switch (type) {
                         case DataType::PHASE_DIFFERENCE:
-                            value = (record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx]) * 57295.7795f; // Преобразование рад -> мдег
+                            {
+                                float phaseDiff = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
+                                phaseDiff = NormalizePhase(phaseDiff); // Нормализация в диапазон (-π, π]
+                                value = phaseDiff * 57295.7795f; // Преобразование рад -> мдег
+                            }
                             break;
                         case DataType::AMPLITUDE_RATIO:
                             value = (record.AM_RX_1[rxIdx] != 0.0f) ? 
@@ -128,10 +132,18 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                             value = record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
                             break;
                         case DataType::PHASE_RX1:
-                            value = record.PH_RX_1[rxIdx] * 57295.7795f; // Преобразование рад -> мдег
+                            {
+                                float phase = record.PH_RX_1[rxIdx];
+                                phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
+                                value = phase * 57295.7795f; // Преобразование рад -> мдег
+                            }
                             break;
                         case DataType::PHASE_RX2:
-                            value = record.PH_RX_2[rxIdx] * 57295.7795f; // Преобразование рад -> мдег
+                            {
+                                float phase = record.PH_RX_2[rxIdx];
+                                phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
+                                value = phase * 57295.7795f; // Преобразование рад -> мдег
+                            }
                             break;
                         default:
                             continue;
@@ -434,7 +446,9 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float difference = (record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx]) * 57295.7795f; // Преобразование рад -> мдег
+        float difference = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
+        difference = NormalizePhase(difference); // Нормализация в диапазон (-π, π]
+        difference *= 57295.7795f; // Преобразование рад -> мдег
         outData.push_back(difference);
     }
 }
@@ -478,6 +492,7 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
         float phase = (receiverIndex == 0) ? record.PH_RX_1[rxIdx] : record.PH_RX_2[rxIdx];
+        phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
         outData.push_back(phase * 57295.7795f); // Преобразование рад -> мдег
     }
 }
@@ -500,6 +515,21 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
         float amplitude = (receiverIndex == 0) ? record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
+}
+
+// Метод нормализации фазы в диапазон (-π, π]
+float DataModule::NormalizePhase(float phaseRadians) const {
+    const float PI = 3.14159265358979323846f;
+    
+    // Приводим фазу к диапазону (-π, π]
+    while (phaseRadians > PI) {
+        phaseRadians -= 2.0f * PI;
+    }
+    while (phaseRadians <= -PI) {
+        phaseRadians += 2.0f * PI;
+    }
+    
+    return phaseRadians;
 }
 
 // Вспомогательные методы

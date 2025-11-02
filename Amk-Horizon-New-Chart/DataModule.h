@@ -139,4 +139,7 @@ private:
     
     bool IsValidDataRange(double minX, double maxX) const;
     std::pair<size_t, size_t> GetDataIndexRange(double minX, double maxX) const;
+    
+    // Метод нормализации фазы в диапазон (-π, π]
+    float NormalizePhase(float phaseRadians) const;
 };
