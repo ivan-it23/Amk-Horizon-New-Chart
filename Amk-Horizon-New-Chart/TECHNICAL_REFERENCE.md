@@ -1,8 +1,21 @@
-# 🔧 Техническая документация AMK-Horizon-New-Chart
+# 🔧 Техническая документация AMK-Horizon-New-Chart v2.2.0
 
 ## 📋 Обзор
 
-Данный документ содержит техническую информацию о структурах данных, API модулей, алгоритмах и внутренней логике приложения AMK-Horizon-New-Chart.
+Данный документ содержит техническую информацию о структурах данных, API модулей, алгоритмах и внутренней логике приложения AMK-Horizon-New-Chart версии 2.2.0.
+
+## 🆕 Новые функции v2.2.0
+
+### Независимые X Range Controls
+- **12 новых элементов управления**: 6 для Chart 1 + 6 для Chart 2
+- **Независимые ID**: IDC_XRANGE_* для Chart 1, IDC_XRANGE2_* для Chart 2  
+- **Автоматическое управление видимостью**: Элементы Chart 2 показываются только в Dual Mode
+- **Динамическое позиционирование**: Элементы Chart 2 позиционируются относительно layout
+
+### Улучшенный Zoom Selection
+- **Диагональная штриховка**: Паттерн HS_DIAGCROSS для области выделения
+- **Оранжевый цвет**: RGB(255, 165, 0) для лучшей видимости
+- **Сохранение сетки**: Графическая сетка остается видимой внутри выделения
 
 ## 📊 Структуры данных
 
@@ -73,6 +86,63 @@ struct CurveDefinition {
 ```
 
 ## 🏗️ API модулей
+
+### UIModule (обновлено v2.2.0)
+
+#### X Range Controls API
+```cpp
+class UIModule {
+public:
+    // Управление X Range (chartNumber: 1 или 2)
+    void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);
+    void GetXRangeValues(int chartNumber, double& fromX, double& toX) const;
+    void SetXRangeValues(int chartNumber, double fromX, double toX);
+    void ResetXRangeControls(int chartNumber);
+    
+    // Управление видимостью элементов
+    void UpdateControlsVisibility(bool showChart2Controls);
+    void PositionChart2Controls(int panel2Y);
+    
+    // Управление скроллбарами
+    void ShowScrollBars(int chartNumber, bool show);
+    void UpdateScrollBarPositions(int chartNumber, const RECT& chartRect);
+    void SetScrollBarRange(int chartNumber, int min, int max, int page, int pos);
+    HWND GetHScrollBar(int chartNumber) const;
+    
+private:
+    // Элементы управления X Range для Chart 1 (в панели инструментов)
+    HWND hXRangeFromLabel, hXRangeFromEdit, hXRangeToLabel;
+    HWND hXRangeToEdit, hXRangeApplyBtn, hXRangeResetBtn;
+    
+    // Элементы управления X Range для Chart 2 (рядом с Device Schematic)
+    HWND hXRange2FromLabel, hXRange2FromEdit, hXRange2ToLabel;
+    HWND hXRange2ToEdit, hXRange2ApplyBtn, hXRange2ResetBtn;
+};
+```
+
+### ChartManager (обновлено v2.2.0)
+
+#### X Range Management API
+```cpp
+class ChartManager {
+public:
+    // НОВЫЕ методы v2.2.0 - X Range управление
+    void HandleXRangeApply(HWND hWnd, int chartNumber);
+    void HandleXRangeReset(HWND hWnd, int chartNumber);
+    void UpdateXRangeUI(HWND hWnd);
+    
+private:
+    // Независимые диапазоны масштабирования для каждого графика
+    struct ZoomRange {
+        double minX, maxX, minY, maxY;
+        bool isZoomed;
+        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false) {}
+    };
+    
+    ZoomRange chart1Zoom;
+    ZoomRange chart2Zoom;
+};
+```
 
 ### DataModule
 
@@ -379,6 +449,32 @@ void CalculateChartData(DataType type, FrequencyBand freq,
 ```
 
 ## 🎨 Константы и настройки
+
+### Новые ID элементов управления v2.2.0
+```cpp
+// X Range Controls для Chart 1 (в панели инструментов)
+#define IDC_XRANGE_FROM_LABEL    2001
+#define IDC_XRANGE_FROM_EDIT     2002
+#define IDC_XRANGE_TO_LABEL      2003
+#define IDC_XRANGE_TO_EDIT       2004
+#define IDC_XRANGE_APPLY_BTN     2005
+#define IDC_XRANGE_RESET_BTN     2006
+
+// X Range Controls для Chart 2 (рядом с Device Schematic)
+#define IDC_XRANGE2_FROM_LABEL   2007
+#define IDC_XRANGE2_FROM_EDIT    2008
+#define IDC_XRANGE2_TO_LABEL     2009
+#define IDC_XRANGE2_TO_EDIT      2010
+#define IDC_XRANGE2_APPLY_BTN    2011
+#define IDC_XRANGE2_RESET_BTN    2012
+```
+
+### Цвета Zoom Selection v2.1.5+
+```cpp
+// Улучшенное выделение области zoom
+const COLORREF ZOOM_SELECTION_COLOR = RGB(255, 165, 0);  // Оранжевый
+const int ZOOM_SELECTION_HATCH = HS_DIAGCROSS;           // Диагональная штриховка
+```
 
 ### Цвета каналов
 ```cpp

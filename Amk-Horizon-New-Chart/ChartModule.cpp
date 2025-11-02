@@ -530,55 +530,10 @@ void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
     // Рисуем прямоугольник рамки
     Rectangle(hdc, zoomRect.left, zoomRect.top, zoomRect.right, zoomRect.bottom);
     
-    // Рисуем диагональную штриховку для лучшей визуализации выделяемой области
-    // Создаем тонкое перо для штриховки (1 пиксель)
-    HPEN hHatchPen = CreatePen(PS_DOT, 1, RGB(255, 165, 0)); // Светло-оранжевый для штриховки
-    SelectObject(hdc, hHatchPen);
-    
-    int width = zoomRect.right - zoomRect.left;
-    int height = zoomRect.bottom - zoomRect.top;
-    
-    // Рисуем диагональную штриховку только если область достаточно большая
-    if (width > 40 && height > 40) {
-        // Шаг между диагональными линиями (в пикселях)
-        int hatchSpacing = 15; // Расстояние между линиями штриховки
-        
-        // Рисуем диагональные линии слева-направо сверху-вниз (╱)
-        // Начинаем с верхнего левого угла и двигаемся вправо и вниз
-        int maxDiagonals = (width + height) / hatchSpacing;
-        
-        for (int i = 0; i < maxDiagonals; i++) {
-            int startX, startY, endX, endY;
-            int offset = i * hatchSpacing;
-            
-            // Определяем начальную и конечную точки диагональной линии
-            if (offset < width) {
-                // Линия начинается на верхней стороне
-                startX = zoomRect.left + offset;
-                startY = zoomRect.top;
-            } else {
-                // Линия начинается на левой стороне
-                startX = zoomRect.left;
-                startY = zoomRect.top + (offset - width);
-            }
-            
-            // Вычисляем конечную точку (идём по диагонали вниз-вправо)
-            int diagLength = (std::min)(width - (startX - zoomRect.left), 
-                                       height - (startY - zoomRect.top));
-            endX = startX + diagLength;
-            endY = startY + diagLength;
-            
-            // Рисуем диагональную линию
-            MoveToEx(hdc, startX, startY, NULL);
-            LineTo(hdc, endX, endY);
-        }
-    }
-    
     // Восстанавливаем исходные настройки
     SelectObject(hdc, hOldBrush);
     SelectObject(hdc, hOldPen);
     SetROP2(hdc, oldROP);
-    DeleteObject(hHatchPen);
     DeleteObject(hPen);
 }
 
