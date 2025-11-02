@@ -1,21 +1,52 @@
-# 🔧 Техническая документация AMK-Horizon-New-Chart v2.2.0
+# 🔧 Техническая документация AMK-Horizon-New-Chart v2.2.4
 
 ## 📋 Обзор
 
-Данный документ содержит техническую информацию о структурах данных, API модулей, алгоритмах и внутренней логике приложения AMK-Horizon-New-Chart версии 2.2.0.
+Данный документ содержит техническую информацию о структурах данных, API модулей, алгоритмах и внутренней логике приложения AMK-Horizon-New-Chart версии 2.2.4.
 
-## 🆕 Новые функции v2.2.0
+## 🆕 Новые функции v2.2.2-2.2.4
 
-### Независимые X Range Controls
+### Преобразование единиц измерения (v2.2.2-2.2.3)
+
+#### Амплитуды в милливольты (v2.2.2)
+- **Формула преобразования**: `value * 4000.0f / pow(2.0f, 24.0f)`
+- **Единицы**: "V" → "mV" (милливольты)
+- **Применено к**: AMPLITUDE_RX1, AMPLITUDE_RX2, SILENT_AMPLITUDE_RX1, SILENT_AMPLITUDE_RX2
+- **Не изменено**: AMPLITUDE_RATIO (безразмерная величина V/V)
+- **Модули**: DataModule.cpp, CurveSelectionModule.cpp
+
+#### Фазы в миллиградусы (v2.2.3)
+- **Формула преобразования**: `value * 57295.7795f` (180/π * 1000)
+- **Единицы**: "deg" → "mdeg" (миллиградусы)
+- **Применено к**: PHASE_RX1, PHASE_RX2, PHASE_DIFFERENCE
+- **Диапазон**: -180000 мдег до +180000 мдег
+- **Модули**: DataModule.cpp, CurveSelectionModule.cpp
+
+#### Увеличенные отступы для осей (v2.2.3)
+- **Левая ось**: 50px → 80px (для длинных значений мВ и мдег)
+- **Правая ось (обычный график)**: 20px → 30px
+- **Правая ось (двойные оси)**: 80px → 120px
+- **Модуль**: ChartModule.cpp
+
+### Исправление выравнивания подписей (v2.2.4)
+- **Проблема**: Длинные значения (например, -180000 мдег) обрезались
+- **Решение**: Использование `GetTextExtentPoint32()` для вычисления ширины текста
+- **Формула позиционирования**: `textX = plotRect.left - 5 - textWidth`
+- **Результат**: Подписи используют всё доступное пространство (80px)
+- **Модули**: ChartModule.cpp (методы DrawGridAndAxes, DrawLeftAxis)
+
+### Упрощение Zoom Selection (v2.2.1)
+- **Удалена диагональная штриховка**: ~40 строк кода удалено
+- **Только оранжевая рамка**: RGB(255, 140, 0) с пунктирным стилем
+- **Прозрачная заливка**: NULL_BRUSH - график полностью виден
+- **Режим отрисовки**: R2_NOTXORPEN для XOR эффекта
+- **Модуль**: ChartModule.cpp (метод DrawZoomRectangle)
+
+### Независимые X Range Controls (v2.2.0)
 - **12 новых элементов управления**: 6 для Chart 1 + 6 для Chart 2
 - **Независимые ID**: IDC_XRANGE_* для Chart 1, IDC_XRANGE2_* для Chart 2  
 - **Автоматическое управление видимостью**: Элементы Chart 2 показываются только в Dual Mode
 - **Динамическое позиционирование**: Элементы Chart 2 позиционируются относительно layout
-
-### Улучшенный Zoom Selection
-- **Диагональная штриховка**: Паттерн HS_DIAGCROSS для области выделения
-- **Оранжевый цвет**: RGB(255, 165, 0) для лучшей видимости
-- **Сохранение сетки**: Графическая сетка остается видимой внутри выделения
 
 ## 📊 Структуры данных
 
@@ -180,7 +211,28 @@ private:
     int GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const;
     int GetSilentTransmitterIndex(FrequencyBand freq) const;
     std::pair<size_t, size_t> GetDataIndexRange(double minX, double maxX) const;
+    
+    // Методы преобразования единиц (v2.2.2-2.2.3)
+    float ConvertAmplitudeToMillivolts(float rawValue) const;  // value * 4000.0f / pow(2.0f, 24.0f)
+    float ConvertPhaseToMillidegrees(float radians) const;     // value * 57295.7795f
 };
+```
+
+#### Формулы преобразования единиц
+```cpp
+// Амплитуды: сырые данные АЦП → милливольты (v2.2.2)
+float ConvertAmplitudeToMillivolts(float rawValue) {
+    return rawValue * 4000.0f / pow(2.0f, 24.0f);
+    // 4000 мВ - диапазон измерения
+    // 2^24 - разрядность АЦП (24 бита)
+}
+
+// Фазы: радианы → миллиградусы (v2.2.3)
+float ConvertPhaseToMillidegrees(float radians) {
+    return radians * 57295.7795f;
+    // 57295.7795 = (180 / π) * 1000
+    // Преобразование радианов в градусы и умножение на 1000
+}
 ```
 
 ### ChartModule
