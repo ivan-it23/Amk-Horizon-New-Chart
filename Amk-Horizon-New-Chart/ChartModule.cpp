@@ -365,7 +365,15 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 std::wstringstream ssY;
                 ssY << std::fixed << std::setprecision(1) << currentYVal;
                 std::wstring yLabel = ssY.str();
-                TextOut(hdc, plotRect.left - 40, screenY - 7, yLabel.c_str(), (int)yLabel.length());
+                
+                // Вычисляем ширину текста для правильного выравнивания
+                SIZE textSize;
+                GetTextExtentPoint32(hdc, yLabel.c_str(), (int)yLabel.length(), &textSize);
+                
+                // Рисуем текст так, чтобы он заканчивался в 5 пикселях от оси
+                // Текст начинается с (plotRect.left - 5 - textSize.cx) и заканчивается в (plotRect.left - 5)
+                int textX = plotRect.left - 5 - textSize.cx;
+                TextOut(hdc, textX, screenY - 7, yLabel.c_str(), (int)yLabel.length());
             }
         }
         currentYVal += niceStepY;
@@ -417,18 +425,18 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
 
 RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
-    plotRect.left += 50;   // Отступ для Y-оси
+    plotRect.left += 80;   // Увеличенный отступ для Y-оси (для длинных значений мВ и мдег)
     plotRect.top += 40;    // Отступ для заголовка
-    plotRect.right -= 20;  // Отступ справа
+    plotRect.right -= 30;  // Увеличенный отступ справа
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
 }
 
 RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
-    plotRect.left += 50;   // Отступ для левой Y-оси
+    plotRect.left += 80;   // Увеличенный отступ для левой Y-оси (для длинных значений мВ)
     plotRect.top += 40;    // Отступ для заголовка
-    plotRect.right -= 80;  // Увеличенный отступ для правой Y-оси и её подписей
+    plotRect.right -= 120; // Увеличенный отступ для правой Y-оси (для длинных значений мдег)
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
 }
@@ -814,7 +822,15 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
                 std::wstringstream ss;
                 ss << std::fixed << std::setprecision(1) << currentYVal;
                 std::wstring label = ss.str();
-                TextOut(hdc, plotRect.left - 45, screenY - 7, label.c_str(), (int)label.length());
+                
+                // Вычисляем ширину текста для правильного выравнивания
+                SIZE textSize;
+                GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
+                
+                // Рисуем текст так, чтобы он заканчивался в 5 пикселях от оси
+                // Текст начинается с (plotRect.left - 5 - textSize.cx) и заканчивается в (plotRect.left - 5)
+                int textX = plotRect.left - 5 - textSize.cx;
+                TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
             }
         }
         currentYVal += niceStepY;

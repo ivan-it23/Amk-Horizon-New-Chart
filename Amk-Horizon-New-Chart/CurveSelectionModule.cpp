@@ -550,7 +550,7 @@ CurveDefinition CurveSelectionModule::CreateDifferenceCurve(int transmitterIndex
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
                                           DataType::PHASE_DIFFERENCE);
     
-    CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, 
+    CurveDefinition curve(id, name, "mdeg", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::PHASE_DIFFERENCE, frequency);
     curve.yAxisGroup = 1; // Правая ось для фаз
     curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
@@ -579,7 +579,7 @@ CurveDefinition CurveSelectionModule::CreatePhaseCurve(int transmitterIndex, int
     std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency, receiverIndex);
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
-    CurveDefinition curve(id, name, "deg", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "mdeg", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
     curve.yAxisGroup = 1; // Правая ось для фаз
     curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);

@@ -115,7 +115,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                     
                     switch (type) {
                         case DataType::PHASE_DIFFERENCE:
-                            value = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
+                            value = (record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx]) * 57295.7795f; // Преобразование рад -> мдег
                             break;
                         case DataType::AMPLITUDE_RATIO:
                             value = (record.AM_RX_1[rxIdx] != 0.0f) ? 
@@ -128,10 +128,10 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                             value = record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
                             break;
                         case DataType::PHASE_RX1:
-                            value = record.PH_RX_1[rxIdx];
+                            value = record.PH_RX_1[rxIdx] * 57295.7795f; // Преобразование рад -> мдег
                             break;
                         case DataType::PHASE_RX2:
-                            value = record.PH_RX_2[rxIdx];
+                            value = record.PH_RX_2[rxIdx] * 57295.7795f; // Преобразование рад -> мдег
                             break;
                         default:
                             continue;
@@ -434,7 +434,7 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float difference = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
+        float difference = (record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx]) * 57295.7795f; // Преобразование рад -> мдег
         outData.push_back(difference);
     }
 }
@@ -478,7 +478,7 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
         float phase = (receiverIndex == 0) ? record.PH_RX_1[rxIdx] : record.PH_RX_2[rxIdx];
-        outData.push_back(phase);
+        outData.push_back(phase * 57295.7795f); // Преобразование рад -> мдег
     }
 }
 
