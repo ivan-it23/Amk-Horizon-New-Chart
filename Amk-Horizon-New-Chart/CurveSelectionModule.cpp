@@ -565,7 +565,7 @@ CurveDefinition CurveSelectionModule::CreateAmplitudeCurve(int transmitterIndex,
     std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency, receiverIndex);
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
     
-    CurveDefinition curve(id, name, "V", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "mV", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
     curve.yAxisGroup = 0; // Левая ось для амплитуд
     curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);
@@ -592,7 +592,7 @@ CurveDefinition CurveSelectionModule::CreateSilentAmplitudeCurve(int receiverInd
     std::string id = GenerateCurveId(ElementType::SILENT_TX, receiverIndex, dataType, frequency);
     std::string name = GenerateDisplayName(ElementType::SILENT_TX, receiverIndex, dataType);
     
-    CurveDefinition curve(id, name, "V", ElementType::SILENT_TX, receiverIndex, dataType, frequency);
+    CurveDefinition curve(id, name, "mV", ElementType::SILENT_TX, receiverIndex, dataType, frequency);
     curve.yAxisGroup = 0; // Левая ось для амплитуд
     curve.color = GetSpecialDataColor(dataType); // Фиолетовый цвет для молчащих
     curve.lineStyle = GetLineStyle(curve.yAxisGroup);

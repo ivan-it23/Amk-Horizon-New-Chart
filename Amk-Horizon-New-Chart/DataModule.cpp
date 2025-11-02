@@ -122,10 +122,10 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                    (record.AM_RX_2[rxIdx] / record.AM_RX_1[rxIdx]) : 0.0f;
                             break;
                         case DataType::AMPLITUDE_RX1:
-                            value = record.AM_RX_1[rxIdx];
+                            value = record.AM_RX_1[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
                             break;
                         case DataType::AMPLITUDE_RX2:
-                            value = record.AM_RX_2[rxIdx];
+                            value = record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
                             break;
                         case DataType::PHASE_RX1:
                             value = record.PH_RX_1[rxIdx];
@@ -160,7 +160,8 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             for (size_t i = startIndex; i < endIndex; ++i) {
                 const GP_TOOL_DATA& record = data[i];
                 float value = (type == DataType::SILENT_AMPLITUDE_RX1) ? 
-                             record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
+                             record.AM_RX_1[rxIdx] * 4000.0f / pow(2.0f, 24.0f) : 
+                             record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
                 
                 // Проверяем диапазон значений для фильтрации
                 if (value >= minY && value <= maxY) {
@@ -457,7 +458,7 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
         float amplitude = (receiverIndex == 0) ? record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
-        outData.push_back(amplitude);
+        outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
 
@@ -497,7 +498,7 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
         float amplitude = (receiverIndex == 0) ? record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
-        outData.push_back(amplitude);
+        outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
 
