@@ -202,56 +202,84 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
         return;
     }
 
-    int legendX = rect.right - 200; // Отступ от правого края
-    int legendY = rect.top + 10;  // Отступ сверху (ниже заголовка)
-    int lineHeight = 20;          // Высота строки легенды (теперь для каждого элемента)
-    int elementSpacing = 10;      // Промежуток между элементами легенды (чекбокс+текст)
-    int colorBoxSize = 10;        // Размер квадрата цвета
+    // Параметры легенды
     int checkboxSize = 12;        // Размер чекбокса
-    int currentX = legendX;       // Текущая X-позиция для отрисовки элементов
-
+    int elementSpacing = 15;      // Промежуток между элементами легенды
+    int lineHeight = 20;          // Высота строки легенды
+    
     HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
-
-    for (size_t channelIdx = 0; channelIdx < 4; channelIdx++) { // Отрисовываем все 4 чекбокса для T1-T4
-        // Проверяем, что это многоканальный тип данных и у нас есть соответствующий передатчик
+    
+    // Вычисляем ширину каждого элемента легенды
+    struct LegendElement {
+        int width;
+        int channelIdx;
+    };
+    
+    std::vector<LegendElement> elements;
+    int totalWidth = 0;
+    int lineLength = 15; // Длина цветной линии
+    
+    for (size_t channelIdx = 0; channelIdx < 4; channelIdx++) {
         if (isMultiChannel && channelIdx < enabledTransmitters.size()) {
-            COLORREF color = CHANNEL_COLORS[channelIdx % 4];
-            HBRUSH hBrush = CreateSolidBrush(color);
-            HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-
-            // Отрисовка квадрата цвета
-            Rectangle(hdc, currentX,
-                      (LONG)(legendY + (lineHeight - colorBoxSize) / 2),
-                      currentX + colorBoxSize,
-                      (LONG)(legendY + (lineHeight + colorBoxSize) / 2));
-
-            SelectObject(hdc, hOldBrush);
-            DeleteObject(hBrush);
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
-
-            currentX += colorBoxSize + 2; // Отступ после квадрата цвета
-
-            // Отрисовка чекбокса
-            RECT checkboxRect = {currentX,
-                                 (LONG)(legendY + (lineHeight - checkboxSize) / 2),
-                                 currentX + checkboxSize,
-                                 (LONG)(legendY + (lineHeight + checkboxSize) / 2)};
-            DrawFrameControl(hdc, &checkboxRect, DFC_BUTTON, DFCS_BUTTONCHECK | (enabledTransmitters[channelIdx] ? DFCS_CHECKED : 0));
-
-            currentX += checkboxSize + 2; // Отступ после чекбокса
-
-            // Отрисовка названия канала
-            TextOut(hdc, currentX, legendY, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]));
-
-            currentX += (int)wcslen(CHANNEL_NAMES[channelIdx]) * 8 + elementSpacing; // Примерный размер текста + промежуток
+            // Ширина элемента = чекбокс + отступ + линия + отступ + текст
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+            int elementWidth = checkboxSize + 5 + lineLength + 5 + textSize.cx;
+            
+            elements.push_back({elementWidth, (int)channelIdx});
+            totalWidth += elementWidth;
+            
+            if (channelIdx < 3) { // Добавляем промежуток между элементами (кроме последнего)
+                totalWidth += elementSpacing;
+            }
         }
     }
-
+    
+    // Вычисляем начальную X позицию для центрирования
+    int chartWidth = rect.right - rect.left;
+    int startX = rect.left + (chartWidth - totalWidth) / 2;
+    
+    // Позиция Y - под заголовком
+    int legendY = rect.top + 35;
+    
+    // Отрисовка элементов легенды
+    int currentX = startX;
+    
+    for (const auto& elem : elements) {
+        int channelIdx = elem.channelIdx;
+        COLORREF color = CHANNEL_COLORS[channelIdx % 4];
+        
+        // Отрисовка чекбокса
+        RECT checkboxRect = {currentX,
+                             legendY + (lineHeight - checkboxSize) / 2,
+                             currentX + checkboxSize,
+                             legendY + (lineHeight + checkboxSize) / 2};
+        DrawFrameControl(hdc, &checkboxRect, DFC_BUTTON, DFCS_BUTTONCHECK | (enabledTransmitters[channelIdx] ? DFCS_CHECKED : 0));
+        
+        currentX += checkboxSize + 5;
+        
+        // Отрисовка цветной линии
+        HPEN hPen = CreatePen(PS_SOLID, 2, color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+        LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        
+        currentX += lineLength + 5;
+        
+        // Отрисовка названия канала
+        TextOut(hdc, currentX, legendY, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]));
+        
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+        currentX += textSize.cx + elementSpacing;
+    }
+    
     SelectObject(hdc, hOldFont);
 }
 
@@ -276,29 +304,66 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
         return -1; // Для одноканальных данных нет чекбоксов
     }
 
-    int legendX = chartRect.right - 200; // Отступ от правого края
-    int legendY = chartRect.top + 10;  // Отступ сверху (ниже заголовка)
-    int lineHeight = 20;          // Высота строки легенды
-    int elementSpacing = 10;      // Промежуток между элементами легенды (чекбокс+текст)
-    int colorBoxSize = 10;        // Размер квадрата цвета
-    int checkboxSize = 12;        // Размер чекбокса
-    int currentX = legendX;
-
-    for (int channelIdx = 0; channelIdx < 4; ++channelIdx) { // Только для T1-T4
+    // Параметры легенды (должны совпадать с DrawChartLegend)
+    int checkboxSize = 12;
+    int lineLength = 15;
+    int elementSpacing = 15;
+    int lineHeight = 20;
+    
+    // Создаем временный DC для вычисления размеров текста
+    HDC hdc = GetDC(NULL);
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    
+    // Вычисляем ширину каждого элемента и общую ширину
+    struct LegendElement {
+        int width;
+        int channelIdx;
+        int checkboxX;
+    };
+    
+    std::vector<LegendElement> elements;
+    int totalWidth = 0;
+    
+    for (int channelIdx = 0; channelIdx < 4; channelIdx++) {
         if (isMultiChannel) {
-            currentX += colorBoxSize + 2; // Пропускаем квадрат цвета
-
-            RECT checkboxRect = {currentX,
-                                 (LONG)(legendY + (lineHeight - checkboxSize) / 2),
-                                 currentX + checkboxSize,
-                                 (LONG)(legendY + (lineHeight + checkboxSize) / 2)};
-
-            if (PtInRect(&checkboxRect, pt)) {
-                return channelIdx; // Возвращаем индекс передатчика (0-3 для T1-T4)
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+            int elementWidth = checkboxSize + 5 + lineLength + 5 + textSize.cx;
+            
+            elements.push_back({elementWidth, channelIdx, 0});
+            totalWidth += elementWidth;
+            
+            if (channelIdx < 3) {
+                totalWidth += elementSpacing;
             }
-
-            currentX += checkboxSize + 2; // Пропускаем чекбокс
-            currentX += (int)wcslen(CHANNEL_NAMES[channelIdx]) * 8 + elementSpacing; // Пропускаем текст + промежуток
+        }
+    }
+    
+    SelectObject(hdc, hOldFont);
+    ReleaseDC(NULL, hdc);
+    
+    // Вычисляем начальную X позицию для центрирования
+    int chartWidth = chartRect.right - chartRect.left;
+    int startX = chartRect.left + (chartWidth - totalWidth) / 2;
+    int legendY = chartRect.top + 35;
+    
+    // Вычисляем позиции чекбоксов
+    int currentX = startX;
+    for (auto& elem : elements) {
+        elem.checkboxX = currentX; // Чекбокс теперь первый элемент
+        currentX += elem.width + elementSpacing;
+    }
+    
+    // Проверяем попадание в чекбоксы
+    for (const auto& elem : elements) {
+        RECT checkboxRect = {elem.checkboxX,
+                             legendY + (lineHeight - checkboxSize) / 2,
+                             elem.checkboxX + checkboxSize,
+                             legendY + (lineHeight + checkboxSize) / 2};
+        
+        if (PtInRect(&checkboxRect, pt)) {
+            return elem.channelIdx;
         }
     }
 
@@ -426,7 +491,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
 RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
     plotRect.left += 80;   // Увеличенный отступ для Y-оси (для длинных значений мВ и мдег)
-    plotRect.top += 40;    // Отступ для заголовка
+    plotRect.top += 65;    // Увеличенный отступ для заголовка + горизонтальная легенда
     plotRect.right -= 30;  // Увеличенный отступ справа
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
@@ -435,7 +500,7 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
 RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
     plotRect.left += 80;   // Увеличенный отступ для левой Y-оси (для длинных значений мВ)
-    plotRect.top += 40;    // Отступ для заголовка
+    plotRect.top += 65;    // Увеличенный отступ для заголовка + горизонтальная легенда
     plotRect.right -= 120; // Увеличенный отступ для правой Y-оси (для длинных значений мдег)
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
@@ -1021,10 +1086,11 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
 
 void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
                                     const std::vector<CurveDefinition>& curves) const {
-    int legendX = rect.right - 250; // Больше места для двойной легенды
-    int legendY = rect.top + 10;
+    // Параметры легенды
+    int lineLength = 15;
+    int elementSpacing = 15;
     int lineHeight = 20;
-    int currentY = legendY;
+    int separatorSpacing = 25; // Дополнительный отступ для разделителя
     
     HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
@@ -1044,64 +1110,155 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         }
     }
     
-    // Отрисовка легенды левой оси
-    if (!leftAxisCurves.empty()) {
-        SetTextColor(hdc, RGB(0, 0, 0));
-        TextOut(hdc, legendX, currentY, L"Left Axis:", 10);
-        currentY += lineHeight;
-        
-        for (const auto* curve : leftAxisCurves) {
-            // Цветной квадрат
-            HBRUSH hBrush = CreateSolidBrush(curve->color);
-            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-            Rectangle(hdc, legendX + 10, currentY + 5, legendX + 20, currentY + 15);
-            SelectObject(hdc, hOldBrush);
-            DeleteObject(hBrush);
-            
-            // Линия (сплошная)
-            HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
-            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-            MoveToEx(hdc, legendX + 25, currentY + 10, NULL);
-            LineTo(hdc, legendX + 40, currentY + 10);
-            SelectObject(hdc, hOldPen);
-            DeleteObject(hPen);
-            
-            // Название
-            std::wstring name(curve->displayName.begin(), curve->displayName.end());
-            TextOut(hdc, legendX + 45, currentY + 2, name.c_str(), (int)name.length());
-            
-            currentY += lineHeight;
-        }
+    if (leftAxisCurves.empty() && rightAxisCurves.empty()) {
+        SelectObject(hdc, hOldFont);
+        return;
     }
     
-    // Отрисовка легенды правой оси
+    // Получаем единицы измерения для каждой оси
+    std::string leftUnits, rightUnits;
+    if (!leftAxisCurves.empty()) {
+        leftUnits = leftAxisCurves[0]->units;
+    }
     if (!rightAxisCurves.empty()) {
-        currentY += 5; // Дополнительный отступ
-        SetTextColor(hdc, RGB(0, 0, 0));
-        TextOut(hdc, legendX, currentY, L"Right Axis:", 11);
-        currentY += lineHeight;
+        rightUnits = rightAxisCurves[0]->units;
+    }
+    
+    // Вычисляем ширину каждого элемента легенды
+    struct LegendElement {
+        int width;
+        const CurveDefinition* curve;
+        int axisGroup; // 0 = left, 1 = right
+    };
+    
+    std::vector<LegendElement> elements;
+    int leftGroupWidth = 0;
+    int rightGroupWidth = 0;
+    
+    // Вычисляем ширину подписи левой оси
+    std::wstring leftAxisLabel = L"[Left Axis (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
+    SIZE leftLabelSize;
+    GetTextExtentPoint32(hdc, leftAxisLabel.c_str(), (int)leftAxisLabel.length(), &leftLabelSize);
+    leftGroupWidth = leftLabelSize.cx + 10; // +10 для отступа после подписи
+    
+    // Добавляем элементы левой оси
+    for (const auto* curve : leftAxisCurves) {
+        std::wstring name(curve->displayName.begin(), curve->displayName.end());
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         
-        for (const auto* curve : rightAxisCurves) {
-            // Цветной квадрат
-            HBRUSH hBrush = CreateSolidBrush(curve->color);
-            HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
-            Rectangle(hdc, legendX + 10, currentY + 5, legendX + 20, currentY + 15);
-            SelectObject(hdc, hOldBrush);
-            DeleteObject(hBrush);
+        int elementWidth = lineLength + 5 + textSize.cx;
+        elements.push_back({elementWidth, curve, 0});
+        leftGroupWidth += elementWidth + elementSpacing;
+    }
+    
+    // Ширина разделителя " | "
+    int separatorWidth = 20;
+    
+    // Вычисляем ширину подписи правой оси
+    std::wstring rightAxisLabel = L"[Right Axis (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
+    SIZE rightLabelSize;
+    GetTextExtentPoint32(hdc, rightAxisLabel.c_str(), (int)rightAxisLabel.length(), &rightLabelSize);
+    rightGroupWidth = rightLabelSize.cx + 10; // +10 для отступа после подписи
+    
+    // Добавляем элементы правой оси
+    for (const auto* curve : rightAxisCurves) {
+        std::wstring name(curve->displayName.begin(), curve->displayName.end());
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
+        
+        int elementWidth = lineLength + 5 + textSize.cx;
+        elements.push_back({elementWidth, curve, 1});
+        rightGroupWidth += elementWidth + elementSpacing;
+    }
+    
+    // Общая ширина легенды
+    int totalWidth = leftGroupWidth + separatorSpacing + separatorWidth + separatorSpacing + rightGroupWidth;
+    
+    // Вычисляем начальную X позицию для центрирования
+    int chartWidth = rect.right - rect.left;
+    int startX = rect.left + (chartWidth - totalWidth) / 2;
+    
+    // Позиция Y - под заголовком
+    int legendY = rect.top + 35;
+    
+    // Отрисовка легенды
+    int currentX = startX;
+    
+    // Отрисовка подписи левой оси
+    if (!leftAxisCurves.empty()) {
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, currentX, legendY, leftAxisLabel.c_str(), (int)leftAxisLabel.length());
+        currentX += leftLabelSize.cx + 10;
+        
+        // Отрисовка элементов левой оси
+        for (const auto& elem : elements) {
+            if (elem.axisGroup != 0) continue;
             
-            // Линия (пунктирная)
-            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            const CurveDefinition* curve = elem.curve;
+            
+            // Линия (сплошная для левой оси)
+            HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-            MoveToEx(hdc, legendX + 25, currentY + 10, NULL);
-            LineTo(hdc, legendX + 40, currentY + 10);
+            
+            MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+            LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+            
             SelectObject(hdc, hOldPen);
             DeleteObject(hPen);
             
+            currentX += lineLength + 5;
+            
             // Название
             std::wstring name(curve->displayName.begin(), curve->displayName.end());
-            TextOut(hdc, legendX + 45, currentY + 2, name.c_str(), (int)name.length());
+            TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
             
-            currentY += lineHeight;
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
+            currentX += textSize.cx + elementSpacing;
+        }
+        
+        currentX += separatorSpacing - elementSpacing; // Убираем лишний отступ после последнего элемента
+    }
+    
+    // Отрисовка разделителя " | "
+    if (!leftAxisCurves.empty() && !rightAxisCurves.empty()) {
+        SetTextColor(hdc, RGB(128, 128, 128)); // Серый цвет для разделителя
+        TextOut(hdc, currentX, legendY, L"|", 1);
+        currentX += separatorWidth + separatorSpacing;
+    }
+    
+    // Отрисовка подписи правой оси
+    if (!rightAxisCurves.empty()) {
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
+        currentX += rightLabelSize.cx + 10;
+        
+        // Отрисовка элементов правой оси
+        for (const auto& elem : elements) {
+            if (elem.axisGroup != 1) continue;
+            
+            const CurveDefinition* curve = elem.curve;
+            
+            // Линия (пунктирная для правой оси)
+            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            
+            MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+            LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+            
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+            
+            currentX += lineLength + 5;
+            
+            // Название
+            std::wstring name(curve->displayName.begin(), curve->displayName.end());
+            TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
+            
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
+            currentX += textSize.cx + elementSpacing;
         }
     }
     
