@@ -588,8 +588,14 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                                leftAxisCurves, rightAxisCurves);
     }
     
-    // Формируем заголовок
-    std::wstring title = L"Chart " + std::to_wstring(chartNumber) + L" (Custom Curves)";
+    // Формируем заголовок с частотой
+    std::wstring title = L"Chart " + std::to_wstring(chartNumber);
+    
+    // Добавляем частоту, если есть кривые
+    if (!config.curves.empty()) {
+        FrequencyBand frequency = config.curves[0].frequency;
+        title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L" (400 kHz)" : L" (2000 kHz)";
+    }
     
     // Проверяем, нужны ли двойные оси
     if (config.hasDualAxis && !rightAxisData.empty()) {
