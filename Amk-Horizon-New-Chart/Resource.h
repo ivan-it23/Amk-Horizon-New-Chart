@@ -59,6 +59,10 @@
 #define IDC_XRANGE2_FROM_LABEL		1034
 #define IDC_XRANGE2_TO_LABEL		1035
 
+// Кнопки сохранения диапазона
+#define IDC_SAVE_RANGE1_BTN			1036
+#define IDC_SAVE_RANGE2_BTN			1037
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

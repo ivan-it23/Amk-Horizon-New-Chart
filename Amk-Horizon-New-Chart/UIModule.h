@@ -31,6 +31,10 @@ private:
     HWND hXRange2ToEdit;     // Поле ввода конечной точки
     HWND hXRange2ApplyBtn;   // Кнопка "Apply"
     HWND hXRange2ResetBtn;   // Кнопка "Reset"
+    
+    // Кнопки сохранения диапазона
+    HWND hSaveRange1Btn;     // Кнопка "Save Range" для Chart 1
+    HWND hSaveRange2Btn;     // Кнопка "Save Range" для Chart 2
 
     // Состояние элементов управления
     bool dualMode;

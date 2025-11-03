@@ -938,3 +938,62 @@ void ChartManager::UpdateXRangeUI(HWND hWnd) {
         uiModule->UpdateXRangeControls(2, minX2, maxX2, isCustomRange2);
     }
 }
+
+void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
+    if (!dataModule || !dataModule->HasData()) {
+        MessageBox(hWnd, L"No data loaded!", L"Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // Получаем текущий диапазон для указанного графика
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    
+    if (!zoom->isZoomed) {
+        MessageBox(hWnd, L"Please set X Range first using Apply button!", L"Information", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+    
+    // Получаем индексы начала и конца диапазона
+    size_t startIndex = static_cast<size_t>(zoom->minX);
+    size_t endIndex = static_cast<size_t>(zoom->maxX);
+    
+    // Проверяем корректность индексов
+    if (startIndex >= dataModule->GetDataSize() || endIndex >= dataModule->GetDataSize()) {
+        MessageBox(hWnd, L"Invalid range indices!", L"Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // Открываем диалог сохранения файла
+    OPENFILENAME ofn;
+    wchar_t szFile[260] = {0};
+    
+    // Формируем предложенное имя файла
+    swprintf_s(szFile, L"data_range_%zu_%zu.bin", startIndex, endIndex);
+    
+    ZeroMemory(&ofn, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+    ofn.lpstrFilter = L"Binary Files (*.bin)\0*.bin\0All Files (*.*)\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.lpstrTitle = L"Save Data Range";
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+    
+    if (GetSaveFileName(&ofn) == TRUE) {
+        // Сохраняем диапазон данных
+        if (dataModule->SaveDataRange(szFile, startIndex, endIndex)) {
+            // Формируем сообщение об успехе
+            wchar_t message[512];
+            size_t recordCount = endIndex - startIndex + 1;
+            swprintf_s(message, L"Successfully saved %zu records (indices %zu to %zu) to file:\n%s", 
+                      recordCount, startIndex, endIndex, szFile);
+            MessageBox(hWnd, message, L"Success", MB_OK | MB_ICONINFORMATION);
+        } else {
+            MessageBox(hWnd, L"Failed to save data range!", L"Error", MB_OK | MB_ICONERROR);
+        }
+    }
+}

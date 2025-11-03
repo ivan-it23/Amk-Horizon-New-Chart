@@ -44,6 +44,32 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
     return data;
 }
 
+bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const {
+    // Проверка корректности индексов
+    if (data.empty()) {
+        return false;
+    }
+    
+    if (startIndex >= data.size() || endIndex >= data.size() || startIndex > endIndex) {
+        return false;
+    }
+    
+    // Открываем файл для записи
+    std::ofstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        return false;
+    }
+    
+    // Записываем данные из диапазона [startIndex, endIndex]
+    for (size_t i = startIndex; i <= endIndex; ++i) {
+        file.write(reinterpret_cast<const char*>(&data[i]), sizeof(GP_TOOL_DATA));
+    }
+    
+    file.close();
+    
+    return true;
+}
+
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
     std::vector<bool> allTransmittersEnabled = {true, true, true, true}; // По умолчанию все передатчики включены

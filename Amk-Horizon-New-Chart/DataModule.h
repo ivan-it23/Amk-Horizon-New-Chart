@@ -64,6 +64,9 @@ public:
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
+    
+    // Сохранение диапазона данных
+    bool SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const;
 
     // Вычисления данных для графиков (существующие методы для обратной совместимости)
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const;

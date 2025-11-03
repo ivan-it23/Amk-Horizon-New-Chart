@@ -81,6 +81,9 @@ public:
     void HandleXRangeReset(HWND hWnd, int chartNumber);
     void UpdateXRangeUI(HWND hWnd);
     
+    // Методы для сохранения диапазона
+    void HandleSaveRange(HWND hWnd, int chartNumber);
+    
     // Метод для частичной перерисовки конкретного графика
     void InvalidateChart(HWND hWnd, int chartNumber);
     
