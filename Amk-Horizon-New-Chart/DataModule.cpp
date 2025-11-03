@@ -25,11 +25,31 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
     
     file.close();
     
+    // Сохраняем имя файла без пути и расширения
+    if (!data.empty()) {
+        // Извлекаем имя файла из полного пути
+        size_t lastSlash = filename.find_last_of(L"\\/");
+        std::wstring fileNameOnly = (lastSlash != std::wstring::npos) 
+            ? filename.substr(lastSlash + 1) 
+            : filename;
+        
+        // Удаляем расширение .bin
+        size_t lastDot = fileNameOnly.find_last_of(L'.');
+        loadedFileName = (lastDot != std::wstring::npos) 
+            ? fileNameOnly.substr(0, lastDot) 
+            : fileNameOnly;
+    }
+    
     return !data.empty();
 }
 
 void DataModule::ClearData() {
     data.clear();
+    loadedFileName.clear();
+}
+
+std::wstring DataModule::GetLoadedFileName() const {
+    return loadedFileName;
 }
 
 bool DataModule::HasData() const {

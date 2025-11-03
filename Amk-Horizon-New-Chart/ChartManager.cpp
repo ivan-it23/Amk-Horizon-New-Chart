@@ -974,7 +974,24 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
     wchar_t szFile[260] = {0};
     
     // Формируем предложенное имя файла
-    swprintf_s(szFile, L"data_range_%zu_%zu.bin", startIndex, endIndex);
+    // Формат: [исходное_имя]_range_[начало]_[конец]_[ДД_ММ_ГГГГ].bin
+    std::wstring baseFileName = dataModule->GetLoadedFileName();
+    
+    // Получаем текущую дату
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    
+    // Формируем имя файла с датой в формате ДД_ММ_ГГГГ
+    if (!baseFileName.empty()) {
+        swprintf_s(szFile, L"%s_range_%zu_%zu_%02d_%02d_%04d.bin", 
+                  baseFileName.c_str(), startIndex, endIndex,
+                  st.wDay, st.wMonth, st.wYear);
+    } else {
+        // Если имя исходного файла не сохранено (не должно происходить)
+        swprintf_s(szFile, L"data_range_%zu_%zu_%02d_%02d_%04d.bin", 
+                  startIndex, endIndex,
+                  st.wDay, st.wMonth, st.wYear);
+    }
     
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);

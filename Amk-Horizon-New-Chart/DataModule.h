@@ -53,6 +53,7 @@ enum class FrequencyBand {
 class DataModule {
 private:
     std::vector<GP_TOOL_DATA> data;
+    std::wstring loadedFileName;  // Имя загруженного файла (без пути и расширения)
 
 public:
     DataModule();
@@ -64,6 +65,9 @@ public:
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
+    
+    // Получение имени загруженного файла
+    std::wstring GetLoadedFileName() const;
     
     // Сохранение диапазона данных
     bool SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const;
