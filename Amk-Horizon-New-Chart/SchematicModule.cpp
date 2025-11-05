@@ -1942,9 +1942,9 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                         
                         POINT pt = {x, y};
                         if (PtInRect(&schematicRect, pt)) {
-                            // Преобразуем координаты относительно области схемы
-                            x -= schematicRect.left;
-                            y -= schematicRect.top;
+                            // ИСПРАВЛЕНО: Координаты клика уже в системе координат диалога,
+                            // а элементы в schematicElements хранят координаты относительно schematicRect
+                            // Поэтому НЕ нужно вычитать смещение - передаем координаты как есть
                             
                             if (pSchematic->HandleElementClick(x, y)) {
                                 // Обновляем отображение схемы
@@ -1974,9 +1974,9 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                         
                         POINT pt = {x, y};
                         if (PtInRect(&schematicRect, pt)) {
-                            // Преобразуем координаты относительно области схемы
-                            x -= schematicRect.left;
-                            y -= schematicRect.top;
+                            // ИСПРАВЛЕНО: Координаты курсора уже в системе координат диалога,
+                            // а элементы в schematicElements хранят координаты относительно schematicRect
+                            // Поэтому НЕ нужно вычитать смещение - передаем координаты как есть
                             
                             // Обновляем курсор в зависимости от того, над каким элементом находимся
                             pSchematic->HandleMouseHover(hDlg, x, y);
