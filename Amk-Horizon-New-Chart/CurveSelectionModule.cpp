@@ -543,7 +543,7 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             // Фаза (правая ось)
             CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, rxIndex, selection.frequency);
             phaseCurve.yAxisGroup = 1; // Правая ось
-            phaseCurve.enabled = false; // По умолчанию отключена
+            phaseCurve.enabled = true; // ИЗМЕНЕНО v2.6.4: По умолчанию включена (как и амплитуды)
             
             // Обновляем отображаемое имя для ясности
             phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
