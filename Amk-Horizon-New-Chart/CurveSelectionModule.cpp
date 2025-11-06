@@ -135,8 +135,9 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
         OutputDebugStringA("=== END GetAvailableCurves ===\n");
     }
     
-    // Сортируем кривые по типу данных и передатчикам для удобства
-    SortCurvesByType(curves);
+    // ИЗМЕНЕНО v2.6.2: Отключена сортировка, чтобы сохранить порядок добавления кривых
+    // Теперь фазы добавляются первыми (более важны), затем амплитуды
+    // SortCurvesByType(curves);
     
     return curves;
 }
@@ -380,8 +381,8 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
 void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& curves, 
                                                 const SchematicSelection& selection) const {
     // Когда выбраны оба приемника (R1 и R2), доступны:
-    // 1. Отношения амплитуд R2/R1 для каждого передатчика T1-T4
-    // 2. Разности фаз R2-R1 для каждого передатчика T1-T4
+    // 1. Разности фаз R2-R1 для каждого передатчика T1-T4 (СНАЧАЛА - более важны)
+    // 2. Отношения амплитуд R2/R1 для каждого передатчика T1-T4 (ПОТОМ)
     
     // Проверяем фильтр типов данных
     bool addRatios = (selection.dataFilter == DataTypeFilter::ALL || 
@@ -389,6 +390,20 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     bool addDifferences = (selection.dataFilter == DataTypeFilter::ALL || 
                            selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY);
     
+    // ИЗМЕНЕНО: Сначала добавляем разности фаз (более важны для анализа)
+    for (int i = 0; i < 4; i++) {
+        // Разность фаз (правая ось, единицы: градусы)
+        if (addDifferences) {
+            CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
+            differenceCurve.yAxisGroup = (addRatios ? 1 : 0); // Правая ось если есть ratios, иначе левая
+            differenceCurve.enabled = true; // По умолчанию включена
+            // Умное назначение цвета с учетом уже созданных кривых
+            differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
+            curves.push_back(differenceCurve);
+        }
+    }
+    
+    // ИЗМЕНЕНО: Потом добавляем отношения амплитуд
     for (int i = 0; i < 4; i++) {
         // Отношение амплитуд (левая ось, единицы: В/В)
         if (addRatios) {
@@ -398,16 +413,6 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
             // Умное назначение цвета с учетом уже созданных кривых
             ratioCurve.color = AssignSmartColor(curves, i, ratioCurve.yAxisGroup);
             curves.push_back(ratioCurve);
-        }
-        
-        // Разность фаз (правая ось, единицы: градусы)
-        if (addDifferences) {
-            CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
-            differenceCurve.yAxisGroup = (addRatios ? 1 : 0); // Правая ось если есть ratios, иначе левая
-            differenceCurve.enabled = true; // По умолчанию включена
-            // Умное назначение цвета с учетом уже созданных кривых
-            differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
-            curves.push_back(differenceCurve);
         }
     }
 }
@@ -434,8 +439,8 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     if (receiverIndex == -1) return;
     
     // Когда выбран один приемник, доступны:
-    // 1. Амплитуды для всех передатчиков T1-T4 (левая ось, Вольты)
-    // 2. Фазы для всех передатчиков T1-T4 (правая ось, градусы)
+    // 1. Фазы для всех передатчиков T1-T4 (правая ось, градусы) - СНАЧАЛА (более важны)
+    // 2. Амплитуды для всех передатчиков T1-T4 (левая ось, Вольты) - ПОТОМ
     
     // Проверяем фильтр типов данных
     bool addAmplitudes = (selection.dataFilter == DataTypeFilter::ALL || 
@@ -443,6 +448,20 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     bool addPhases = (selection.dataFilter == DataTypeFilter::ALL || 
                       selection.dataFilter == DataTypeFilter::PHASE_ONLY);
     
+    // ИЗМЕНЕНО: Сначала добавляем фазы (более важны для анализа)
+    for (int i = 0; i < 4; i++) {
+        // Фаза (правая ось)
+        if (addPhases) {
+            CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
+            phaseCurve.yAxisGroup = (addAmplitudes ? 1 : 0); // Правая ось если есть амплитуды, иначе левая
+            phaseCurve.enabled = true; // Включена по умолчанию для пресетов
+            // Умное назначение цвета с учетом уже созданных кривых
+            phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
+            curves.push_back(phaseCurve);
+        }
+    }
+    
+    // ИЗМЕНЕНО: Потом добавляем амплитуды
     for (int i = 0; i < 4; i++) {
         // Амплитуда (левая ось)
         if (addAmplitudes) {
@@ -452,16 +471,6 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
             // Умное назначение цвета с учетом уже созданных кривых
             amplitudeCurve.color = AssignSmartColor(curves, i, amplitudeCurve.yAxisGroup);
             curves.push_back(amplitudeCurve);
-        }
-        
-        // Фаза (правая ось)
-        if (addPhases) {
-            CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
-            phaseCurve.yAxisGroup = (addAmplitudes ? 1 : 0); // Правая ось если есть амплитуды, иначе левая
-            phaseCurve.enabled = true; // Включена по умолчанию для пресетов
-            // Умное назначение цвета с учетом уже созданных кривых
-            phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
-            curves.push_back(phaseCurve);
         }
     }
 }

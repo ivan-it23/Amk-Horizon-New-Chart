@@ -1210,8 +1210,40 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     column.pszText = const_cast<LPWSTR>(L"Available Curves");
     ListView_InsertColumn(hCurveList, 0, &column);
     
+    // ИЗМЕНЕНО v2.6.2: Для одного приёмника (R1 или R2) отображаем кривые в плоском списке
+    // без группировки, чтобы сохранить порядок: сначала все фазы, потом все амплитуды
+    if (selectedReceivers == 1) {
+        // Отключаем группировку для этого случая
+        ListView_EnableGroupView(hCurveList, FALSE);
+        
+        // Добавляем все кривые без группировки в том порядке, в котором они пришли
+        for (size_t i = 0; i < availableCurves.size(); i++) {
+            const auto& curve = availableCurves[i];
+            
+            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            displayText += L" (";
+            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += L")";
+            
+            if (curve.yAxisGroup == 0) {
+                displayText += L" [Left Axis]";
+            } else {
+                displayText += L" [Right Axis]";
+            }
+            
+            LVITEM item = {};
+            item.mask = LVIF_TEXT | LVIF_PARAM;
+            item.iItem = static_cast<int>(i);
+            item.iSubItem = 0;
+            item.pszText = const_cast<LPWSTR>(displayText.c_str());
+            item.lParam = static_cast<LPARAM>(i);
+            
+            int itemIndex = ListView_InsertItem(hCurveList, &item);
+            ListView_SetCheckState(hCurveList, itemIndex, curve.enabled ? TRUE : FALSE);
+        }
+    }
     // Специальный случай: R1 + R2 (Ratios & Differences) - без группировки
-    if (selectedReceivers == 2 && numElements > 1) {
+    else if (selectedReceivers == 2 && numElements > 1) {
         // Отключаем группировку для этого случая
         ListView_EnableGroupView(hCurveList, FALSE);
         
