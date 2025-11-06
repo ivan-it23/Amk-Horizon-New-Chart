@@ -521,11 +521,28 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
                                                const SchematicSelection& selection) const {
     // Когда выбраны передатчики, доступны амплитуды и фазы для R1 и R2
     // Создаем кривые только для выбранных передатчиков
+    // ИЗМЕНЕНО v2.6.5: Для каждого передатчика сначала все фазы, потом все амплитуды
     
     for (int txIndex = 0; txIndex < 4; txIndex++) {
         if (!selection.transmitters[txIndex]) continue; // Пропускаем невыбранные передатчики
         
-        // Для каждого выбранного передатчика создаем кривые для обоих приемников
+        // ИЗМЕНЕНО v2.6.5: Сначала добавляем все фазы для этого передатчика
+        for (int rxIndex = 0; rxIndex < 2; rxIndex++) {
+            // Фаза (правая ось)
+            CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, rxIndex, selection.frequency);
+            phaseCurve.yAxisGroup = 1; // Правая ось
+            phaseCurve.enabled = true; // По умолчанию включена (как и амплитуды)
+            
+            // Обновляем отображаемое имя для ясности
+            phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
+                                    " Phase R" + std::to_string(rxIndex + 1);
+            
+            // Умное назначение цвета с учетом уже созданных кривых
+            phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
+            curves.push_back(phaseCurve);
+        }
+        
+        // ИЗМЕНЕНО v2.6.5: Потом добавляем все амплитуды для этого передатчика
         for (int rxIndex = 0; rxIndex < 2; rxIndex++) {
             // Амплитуда (левая ось)
             CurveDefinition amplitudeCurve = CreateAmplitudeCurve(txIndex, rxIndex, selection.frequency);
@@ -539,19 +556,6 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             // Умное назначение цвета с учетом уже созданных кривых
             amplitudeCurve.color = AssignSmartColor(curves, txIndex, amplitudeCurve.yAxisGroup);
             curves.push_back(amplitudeCurve);
-            
-            // Фаза (правая ось)
-            CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, rxIndex, selection.frequency);
-            phaseCurve.yAxisGroup = 1; // Правая ось
-            phaseCurve.enabled = true; // ИЗМЕНЕНО v2.6.4: По умолчанию включена (как и амплитуды)
-            
-            // Обновляем отображаемое имя для ясности
-            phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
-                                    " Phase R" + std::to_string(rxIndex + 1);
-            
-            // Умное назначение цвета с учетом уже созданных кривых
-            phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
-            curves.push_back(phaseCurve);
         }
     }
 }
