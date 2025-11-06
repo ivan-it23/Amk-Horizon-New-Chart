@@ -261,6 +261,20 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
         return;
     }
     
+    // НОВОЕ v2.6.3: Нормализация осей - если нет включённых кривых на левой оси,
+    // но есть на правой, перемещаем правые кривые на левую ось
+    bool hasEnabledLeftAxis = false;
+    bool hasEnabledRightAxis = false;
+    
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled) continue;
+        if (curve.yAxisGroup == 0) hasEnabledLeftAxis = true;
+        if (curve.yAxisGroup == 1) hasEnabledRightAxis = true;
+    }
+    
+    // Если есть только кривые на правой оси (фазы без амплитуд), перемещаем их на левую
+    bool normalizeAxes = (!hasEnabledLeftAxis && hasEnabledRightAxis);
+    
     // Разделяем кривые по осям
     for (const auto& curve : config.curves) {
         if (!curve.enabled) continue;
@@ -300,9 +314,16 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
         }
         
         // Добавляем данные к соответствующей оси
-        if (curve.yAxisGroup == 0) {
+        // НОВОЕ v2.6.3: Если нормализация включена, все кривые идут на левую ось
+        int effectiveAxisGroup = normalizeAxes ? 0 : curve.yAxisGroup;
+        
+        if (effectiveAxisGroup == 0) {
             leftAxisData.push_back(curveData);
-            leftAxisCurves.push_back(curve);
+            // Создаём копию кривой с исправленным yAxisGroup для корректного отображения
+            CurveDefinition normalizedCurve = curve;
+            normalizedCurve.yAxisGroup = 0;
+            normalizedCurve.lineStyle = PS_SOLID; // Сплошная линия для левой оси
+            leftAxisCurves.push_back(normalizedCurve);
         } else {
             rightAxisData.push_back(curveData);
             rightAxisCurves.push_back(curve);
@@ -327,6 +348,20 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
     if (!dataModule || !dataModule->HasData()) {
         return;
     }
+    
+    // НОВОЕ v2.6.3: Нормализация осей - если нет включённых кривых на левой оси,
+    // но есть на правой, перемещаем правые кривые на левую ось
+    bool hasEnabledLeftAxis = false;
+    bool hasEnabledRightAxis = false;
+    
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled) continue;
+        if (curve.yAxisGroup == 0) hasEnabledLeftAxis = true;
+        if (curve.yAxisGroup == 1) hasEnabledRightAxis = true;
+    }
+    
+    // Если есть только кривые на правой оси (фазы без амплитуд), перемещаем их на левую
+    bool normalizeAxes = (!hasEnabledLeftAxis && hasEnabledRightAxis);
     
     // Разделяем кривые по осям
     for (const auto& curve : config.curves) {
@@ -367,9 +402,16 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
         }
         
         // Добавляем данные к соответствующей оси
-        if (curve.yAxisGroup == 0) {
+        // НОВОЕ v2.6.3: Если нормализация включена, все кривые идут на левую ось
+        int effectiveAxisGroup = normalizeAxes ? 0 : curve.yAxisGroup;
+        
+        if (effectiveAxisGroup == 0) {
             leftAxisData.push_back(curveData);
-            leftAxisCurves.push_back(curve);
+            // Создаём копию кривой с исправленным yAxisGroup для корректного отображения
+            CurveDefinition normalizedCurve = curve;
+            normalizedCurve.yAxisGroup = 0;
+            normalizedCurve.lineStyle = PS_SOLID; // Сплошная линия для левой оси
+            leftAxisCurves.push_back(normalizedCurve);
         } else {
             rightAxisData.push_back(curveData);
             rightAxisCurves.push_back(curve);
