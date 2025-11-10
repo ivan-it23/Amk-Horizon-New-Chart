@@ -171,23 +171,6 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     }
                 }
                 break;
-            case IDM_TOGGLE_DUAL:
-                if (g_chartManager)
-                {
-                    g_chartManager->ToggleDualMode();
-                    g_chartManager->UpdateLayout(hWnd);
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-                break;
-            case IDM_TEST_REFRESH:
-                if (g_chartManager)
-                {
-                    g_chartManager->RefreshChart1();
-                    if (g_chartManager->IsDualMode())
-                        g_chartManager->RefreshChart2();
-                    InvalidateRect(hWnd, NULL, TRUE);
-                }
-                break;
             // Обработка кнопок схемы прибора
             case IDC_CHART1_SCHEMATIC_BTN:
                 if (g_chartManager)

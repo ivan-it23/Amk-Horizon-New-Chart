@@ -625,14 +625,19 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 }
 
 void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumber) {
-    // Отрисовываем сообщение о необходимости настройки через Device Schematic
+    // Проверяем, загружены ли данные
+    bool hasData = dataModule && dataModule->HasData();
+    
     std::wstring title = L"Chart " + std::to_wstring(chartNumber);
     std::vector<std::vector<float>> emptyData;
     std::vector<bool> emptyTransmitters(4, false);
     
+    // Отрисовываем фон и рамку графика
+    // Если данных нет, не показываем сетку (showAxes = false)
+    // Если данные есть, показываем сетку (showAxes = true)
     chartModule->DrawChart(hdc, chartRect, emptyData, DataType::PHASE_DIFFERENCE, 
                           title, false, emptyTransmitters, dataModule.get(),
-                          0.0, 1.0, -1.0, 1.0, true);
+                          0.0, 1.0, -1.0, 1.0, hasData);
     
     // Рисуем текст с инструкцией
     SetBkMode(hdc, TRANSPARENT);
@@ -642,7 +647,14 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
                             DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     
-    std::wstring message = L"Click 'Device Schematic' to configure this chart";
+    // Выбираем сообщение в зависимости от наличия данных
+    std::wstring message;
+    if (hasData) {
+        message = L"Click 'Device Schematic' to configure this chart";
+    } else {
+        message = L"Please open a data file first";
+    }
+    
     RECT textRect = chartRect;
     DrawText(hdc, message.c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
     

@@ -10,8 +10,7 @@
 #define IDM_ABOUT				104
 #define IDM_EXIT				105
 #define IDM_OPEN_FILE			106
-#define IDM_TOGGLE_DUAL			107
-#define IDM_TEST_REFRESH		108
+// ID 107-108 зарезервированы (ранее использовались для удаленных пунктов меню "Вид")
 #define IDI_AMKHORIZONNEWCHART			109
 #define IDI_SMALL				110
 #define IDC_AMKHORIZONNEWCHART			111
