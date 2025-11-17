@@ -186,17 +186,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(hWnd, NULL, TRUE);
                 }
                 break;
-            // Обработка кнопок сохранения диапазона
+            // Обработка кнопки сохранения диапазона
             case IDC_SAVE_RANGE1_BTN:
                 if (g_chartManager)
                 {
                     g_chartManager->HandleSaveRange(hWnd, 1);
-                }
-                break;
-            case IDC_SAVE_RANGE2_BTN:
-                if (g_chartManager)
-                {
-                    g_chartManager->HandleSaveRange(hWnd, 2);
                 }
                 break;
             default:

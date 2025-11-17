@@ -20,7 +20,6 @@ UIModule::UIModule()
     , hXRange2ApplyBtn(nullptr)
     , hXRange2ResetBtn(nullptr)
     , hSaveRange1Btn(nullptr)
-    , hSaveRange2Btn(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
     chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -127,11 +126,6 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hXRange2ResetBtn = CreateWindow(L"BUTTON", L"Reset",
         WS_CHILD | BS_PUSHBUTTON,
         xRange2StartX + 280, 298, 50, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
-    
-    // Кнопка "Save Range" для Chart 2
-    hSaveRange2Btn = CreateWindow(L"BUTTON", L"Save Range",
-        WS_CHILD | BS_PUSHBUTTON,
-        xRange2StartX + 335, 298, 80, 24, hWnd, (HMENU)IDC_SAVE_RANGE2_BTN, hInst, NULL);
 }
 
 void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
@@ -145,7 +139,6 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hXRange2ToEdit, showFlag);
     ShowWindow(hXRange2ApplyBtn, showFlag);
     ShowWindow(hXRange2ResetBtn, showFlag);
-    ShowWindow(hSaveRange2Btn, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -161,7 +154,6 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 155, yPos - 2, 60, 22, SWP_NOSIZE);
     SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 225, yPos - 2, 50, 24, SWP_NOSIZE);
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 280, yPos - 2, 50, 24, SWP_NOSIZE);
-    SetWindowPos(hSaveRange2Btn, HWND_TOP, xRange2StartX + 335, yPos - 2, 80, 24, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {

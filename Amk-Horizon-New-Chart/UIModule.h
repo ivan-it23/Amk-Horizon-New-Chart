@@ -34,7 +34,6 @@ private:
     
     // Кнопки сохранения диапазона
     HWND hSaveRange1Btn;     // Кнопка "Save Range" для Chart 1
-    HWND hSaveRange2Btn;     // Кнопка "Save Range" для Chart 2
 
     // Состояние элементов управления
     bool dualMode;
