@@ -60,6 +60,7 @@ public:
     void DrawChart1(HDC hdc);
     void DrawChart2(HDC hdc);
     void LoadDataFromFile(const std::wstring& filename);
+    void UpdateStatusBarFileInfo(); // Обновление информации о файле в статусной строке
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const;
     
@@ -68,6 +69,7 @@ public:
     void HandleMouseMove(HWND hWnd, int x, int y);
     void HandleMouseUp(HWND hWnd, int x, int y);
     void HandleRightClick(HWND hWnd, int x, int y);
+    void HandleMouseMoveForCoordinates(HWND hWnd, int x, int y); // Для обновления координат в статусной строке
 
     // Новый метод для обработки кликов по чекбоксам легенды
     void HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId);
@@ -125,4 +127,11 @@ private:
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;
     int GetChartAtPoint(int x, int y) const;
     void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
+    
+    // Методы для работы с координатами курсора
+    bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY, 
+                                    double& dataX, double& dataY1, double& dataY2,
+                                    std::wstring& y1Unit, std::wstring& y2Unit,
+                                    bool& hasDualAxis) const;
+    std::wstring GetUnitForDataType(DataType dataType) const;
 };

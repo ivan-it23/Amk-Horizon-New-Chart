@@ -65,6 +65,9 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     // Обновляем элементы управления X Range
     UpdateXRangeUI(hWnd);
+    
+    // Обновляем размер статусной строки
+    uiModule->ResizeStatusBar();
 }
 
 void ChartManager::ToggleDualMode()
@@ -118,6 +121,9 @@ void ChartManager::DrawChart2(HDC hdc)
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
 {
     dataModule->LoadDataFromFile(filename);
+    
+    // Обновляем информацию о файле в статусной строке
+    UpdateStatusBarFileInfo();
     
     // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
     chart1Zoom.isZoomed = false;
@@ -1030,5 +1036,188 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
         } else {
             MessageBox(hWnd, L"Failed to save data range!", L"Error", MB_OK | MB_ICONERROR);
         }
+    }
+}
+
+// Метод для обработки движения мыши и обновления координат в статусной строке
+void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
+    if (!dataModule || !dataModule->HasData()) {
+        uiModule->ClearStatusBarCoordinates();
+        return;
+    }
+
+    // Определяем, над каким графиком находится курсор
+    int chartNum = GetChartAtPoint(x, y);
+    
+    if (chartNum == 0) {
+        // Курсор вне графиков
+        uiModule->ClearStatusBarCoordinates();
+        return;
+    }
+
+    // Преобразуем экранные координаты в координаты данных
+    double dataX, dataY1, dataY2;
+    std::wstring y1Unit, y2Unit;
+    bool hasDualAxis;
+    
+    if (ConvertScreenToChartCoords(chartNum, x, y, dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
+        // Обновляем статусную строку с координатами
+        uiModule->UpdateStatusBarCoordinates(dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
+        
+        // Обновляем информацию о файле в последней части статусной строки
+        std::wstring fileName = dataModule->GetLoadedFileName();
+        if (!fileName.empty()) {
+            size_t dataSize = dataModule->GetDataSize();
+            wchar_t fileInfo[256];
+            swprintf_s(fileInfo, L"Points: %zu  |  %s", dataSize, fileName.c_str());
+            SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
+        }
+    } else {
+        uiModule->ClearStatusBarCoordinates();
+    }
+}
+
+// Преобразование экранных координат в координаты графика
+bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int screenY,
+                                              double& dataX, double& dataY1, double& dataY2,
+                                              std::wstring& y1Unit, std::wstring& y2Unit,
+                                              bool& hasDualAxis) const {
+    if (!dataModule || !dataModule->HasData()) {
+        return false;
+    }
+
+    // Получаем область графика
+    RECT chartRect = (chartNum == 1) ? layoutModule->GetChart1Rect() : layoutModule->GetChart2Rect();
+    
+    // Проверяем, что курсор внутри области графика
+    if (screenX < chartRect.left || screenX > chartRect.right ||
+        screenY < chartRect.top || screenY > chartRect.bottom) {
+        return false;
+    }
+
+    // Определяем, используется ли новая система кривых
+    bool usingNewSystem = IsUsingNewCurveSystem(chartNum);
+    
+    if (usingNewSystem) {
+        // Новая система кривых с возможными двойными осями
+        ChartConfiguration config = GetChartConfiguration(chartNum);
+        
+        if (config.curves.empty()) {
+            return false;
+        }
+
+        // Получаем данные для кривых
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+        
+        // Определяем диапазоны данных
+        double minX, maxX, minY1, maxY1, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minY1, maxY1, minY2, maxY2);
+        
+        // Применяем zoom если есть
+        ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
+        if (zoom.isZoomed) {
+            minX = zoom.minX;
+            maxX = zoom.maxX;
+            minY1 = zoom.minY;
+            maxY1 = zoom.maxY;
+        }
+        
+        // Преобразуем экранные координаты в координаты данных
+        const int MARGIN_LEFT = 50;
+        const int MARGIN_RIGHT = 50;
+        const int MARGIN_TOP = 60;
+        const int MARGIN_BOTTOM = 40;
+        
+        int plotWidth = chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT;
+        int plotHeight = chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM;
+        
+        int relX = screenX - chartRect.left - MARGIN_LEFT;
+        int relY = screenY - chartRect.top - MARGIN_TOP;
+        
+        // X координата
+        dataX = minX + (double)relX / plotWidth * (maxX - minX);
+        
+        // Y координаты
+        hasDualAxis = !rightAxisData.empty();
+        
+        if (hasDualAxis) {
+            // Двойные оси
+            dataY1 = maxY1 - (double)relY / plotHeight * (maxY1 - minY1); // Левая ось
+            dataY2 = maxY2 - (double)relY / plotHeight * (maxY2 - minY2); // Правая ось (пропорционально)
+            
+            // Определяем единицы измерения из первых кривых каждой оси
+            // Преобразуем std::string в std::wstring
+            std::string units1 = config.curves[0].units;
+            y1Unit = std::wstring(units1.begin(), units1.end());
+            
+            for (const auto& curve : config.curves) {
+                if (curve.yAxisGroup == 1) {
+                    std::string units2 = curve.units;
+                    y2Unit = std::wstring(units2.begin(), units2.end());
+                    break;
+                }
+            }
+        } else {
+            // Одна ось
+            dataY1 = maxY1 - (double)relY / plotHeight * (maxY1 - minY1);
+            std::string units1 = config.curves[0].units;
+            y1Unit = std::wstring(units1.begin(), units1.end());
+            y2Unit = L"";
+        }
+        
+        return true;
+        
+    } else {
+        // Старая система (legacy mode)
+        // Здесь можно добавить поддержку старой системы, если нужно
+        // Пока возвращаем false
+        return false;
+    }
+}
+
+// Получение единиц измерения для типа данных
+std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
+    switch (dataType) {
+        case DataType::PHASE_DIFFERENCE:
+        case DataType::PHASE_RX1:
+        case DataType::PHASE_RX2:
+            return L"mdeg";
+        
+        case DataType::AMPLITUDE_RX1:
+        case DataType::AMPLITUDE_RX2:
+        case DataType::SILENT_AMPLITUDE_RX1:
+        case DataType::SILENT_AMPLITUDE_RX2:
+            return L"mV";
+        
+        case DataType::AMPLITUDE_RATIO:
+            return L"V/V";
+        
+        case DataType::TEMPERATURE:
+            return L"°C";
+        
+        default:
+            return L"";
+    }
+}
+
+// Обновление информации о файле в статусной строке
+void ChartManager::UpdateStatusBarFileInfo() {
+    if (!uiModule) return;
+    
+    if (dataModule && dataModule->HasData()) {
+        std::wstring fileName = dataModule->GetLoadedFileName();
+        size_t dataSize = dataModule->GetDataSize();
+        
+        wchar_t fileInfo[256];
+        swprintf_s(fileInfo, L"Points: %zu  |  %s", dataSize, fileName.c_str());
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
+        
+        // Устанавливаем начальное сообщение
+        uiModule->UpdateStatusBar(L"Ready");
+    } else {
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"No file loaded");
+        uiModule->ClearStatusBarCoordinates();
     }
 }

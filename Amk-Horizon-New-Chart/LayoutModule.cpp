@@ -41,10 +41,11 @@ int LayoutModule::GetChart2PanelY() const {
 
 void LayoutModule::CalculateSingleChartLayout(int windowWidth, int windowHeight) {
     // Режим одного графика - занимает всё доступное пространство
+    // Вычитаем высоту статусной строки из доступной высоты
     chart1Rect.left = MARGIN;
     chart1Rect.top = MENU_AND_PANEL1_HEIGHT;
     chart1Rect.right = windowWidth - MARGIN;
-    chart1Rect.bottom = windowHeight - MARGIN;
+    chart1Rect.bottom = windowHeight - MARGIN - STATUSBAR_HEIGHT;
     
     // Очищаем прямоугольник второго графика
     ZeroMemory(&chart2Rect, sizeof(RECT));
@@ -52,8 +53,8 @@ void LayoutModule::CalculateSingleChartLayout(int windowWidth, int windowHeight)
 
 void LayoutModule::CalculateDualChartLayout(int windowWidth, int windowHeight) {
     // Расчет для режима двух графиков
-    // Доступное пространство = Общая высота - Фиксированные элементы
-    int totalFixedHeight = MENU_AND_PANEL1_HEIGHT + PANEL_HEIGHT + (4 * MARGIN) + PANEL_SPACING;
+    // Доступное пространство = Общая высота - Фиксированные элементы - Статусная строка
+    int totalFixedHeight = MENU_AND_PANEL1_HEIGHT + PANEL_HEIGHT + (4 * MARGIN) + PANEL_SPACING + STATUSBAR_HEIGHT;
     int availableHeight = windowHeight - totalFixedHeight;
     
     // Каждый график получает равную долю доступного пространства

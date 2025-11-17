@@ -35,6 +35,9 @@ private:
     // Кнопки сохранения диапазона
     HWND hSaveRange1Btn;     // Кнопка "Save Range" для Chart 1
 
+    // Статусная строка
+    HWND hStatusBar;         // Статусная строка для отображения координат курсора
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -75,6 +78,15 @@ public:
     void GetXRangeValues(int chartNumber, double& fromX, double& toX) const;
     void SetXRangeValues(int chartNumber, double fromX, double toX);
     void ResetXRangeControls(int chartNumber);
+
+    // Управление статусной строкой
+    void UpdateStatusBar(const std::wstring& text);
+    void UpdateStatusBarCoordinates(double x, double y1, const std::wstring& y1Unit, 
+                                    double y2 = 0.0, const std::wstring& y2Unit = L"", 
+                                    bool hasDualAxis = false);
+    void ClearStatusBarCoordinates();
+    void ResizeStatusBar(); // Обновление размера статусной строки при изменении размера окна
+    HWND GetStatusBar() const { return hStatusBar; }
 
 private:
     // Вспомогательные методы удалены после рефакторинга

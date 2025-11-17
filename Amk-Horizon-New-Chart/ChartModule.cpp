@@ -1264,3 +1264,42 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     
     SelectObject(hdc, hOldFont);
 }
+
+// Метод для получения диапазонов данных
+void ChartModule::GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
+                               const std::vector<std::vector<float>>& rightAxisData,
+                               double& minX, double& maxX,
+                               double& minY1, double& maxY1,
+                               double& minY2, double& maxY2) const {
+    minX = 0.0;
+    maxX = 0.0;
+    minY1 = 0.0;
+    maxY1 = 0.0;
+    minY2 = 0.0;
+    maxY2 = 0.0;
+
+    // Определяем диапазон X (одинаковый для обеих осей)
+    if (!leftAxisData.empty() && !leftAxisData[0].empty()) {
+        maxX = static_cast<double>(leftAxisData[0].size() - 1);
+    } else if (!rightAxisData.empty() && !rightAxisData[0].empty()) {
+        maxX = static_cast<double>(rightAxisData[0].size() - 1);
+    }
+
+    // Определяем диапазон Y для левой оси
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX;
+        float maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        minY1 = static_cast<double>(minVal);
+        maxY1 = static_cast<double>(maxVal);
+    }
+
+    // Определяем диапазон Y для правой оси
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX;
+        float maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        minY2 = static_cast<double>(minVal);
+        maxY2 = static_cast<double>(maxVal);
+    }
+}

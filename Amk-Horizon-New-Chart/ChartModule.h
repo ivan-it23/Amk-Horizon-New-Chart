@@ -105,4 +105,12 @@ private:
     // Вспомогательные методы для сетки и меток
     double CalculateNiceStep(double range, int targetSteps) const;
     double CalculateNiceMin(double minVal, double step) const;
+
+public:
+    // Метод для получения диапазонов данных (для координат курсора)
+    void GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
+                      const std::vector<std::vector<float>>& rightAxisData,
+                      double& minX, double& maxX,
+                      double& minY1, double& maxY1,
+                      double& minY2, double& maxY2) const;
 };

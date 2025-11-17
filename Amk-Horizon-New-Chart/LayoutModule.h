@@ -11,7 +11,8 @@ private:
         MARGIN = 5,
         PANEL_SPACING = 5,
         MIN_CHART_HEIGHT = 100,
-        MENU_AND_PANEL1_HEIGHT = 60
+        MENU_AND_PANEL1_HEIGHT = 60,
+        STATUSBAR_HEIGHT = 25  // Высота статусной строки
     };
     
     // Области графиков

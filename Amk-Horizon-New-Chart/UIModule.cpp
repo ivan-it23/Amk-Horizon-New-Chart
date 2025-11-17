@@ -20,6 +20,7 @@ UIModule::UIModule()
     , hXRange2ApplyBtn(nullptr)
     , hXRange2ResetBtn(nullptr)
     , hSaveRange1Btn(nullptr)
+    , hStatusBar(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
     chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -126,6 +127,28 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hXRange2ResetBtn = CreateWindow(L"BUTTON", L"Reset",
         WS_CHILD | BS_PUSHBUTTON,
         xRange2StartX + 280, 298, 50, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
+
+    // Создание статусной строки
+    hStatusBar = CreateWindowEx(
+        0,                              // Расширенный стиль
+        STATUSCLASSNAME,                // Класс статусной строки
+        NULL,                           // Текст
+        WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, // Стили
+        0, 0, 0, 0,                     // Позиция и размер (автоматически)
+        hWnd,                           // Родительское окно
+        (HMENU)IDC_STATUSBAR,           // ID
+        hInst,                          // Instance
+        NULL);                          // Дополнительные параметры
+
+    // Настройка частей статусной строки (4 части)
+    int statusBarParts[4] = { 150, 350, 550, -1 }; // -1 означает "до конца"
+    SendMessage(hStatusBar, SB_SETPARTS, 4, (LPARAM)statusBarParts);
+    
+    // Установка начального текста
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
+    SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
+    SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
+    SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"No file loaded");
 }
 
 void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
@@ -390,3 +413,79 @@ void UIModule::ResetXRangeControls(int chartNumber) {
     EnableWindow(hResetBtn, FALSE);
 }
 
+
+// Методы для управления статусной строкой
+void UIModule::UpdateStatusBar(const std::wstring& text) {
+    if (hStatusBar) {
+        SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)text.c_str());
+    }
+}
+
+void UIModule::UpdateStatusBarCoordinates(double x, double y1, const std::wstring& y1Unit,
+                                         double y2, const std::wstring& y2Unit,
+                                         bool hasDualAxis) {
+    if (!hStatusBar) return;
+
+    // Форматирование X координаты
+    wchar_t xText[64];
+    swprintf_s(xText, L"X: %.1f", x);
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)xText);
+
+    // Форматирование Y координат
+    if (hasDualAxis && !y2Unit.empty()) {
+        // Двойные оси: Y₁ (левая ось) и Y₂ (правая ось)
+        wchar_t y1Text[128];
+        wchar_t y2Text[128];
+        
+        // Левая ось (фазы)
+        if (y1Unit == L"mdeg") {
+            swprintf_s(y1Text, L"Y\u2081: %.0f %s", y1, y1Unit.c_str());
+        } else {
+            swprintf_s(y1Text, L"Y\u2081: %.3f %s", y1, y1Unit.c_str());
+        }
+        
+        // Правая ось (амплитуды)
+        if (y2Unit == L"mV") {
+            swprintf_s(y2Text, L"Y\u2082: %.3f %s", y2, y2Unit.c_str());
+        } else {
+            swprintf_s(y2Text, L"Y\u2082: %.3f %s", y2, y2Unit.c_str());
+        }
+        
+        SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)y1Text);
+        SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)y2Text);
+    } else {
+        // Одна ось
+        wchar_t yText[128];
+        
+        if (y1Unit == L"mdeg") {
+            swprintf_s(yText, L"Y: %.0f %s", y1, y1Unit.c_str());
+        } else if (y1Unit == L"mV") {
+            swprintf_s(yText, L"Y: %.3f %s", y1, y1Unit.c_str());
+        } else if (y1Unit == L"V/V") {
+            swprintf_s(yText, L"Y: %.4f %s", y1, y1Unit.c_str());
+        } else if (y1Unit == L"°C") {
+            swprintf_s(yText, L"Y: %.2f %s", y1, y1Unit.c_str());
+        } else {
+            swprintf_s(yText, L"Y: %.3f %s", y1, y1Unit.c_str());
+        }
+        
+        SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)yText);
+        SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
+    }
+}
+
+void UIModule::ClearStatusBarCoordinates() {
+    if (!hStatusBar) return;
+    
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
+    SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
+    SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
+}
+
+// Обновление размера статусной строки при изменении размера окна
+void UIModule::ResizeStatusBar() {
+    if (hStatusBar) {
+        // Отправляем сообщение WM_SIZE статусной строке для автоматического изменения размера
+        SendMessage(hStatusBar, WM_SIZE, 0, 0);
+    }
+}

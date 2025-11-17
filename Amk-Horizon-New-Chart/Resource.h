@@ -62,6 +62,9 @@
 #define IDC_SAVE_RANGE1_BTN			1036
 // ID 1037 зарезервирован (ранее использовался для IDC_SAVE_RANGE2_BTN, удалён в v2.7.1)
 
+// Статусная строка
+#define IDC_STATUSBAR				1038
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

@@ -11,6 +11,8 @@
 #endif
 // Файлы заголовков Windows
 #include <windows.h>
+#include <commctrl.h>
+#pragma comment(lib, "comctl32.lib")
 // Файлы заголовков среды выполнения C
 #include <stdlib.h>
 #include <malloc.h>

@@ -103,6 +103,12 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
 
+   // Инициализация Common Controls для статусной строки
+   INITCOMMONCONTROLSEX icex;
+   icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
+   icex.dwICC = ICC_BAR_CLASSES; // Включаем статусную строку
+   InitCommonControlsEx(&icex);
+
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
       CW_USEDEFAULT, 0, 800, 600, nullptr, nullptr, hInstance, nullptr);
 
@@ -226,6 +232,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
             g_chartManager->HandleMouseMove(hWnd, x, y);
+            g_chartManager->HandleMouseMoveForCoordinates(hWnd, x, y); // Обновление координат в статусной строке
         }
         break;
     case WM_LBUTTONUP:
