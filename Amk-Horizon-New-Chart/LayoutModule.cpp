@@ -36,43 +36,61 @@ bool LayoutModule::ValidateLayoutConstraints(int width, int height, bool dualMod
 }
 
 int LayoutModule::GetChart2PanelY() const {
-    return chart1Rect.bottom + MARGIN;
+    return chart1Rect.bottom + ELEMENT_SPACING;
 }
 
 void LayoutModule::CalculateSingleChartLayout(int windowWidth, int windowHeight) {
-    // Режим одного графика - занимает всё доступное пространство
-    // Вычитаем высоту статусной строки из доступной высоты
+    // Режим одного графика - занимает максимум доступного пространства
+    
+    // Фиксированные элементы сверху: меню + панель управления + отступ
+    int topOffset = MENU_HEIGHT + PANEL_HEIGHT + ELEMENT_SPACING;
+    
+    // Фиксированные элементы снизу: статусная строка + отступ
+    int bottomOffset = STATUSBAR_HEIGHT + ELEMENT_SPACING;
+    
+    // График занимает всё оставшееся пространство
     chart1Rect.left = MARGIN;
-    chart1Rect.top = MENU_AND_PANEL1_HEIGHT;
+    chart1Rect.top = topOffset;
     chart1Rect.right = windowWidth - MARGIN;
-    chart1Rect.bottom = windowHeight - MARGIN - STATUSBAR_HEIGHT;
+    chart1Rect.bottom = windowHeight - bottomOffset;
     
     // Очищаем прямоугольник второго графика
     ZeroMemory(&chart2Rect, sizeof(RECT));
 }
 
 void LayoutModule::CalculateDualChartLayout(int windowWidth, int windowHeight) {
-    // Расчет для режима двух графиков
-    // Доступное пространство = Общая высота - Фиксированные элементы - Статусная строка
-    int totalFixedHeight = MENU_AND_PANEL1_HEIGHT + PANEL_HEIGHT + (4 * MARGIN) + PANEL_SPACING + STATUSBAR_HEIGHT;
+    // Расчет для режима двух графиков с процентным распределением
+    
+    // Фиксированные элементы:
+    // - Меню сверху
+    // - Панель управления Chart 1
+    // - Панель управления Chart 2
+    // - Статусная строка снизу
+    // - Отступы между элементами
+    int totalFixedHeight = MENU_HEIGHT + (2 * PANEL_HEIGHT) + STATUSBAR_HEIGHT + (4 * ELEMENT_SPACING);
+    
+    // Доступная высота для графиков
     int availableHeight = windowHeight - totalFixedHeight;
     
-    // Каждый график получает равную долю доступного пространства
-    int chartHeight = availableHeight / 2;
+    // Высота каждого графика по процентам от доступной высоты
+    int chart1Height = static_cast<int>(availableHeight * CHART1_HEIGHT_PERCENT);
+    int chart2Height = static_cast<int>(availableHeight * CHART2_HEIGHT_PERCENT);
     
-    // Убеждаемся, что высота графика не меньше минимальной
-    if (chartHeight < MIN_CHART_HEIGHT)
-        chartHeight = MIN_CHART_HEIGHT;
+    // Убеждаемся, что высота графиков не меньше минимальной
+    if (chart1Height < MIN_CHART_HEIGHT) chart1Height = MIN_CHART_HEIGHT;
+    if (chart2Height < MIN_CHART_HEIGHT) chart2Height = MIN_CHART_HEIGHT;
     
     // Первый график
+    int currentY = MENU_HEIGHT + PANEL_HEIGHT + ELEMENT_SPACING;
     chart1Rect.left = MARGIN;
-    chart1Rect.top = MENU_AND_PANEL1_HEIGHT;
+    chart1Rect.top = currentY;
     chart1Rect.right = windowWidth - MARGIN;
-    chart1Rect.bottom = chart1Rect.top + chartHeight;
+    chart1Rect.bottom = currentY + chart1Height;
     
-    // Второй график (симметрично первому)
+    // Второй график
+    currentY = chart1Rect.bottom + ELEMENT_SPACING + PANEL_HEIGHT + ELEMENT_SPACING;
     chart2Rect.left = MARGIN;
-    chart2Rect.top = chart1Rect.bottom + PANEL_HEIGHT + (2 * MARGIN);
+    chart2Rect.top = currentY;
     chart2Rect.right = windowWidth - MARGIN;
-    chart2Rect.bottom = chart2Rect.top + chartHeight;
+    chart2Rect.bottom = currentY + chart2Height;
 }

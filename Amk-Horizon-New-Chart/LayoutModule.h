@@ -5,15 +5,20 @@
 // Класс для управления компоновкой интерфейса
 class LayoutModule {
 private:
-    // Константы компоновки
+    // Константы компоновки (фиксированные размеры)
     enum {
-        PANEL_HEIGHT = 40,
-        MARGIN = 5,
-        PANEL_SPACING = 5,
-        MIN_CHART_HEIGHT = 100,
-        MENU_AND_PANEL1_HEIGHT = 60,
-        STATUSBAR_HEIGHT = 25  // Высота статусной строки
+        MENU_HEIGHT = 10,           // Высота главного меню (финальная оптимизация)
+        PANEL_HEIGHT = 25,          // Высота панели управления
+        STATUSBAR_HEIGHT = 25,      // Высота статусной строки
+        MARGIN = 5,                 // Боковые отступы
+        ELEMENT_SPACING = 2,        // Минимальный отступ между элементами
+        MIN_CHART_HEIGHT = 100      // Минимальная высота графика
     };
+    
+    // Процентное распределение для графиков (в Dual Mode)
+    static constexpr float CHART1_HEIGHT_PERCENT = 0.50f;  // 50% для первого графика
+    static constexpr float CHART2_HEIGHT_PERCENT = 0.50f;  // 50% для второго графика
+    // Графики занимают всё доступное пространство (100%)
     
     // Области графиков
     RECT chart1Rect;

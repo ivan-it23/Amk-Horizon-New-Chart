@@ -33,12 +33,12 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Создание чекбокса Dual Mode
     hDualModeCheck = CreateWindow(L"BUTTON", L"Dual Mode", 
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-        10, 30, 100, 20, hWnd, (HMENU)IDC_DUAL_MODE_CHECK, hInst, NULL);
+        10, 10, 100, 20, hWnd, (HMENU)IDC_DUAL_MODE_CHECK, hInst, NULL);
     
     // Создание кнопки Device Schematic для первого графика
     hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        120, 28, 140, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
+        120, 10, 140, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
     
     // Создание кнопки Device Schematic для второго графика (изначально скрыта)
     hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
@@ -57,7 +57,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Создание элементов управления X Range в панели инструментов
     // Размещаем их справа от кнопки Device Schematic
     int xRangeStartX = 280; // Начальная позиция X Range элементов
-    int yPos = 30;          // Вертикальная позиция (та же, что у других элементов)
+    int yPos = 10;          // Вертикальная позиция (та же, что у других элементов)
     
     // Метка "X Range:"
     hXRangeFromLabel = CreateWindow(L"STATIC", L"X Range:",

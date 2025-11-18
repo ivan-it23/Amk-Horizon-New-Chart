@@ -104,6 +104,60 @@ curve.yAxisGroup = 1;  // Правая ось (мВ)
 - **Только фазы**: Левая ось (мдег)
 - **Только амплитуды**: Левая ось (мВ)
 
+## 📊 Статусная строка (v2.8.0)
+
+### Структура статусной строки
+Статусная строка состоит из 4 частей:
+```cpp
+int statusBarParts[4] = { 150, 350, 550, -1 };
+// Часть 0: X координата (0-150 пикселей)
+// Часть 1: Y₁ координата (150-350 пикселей)
+// Часть 2: Y₂ координата (350-550 пикселей)
+// Часть 3: Информация о файле (550-конец)
+```
+
+### Преобразование координат
+```cpp
+// Экранные координаты → Координаты данных
+bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY,
+                                double& dataX, double& dataY1, double& dataY2,
+                                std::wstring& y1Unit, std::wstring& y2Unit,
+                                bool& hasDualAxis) const;
+```
+
+### Формулы преобразования
+```cpp
+// X координата
+dataX = minX + (double)relX / plotWidth * (maxX - minX);
+
+// Y координата (инвертированная, т.к. Y растёт вниз)
+dataY = maxY - (double)relY / plotHeight * (maxY - minY);
+```
+
+### Форматирование координат
+```cpp
+// Фазы (mdeg) - целые числа
+swprintf_s(text, L"Y: %.0f mdeg", value);
+
+// Амплитуды (mV) - 3 знака
+swprintf_s(text, L"Y: %.3f mV", value);
+
+// Отношения (V/V) - 4 знака
+swprintf_s(text, L"Y: %.4f V/V", value);
+
+// Температура (°C) - 2 знака
+swprintf_s(text, L"Y: %.2f °C", value);
+```
+
+### Интеграция с Layout
+```cpp
+// Константа высоты статусной строки
+const int STATUSBAR_HEIGHT = 25;
+
+// Учёт при расчёте layout
+chart1Rect.bottom = windowHeight - MARGIN - STATUSBAR_HEIGHT;
+```
+
 ## 🏗️ Основные модули
 
 ### DataModule
@@ -111,6 +165,7 @@ curve.yAxisGroup = 1;  // Правая ось (мВ)
 // Загрузка данных
 bool LoadDataFromFile(const std::wstring& filename);
 size_t GetDataSize() const;
+std::wstring GetLoadedFileName() const;
 
 // Вычисление данных для графиков
 void CalculateChartData(DataType type, FrequencyBand freq, 
@@ -120,6 +175,26 @@ void CalculateChartData(DataType type, FrequencyBand freq,
 void CalculateCustomCurveData(const std::vector<CurveDefinition>& curves,
                              std::vector<std::vector<float>>& leftAxisData,
                              std::vector<std::vector<float>>& rightAxisData) const;
+```
+
+### UIModule
+```cpp
+// Создание элементов управления
+void CreateControls(HWND hWnd, HINSTANCE hInst);
+void UpdateControlsVisibility(bool showChart2Controls);
+
+// Управление статусной строкой (v2.8.0)
+void UpdateStatusBar(const std::wstring& text);
+void UpdateStatusBarCoordinates(double x, double y1, const std::wstring& y1Unit,
+                                double y2, const std::wstring& y2Unit,
+                                bool hasDualAxis);
+void ClearStatusBarCoordinates();
+void ResizeStatusBar();
+HWND GetStatusBar() const;
+
+// Управление X Range
+void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);
+void GetXRangeValues(int chartNumber, double& fromX, double& toX) const;
 ```
 
 ### ChartModule
@@ -136,8 +211,33 @@ void DrawDualAxisChart(HDC hdc, const RECT& rect,
                       const std::vector<std::vector<float>>& rightAxisData,
                       const std::wstring& title, bool hasData) const;
 
+// Получение диапазонов данных (v2.8.0)
+void GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
+                  const std::vector<std::vector<float>>& rightAxisData,
+                  double& minX, double& maxX,
+                  double& minY1, double& maxY1,
+                  double& minY2, double& maxY2) const;
+
 // Интерактивность
 int HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const;
+```
+
+### ChartManager
+```cpp
+// Обработка событий мыши (v2.8.0)
+void HandleMouseMoveForCoordinates(HWND hWnd, int x, int y);
+
+// Преобразование координат (v2.8.0)
+bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY,
+                                double& dataX, double& dataY1, double& dataY2,
+                                std::wstring& y1Unit, std::wstring& y2Unit,
+                                bool& hasDualAxis) const;
+
+// Получение единиц измерения (v2.8.0)
+std::wstring GetUnitForDataType(DataType dataType) const;
+
+// Обновление информации о файле (v2.8.0)
+void UpdateStatusBarFileInfo();
 ```
 
 ### SchematicModule
