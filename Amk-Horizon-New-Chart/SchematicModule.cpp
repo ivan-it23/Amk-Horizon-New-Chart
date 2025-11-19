@@ -17,9 +17,9 @@ const COLORREF SchematicModule::SELECTION_COLOR = RGB(255, 255, 0);      // Же
 // Константы для рамки основных элементов
 const COLORREF FRAME_BACKGROUND = RGB(245, 245, 245);  // Светло-серый фон
 const COLORREF FRAME_BORDER = RGB(100, 100, 100);      // Тёмно-серая граница (сделано темнее)
-const int FRAME_PADDING = 15;                          // Отступ внутри рамки
+const int FRAME_PADDING = 4;                           // Отступ внутри рамки (максимальная компактность: 15→10→6→4)
 const int FRAME_BORDER_WIDTH = 2;                      // Толщина границы (увеличено с 1 до 2)
-const int FRAME_CORNER_RADIUS = 8;                     // Радиус скругления углов
+const int FRAME_CORNER_RADIUS = 5;                     // Радиус скругления углов (уменьшено с 8→6→5)
 
 // Константы для градиентов элементов
 // Передатчики (Transmitters)
@@ -707,10 +707,10 @@ void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
 
 RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType type, int index) {
     RECT rect;
-    const int elementWidth = 70;
-    const int elementHeight = 45;
-    const int spacing = 12;  // Отступ между элементами
-    const int frameToSilentSpacing = 25;  // Отступ между рамкой и молчащими
+    const int elementWidth = 60;   // Уменьшено с 70 до 60 (боковые отступы)
+    const int elementHeight = 35;  // Уменьшено с 45 до 35 (отступы сверху/снизу)
+    const int spacing = 10;        // Уменьшено с 12 до 10
+    const int frameToSilentSpacing = 8;  // Уменьшено с 10 до 8 (максимальная компактность)
     
     // Рассчитываем ширину рамки (6 элементов: T1-T4, R1-R2)
     const int frameElementsCount = 6;
