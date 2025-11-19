@@ -6,6 +6,7 @@
 #include <string>
 #include <memory>
 #include <algorithm>
+#include <functional>  // Для std::function (v2.9.4)
 
 // Forward declarations
 class CurveSelectionModule;
@@ -118,6 +119,13 @@ private:
     // Текущие доступные кривые (для работы с ListView)
     std::vector<CurveDefinition> currentAvailableCurves;
     
+    // Немодальное окно (v2.9.4)
+    HWND hSchematicDialog;                       // Handle немодального окна
+    HWND hParentWindow;                          // Handle родительского окна
+    
+    // Callback для уведомления об изменениях (v2.9.4)
+    std::function<void(int)> onConfigurationApplied;  // Вызывается после Apply с номером графика
+    
     // Цвета элементов схемы
     static const COLORREF TRANSMITTER_COLOR;     // Красный цвет для передатчиков
     static const COLORREF RECEIVER_COLOR;        // Зеленый цвет для приемников
@@ -130,8 +138,15 @@ public:
     SchematicModule();
     ~SchematicModule();
     
-    // Основные методы интерфейса
-    bool ShowSchematicDialog(HWND parent, int chartNumber, ChartConfiguration& config);
+    // Основные методы интерфейса (v2.9.4: немодальное окно)
+    void ShowSchematicDialog(HWND parent, int chartNumber);  // Показать/активировать окно
+    void HideSchematicDialog();                              // Скрыть окно
+    void CloseSchematicDialog();                             // Закрыть окно
+    bool IsSchematicDialogVisible() const;                   // Проверка видимости
+    HWND GetSchematicDialogHandle() const;                   // Получить handle окна
+    
+    // Установка callback для уведомления об изменениях (v2.9.4)
+    void SetOnConfigurationAppliedCallback(std::function<void(int)> callback);
     
     // Методы отрисовки схемы
     void RenderSchematic(HDC hdc, const RECT& rect);

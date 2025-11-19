@@ -193,40 +193,82 @@ void ChartConfiguration::UpdateAxisConfiguration() {
 
 // Реализация SchematicModule
 SchematicModule::SchematicModule() 
-    : curveSelectionModule(nullptr), targetChartNumber(1), hoveredElement(nullptr) {
+    : curveSelectionModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
+      hSchematicDialog(nullptr), hParentWindow(nullptr) {
 }
 
 SchematicModule::~SchematicModule() {
+    // Закрываем немодальное окно при уничтожении объекта
+    CloseSchematicDialog();
 }
 
-bool SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber, ChartConfiguration& config) {
+void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
     targetChartNumber = chartNumber;
+    hParentWindow = parent;
     
-    // ИСПРАВЛЕНИЕ: Очищаем элементы и рамку перед открытием диалога
-    // Это гарантирует, что при каждом открытии элементы будут пересчитаны заново
-    OutputDebugStringA("=== ShowSchematicDialog ===\n");
+    // Если окно уже существует, просто активируем его
+    if (hSchematicDialog && IsWindow(hSchematicDialog)) {
+        OutputDebugStringA("=== ShowSchematicDialog: Window exists, activating ===\n");
+        
+        // Если окно свернуто, разворачиваем
+        if (IsIconic(hSchematicDialog)) {
+            ShowWindow(hSchematicDialog, SW_RESTORE);
+        }
+        
+        // Активируем и выводим на передний план
+        SetForegroundWindow(hSchematicDialog);
+        BringWindowToTop(hSchematicDialog);
+        return;
+    }
+    
+    // Создаем новое немодальное окно
+    OutputDebugStringA("=== ShowSchematicDialog: Creating new window ===\n");
     OutputDebugStringA("Clearing schematicElements and deviceFrameRect before opening dialog\n");
     schematicElements.clear();
     deviceFrameRect = {0, 0, 0, 0};
     hoveredElement = nullptr;
     
-    // Создаем модальное диалоговое окно
     HINSTANCE hInst = GetModuleHandle(NULL);
     
-    // Передаем указатель на этот объект через lParam
-    INT_PTR result = DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_SCHEMATIC_DIALOG), 
-                                   parent, SchematicDialogProc, (LPARAM)this);
+    // Создаем немодальное диалоговое окно
+    hSchematicDialog = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_SCHEMATIC_DIALOG), 
+                                        parent, SchematicDialogProc, (LPARAM)this);
     
-    if (result == IDOK) {
-        // Пользователь нажал "Применить" - обновляем конфигурацию
-        // TODO: Здесь будет логика применения настроек
-        OutputDebugStringA("Dialog closed with OK\n");
-        return true;
+    if (hSchematicDialog) {
+        // Показываем окно
+        ShowWindow(hSchematicDialog, SW_SHOW);
+        UpdateWindow(hSchematicDialog);
+        OutputDebugStringA("Modeless dialog created and shown successfully\n");
+    } else {
+        OutputDebugStringA("ERROR: Failed to create modeless dialog\n");
     }
     
-    OutputDebugStringA("Dialog closed with Cancel\n");
     OutputDebugStringA("=== END ShowSchematicDialog ===\n");
-    return false; // Пользователь отменил или закрыл окно
+}
+
+void SchematicModule::HideSchematicDialog() {
+    if (hSchematicDialog && IsWindow(hSchematicDialog)) {
+        ShowWindow(hSchematicDialog, SW_HIDE);
+    }
+}
+
+void SchematicModule::CloseSchematicDialog() {
+    if (hSchematicDialog && IsWindow(hSchematicDialog)) {
+        DestroyWindow(hSchematicDialog);
+        hSchematicDialog = nullptr;
+    }
+}
+
+bool SchematicModule::IsSchematicDialogVisible() const {
+    return hSchematicDialog && IsWindow(hSchematicDialog) && IsWindowVisible(hSchematicDialog);
+}
+
+HWND SchematicModule::GetSchematicDialogHandle() const {
+    return hSchematicDialog;
+}
+
+void SchematicModule::SetOnConfigurationAppliedCallback(std::function<void(int)> callback) {
+    onConfigurationApplied = callback;
 }
 
 void SchematicModule::DrawElementShadow(HDC hdc, const RECT& rect) {
@@ -1629,6 +1671,13 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     curveSelectionModule->ApplyCurveConfiguration(targetChartNumber, config);
     
     OutputDebugStringA("Configuration applied successfully\n");
+    
+    // Вызываем callback для обновления графика (v2.9.4)
+    if (onConfigurationApplied) {
+        OutputDebugStringA("Calling onConfigurationApplied callback\n");
+        onConfigurationApplied(targetChartNumber);
+    }
+    
     OutputDebugStringA("=== END ApplyCurrentCurveConfiguration ===\n");
     
     return true;
@@ -1899,9 +1948,10 @@ void SchematicModule::SynchronizeElementStates() {
 
 
 
-// Процедура диалогового окна схемы прибора
+// Процедура диалогового окна схемы прибора (v2.9.4: немодальное окно)
 INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
-    static SchematicModule* pSchematic = nullptr;
+    // Для немодального окна используем GWLP_USERDATA для хранения указателя
+    SchematicModule* pSchematic = reinterpret_cast<SchematicModule*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
     
     switch (message) {
         case WM_INITDIALOG:
@@ -1930,6 +1980,22 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                 
                 SetWindowPos(hDlg, NULL, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER);
                 
+                return (INT_PTR)TRUE;
+            }
+            
+        case WM_CLOSE:
+            {
+                // Для немодального окна скрываем вместо закрытия
+                if (pSchematic) {
+                    pSchematic->HideSchematicDialog();
+                }
+                return (INT_PTR)TRUE;
+            }
+            
+        case WM_DESTROY:
+            {
+                // Очищаем указатель при уничтожении окна
+                SetWindowLongPtr(hDlg, GWLP_USERDATA, 0);
                 return (INT_PTR)TRUE;
             }
             
@@ -2046,7 +2112,10 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                         if (pSchematic && pSchematic->ValidateCurrentSelection()) {
                             // Применяем конфигурацию кривых
                             if (pSchematic->ApplyCurrentCurveConfiguration()) {
-                                EndDialog(hDlg, IDOK);
+                                // v2.9.4: НЕ закрываем окно после Apply - оставляем открытым
+                                OutputDebugStringA("Configuration applied successfully - window remains open\n");
+                                // Можно показать сообщение об успехе (опционально)
+                                // MessageBox(hDlg, L"Settings applied successfully", L"Success", MB_OK | MB_ICONINFORMATION);
                             } else {
                                 MessageBox(hDlg, L"Error applying curve configuration", L"Error", MB_OK | MB_ICONERROR);
                             }
@@ -2061,7 +2130,10 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                         return (INT_PTR)TRUE;
                         
                     case IDCANCEL:
-                        EndDialog(hDlg, IDCANCEL);
+                        // v2.9.4: Для немодального окна скрываем вместо закрытия
+                        if (pSchematic) {
+                            pSchematic->HideSchematicDialog();
+                        }
                         return (INT_PTR)TRUE;
                         
                     case IDC_FREQUENCY_COMBO:

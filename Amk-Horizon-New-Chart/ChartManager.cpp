@@ -25,6 +25,19 @@ ChartManager::ChartManager()
     
     // Устанавливаем связь между модулями
     schematicModule->SetCurveSelectionModule(curveSelectionModule.get());
+    
+    // Устанавливаем callback для обновления графика после применения настроек (v2.9.4)
+    schematicModule->SetOnConfigurationAppliedCallback([this](int chartNumber) {
+        // Получаем handle главного окна из родительского окна диалога
+        HWND hSchematicDlg = schematicModule->GetSchematicDialogHandle();
+        if (hSchematicDlg) {
+            HWND hMainWnd = GetParent(hSchematicDlg);
+            if (hMainWnd) {
+                // Перерисовываем соответствующий график
+                InvalidateChart(hMainWnd, chartNumber);
+            }
+        }
+    });
 }
 
 ChartManager::~ChartManager() {
@@ -539,29 +552,18 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     InvalidateRect(hWnd, &chartRect, TRUE);
 }
 
-// Метод для отображения схемы прибора
+// Метод для отображения схемы прибора (v2.9.4: немодальное окно)
 void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
     if (!schematicModule || !curveSelectionModule) {
         return;
     }
     
-    // Получаем текущую конфигурацию графика
-    ChartConfiguration config;
-    if (curveSelectionModule->HasConfiguration(chartNumber)) {
-        config = curveSelectionModule->GetChartConfiguration(chartNumber);
-    }
+    // Показываем немодальное диалоговое окно схемы прибора
+    // Окно остаётся открытым после Apply, поэтому не нужно обрабатывать возвращаемое значение
+    schematicModule->ShowSchematicDialog(hWnd, chartNumber);
     
-    // Показываем диалоговое окно схемы прибора
-    if (schematicModule->ShowSchematicDialog(hWnd, chartNumber, config)) {
-        // Пользователь применил настройки - получаем новую конфигурацию
-        ChartConfiguration newConfig = curveSelectionModule->GetChartConfiguration(chartNumber);
-        
-        // Применяем новую конфигурацию
-        ApplyCurveConfiguration(chartNumber, newConfig);
-        
-        // Обновляем график с учетом изменений
-        UpdateChartAfterConfigurationChange(hWnd, chartNumber);
-    }
+    // Примечание: Применение конфигурации теперь происходит внутри SchematicModule
+    // при нажатии кнопки Apply, и окно остаётся открытым для быстрого переключения кривых
 }
 
 // Методы для новой системы кривых
