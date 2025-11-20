@@ -25,6 +25,13 @@ public:
                    DataType type, const std::wstring& title, bool hasData,
                    const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
                    double minXData, double maxXData, double minYData, double maxYData, bool showAxes = true) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                   DataType type, const std::wstring& title, bool hasData,
+                   const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
+                   double minXData, double maxXData, double minYData, double maxYData,
+                   const std::vector<float>& xAxisData, bool showAxes = true) const;
 
     // Новый метод для отрисовки прямоугольника зума
     void DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const;
@@ -55,11 +62,20 @@ public:
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, const DataModule* dataModule) const;
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 
                          const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                         const DataModule* dataModule, const std::vector<float>& xAxisData,
+                         double minXData, double maxXData, double minYData, double maxYData) const;
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData) const;
     
     // Перегрузка с поддержкой zoom для правильного отображения X координат
     void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
                       double minXData, double maxXData) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                      const std::vector<float>& xAxisData, double minXData, double maxXData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const;
     void DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                          DataType type, const std::vector<bool>& enabledTransmitters) const;

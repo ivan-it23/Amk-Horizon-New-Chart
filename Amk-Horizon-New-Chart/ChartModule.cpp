@@ -1303,3 +1303,161 @@ void ChartModule::GetDataRanges(const std::vector<std::vector<float>>& leftAxisD
         maxY2 = static_cast<double>(maxVal);
     }
 }
+
+
+// v2.10.0: Перегрузка DrawChart с поддержкой температуры на оси X
+void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
+                           DataType type, const std::wstring& title, bool hasData,
+                           const std::vector<bool>& enabledTransmitters, const DataModule* dataModule,
+                           double minXData, double maxXData, double minYData, double maxYData,
+                           const std::vector<float>& xAxisData, bool showAxes) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawChartBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика
+    RECT plotRect = CalculatePlotRect(rect);
+
+    // Отрисовка осей
+    DrawChartAxes(hdc, plotRect, showAxes);
+
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Отрисовка сетки и осей с метками (с температурой)
+    DrawGridAndAxes(hdc, plotRect, chartData, dataModule, xAxisData,
+                    minXData, maxXData, minYData, maxYData);
+    
+    // Отрисовка данных с температурой на оси X
+    if (hasData && !xAxisData.empty()) {
+        DrawChartData(hdc, plotRect, chartData, xAxisData, minXData, maxXData);
+    }
+    
+    // Отрисовка легенды
+    if (chartData.size() > 1) {
+        DrawChartLegend(hdc, rect, chartData, type, enabledTransmitters);
+    }
+}
+
+// v2.10.0: Отрисовка данных с температурой на оси X
+void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                                const std::vector<float>& xAxisData, double minXData, double maxXData) const {
+    if (xAxisData.empty() || chartData.empty()) return;
+    
+    // Находим минимальные и максимальные значения Y
+    float minVal, maxVal;
+    FindMinMaxValues(chartData, minVal, maxVal);
+    
+    // Находим минимальные и максимальные значения температуры для отображаемого диапазона
+    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
+    
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f; // Избегаем деления на ноль
+    }
+    
+    // Рисуем данные для каждого канала
+    for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
+        const auto& channel = chartData[channelIdx];
+        if (channel.empty()) continue;
+        
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t i = startIdx; i < endIdx && i < channel.size() && i < xAxisData.size(); i++) {
+            // X координата основана на температуре
+            float temp = xAxisData[i];
+            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            
+            // Y координата основана на значении данных
+            int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+    }
+}
+
+// v2.10.0: Отрисовка сетки и осей с температурой на оси X
+void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
+                                  const DataModule* dataModule, const std::vector<float>& xAxisData,
+                                  double minXData, double maxXData, double minYData, double maxYData) const {
+    if (xAxisData.empty()) return;
+    
+    // Находим диапазон температур для отображаемого диапазона
+    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
+    
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f;
+    }
+    
+    // Находим диапазон Y
+    float minVal, maxVal;
+    FindMinMaxValues(chartData, minVal, maxVal, minYData, maxYData);
+    
+    // Рисуем сетку
+    HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
+    
+    // Вертикальные линии сетки (по температуре)
+    int numVerticalLines = 10;
+    for (int i = 0; i <= numVerticalLines; i++) {
+        int x = plotRect.left + (plotRect.right - plotRect.left) * i / numVerticalLines;
+        MoveToEx(hdc, x, plotRect.top, NULL);
+        LineTo(hdc, x, plotRect.bottom);
+        
+        // Подпись температуры
+        float temp = minTemp + (maxTemp - minTemp) * i / numVerticalLines;
+        wchar_t label[32];
+        swprintf_s(label, L"%.1f°C", temp);
+        
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
+        TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
+    }
+    
+    // Горизонтальные линии сетки (по Y)
+    int numHorizontalLines = 10;
+    for (int i = 0; i <= numHorizontalLines; i++) {
+        int y = plotRect.top + (plotRect.bottom - plotRect.top) * i / numHorizontalLines;
+        MoveToEx(hdc, plotRect.left, y, NULL);
+        LineTo(hdc, plotRect.right, y);
+        
+        // Подпись Y
+        float value = maxVal - (maxVal - minVal) * i / numHorizontalLines;
+        wchar_t label[32];
+        swprintf_s(label, L"%.2f", value);
+        
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
+        TextOut(hdc, plotRect.left - textSize.cx - 5, y - textSize.cy / 2, label, (int)wcslen(label));
+    }
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hGridPen);
+}

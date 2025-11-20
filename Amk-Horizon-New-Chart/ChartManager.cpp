@@ -601,29 +601,74 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L" (400 kHz)" : L" (2000 kHz)";
     }
     
-    // Проверяем, нужны ли двойные оси
-    if (config.hasDualAxis && !rightAxisData.empty()) {
-        // Используем новый метод для двойных осей с поддержкой zoom
-        // Всегда показываем оси (включая ось X)
-        bool showAxes = true;
-        chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
-                                     leftAxisData, rightAxisData,
-                                     title, dataModule->HasData(),
-                                     zoom->isZoomed ? zoom->minX : 0.0,
-                                     zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                     -1e6, 1e6, showAxes); // Y всегда автоматически
+    // v2.10.0: Проверяем тип оси X
+    if (config.xAxisType == XAxisType::TEMPERATURE) {
+        // Режим кроссплота: температура на оси X
+        
+        // Получаем температурные данные
+        std::vector<float> temperatureData;
+        if (zoom->isZoomed) {
+            dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
+        } else {
+            dataModule->GetTemperatureData(temperatureData);
+        }
+        
+        // Проверяем, что данные получены
+        if (temperatureData.empty()) {
+            // Отрисовываем пустой график с сообщением
+            chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
+                                         leftAxisData, rightAxisData,
+                                         title + L" (No temperature data)", false,
+                                         0.0, 1.0, -1e6, 1e6, true);
+            return;
+        }
+        
+        // Объединяем данные левой и правой осей для отрисовки
+        std::vector<std::vector<float>> allData;
+        allData.insert(allData.end(), leftAxisData.begin(), leftAxisData.end());
+        allData.insert(allData.end(), rightAxisData.begin(), rightAxisData.end());
+        
+        // Создаем список всех включенных передатчиков (для легенды)
+        std::vector<bool> enabledTransmitters = {true, true, true, true};
+        
+        // Определяем диапазоны
+        double minXData = zoom->isZoomed ? zoom->minX : 0.0;
+        double maxXData = zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() - 1);
+        double minYData = -1e6;
+        double maxYData = 1e6;
+        
+        // Вызываем новый метод отрисовки с температурой
+        chartModule->DrawChart(hdc, chartRect, allData, DataType::PHASE_DIFFERENCE, 
+                              title, true, enabledTransmitters, dataModule.get(),
+                              minXData, maxXData, minYData, maxYData, 
+                              temperatureData, true);
     } else {
-        // Используем обычный метод для одной оси
-        if (!leftAxisData.empty()) {
-            // Отрисовываем график с кастомными кривыми
-            // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
+        // Обычный режим: номер кадра на оси X
+        
+        // Проверяем, нужны ли двойные оси
+        if (config.hasDualAxis && !rightAxisData.empty()) {
+            // Используем новый метод для двойных осей с поддержкой zoom
+            // Всегда показываем оси (включая ось X)
             bool showAxes = true;
-            chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
-                                         leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось
+            chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
+                                         leftAxisData, rightAxisData,
                                          title, dataModule->HasData(),
                                          zoom->isZoomed ? zoom->minX : 0.0,
                                          zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                         -1e6, 1e6, showAxes);
+                                         -1e6, 1e6, showAxes); // Y всегда автоматически
+        } else {
+            // Используем обычный метод для одной оси
+            if (!leftAxisData.empty()) {
+                // Отрисовываем график с кастомными кривыми
+                // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
+                bool showAxes = true;
+                chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
+                                             leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось
+                                             title, dataModule->HasData(),
+                                             zoom->isZoomed ? zoom->minX : 0.0,
+                                             zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
+                                             -1e6, 1e6, showAxes);
+            }
         }
     }
 }
@@ -1219,3 +1264,4 @@ void ChartManager::UpdateStatusBarFileInfo() {
         uiModule->ClearStatusBarCoordinates();
     }
 }
+

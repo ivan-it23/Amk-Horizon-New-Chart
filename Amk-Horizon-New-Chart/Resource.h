@@ -68,6 +68,9 @@
 // Пресет температуры (v2.9.7)
 #define IDC_PRESET_TEMPERATURE		1039
 
+// Выбор типа оси X (v2.10.0)
+#define IDC_XAXIS_TYPE_COMBO		1040
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

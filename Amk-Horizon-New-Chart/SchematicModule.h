@@ -18,6 +18,12 @@ enum class ElementType {
     SILENT_TX       // Молчащий передатчик
 };
 
+// Типы данных для оси X
+enum class XAxisType {
+    FRAME_NUMBER,   // Номер кадра (по умолчанию)
+    TEMPERATURE     // Температура
+};
+
 // Определение кривой для отображения
 struct CurveDefinition {
     std::string id;              // Уникальный идентификатор "T1_R1_AMP_400"
@@ -73,6 +79,7 @@ struct ChartConfiguration {
     bool hasDualAxis;                     // Использует ли график две оси
     std::string leftAxisUnits;            // Единицы измерения левой оси
     std::string rightAxisUnits;           // Единицы измерения правой оси
+    XAxisType xAxisType;                  // Тип данных для оси X
     
     ChartConfiguration();
     void Clear();
@@ -178,6 +185,7 @@ public:
     void InitializeDialogControls(HWND hDlg);
     void UpdateAvailableCurves(HWND hDlg);
     void HandleFrequencyChange(HWND hDlg);
+    void HandleXAxisTypeChange(HWND hDlg);  // v2.10.0: Обработка изменения типа оси X
     void HandlePresetButton(HWND hDlg, int presetId);
     void HandleMouseHover(HWND hDlg, int x, int y);
     void HandleCurveCheckboxChange(HWND hDlg, int itemIndex);

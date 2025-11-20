@@ -129,7 +129,7 @@ std::string SchematicSelection::GetValidationError() const {
 }
 
 // Реализация ChartConfiguration
-ChartConfiguration::ChartConfiguration() : hasDualAxis(false) {
+ChartConfiguration::ChartConfiguration() : hasDualAxis(false), xAxisType(XAxisType::FRAME_NUMBER) {
 }
 
 void ChartConfiguration::Clear() {
@@ -137,6 +137,7 @@ void ChartConfiguration::Clear() {
     hasDualAxis = false;
     leftAxisUnits.clear();
     rightAxisUnits.clear();
+    xAxisType = XAxisType::FRAME_NUMBER;
 }
 
 bool ChartConfiguration::IsEmpty() const {
@@ -149,6 +150,7 @@ ChartConfiguration ChartConfiguration::Copy() const {
     copy.hasDualAxis = this->hasDualAxis;
     copy.leftAxisUnits = this->leftAxisUnits;
     copy.rightAxisUnits = this->rightAxisUnits;
+    copy.xAxisType = this->xAxisType;
     return copy;
 }
 
@@ -915,9 +917,11 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
 void SchematicModule::InitializeDialogControls(HWND hDlg) {
     // Пытаемся восстановить текущую конфигурацию графика
     bool hasExistingConfig = false;
+    ChartConfiguration existingConfig; // Объявляем вне блока для использования позже
+    
     if (curveSelectionModule && curveSelectionModule->HasConfiguration(targetChartNumber)) {
         // Получаем текущую конфигурацию графика
-        ChartConfiguration existingConfig = curveSelectionModule->GetChartConfiguration(targetChartNumber);
+        existingConfig = curveSelectionModule->GetChartConfiguration(targetChartNumber);
         
         if (!existingConfig.IsEmpty()) {
             hasExistingConfig = true;
@@ -1106,6 +1110,21 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         // Устанавливаем частоту из восстановленной конфигурации или по умолчанию
         int freqIndex = (currentSelection.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
         SendMessage(hFreqCombo, CB_SETCURSEL, freqIndex, 0);
+    }
+    
+    // Инициализируем комбобокс типа оси X (v2.10.0)
+    HWND hXAxisCombo = GetDlgItem(hDlg, IDC_XAXIS_TYPE_COMBO);
+    if (hXAxisCombo) {
+        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"Frame Number");
+        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"Temperature");
+        
+        // Устанавливаем тип оси X из восстановленной конфигурации или по умолчанию
+        XAxisType xAxisType = XAxisType::FRAME_NUMBER;
+        if (hasExistingConfig && !existingConfig.IsEmpty()) {
+            xAxisType = existingConfig.xAxisType;
+        }
+        int xAxisIndex = (xAxisType == XAxisType::FRAME_NUMBER) ? 0 : 1;
+        SendMessage(hXAxisCombo, CB_SETCURSEL, xAxisIndex, 0);
     }
     
     // Инициализируем область схемы
@@ -1440,6 +1459,13 @@ void SchematicModule::HandleFrequencyChange(HWND hDlg) {
     }
 }
 
+void SchematicModule::HandleXAxisTypeChange(HWND hDlg) {
+    // v2.10.0: Обработка изменения типа оси X
+    // Тип оси X сохраняется и применяется при нажатии Apply
+    // Здесь ничего не делаем, просто фиксируем изменение
+    OutputDebugStringA("X-Axis type changed\n");
+}
+
 void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     // Очищаем текущий выбор (включая старые кривые)
     currentSelection.Clear();
@@ -1623,6 +1649,16 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     ChartConfiguration config;
     config.curves = currentAvailableCurves;
     config.UpdateAxisConfiguration();
+    
+    // v2.10.0: Получаем тип оси X из combobox
+    HWND hDlg = GetParent(GetDlgItem(hSchematicDialog, IDC_XAXIS_TYPE_COMBO));
+    HWND hXAxisCombo = GetDlgItem(hDlg, IDC_XAXIS_TYPE_COMBO);
+    if (hXAxisCombo) {
+        int selection = (int)SendMessage(hXAxisCombo, CB_GETCURSEL, 0, 0);
+        config.xAxisType = (selection == 0) ? XAxisType::FRAME_NUMBER : XAxisType::TEMPERATURE;
+        sprintf_s(debugMsg, "X-Axis type: %s\n", (config.xAxisType == XAxisType::FRAME_NUMBER) ? "Frame Number" : "Temperature");
+        OutputDebugStringA(debugMsg);
+    }
     
     // Валидируем конфигурацию
     if (!curveSelectionModule->ValidateConfiguration(config)) {
@@ -2105,6 +2141,12 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_FREQUENCY_COMBO:
                         if (HIWORD(wParam) == CBN_SELCHANGE && pSchematic) {
                             pSchematic->HandleFrequencyChange(hDlg);
+                        }
+                        return (INT_PTR)TRUE;
+                        
+                    case IDC_XAXIS_TYPE_COMBO:
+                        if (HIWORD(wParam) == CBN_SELCHANGE && pSchematic) {
+                            pSchematic->HandleXAxisTypeChange(hDlg);
                         }
                         return (INT_PTR)TRUE;
                         

@@ -2,6 +2,14 @@
 
 ## 📊 Структуры данных
 
+### XAxisType (v2.10.0)
+```cpp
+enum class XAxisType {
+    FRAME_NUMBER,   // Номер кадра (по умолчанию)
+    TEMPERATURE     // Температура
+};
+```
+
 ### GP_TOOL_DATA
 ```cpp
 struct GP_TOOL_DATA {
@@ -357,3 +365,139 @@ bool IsValid() const {
 ---
 
 **Техническая документация AMK-Horizon-New-Chart** - справочник для разработчиков
+
+
+## 🔬 Кроссплот: Температура на оси X (v2.10.0)
+
+### Обзор
+Версия 2.10.0 добавляет возможность отображения температуры на оси X вместо номера кадра, что позволяет строить кроссплоты для анализа температурных зависимостей.
+
+### Новые методы DataModule
+
+#### GetTemperatureData
+```cpp
+void GetTemperatureData(std::vector<float>& outData) const;
+void GetTemperatureData(std::vector<float>& outData, double minX, double maxX) const;
+```
+
+**Назначение**: Получение массива температур для использования на оси X
+
+**Параметры**:
+- `outData` - выходной массив температур
+- `minX`, `maxX` - диапазон индексов данных (опционально)
+
+**Пример использования**:
+```cpp
+std::vector<float> temperatures;
+dataModule->GetTemperatureData(temperatures);
+// temperatures[i] содержит температуру для i-го кадра
+```
+
+### Новые методы ChartModule
+
+#### DrawChart с температурой
+```cpp
+void DrawChart(HDC hdc, const RECT& rect, 
+               const std::vector<std::vector<float>>& chartData,
+               DataType type, const std::wstring& title, bool hasData,
+               const std::vector<bool>& enabledTransmitters, 
+               const DataModule* dataModule,
+               double minXData, double maxXData, 
+               double minYData, double maxYData,
+               const std::vector<float>& xAxisData, 
+               bool showAxes = true) const;
+```
+
+**Новый параметр**: `xAxisData` - массив значений для оси X (температуры)
+
+#### DrawChartData с температурой
+```cpp
+void DrawChartData(HDC hdc, const RECT& plotRect, 
+                   const std::vector<std::vector<float>>& chartData,
+                   const std::vector<float>& xAxisData, 
+                   double minXData, double maxXData) const;
+```
+
+**Логика отрисовки**:
+- X координата точки определяется по температуре из `xAxisData[i]`
+- Автоматическое определение диапазона температур
+- Линейное масштабирование температуры на ширину графика
+
+#### DrawGridAndAxes с температурой
+```cpp
+void DrawGridAndAxes(HDC hdc, const RECT& plotRect, 
+                     const std::vector<std::vector<float>>& chartData,
+                     const DataModule* dataModule, 
+                     const std::vector<float>& xAxisData,
+                     double minXData, double maxXData, 
+                     double minYData, double maxYData) const;
+```
+
+**Особенности**:
+- Подписи оси X в формате "%.1f°C"
+- 10 вертикальных линий сетки с равномерным распределением температур
+- Автоматическое определение min/max температуры для отображаемого диапазона
+
+### Алгоритм отрисовки кроссплота
+
+```cpp
+// 1. Получение температурных данных
+std::vector<float> temperatures;
+dataModule->GetTemperatureData(temperatures, minX, maxX);
+
+// 2. Определение диапазона температур
+float minTemp = *std::min_element(temperatures.begin(), temperatures.end());
+float maxTemp = *std::max_element(temperatures.begin(), temperatures.end());
+
+// 3. Преобразование координат
+for (size_t i = 0; i < data.size(); i++) {
+    float temp = temperatures[i];
+    int x = plotLeft + (temp - minTemp) / (maxTemp - minTemp) * plotWidth;
+    int y = plotBottom - (data[i] - minY) / (maxY - minY) * plotHeight;
+    // Отрисовка точки (x, y)
+}
+```
+
+### Формат подписей оси X
+
+**Frame Number режим**:
+```
+0    100    200    300    400    500
+```
+
+**Temperature режим**:
+```
+12.5°C  13.0°C  13.5°C  14.0°C  14.5°C  15.0°C
+```
+
+### Сохранение настроек
+
+Тип оси X сохраняется в `ChartConfiguration::xAxisType` и применяется при нажатии "Apply" в Device Schematic.
+
+```cpp
+// Получение типа оси X из combobox
+int selection = SendMessage(hXAxisCombo, CB_GETCURSEL, 0, 0);
+config.xAxisType = (selection == 0) ? XAxisType::FRAME_NUMBER : XAxisType::TEMPERATURE;
+```
+
+### Примеры использования
+
+#### Анализ температурной стабильности амплитуд
+```
+1. Выберите "All Ampl R1" пресет
+2. Установите X-Axis: Temperature
+3. Нажмите Apply
+4. Анализируйте зависимость амплитуд от температуры
+```
+
+#### Температурный дрейф фаз
+```
+1. Выберите "All Phase R1" пресет
+2. Установите X-Axis: Temperature
+3. Нажмите Apply
+4. Отслеживайте изменение фаз при изменении температуры
+```
+
+---
+
+**Техническая документация AMK-Horizon-New-Chart v2.10.0** - Кроссплот и температурный анализ

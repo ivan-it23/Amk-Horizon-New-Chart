@@ -117,6 +117,10 @@ public:
     int GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const;
     int GetSilentTransmitterIndex(FrequencyBand freq) const;
     
+    // v2.10.0: Получение температурных данных для оси X
+    void GetTemperatureData(std::vector<float>& outData) const;
+    void GetTemperatureData(std::vector<float>& outData, double minX, double maxX) const;
+    
     // Методы для вычисления различных типов данных (публичные для использования в CurveSelectionModule)
     void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
                            std::vector<float>& outData, 

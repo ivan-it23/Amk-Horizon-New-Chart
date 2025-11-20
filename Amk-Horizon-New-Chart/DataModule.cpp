@@ -635,3 +635,29 @@ void DataModule::CalculateChartDataFromConfiguration(const ChartConfiguration& c
     CalculateCustomCurveData(config.curves, leftAxisData, rightAxisData, minX, maxX, minY, maxY);
 }
 
+
+// v2.10.0: Получение температурных данных для оси X
+void DataModule::GetTemperatureData(std::vector<float>& outData) const {
+    outData.clear();
+    if (data.empty()) return;
+    
+    outData.reserve(data.size());
+    for (const auto& record : data) {
+        outData.push_back(record.temperature);
+    }
+}
+
+void DataModule::GetTemperatureData(std::vector<float>& outData, double minX, double maxX) const {
+    outData.clear();
+    if (data.empty()) return;
+    
+    // Получаем диапазон индексов
+    auto indexRange = GetDataIndexRange(minX, maxX);
+    size_t startIndex = indexRange.first;
+    size_t endIndex = indexRange.second;
+    
+    outData.reserve(endIndex - startIndex);
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        outData.push_back(data[i].temperature);
+    }
+}
