@@ -335,19 +335,31 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             (std::min)(selectionStart.y, selectionEnd.y), 
             maxDataX, maxDataY);
         
-        // Устанавливаем новый видимый диапазон для соответствующего графика
-        if (activeChart == 1) {
-            chart1Zoom.minX = minDataX;
-            chart1Zoom.maxX = maxDataX;
-            chart1Zoom.minY = minDataY;
-            chart1Zoom.maxY = maxDataY;
-            chart1Zoom.isZoomed = true;
-        } else if (activeChart == 2) {
-            chart2Zoom.minX = minDataX;
-            chart2Zoom.maxX = maxDataX;
-            chart2Zoom.minY = minDataY;
-            chart2Zoom.maxY = maxDataY;
-            chart2Zoom.isZoomed = true;
+        // Проверяем минимальный диапазон: подписи должны быть целыми и отличаться минимум на 10
+        const double MIN_X_RANGE = 10.0;
+        double xRange = maxDataX - minDataX;
+        
+        if (xRange < MIN_X_RANGE) {
+            // Диапазон слишком мал, показываем сообщение и не применяем zoom
+            MessageBox(hWnd, 
+                L"Cannot zoom further: X-axis labels must be integers with minimum spacing of 1.\nMinimum range is 10 points.",
+                L"Zoom Limit Reached", 
+                MB_OK | MB_ICONINFORMATION);
+        } else {
+            // Устанавливаем новый видимый диапазон для соответствующего графика
+            if (activeChart == 1) {
+                chart1Zoom.minX = minDataX;
+                chart1Zoom.maxX = maxDataX;
+                chart1Zoom.minY = minDataY;
+                chart1Zoom.maxY = maxDataY;
+                chart1Zoom.isZoomed = true;
+            } else if (activeChart == 2) {
+                chart2Zoom.minX = minDataX;
+                chart2Zoom.maxX = maxDataX;
+                chart2Zoom.minY = minDataY;
+                chart2Zoom.maxY = maxDataY;
+                chart2Zoom.isZoomed = true;
+            }
         }
     }
     
@@ -991,7 +1003,19 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
     if (fromX < 0 || toX > dataSize || fromX > dataSize || toX < 0) {
         wchar_t message[256];
-        swprintf_s(message, L"Chart %d: X Range must be between 0 and %.1f", chartNumber, dataSize);
+        swprintf_s(message, L"Chart %d: X Range must be between 0 and %.0f", chartNumber, dataSize);
+        MessageBox(hWnd, message, L"X Range Error", MB_OK | MB_ICONERROR);
+        return;
+    }
+    
+    // Проверяем минимальный диапазон: подписи должны быть целыми и отличаться минимум на 10
+    const double MIN_X_RANGE = 10.0;
+    double xRange = toX - fromX;
+    
+    if (xRange < MIN_X_RANGE) {
+        wchar_t message[256];
+        swprintf_s(message, L"Chart %d: X Range must be at least %.0f points.\nX-axis labels must be integers with minimum spacing of 1.", 
+                   chartNumber, MIN_X_RANGE);
         MessageBox(hWnd, message, L"X Range Error", MB_OK | MB_ICONERROR);
         return;
     }

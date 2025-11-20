@@ -7,6 +7,7 @@
 #include <cstring>
 #include <sstream> // Для std::wstringstream
 #include <iomanip> // Для std::fixed и std::setprecision
+#include <set>     // Для std::set (отслеживание уникальных значений)
 
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[4] = {
@@ -812,6 +813,9 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
     SetTextColor(hdc, RGB(0, 0, 0));
     SetBkMode(hdc, TRANSPARENT);
     
+    // Отслеживание уже отрисованных целых значений для предотвращения дубликатов
+    std::set<int> drawnLabels;
+    
     while (currentXVal <= maxXData + niceStepX / 2) {
         if (currentXVal >= minXData - niceStepX / 2 && currentXVal <= maxXData + niceStepX / 2) {
             long screenX = plotRect.left + (LONG)((currentXVal - minXData) / xRange * (plotRect.right - plotRect.left));
@@ -827,11 +831,16 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldPen);
                 DeleteObject(hPen);
                 
-                // Отрисовка метки X-оси с одной цифрой после запятой
-                std::wstringstream ssX;
-                ssX << std::fixed << std::setprecision(1) << currentXVal;
-                std::wstring xLabel = ssX.str();
-                TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                // Отрисовка метки X-оси целыми числами (только уникальные значения)
+                int roundedValue = static_cast<int>(std::round(currentXVal));
+                if (drawnLabels.find(roundedValue) == drawnLabels.end()) {
+                    drawnLabels.insert(roundedValue);
+                    
+                    std::wstringstream ssX;
+                    ssX << roundedValue;
+                    std::wstring xLabel = ssX.str();
+                    TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                }
             }
         }
         currentXVal += niceStepX;
@@ -1426,19 +1435,29 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     
     // Вертикальные линии сетки (по температуре)
     int numVerticalLines = 10;
+    
+    // Отслеживание уже отрисованных целых значений для предотвращения дубликатов
+    std::set<int> drawnTempLabels;
+    
     for (int i = 0; i <= numVerticalLines; i++) {
         int x = plotRect.left + (plotRect.right - plotRect.left) * i / numVerticalLines;
         MoveToEx(hdc, x, plotRect.top, NULL);
         LineTo(hdc, x, plotRect.bottom);
         
-        // Подпись температуры (только число, без единиц)
+        // Подпись температуры (только целое число, без единиц, без дубликатов)
         float temp = minTemp + (maxTemp - minTemp) * i / numVerticalLines;
-        wchar_t label[32];
-        swprintf_s(label, L"%.1f", temp); // Без "°C"!
+        int roundedTemp = static_cast<int>(std::round(temp));
         
-        SIZE textSize;
-        GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
-        TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
+        if (drawnTempLabels.find(roundedTemp) == drawnTempLabels.end()) {
+            drawnTempLabels.insert(roundedTemp);
+            
+            wchar_t label[32];
+            swprintf_s(label, L"%d", roundedTemp);
+            
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
+            TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
+        }
     }
     
     // Горизонтальные линии сетки (по Y) - используем "nice" алгоритм как в DrawLeftAxis

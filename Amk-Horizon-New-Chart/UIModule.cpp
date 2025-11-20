@@ -326,10 +326,10 @@ void UIModule::UpdateXRangeControls(int chartNumber, double minX, double maxX, b
     
     if (!hFromEdit || !hToEdit) return;
     
-    // Обновляем поля ввода текущими значениями
+    // Обновляем поля ввода текущими значениями (целые числа)
     wchar_t fromText[32], toText[32];
-    swprintf_s(fromText, L"%.1f", minX);
-    swprintf_s(toText, L"%.1f", maxX);
+    swprintf_s(fromText, L"%.0f", minX);
+    swprintf_s(toText, L"%.0f", maxX);
     
     SetWindowText(hFromEdit, fromText);
     SetWindowText(hToEdit, toText);
@@ -381,8 +381,8 @@ void UIModule::SetXRangeValues(int chartNumber, double fromX, double toX) {
     if (!hFromEdit || !hToEdit) return;
     
     wchar_t fromText[32], toText[32];
-    swprintf_s(fromText, L"%.1f", fromX);
-    swprintf_s(toText, L"%.1f", toX);
+    swprintf_s(fromText, L"%.0f", fromX);
+    swprintf_s(toText, L"%.0f", toX);
     
     SetWindowText(hFromEdit, fromText);
     SetWindowText(hToEdit, toText);
@@ -426,9 +426,9 @@ void UIModule::UpdateStatusBarCoordinates(double x, double y1, const std::wstrin
                                          bool hasDualAxis) {
     if (!hStatusBar) return;
 
-    // Форматирование X координаты
+    // Форматирование X координаты (целое число)
     wchar_t xText[64];
-    swprintf_s(xText, L"X: %.1f", x);
+    swprintf_s(xText, L"X: %.0f", x);
     SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)xText);
 
     // Форматирование Y координат
