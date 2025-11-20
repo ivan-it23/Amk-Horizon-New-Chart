@@ -82,6 +82,22 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             // Нужно определить, какой приемник (по умолчанию R1, индекс 0)
             AddSingleReceiverCurves(curves, selection);
         }
+        else if (selection.dataFilter == DataTypeFilter::TEMPERATURE_ONLY) {
+            // Температура -> создаём одну кривую температуры
+            CurveDefinition tempCurve;
+            tempCurve.id = "TEMPERATURE";
+            tempCurve.displayName = "Temperature";
+            tempCurve.units = "degC";  // Используем ASCII-совместимое обозначение
+            tempCurve.yAxisGroup = 0;  // Левая ось
+            tempCurve.enabled = true;
+            tempCurve.color = TEMPERATURE_COLOR;  // Оранжевый цвет
+            tempCurve.lineStyle = PS_SOLID;
+            tempCurve.sourceElement = ElementType::TRANSMITTER;  // Не используется для температуры
+            tempCurve.elementIndex = 0;  // Не используется для температуры
+            tempCurve.dataType = DataType::TEMPERATURE;
+            tempCurve.frequency = selection.frequency;
+            curves.push_back(tempCurve);
+        }
     }
     // РЕЖИМ РУЧНОГО ВЫБОРА: Если dataFilter == ALL, используем выбранные элементы схемы
     else {
@@ -309,6 +325,16 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             case DataType::SILENT_AMPLITUDE_RX2:
                 CalculateSilentAmplitudeData(1, curve.frequency, dataModule, curveData);
                 break;
+            case DataType::TEMPERATURE:
+                // Температура - извлекаем напрямую из данных
+                {
+                    const auto& data = dataModule->GetData();
+                    curveData.reserve(data.size());
+                    for (const auto& record : data) {
+                        curveData.push_back(record.temperature);
+                    }
+                }
+                break;
             default:
                 continue; // Неподдерживаемый тип данных
         }
@@ -396,6 +422,19 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 break;
             case DataType::SILENT_AMPLITUDE_RX2:
                 dataModule->CalculateSilentAmplitudeData(1, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::TEMPERATURE:
+                // Температура - извлекаем с учётом диапазона
+                {
+                    const auto& data = dataModule->GetData();
+                    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
+                    
+                    curveData.reserve(endIndex - startIndex);
+                    for (size_t i = startIndex; i < endIndex; ++i) {
+                        curveData.push_back(data[i].temperature);
+                    }
+                }
                 break;
             default:
                 continue; // Неподдерживаемый тип данных

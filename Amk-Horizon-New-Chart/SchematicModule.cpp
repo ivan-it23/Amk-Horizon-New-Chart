@@ -1473,6 +1473,10 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             currentSelection.receivers[1] = true; // R2
             currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
             break;
+        case IDC_PRESET_TEMPERATURE:
+            // Температура не требует выбора приёмников или передатчиков
+            currentSelection.dataFilter = DataTypeFilter::TEMPERATURE_ONLY;
+            break;
     }
     
     // Для пресетов НЕ синхронизируем элементы схемы (они должны оставаться неактивными)
@@ -2111,6 +2115,7 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_PRESET_ALL_PHASE_R2:
                     case IDC_PRESET_RATIOS:
                     case IDC_PRESET_DIFFERENCES:
+                    case IDC_PRESET_TEMPERATURE:
                         if (pSchematic) {
                             pSchematic->HandlePresetButton(hDlg, wmId);
                         }

@@ -65,6 +65,9 @@
 // Статусная строка
 #define IDC_STATUSBAR				1038
 
+// Пресет температуры (v2.9.7)
+#define IDC_PRESET_TEMPERATURE		1039
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

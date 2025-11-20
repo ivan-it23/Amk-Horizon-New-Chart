@@ -46,7 +46,8 @@ enum class DataTypeFilter {
     AMPLITUDE_ONLY,         // Только амплитуды
     PHASE_ONLY,             // Только фазы
     RATIO_ONLY,             // Только отношения амплитуд
-    DIFFERENCE_ONLY         // Только разности фаз
+    DIFFERENCE_ONLY,        // Только разности фаз
+    TEMPERATURE_ONLY        // Только температура (v2.9.7)
 };
 
 // Выбор элементов на схеме прибора
