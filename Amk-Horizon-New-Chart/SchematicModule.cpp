@@ -206,9 +206,12 @@ void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
     targetChartNumber = chartNumber;
     hParentWindow = parent;
     
-    // Если окно уже существует, просто активируем его
+    // Если окно уже существует, показываем и активируем его
     if (hSchematicDialog && IsWindow(hSchematicDialog)) {
-        OutputDebugStringA("=== ShowSchematicDialog: Window exists, activating ===\n");
+        OutputDebugStringA("=== ShowSchematicDialog: Window exists, showing and activating ===\n");
+        
+        // Показываем окно (если оно было скрыто)
+        ShowWindow(hSchematicDialog, SW_SHOW);
         
         // Если окно свернуто, разворачиваем
         if (IsIconic(hSchematicDialog)) {
