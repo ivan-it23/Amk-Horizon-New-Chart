@@ -177,10 +177,6 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             // Команды пресетов обрабатываются в диалоговом окне схемы
             return true;
             
-        case IDC_COPY_FROM_CHART:
-            // Команда копирования настроек обрабатывается в диалоговом окне схемы
-            return true;
-            
         case IDC_DUAL_MODE_CHECK:
             // Переключение режима двух графиков
             needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);

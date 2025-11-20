@@ -39,7 +39,7 @@
 #define IDC_PRESET_ALL_PHASE_R2		1019
 #define IDC_PRESET_RATIOS			1020
 #define IDC_PRESET_DIFFERENCES		1021
-#define IDC_COPY_FROM_CHART			1022
+// ID 1022 зарезервирован (ранее использовался для IDC_COPY_FROM_CHART, удалён в v2.9.6)
 #define IDC_APPLY_SETTINGS			1023
 
 // Элементы управления X Range в панели инструментов (Chart 1)

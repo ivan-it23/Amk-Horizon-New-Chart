@@ -1491,47 +1491,6 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     UpdateAvailableCurves(hDlg);
 }
 
-void SchematicModule::HandleCopyFromChart(HWND hDlg) {
-    if (!curveSelectionModule) {
-        MessageBox(hDlg, L"Curve selection module not initialized", L"Error", MB_OK | MB_ICONERROR);
-        return;
-    }
-    
-    // Определяем, с какого графика копировать
-    int sourceChart = (targetChartNumber == 1) ? 2 : 1;
-    
-    // Проверяем, есть ли конфигурация у источника
-    if (!curveSelectionModule->HasConfiguration(sourceChart)) {
-        std::wstring message = L"Chart " + std::to_wstring(sourceChart) + L" has no curve settings to copy";
-        MessageBox(hDlg, message.c_str(), L"Information", MB_OK | MB_ICONINFORMATION);
-        return;
-    }
-    
-    // Спрашиваем подтверждение у пользователя
-    std::wstring confirmMessage = L"Copy settings from Chart " + std::to_wstring(sourceChart) + 
-                                 L" to Chart " + std::to_wstring(targetChartNumber) + L"?";
-    
-    int result = MessageBox(hDlg, confirmMessage.c_str(), L"Confirm Copy", 
-                           MB_YESNO | MB_ICONQUESTION);
-    
-    if (result == IDYES) {
-        // Копируем настройки
-        curveSelectionModule->CopySettings(sourceChart, targetChartNumber);
-        
-        // Получаем скопированную конфигурацию
-        ChartConfiguration copiedConfig = curveSelectionModule->GetChartConfiguration(targetChartNumber);
-        
-        // Обновляем текущие доступные кривые
-        currentAvailableCurves = copiedConfig.curves;
-        
-        // Обновляем отображение списка кривых
-        UpdateAvailableCurves(hDlg);
-        
-        // Показываем сообщение об успехе
-        MessageBox(hDlg, L"Settings copied successfully", L"Success", MB_OK | MB_ICONINFORMATION);
-    }
-}
-
 void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
     // Обновляем hover состояние элементов
     UpdateHoverState(x, y);
@@ -2154,12 +2113,6 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_PRESET_DIFFERENCES:
                         if (pSchematic) {
                             pSchematic->HandlePresetButton(hDlg, wmId);
-                        }
-                        return (INT_PTR)TRUE;
-                        
-                    case IDC_COPY_FROM_CHART:
-                        if (pSchematic) {
-                            pSchematic->HandleCopyFromChart(hDlg);
                         }
                         return (INT_PTR)TRUE;
                 }

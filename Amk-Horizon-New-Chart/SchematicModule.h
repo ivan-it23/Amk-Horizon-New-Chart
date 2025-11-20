@@ -178,7 +178,6 @@ public:
     void UpdateAvailableCurves(HWND hDlg);
     void HandleFrequencyChange(HWND hDlg);
     void HandlePresetButton(HWND hDlg, int presetId);
-    void HandleCopyFromChart(HWND hDlg);
     void HandleMouseHover(HWND hDlg, int x, int y);
     void HandleCurveCheckboxChange(HWND hDlg, int itemIndex);
     void ValidateCurrentCurveConfiguration(HWND hDlg);
