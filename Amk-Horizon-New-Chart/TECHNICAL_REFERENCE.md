@@ -500,4 +500,136 @@ config.xAxisType = (selection == 0) ? XAxisType::FRAME_NUMBER : XAxisType::TEMPE
 
 ---
 
-**Техническая документация AMK-Horizon-New-Chart v2.10.0** - Кроссплот и температурный анализ
+## 🔍 Zoom для кроссплота (v2.10.1)
+
+### Обзор
+Версия 2.10.1 добавляет полную поддержку zoom (масштабирования) для режима кроссплота, где ось X представляет температуру.
+
+### Проблема
+В режиме кроссплота экранные координаты должны преобразовываться не в индексы кадров напрямую, а через температуру:
+- Экранная X координата → Температура → Поиск ближайшего индекса кадра с этой температурой
+
+### Решение: ConvertScreenToDataCoords
+
+Метод `ConvertScreenToDataCoords` в `ChartManager.cpp` обновлён для поддержки температурного режима:
+
+```cpp
+void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, 
+                                             double& dataX, double& dataY) const {
+    // 1. Получение конфигурации графика
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNum);
+    
+    // 2. Вычисление plotRect с учётом отступов
+    RECT plotRect;
+    if (config.hasDualAxis) {
+        plotRect.left = chartRect->left + 80;
+        plotRect.top = chartRect->top + 65;
+        plotRect.right = chartRect->right - 120;
+        plotRect.bottom = chartRect->bottom - 50;
+    } else {
+        plotRect.left = chartRect->left + 80;
+        plotRect.top = chartRect->top + 65;
+        plotRect.right = chartRect->right - 30;
+        plotRect.bottom = chartRect->bottom - 50;
+    }
+    
+    // 3. Вычисление относительных координат
+    double xRatio = (screenX - plotRect.left) / plotWidth;
+    double yRatio = (plotRect.bottom - screenY) / plotHeight;
+    
+    // 4. Специальная логика для температурного режима
+    if (config.xAxisType == XAxisType::TEMPERATURE) {
+        // Получаем температурные данные
+        std::vector<float> temperatureData;
+        dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
+        
+        // Находим диапазон температур
+        float minTemp = *std::min_element(temperatureData.begin(), temperatureData.end());
+        float maxTemp = *std::max_element(temperatureData.begin(), temperatureData.end());
+        
+        // Температура, на которую кликнули
+        float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
+        
+        // Находим ближайший индекс кадра с этой температурой
+        size_t closestIdx = startIdx;
+        float minDiff = FLT_MAX;
+        for (size_t i = startIdx; i < endIdx; i++) {
+            float diff = fabs(temperatureData[i] - clickedTemp);
+            if (diff < minDiff) {
+                minDiff = diff;
+                closestIdx = i;
+            }
+        }
+        
+        // Возвращаем индекс кадра (не температуру!)
+        dataX = static_cast<double>(closestIdx);
+    }
+}
+```
+
+### Ключевые особенности
+
+1. **Вычисление plotRect**: Учитываются отступы для одной и двойных осей (80px слева, 65px сверху, 30/120px справа, 50px снизу)
+
+2. **Проверка типа оси X**: `config.xAxisType == XAxisType::TEMPERATURE`
+
+3. **Преобразование координат**:
+   - Экранная X → относительная позиция (xRatio)
+   - xRatio → температура (clickedTemp)
+   - Температура → поиск ближайшего индекса кадра
+   - Возврат индекса кадра (не температуры!)
+
+4. **Zoom работает с индексами**: `zoom->minX` и `zoom->maxX` всегда хранят индексы кадров, даже в температурном режиме
+
+### Алгоритм zoom в кроссплоте
+
+```
+1. Пользователь выделяет область мышью
+   ↓
+2. HandleMouseUp вызывает ConvertScreenToDataCoords
+   ↓
+3. Преобразование: экранные координаты → температура → индекс кадра
+   ↓
+4. Сохранение zoom->minX и zoom->maxX (индексы кадров)
+   ↓
+5. Перерисовка графика с новым диапазоном
+   ↓
+6. DrawChartWithCurves получает температуры для zoom->minX..zoom->maxX
+   ↓
+7. Отрисовка увеличенного участка по температуре
+```
+
+### Исправления подписей оси X (v2.10.1)
+
+**Проблема**: Подпись "°C" отображалась как "В°C" и была по центру
+
+**Решение**:
+```cpp
+// Было:
+const wchar_t* xAxisLabel = L"°C";
+int xLabelX = plotRect.left + (plotRect.right - plotRect.left - xLabelSize.cx) / 2;
+int xLabelY = plotRect.bottom + 5;
+
+// Стало:
+const wchar_t* xAxisLabel = L"\u00B0C"; // Unicode для символа градуса
+int xLabelX = plotRect.right - xLabelSize.cx - 5; // Справа с отступом 5px
+int xLabelY = plotRect.bottom + 25; // Ниже числовых значений
+```
+
+**Изменения**:
+- Использован Unicode escape-код `\u00B0` для символа градуса
+- Подпись перемещена в правый угол: `plotRect.right - xLabelSize.cx - 5`
+- Увеличен отступ по вертикали: 25px вместо 5px (избегает наслоения на числа)
+
+### Тестирование zoom
+
+1. Откройте Device Schematic
+2. Выберите "Temperature" в X-Axis
+3. Нажмите Apply
+4. Выделите область на графике мышью (левая кнопка + перетаскивание)
+5. График должен корректно увеличить выбранный участок
+6. Правая кнопка мыши сбрасывает zoom
+
+---
+
+**Техническая документация AMK-Horizon-New-Chart v2.10.1** - Кроссплот с полной поддержкой zoom

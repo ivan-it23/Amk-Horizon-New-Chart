@@ -414,23 +414,92 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
         return;
     }
 
-    double plotWidth = static_cast<double>(chartRect->right - chartRect->left);
-    double plotHeight = static_cast<double>(chartRect->bottom - chartRect->top);
+    // Получаем конфигурацию графика для определения типа оси X
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNum);
+    
+    // Вычисляем область графика (plotRect) с учётом отступов
+    RECT plotRect;
+    if (config.hasDualAxis) {
+        // Для двойных осей используем CalculateDualAxisPlotRect
+        plotRect.left = chartRect->left + 80;
+        plotRect.top = chartRect->top + 65;
+        plotRect.right = chartRect->right - 120;
+        plotRect.bottom = chartRect->bottom - 50;
+    } else {
+        // Для одной оси используем CalculatePlotRect
+        plotRect.left = chartRect->left + 80;
+        plotRect.top = chartRect->top + 65;
+        plotRect.right = chartRect->right - 30;
+        plotRect.bottom = chartRect->bottom - 50;
+    }
 
-    double xRatio = static_cast<double>(screenX - chartRect->left) / plotWidth;
-    double yRatio = static_cast<double>(chartRect->bottom - screenY) / plotHeight; // Y-axis is inverted in screen coords
+    double plotWidth = static_cast<double>(plotRect.right - plotRect.left);
+    double plotHeight = static_cast<double>(plotRect.bottom - plotRect.top);
 
+    double xRatio = static_cast<double>(screenX - plotRect.left) / plotWidth;
+    double yRatio = static_cast<double>(plotRect.bottom - screenY) / plotHeight; // Y-axis is inverted in screen coords
+
+    // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
+    if (config.xAxisType == XAxisType::TEMPERATURE) {
+        // В режиме кроссплота экранная X координата соответствует температуре
+        // Но zoom всё равно работает с индексами кадров
+        
+        // Получаем температурные данные
+        std::vector<float> temperatureData;
+        if (zoom->isZoomed) {
+            dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
+        } else {
+            dataModule->GetTemperatureData(temperatureData);
+        }
+        
+        if (!temperatureData.empty()) {
+            // Находим диапазон температур
+            size_t startIdx = zoom->isZoomed ? static_cast<size_t>(zoom->minX) : 0;
+            size_t endIdx = zoom->isZoomed ? static_cast<size_t>(zoom->maxX + 1) : temperatureData.size();
+            
+            if (startIdx < endIdx && endIdx <= temperatureData.size()) {
+                float minTemp = *std::min_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
+                float maxTemp = *std::max_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
+                
+                // Температура, на которую кликнули
+                float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
+                
+                // Находим ближайший индекс кадра с этой температурой
+                float minDiff = FLT_MAX;
+                size_t closestIdx = startIdx;
+                for (size_t i = startIdx; i < endIdx; i++) {
+                    float diff = fabs(temperatureData[i] - clickedTemp);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestIdx = i;
+                    }
+                }
+                
+                // Возвращаем индекс кадра (не температуру!)
+                dataX = static_cast<double>(closestIdx);
+            } else {
+                dataX = xRatio * (dataModule->GetDataSize() - 1);
+            }
+        } else {
+            dataX = xRatio * (dataModule->GetDataSize() - 1);
+        }
+    } else {
+        // Обычный режим: номер кадра на оси X
+        if (zoom->isZoomed) {
+            dataX = zoom->minX + xRatio * (zoom->maxX - zoom->minX);
+        } else {
+            dataX = xRatio * (dataModule->GetDataSize() - 1);
+        }
+    }
+    
+    // Y координата обрабатывается одинаково для обоих режимов
     if (zoom->isZoomed) {
-        dataX = zoom->minX + xRatio * (zoom->maxX - zoom->minX);
         dataY = zoom->minY + yRatio * (zoom->maxY - zoom->minY);
     } else {
-        // Если не зазумлено, используем полный диапазон данных (0 до data.size()-1)
-        dataX = xRatio * (dataModule->GetDataSize() - 1);
-        // Для Y-координаты без зума требуется определить глобальный мин/макс диапазон данных
-        // В этой реализации это не предусмотрено, поэтому оставим заглушку
-        dataY = yRatio; 
+        dataY = yRatio;
     }
 }
+
 
 // Методы для обработки скроллинга
 void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
@@ -623,25 +692,17 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             return;
         }
         
-        // Объединяем данные левой и правой осей для отрисовки
-        std::vector<std::vector<float>> allData;
-        allData.insert(allData.end(), leftAxisData.begin(), leftAxisData.end());
-        allData.insert(allData.end(), rightAxisData.begin(), rightAxisData.end());
-        
-        // Создаем список всех включенных передатчиков (для легенды)
-        std::vector<bool> enabledTransmitters = {true, true, true, true};
-        
         // Определяем диапазоны
         double minXData = zoom->isZoomed ? zoom->minX : 0.0;
         double maxXData = zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() - 1);
         double minYData = -1e6;
         double maxYData = 1e6;
         
-        // Вызываем новый метод отрисовки с температурой
-        chartModule->DrawChart(hdc, chartRect, allData, DataType::PHASE_DIFFERENCE, 
-                              title, true, enabledTransmitters, dataModule.get(),
-                              minXData, maxXData, minYData, maxYData, 
-                              temperatureData, true);
+        // Вызываем новый метод отрисовки с температурой и правильной легендой
+        chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
+                                       leftAxisData, rightAxisData,
+                                       title, true, temperatureData,
+                                       minXData, maxXData, minYData, maxYData, true);
     } else {
         // Обычный режим: номер кадра на оси X
         

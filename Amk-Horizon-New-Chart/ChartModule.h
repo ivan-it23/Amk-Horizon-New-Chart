@@ -51,6 +51,16 @@ public:
                           const std::wstring& title, bool hasData,
                           double minXData, double maxXData, 
                           double minYData, double maxYData, bool showAxes = true) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawDualAxisChart(HDC hdc, const RECT& rect,
+                          const std::vector<CurveDefinition>& curves,
+                          const std::vector<std::vector<float>>& leftAxisData,
+                          const std::vector<std::vector<float>>& rightAxisData,
+                          const std::wstring& title, bool hasData,
+                          const std::vector<float>& xAxisData,
+                          double minXData, double maxXData,
+                          double minYData, double maxYData, bool showAxes = true) const;
 
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
@@ -98,6 +108,13 @@ public:
                          const std::vector<std::vector<float>>& leftAxisData,
                          const std::vector<std::vector<float>>& rightAxisData,
                          double minXData, double maxXData) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
+                         const std::vector<std::vector<float>>& leftAxisData,
+                         const std::vector<std::vector<float>>& rightAxisData,
+                         const std::vector<float>& xAxisData,
+                         double minXData, double maxXData) const;
     void DrawLeftAxis(HDC hdc, const RECT& plotRect, 
                      const std::vector<std::vector<float>>& leftAxisData,
                      const std::string& units) const;
@@ -108,6 +125,14 @@ public:
                          const std::vector<CurveDefinition>& curves,
                          const std::vector<std::vector<float>>& leftAxisData,
                          const std::vector<std::vector<float>>& rightAxisData) const;
+    
+    // v2.10.0: Перегрузка с поддержкой температуры на оси X
+    void DrawDualAxisData(HDC hdc, const RECT& plotRect,
+                         const std::vector<CurveDefinition>& curves,
+                         const std::vector<std::vector<float>>& leftAxisData,
+                         const std::vector<std::vector<float>>& rightAxisData,
+                         const std::vector<float>& xAxisData,
+                         double minXData, double maxXData) const;
     void DrawDualAxisLegend(HDC hdc, const RECT& rect,
                            const std::vector<CurveDefinition>& curves) const;
 

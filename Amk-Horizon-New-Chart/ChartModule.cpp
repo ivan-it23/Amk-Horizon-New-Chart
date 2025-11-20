@@ -1431,33 +1431,248 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
         MoveToEx(hdc, x, plotRect.top, NULL);
         LineTo(hdc, x, plotRect.bottom);
         
-        // Подпись температуры
+        // Подпись температуры (только число, без единиц)
         float temp = minTemp + (maxTemp - minTemp) * i / numVerticalLines;
         wchar_t label[32];
-        swprintf_s(label, L"%.1f°C", temp);
+        swprintf_s(label, L"%.1f", temp); // Без "°C"!
         
         SIZE textSize;
         GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
         TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
     }
     
-    // Горизонтальные линии сетки (по Y)
-    int numHorizontalLines = 10;
-    for (int i = 0; i <= numHorizontalLines; i++) {
-        int y = plotRect.top + (plotRect.bottom - plotRect.top) * i / numHorizontalLines;
-        MoveToEx(hdc, plotRect.left, y, NULL);
-        LineTo(hdc, plotRect.right, y);
-        
-        // Подпись Y
-        float value = maxVal - (maxVal - minVal) * i / numHorizontalLines;
-        wchar_t label[32];
-        swprintf_s(label, L"%.2f", value);
-        
-        SIZE textSize;
-        GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
-        TextOut(hdc, plotRect.left - textSize.cx - 5, y - textSize.cy / 2, label, (int)wcslen(label));
+    // Горизонтальные линии сетки (по Y) - используем "nice" алгоритм как в DrawLeftAxis
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+    
+    while (currentYVal <= maxVal + niceStepY / 2) {
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                // Рисуем горизонтальную линию сетки
+                MoveToEx(hdc, plotRect.left, screenY, NULL);
+                LineTo(hdc, plotRect.right, screenY);
+                
+                // Подпись Y (только число, без единиц)
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                
+                SIZE textSize;
+                GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
+                int textX = plotRect.left - 5 - textSize.cx;
+                TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
     }
     
     SelectObject(hdc, hOldPen);
     DeleteObject(hGridPen);
+    
+    // v2.10.0: Добавляем подпись единиц измерения для оси X
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(0, 0, 0));
+    
+    // Подпись оси X (Temperature) - справа внизу, ниже числовых значений
+    const wchar_t* xAxisLabel = L"\u00B0C"; // Unicode для символа градуса
+    SIZE xLabelSize;
+    GetTextExtentPoint32(hdc, xAxisLabel, (int)wcslen(xAxisLabel), &xLabelSize);
+    int xLabelX = plotRect.right - xLabelSize.cx - 5; // Справа с отступом 5px
+    int xLabelY = plotRect.bottom + 25; // Ниже числовых значений (5 + 20 отступ)
+    TextOut(hdc, xLabelX, xLabelY, xAxisLabel, (int)wcslen(xAxisLabel));
+}
+
+
+// v2.10.0: Отрисовка графика с двойными осями и температурой на оси X
+void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
+                                   const std::vector<CurveDefinition>& curves,
+                                   const std::vector<std::vector<float>>& leftAxisData,
+                                   const std::vector<std::vector<float>>& rightAxisData,
+                                   const std::wstring& title, bool hasData,
+                                   const std::vector<float>& xAxisData,
+                                   double minXData, double maxXData,
+                                   double minYData, double maxYData, bool showAxes) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
+
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Отрисовка сетки и осей с температурой
+    if (hasData && !xAxisData.empty()) {
+        DrawGridAndAxes(hdc, plotRect, leftAxisData, nullptr, xAxisData,
+                       minXData, maxXData, minYData, maxYData);
+    }
+    
+    // Отрисовка левой и правой осей с подписями единиц измерения
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+    
+    if (!leftAxisData.empty()) {
+        DrawLeftAxis(hdc, plotRect, leftAxisData, leftUnits);
+    }
+    if (!rightAxisData.empty()) {
+        DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
+    }
+    
+    // Отрисовка данных с температурой на оси X
+    if (hasData && !xAxisData.empty()) {
+        DrawDualAxisData(hdc, plotRect, curves, leftAxisData, rightAxisData, xAxisData, minXData, maxXData);
+    }
+    
+    // Отрисовка легенды
+    if (!curves.empty()) {
+        DrawDualAxisLegend(hdc, rect, curves);
+    }
+}
+
+
+// v2.10.0: Отрисовка данных с температурой на оси X
+void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
+                                  const std::vector<CurveDefinition>& curves,
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData,
+                                  const std::vector<float>& xAxisData,
+                                  double minXData, double maxXData) const {
+    // Находим диапазоны для обеих осей
+    float leftMin = FLT_MAX, leftMax = -FLT_MAX;
+    float rightMin = FLT_MAX, rightMax = -FLT_MAX;
+    
+    // Диапазон левой оси
+    for (const auto& channel : leftAxisData) {
+        for (float val : channel) {
+            leftMin = (std::min)(leftMin, val);
+            leftMax = (std::max)(leftMax, val);
+        }
+    }
+    
+    // Диапазон правой оси
+    for (const auto& channel : rightAxisData) {
+        for (float val : channel) {
+            rightMin = (std::min)(rightMin, val);
+            rightMax = (std::max)(rightMax, val);
+        }
+    }
+    
+    // Добавляем padding
+    if (leftMin != FLT_MAX && leftMax != -FLT_MAX && leftMin != leftMax) {
+        float leftRange = leftMax - leftMin;
+        float leftPadding = leftRange * 0.05f;
+        leftMin -= leftPadding;
+        leftMax += leftPadding;
+    } else {
+        leftMin = 0.0f;
+        leftMax = 100.0f;
+    }
+    
+    if (rightMin != FLT_MAX && rightMax != -FLT_MAX && rightMin != rightMax) {
+        float rightRange = rightMax - rightMin;
+        float rightPadding = rightRange * 0.05f;
+        rightMin -= rightPadding;
+        rightMax += rightPadding;
+    } else {
+        rightMin = 0.0f;
+        rightMax = 100.0f;
+    }
+    
+    // Находим диапазон температур
+    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
+    
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f;
+    }
+    
+    // Отрисовка кривых левой оси
+    size_t leftIndex = 0;
+    for (size_t i = 0; i < curves.size() && leftIndex < leftAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 0) continue;
+        
+        const auto& channel = leftAxisData[leftIndex];
+        if (channel.empty()) {
+            leftIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
+            float temp = xAxisData[j];
+            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        leftIndex++;
+    }
+    
+    // Отрисовка кривых правой оси
+    size_t rightIndex = 0;
+    for (size_t i = 0; i < curves.size() && rightIndex < rightAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 1) continue;
+        
+        const auto& channel = rightAxisData[rightIndex];
+        if (channel.empty()) {
+            rightIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(curve.lineStyle, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
+            float temp = xAxisData[j];
+            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        rightIndex++;
+    }
 }
