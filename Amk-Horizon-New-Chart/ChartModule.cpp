@@ -987,6 +987,12 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
                                   const std::vector<CurveDefinition>& curves,
                                   const std::vector<std::vector<float>>& leftAxisData,
                                   const std::vector<std::vector<float>>& rightAxisData) const {
+    // Создаем clipping region, чтобы кривые не выходили за границы графика
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
+    int regionType = GetClipRgn(hdc, hOldClipRegion);
+    SelectClipRgn(hdc, hClipRegion);
+    
     // Находим диапазоны для обеих осей
     float leftMin = FLT_MAX, leftMax = -FLT_MAX;
     float rightMin = FLT_MAX, rightMax = -FLT_MAX;
@@ -1093,6 +1099,15 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         DeleteObject(hPen);
         rightIndex++;
     }
+    
+    // Восстанавливаем предыдущий clipping region
+    if (regionType == 1) {
+        SelectClipRgn(hdc, hOldClipRegion);
+    } else {
+        SelectClipRgn(hdc, NULL);
+    }
+    DeleteObject(hClipRegion);
+    DeleteObject(hOldClipRegion);
 }
 
 // Новая функция для отрисовки данных с учетом zoom по Y
@@ -1107,6 +1122,12 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
     float leftMax = static_cast<float>(leftMaxY);
     float rightMin = static_cast<float>(rightMinY);
     float rightMax = static_cast<float>(rightMaxY);
+    
+    // Создаем clipping region, чтобы кривые не выходили за границы графика
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
+    int regionType = GetClipRgn(hdc, hOldClipRegion);
+    SelectClipRgn(hdc, hClipRegion);
     
     // Отрисовка кривых левой оси (сплошные линии)
     size_t leftIndex = 0;
@@ -1173,6 +1194,15 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         DeleteObject(hPen);
         rightIndex++;
     }
+    
+    // Восстанавливаем предыдущий clipping region
+    if (regionType == 1) {
+        SelectClipRgn(hdc, hOldClipRegion);
+    } else {
+        SelectClipRgn(hdc, NULL);
+    }
+    DeleteObject(hClipRegion);
+    DeleteObject(hOldClipRegion);
 }
 
 void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,

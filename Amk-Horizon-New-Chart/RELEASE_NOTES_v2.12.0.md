@@ -97,6 +97,41 @@ curveSelectionModule->CalculateCurveData(config, dataModule.get(),
 - ✅ График обновляется при движении scrollbar
 - ✅ Данные не фильтруются по Y, только диапазон отображения меняется
 
+### Проблема: Кривые выходили за границы графика при скроллинге
+**Симптомы:**
+- При вертикальном скроллинге кривые выходили за границы области графика
+- Кривые налезали на легенду и заголовок графика
+- Визуальное наложение элементов интерфейса
+
+**Причина:**
+В функциях `DrawDualAxisData` и `DrawDualAxisDataWithZoom` не использовался clipping region для ограничения области рисования кривых.
+
+**Решение:**
+Добавлен clipping region в обе функции отрисовки:
+```cpp
+// Создаем clipping region, чтобы кривые не выходили за границы графика
+HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
+int regionType = GetClipRgn(hdc, hOldClipRegion);
+SelectClipRgn(hdc, hClipRegion);
+
+// ... отрисовка кривых ...
+
+// Восстанавливаем предыдущий clipping region
+if (regionType == 1) {
+    SelectClipRgn(hdc, hOldClipRegion);
+} else {
+    SelectClipRgn(hdc, NULL);
+}
+DeleteObject(hClipRegion);
+DeleteObject(hOldClipRegion);
+```
+
+**Результат:**
+- ✅ Кривые корректно обрезаются по границам области графика
+- ✅ Нет наложения на легенду и заголовок
+- ✅ Чистый и профессиональный вид графика
+
 ## 🔧 Технические изменения
 
 ### UIModule.h
