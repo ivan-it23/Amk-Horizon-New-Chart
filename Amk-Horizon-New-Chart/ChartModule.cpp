@@ -714,9 +714,11 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
         DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
     }
     
-    // Отрисовка данных
+    // Отрисовка данных с учетом zoom по Y
     if (hasData) {
-        DrawDualAxisData(hdc, plotRect, curves, leftAxisData, rightAxisData);
+        // Используем переданные параметры minYData и maxYData для отрисовки
+        DrawDualAxisDataWithZoom(hdc, plotRect, curves, leftAxisData, rightAxisData, 
+                                 minYData, maxYData, minYData, maxYData);
     }
     
     // Отрисовка легенды
@@ -1025,6 +1027,86 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         rightMin = 0.0f;
         rightMax = 100.0f;
     }
+    
+    // Отрисовка кривых левой оси (сплошные линии)
+    size_t leftIndex = 0;
+    for (size_t i = 0; i < curves.size() && leftIndex < leftAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 0) continue;
+        
+        const auto& channel = leftAxisData[leftIndex];
+        if (channel.empty()) {
+            leftIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = 0; j < channel.size(); j++) {
+            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        leftIndex++;
+    }
+    
+    // Отрисовка кривых правой оси (пунктирные линии)
+    size_t rightIndex = 0;
+    for (size_t i = 0; i < curves.size() && rightIndex < rightAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 1) continue;
+        
+        const auto& channel = rightAxisData[rightIndex];
+        if (channel.empty()) {
+            rightIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = 0; j < channel.size(); j++) {
+            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        rightIndex++;
+    }
+}
+
+// Новая функция для отрисовки данных с учетом zoom по Y
+void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
+                                           const std::vector<CurveDefinition>& curves,
+                                           const std::vector<std::vector<float>>& leftAxisData,
+                                           const std::vector<std::vector<float>>& rightAxisData,
+                                           double leftMinY, double leftMaxY,
+                                           double rightMinY, double rightMaxY) const {
+    // Используем переданные диапазоны вместо вычисления из данных
+    float leftMin = static_cast<float>(leftMinY);
+    float leftMax = static_cast<float>(leftMaxY);
+    float rightMin = static_cast<float>(rightMinY);
+    float rightMax = static_cast<float>(rightMaxY);
     
     // Отрисовка кривых левой оси (сплошные линии)
     size_t leftIndex = 0;

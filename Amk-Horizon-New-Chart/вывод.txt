@@ -1,0 +1,4145 @@
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\Desktop\Amk-Horizon-New-Chart\x64\Debug\Amk-Horizon-New-Chart.exe". Символы загружены.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntdll.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\KernelBase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\user32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\win32u.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32full.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp_win.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\comdlg32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcrt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\combase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\rpcrt4.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\SHCore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shlwapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shell32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\advapi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sechost.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140d.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcrypt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbased.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbased.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\ucrtbased.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp140d.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\imm32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\uxtheme.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msctf.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleaut32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextShaping.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel.appcore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcryptprimitives.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextInputFramework.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreUIComponents.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreMessaging.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ws2_32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntmarta.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ole32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\clbcatq.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\windows.storage.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wldp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dui70.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.6456_none_60b8a6cb71f64256\comctl32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\duser.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dwmapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Program Files\Common Files\microsoft shared\ink\tiptsf.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\edputil.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ExplorerFrame.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d2d1.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WindowsCodecs.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\profapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\thumbcache.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\policymanager.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp110_win.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DataExchange.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dcomp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d3d11.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dxgi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.appcore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msftedit.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Globalization.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47mrm.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47Langs.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\globinputhost.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\propsys.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cfgmgr32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\xmllite.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\apphelp.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\networkexplorer.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\mpr.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\p9np.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\drprov.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winsta.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntlanman.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davclnt.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davhlpr.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleacc.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\UIAutomationCore.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sxs.dll". Невозможно найти или открыть PDB-файл.
+mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFB54FCA726: (caller: 00007FFB54FC9B39) ReturnHr(1) tid(4518) 8002801D Библиотека не зарегистрирована.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atlthunk.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\StructuredQuery.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.FileExplorer.Common.dll". Невозможно найти или открыть PDB-файл.
+Поток 0x24b4 завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\iertutil.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\srvcli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\netutils.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Storage.Search.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.StateRepositoryPS.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\linkinfo.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\IconCodecService.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wkscli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cscapi.dll". Невозможно найти или открыть PDB-файл.
+Вызвано исключение по адресу 0x00007FFB54005369 (KernelBase.dll) в Amk-Horizon-New-Chart.exe: 0x000006BA: Сервер RPC недоступен.
+Поток 0x4f64 завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dlnashext.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PlayToDevice.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DevDispItemProvider.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\MMDevAPI.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\devobj.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wpdshext.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_91a399b0cc88bc24\GdiPlus.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PortableDeviceApi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\setupapi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wintrust.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\crypt32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msasn1.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorShell.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorAPI.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wtsapi32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntshrui.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sspicli.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winmm.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\actxprxy.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\coml2.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\AppData\Local\Microsoft\OneDrive\25.206.1021.0003\FileSyncShell64.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\version.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\userenv.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\secur32.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wininet.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cryptbase.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\GROOVEEX.DLL". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcr100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atl100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp100.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msi.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\urlmon.dll". Невозможно найти или открыть PDB-файл.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\msftedit.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\xmllite.dll"
+Поток 0x40e0 завершился с кодом 0 (0x0).
+=== ShowSchematicDialog: Creating new window ===
+Clearing schematicElements and deviceFrameRect before opening dialog
+=== CalculateSchematicLayout ===
+schemaRect: left=17, top=26, right=613, bottom=120
+After InitializeSchematicElements: size=8
+Calculating frame rect for first 6 elements...
+Element 0: left=111, top=55, right=171, bottom=90
+Element 1: left=321, top=55, right=381, bottom=90
+Element 2: left=41, top=55, right=101, bottom=90
+Element 3: left=391, top=55, right=451, bottom=90
+Element 4: left=181, top=55, right=241, bottom=90
+Element 5: left=251, top=55, right=311, bottom=90
+Calculated deviceFrameRect: left=37, top=51, right=455, bottom=94
+Synchronizing element states with currentSelection...
+=== END CalculateSchematicLayout ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+Modeless dialog created and shown successfully
+=== END ShowSchematicDialog ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== ApplyCurrentCurveConfiguration ===
+Total curves in configuration: 4
+Curve 0: T1 Phase Difference, Enabled: YES, DataType: 0, yAxisGroup: 0
+Curve 1: T2 Phase Difference, Enabled: YES, DataType: 0, yAxisGroup: 0
+Curve 2: T3 Phase Difference, Enabled: YES, DataType: 0, yAxisGroup: 0
+Curve 3: T4 Phase Difference, Enabled: YES, DataType: 0, yAxisGroup: 0
+Total enabled curves: 4
+X-Axis type: Frame Number
+Configuration validation PASSED
+Configuration applied successfully
+Calling onConfigurationApplied callback
+=== DRAW CHART 1 (single axis) ===
+minY: -197460.42, maxY: 197962.39, isZoomed: 0
+=== END ApplyCurrentCurveConfiguration ===
+Configuration applied successfully - window remains open
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29964.05, maxY: 30466.02, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 50
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29964.05, maxY: 30466.02, viewYRange: 60430.06
+AFTER: minY: -28101.04, maxY: 32329.03
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -28101.04, maxY: 32329.03, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 49
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -28101.04, maxY: 32329.03, viewYRange: 60430.06
+AFTER: minY: -28300.29, maxY: 32129.77
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -28300.29, maxY: 32129.77, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 48
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -28300.29, maxY: 32129.77, viewYRange: 60430.06
+AFTER: minY: -28499.55, maxY: 31930.51
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -28499.55, maxY: 31930.51, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 46
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -28499.55, maxY: 31930.51, viewYRange: 60430.06
+AFTER: minY: -28898.06, maxY: 31532.00
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -28898.06, maxY: 31532.00, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 45
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -28898.06, maxY: 31532.00, viewYRange: 60430.06
+AFTER: minY: -29097.32, maxY: 31332.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29097.32, maxY: 31332.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 44
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29097.32, maxY: 31332.74, viewYRange: 60430.06
+AFTER: minY: -29296.58, maxY: 31133.49
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29296.58, maxY: 31133.49, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 43
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29296.58, maxY: 31133.49, viewYRange: 60430.06
+AFTER: minY: -29495.84, maxY: 30934.23
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29495.84, maxY: 30934.23, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29495.84, maxY: 30934.23, viewYRange: 60430.06
+AFTER: minY: -29695.09, maxY: 30734.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29695.09, maxY: 30734.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 41
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29695.09, maxY: 30734.97, viewYRange: 60430.06
+AFTER: minY: -29894.35, maxY: 30535.71
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29894.35, maxY: 30535.71, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 40
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29894.35, maxY: 30535.71, viewYRange: 60430.06
+AFTER: minY: -30093.61, maxY: 30336.46
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30093.61, maxY: 30336.46, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 39
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30093.61, maxY: 30336.46, viewYRange: 60430.06
+AFTER: minY: -30292.87, maxY: 30137.20
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30292.87, maxY: 30137.20, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30292.87, maxY: 30137.20, viewYRange: 60430.06
+AFTER: minY: -30492.12, maxY: 29937.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30492.12, maxY: 29937.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 37
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30492.12, maxY: 29937.94, viewYRange: 60430.06
+AFTER: minY: -30691.38, maxY: 29738.68
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30691.38, maxY: 29738.68, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 36
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30691.38, maxY: 29738.68, viewYRange: 60430.06
+AFTER: minY: -30890.64, maxY: 29539.43
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30890.64, maxY: 29539.43, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30890.64, maxY: 29539.43, viewYRange: 60430.06
+AFTER: minY: -31289.15, maxY: 29140.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -31289.15, maxY: 29140.91, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 33
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -31289.15, maxY: 29140.91, viewYRange: 60430.06
+AFTER: minY: -31488.41, maxY: 28941.66
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -31488.41, maxY: 28941.66, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 32
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -31488.41, maxY: 28941.66, viewYRange: 60430.06
+AFTER: minY: -31687.67, maxY: 28742.40
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -31687.67, maxY: 28742.40, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 31
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -31687.67, maxY: 28742.40, viewYRange: 60430.06
+AFTER: minY: -31886.92, maxY: 28543.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -31886.92, maxY: 28543.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -31886.92, maxY: 28543.14, viewYRange: 60430.06
+AFTER: minY: -32086.18, maxY: 28343.88
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32086.18, maxY: 28343.88, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 29
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32086.18, maxY: 28343.88, viewYRange: 60430.06
+AFTER: minY: -32285.44, maxY: 28144.63
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32285.44, maxY: 28144.63, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 28
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32285.44, maxY: 28144.63, viewYRange: 60430.06
+AFTER: minY: -32484.69, maxY: 27945.37
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32484.69, maxY: 27945.37, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32484.69, maxY: 27945.37, viewYRange: 60430.06
+AFTER: minY: -32683.95, maxY: 27746.11
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32683.95, maxY: 27746.11, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32683.95, maxY: 27746.11, viewYRange: 60430.06
+AFTER: minY: -32883.21, maxY: 27546.85
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32883.21, maxY: 27546.85, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 24
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32883.21, maxY: 27546.85, viewYRange: 60430.06
+AFTER: minY: -33281.72, maxY: 27148.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -33281.72, maxY: 27148.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -33281.72, maxY: 27148.34, viewYRange: 60430.06
+AFTER: minY: -33480.98, maxY: 26949.08
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -33480.98, maxY: 26949.08, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 22
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -33480.98, maxY: 26949.08, viewYRange: 60430.06
+AFTER: minY: -33680.24, maxY: 26749.83
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -33680.24, maxY: 26749.83, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -33680.24, maxY: 26749.83, viewYRange: 60430.06
+AFTER: minY: -33879.50, maxY: 26550.57
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -33879.50, maxY: 26550.57, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 20
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -33879.50, maxY: 26550.57, viewYRange: 60430.06
+AFTER: minY: -34078.75, maxY: 26351.31
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -34078.75, maxY: 26351.31, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -34078.75, maxY: 26351.31, viewYRange: 60430.06
+AFTER: minY: -34278.01, maxY: 26152.05
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -34278.01, maxY: 26152.05, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 17
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -34278.01, maxY: 26152.05, viewYRange: 60430.06
+AFTER: minY: -34676.52, maxY: 25753.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -34676.52, maxY: 25753.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -34676.52, maxY: 25753.54, viewYRange: 60430.06
+AFTER: minY: -34875.78, maxY: 25554.28
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -34875.78, maxY: 25554.28, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 15
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -34875.78, maxY: 25554.28, viewYRange: 60430.06
+AFTER: minY: -35075.04, maxY: 25355.02
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35075.04, maxY: 25355.02, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35075.04, maxY: 25355.02, viewYRange: 60430.06
+AFTER: minY: -35274.30, maxY: 25155.77
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35274.30, maxY: 25155.77, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35274.30, maxY: 25155.77, viewYRange: 60430.06
+AFTER: minY: -35473.55, maxY: 24956.51
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35473.55, maxY: 24956.51, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 12
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35473.55, maxY: 24956.51, viewYRange: 60430.06
+AFTER: minY: -35672.81, maxY: 24757.25
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35672.81, maxY: 24757.25, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35672.81, maxY: 24757.25, viewYRange: 60430.06
+AFTER: minY: -35872.07, maxY: 24558.00
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35872.07, maxY: 24558.00, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35872.07, maxY: 24558.00, viewYRange: 60430.06
+AFTER: minY: -36071.33, maxY: 24358.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36071.33, maxY: 24358.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36071.33, maxY: 24358.74, viewYRange: 60430.06
+AFTER: minY: -36270.58, maxY: 24159.48
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36270.58, maxY: 24159.48, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36270.58, maxY: 24159.48, viewYRange: 60430.06
+AFTER: minY: -36469.84, maxY: 23960.22
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36469.84, maxY: 23960.22, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36469.84, maxY: 23960.22, viewYRange: 60430.06
+AFTER: minY: -36669.10, maxY: 23760.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36669.10, maxY: 23760.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36669.10, maxY: 23760.97, viewYRange: 60430.06
+AFTER: minY: -36868.35, maxY: 23561.71
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36868.35, maxY: 23561.71, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36868.35, maxY: 23561.71, viewYRange: 60430.06
+AFTER: minY: -37067.61, maxY: 23362.45
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -37067.61, maxY: 23362.45, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -37067.61, maxY: 23362.45, viewYRange: 60430.06
+AFTER: minY: -37266.87, maxY: 23163.20
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -37266.87, maxY: 23163.20, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -37266.87, maxY: 23163.20, viewYRange: 60430.06
+AFTER: minY: -37067.61, maxY: 23362.45
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -37067.61, maxY: 23362.45, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -37067.61, maxY: 23362.45, viewYRange: 60430.06
+AFTER: minY: -36270.58, maxY: 24159.48
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -36270.58, maxY: 24159.48, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 15
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -36270.58, maxY: 24159.48, viewYRange: 60430.06
+AFTER: minY: -35075.04, maxY: 25355.02
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -35075.04, maxY: 25355.02, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -35075.04, maxY: 25355.02, viewYRange: 60430.06
+AFTER: minY: -34278.01, maxY: 26152.05
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -34278.01, maxY: 26152.05, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -34278.01, maxY: 26152.05, viewYRange: 60430.06
+AFTER: minY: -32683.95, maxY: 27746.11
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -32683.95, maxY: 27746.11, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -32683.95, maxY: 27746.11, viewYRange: 60430.06
+AFTER: minY: -31289.15, maxY: 29140.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -31289.15, maxY: 29140.91, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 37
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -31289.15, maxY: 29140.91, viewYRange: 60430.06
+AFTER: minY: -30691.38, maxY: 29738.68
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -30691.38, maxY: 29738.68, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -30691.38, maxY: 29738.68, viewYRange: 60430.06
+AFTER: minY: -29695.09, maxY: 30734.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29695.09, maxY: 30734.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 44
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29695.09, maxY: 30734.97, viewYRange: 60430.06
+AFTER: minY: -29296.58, maxY: 31133.49
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -29296.58, maxY: 31133.49, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 48
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -29296.58, maxY: 31133.49, viewYRange: 60430.06
+AFTER: minY: -28499.55, maxY: 31930.51
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -28499.55, maxY: 31930.51, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 51
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -28499.55, maxY: 31930.51, viewYRange: 60430.06
+AFTER: minY: -27901.78, maxY: 32528.29
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -27901.78, maxY: 32528.29, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 55
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -27901.78, maxY: 32528.29, viewYRange: 60430.06
+AFTER: minY: -27104.75, maxY: 33325.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -27104.75, maxY: 33325.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 58
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -27104.75, maxY: 33325.32, viewYRange: 60430.06
+AFTER: minY: -26506.98, maxY: 33923.09
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -26506.98, maxY: 33923.09, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 61
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -26506.98, maxY: 33923.09, viewYRange: 60430.06
+AFTER: minY: -25909.21, maxY: 34520.86
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -25909.21, maxY: 34520.86, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 64
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -25909.21, maxY: 34520.86, viewYRange: 60430.06
+AFTER: minY: -25311.43, maxY: 35118.63
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -25311.43, maxY: 35118.63, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 65
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -25311.43, maxY: 35118.63, viewYRange: 60430.06
+AFTER: minY: -25112.18, maxY: 35317.89
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -25112.18, maxY: 35317.89, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 66
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -25112.18, maxY: 35317.89, viewYRange: 60430.06
+AFTER: minY: -24912.92, maxY: 35517.15
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -24912.92, maxY: 35517.15, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 68
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -24912.92, maxY: 35517.15, viewYRange: 60430.06
+AFTER: minY: -24514.40, maxY: 35915.66
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -24514.40, maxY: 35915.66, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 69
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -24514.40, maxY: 35915.66, viewYRange: 60430.06
+AFTER: minY: -24315.15, maxY: 36114.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -24315.15, maxY: 36114.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 70
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -24315.15, maxY: 36114.92, viewYRange: 60430.06
+AFTER: minY: -24115.89, maxY: 36314.17
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -24115.89, maxY: 36314.17, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 71
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -24115.89, maxY: 36314.17, viewYRange: 60430.06
+AFTER: minY: -23916.63, maxY: 36513.43
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -23916.63, maxY: 36513.43, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 72
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -23916.63, maxY: 36513.43, viewYRange: 60430.06
+AFTER: minY: -23717.38, maxY: 36712.69
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -23717.38, maxY: 36712.69, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 75
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -23717.38, maxY: 36712.69, viewYRange: 60430.06
+AFTER: minY: -23119.60, maxY: 37310.46
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -23119.60, maxY: 37310.46, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 77
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -23119.60, maxY: 37310.46, viewYRange: 60430.06
+AFTER: minY: -22721.09, maxY: 37708.98
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -22721.09, maxY: 37708.98, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 78
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -22721.09, maxY: 37708.98, viewYRange: 60430.06
+AFTER: minY: -22521.83, maxY: 37908.23
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -22521.83, maxY: 37908.23, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 80
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -22521.83, maxY: 37908.23, viewYRange: 60430.06
+AFTER: minY: -22123.32, maxY: 38306.75
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -22123.32, maxY: 38306.75, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 81
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -22123.32, maxY: 38306.75, viewYRange: 60430.06
+AFTER: minY: -21924.06, maxY: 38506.00
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -21924.06, maxY: 38506.00, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 82
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -21924.06, maxY: 38506.00, viewYRange: 60430.06
+AFTER: minY: -21724.80, maxY: 38705.26
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -21724.80, maxY: 38705.26, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 83
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -21724.80, maxY: 38705.26, viewYRange: 60430.06
+AFTER: minY: -21525.55, maxY: 38904.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -21525.55, maxY: 38904.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 84
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -21525.55, maxY: 38904.52, viewYRange: 60430.06
+AFTER: minY: -21326.29, maxY: 39103.78
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -21326.29, maxY: 39103.78, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 85
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -21326.29, maxY: 39103.78, viewYRange: 60430.06
+AFTER: minY: -21127.03, maxY: 39303.03
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -21127.03, maxY: 39303.03, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 86
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -21127.03, maxY: 39303.03, viewYRange: 60430.06
+AFTER: minY: -20927.77, maxY: 39502.29
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -20927.77, maxY: 39502.29, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 86
+minYFull: -18138.17, maxYFull: 22366.17
+BEFORE: minY: -20927.77, maxY: 39502.29, viewYRange: 60430.06
+AFTER: minY: -20927.77, maxY: 39502.29
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: -20927.77, maxY: 39502.29, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: -10588.41, maxY: 20028.15, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: -197460.42, maxY: 197962.39, isZoomed: 0
+=== DRAW CHART 1 (single axis) ===
+minY: -197460.42, maxY: 197962.39, isZoomed: 0
+=== ShowSchematicDialog: Window exists, showing and activating ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== DRAW CHART 1 (single axis) ===
+minY: -197460.42, maxY: 197962.39, isZoomed: 0
+=== ApplyCurrentCurveConfiguration ===
+Total curves in configuration: 4
+Curve 0: T1 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 1
+Curve 1: T2 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 1
+Curve 2: T3 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 1
+Curve 3: T4 Amplitude R1, Enabled: YES, DataType: 2, yAxisGroup: 1
+Total enabled curves: 4
+X-Axis type: Frame Number
+Configuration validation PASSED
+Configuration applied successfully
+Calling onConfigurationApplied callback
+=== DRAW CHART 1 (single axis) ===
+minY: -55.86, maxY: 1175.13, isZoomed: 0
+=== END ApplyCurrentCurveConfiguration ===
+Configuration applied successfully - window remains open
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== RenderSchematic ===
+Input rect: left=17, top=26, right=613, bottom=120
+deviceFrameRect: left=37, top=51, right=455, bottom=94
+schematicElements.size() = 8
+Element[0]: left=111, top=55, right=171, bottom=90
+Element[1]: left=321, top=55, right=381, bottom=90
+Element[2]: left=41, top=55, right=101, bottom=90
+Drawing device frame...
+=== END RenderSchematic ===
+=== DRAW CHART 1 (single axis) ===
+minY: 1.40, maxY: 1130.15, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 1.40, maxY: 1130.15, viewYRange: 1128.75
+AFTER: minY: 29.89, maxY: 1158.64
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 29.89, maxY: 1158.64, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 29.89, maxY: 1158.64, viewYRange: 1128.75
+AFTER: minY: 30.84, maxY: 1159.59
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 30.84, maxY: 1159.59, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 30.84, maxY: 1159.59, viewYRange: 1128.75
+AFTER: minY: 31.79, maxY: 1160.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 31.79, maxY: 1160.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 31.79, maxY: 1160.54, viewYRange: 1128.75
+AFTER: minY: 32.74, maxY: 1161.49
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 32.74, maxY: 1161.49, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 32.74, maxY: 1161.49, viewYRange: 1128.75
+AFTER: minY: 33.69, maxY: 1162.44
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 33.69, maxY: 1162.44, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 33.69, maxY: 1162.44, viewYRange: 1128.75
+AFTER: minY: 34.64, maxY: 1163.39
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 34.64, maxY: 1163.39, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 34.64, maxY: 1163.39, viewYRange: 1128.75
+AFTER: minY: 35.59, maxY: 1164.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 35.59, maxY: 1164.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 35.59, maxY: 1164.34, viewYRange: 1128.75
+AFTER: minY: 36.54, maxY: 1165.29
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 36.54, maxY: 1165.29, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 36.54, maxY: 1165.29, viewYRange: 1128.75
+AFTER: minY: 37.49, maxY: 1166.24
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 37.49, maxY: 1166.24, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 37.49, maxY: 1166.24, viewYRange: 1128.75
+AFTER: minY: 38.43, maxY: 1167.18
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 38.43, maxY: 1167.18, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 38.43, maxY: 1167.18, viewYRange: 1128.75
+AFTER: minY: 39.38, maxY: 1168.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 39.38, maxY: 1168.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 39.38, maxY: 1168.13, viewYRange: 1128.75
+AFTER: minY: 38.43, maxY: 1167.18
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 38.43, maxY: 1167.18, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 38.43, maxY: 1167.18, viewYRange: 1128.75
+AFTER: minY: 37.49, maxY: 1166.24
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 37.49, maxY: 1166.24, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 37.49, maxY: 1166.24, viewYRange: 1128.75
+AFTER: minY: 36.54, maxY: 1165.29
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 36.54, maxY: 1165.29, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 36.54, maxY: 1165.29, viewYRange: 1128.75
+AFTER: minY: 34.64, maxY: 1163.39
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 34.64, maxY: 1163.39, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 34.64, maxY: 1163.39, viewYRange: 1128.75
+AFTER: minY: 32.74, maxY: 1161.49
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 32.74, maxY: 1161.49, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 32.74, maxY: 1161.49, viewYRange: 1128.75
+AFTER: minY: 31.79, maxY: 1160.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 31.79, maxY: 1160.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 31.79, maxY: 1160.54, viewYRange: 1128.75
+AFTER: minY: 30.84, maxY: 1159.59
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 30.84, maxY: 1159.59, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 30.84, maxY: 1159.59, viewYRange: 1128.75
+AFTER: minY: 29.89, maxY: 1158.64
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 29.89, maxY: 1158.64, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -55.53, maxYFull: 1168.13
+BEFORE: minY: 29.89, maxY: 1158.64, viewYRange: 1128.75
+AFTER: minY: 29.89, maxY: 1158.64
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 29.89, maxY: 1158.64, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 301.77, maxY: 1018.02, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 301.77, maxY: 1018.02, viewYRange: 716.25
+AFTER: minY: 281.68, maxY: 997.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 281.68, maxY: 997.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 29
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 281.68, maxY: 997.93, viewYRange: 716.25
+AFTER: minY: 286.48, maxY: 1002.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 286.48, maxY: 1002.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 28
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 286.48, maxY: 1002.73, viewYRange: 716.25
+AFTER: minY: 291.28, maxY: 1007.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 291.28, maxY: 1007.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 291.28, maxY: 1007.53, viewYRange: 716.25
+AFTER: minY: 296.08, maxY: 1012.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 296.08, maxY: 1012.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 296.08, maxY: 1012.33, viewYRange: 716.25
+AFTER: minY: 300.88, maxY: 1017.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 300.88, maxY: 1017.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 25
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 300.88, maxY: 1017.13, viewYRange: 716.25
+AFTER: minY: 305.68, maxY: 1021.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 305.68, maxY: 1021.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 24
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 305.68, maxY: 1021.93, viewYRange: 716.25
+AFTER: minY: 310.48, maxY: 1026.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 310.48, maxY: 1026.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 310.48, maxY: 1026.73, viewYRange: 716.25
+AFTER: minY: 315.28, maxY: 1031.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 315.28, maxY: 1031.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 22
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 315.28, maxY: 1031.53, viewYRange: 716.25
+AFTER: minY: 320.08, maxY: 1036.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 320.08, maxY: 1036.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 320.08, maxY: 1036.33, viewYRange: 716.25
+AFTER: minY: 324.88, maxY: 1041.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 324.88, maxY: 1041.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 20
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 324.88, maxY: 1041.13, viewYRange: 716.25
+AFTER: minY: 329.68, maxY: 1045.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 329.68, maxY: 1045.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 329.68, maxY: 1045.93, viewYRange: 716.25
+AFTER: minY: 334.48, maxY: 1050.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 334.48, maxY: 1050.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 18
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 334.48, maxY: 1050.73, viewYRange: 716.25
+AFTER: minY: 339.27, maxY: 1055.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 339.27, maxY: 1055.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 17
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 339.27, maxY: 1055.52, viewYRange: 716.25
+AFTER: minY: 344.07, maxY: 1060.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 344.07, maxY: 1060.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 344.07, maxY: 1060.32, viewYRange: 716.25
+AFTER: minY: 348.87, maxY: 1065.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 348.87, maxY: 1065.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 15
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 348.87, maxY: 1065.12, viewYRange: 716.25
+AFTER: minY: 353.67, maxY: 1069.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 353.67, maxY: 1069.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 353.67, maxY: 1069.92, viewYRange: 716.25
+AFTER: minY: 358.47, maxY: 1074.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 358.47, maxY: 1074.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 358.47, maxY: 1074.72, viewYRange: 716.25
+AFTER: minY: 363.27, maxY: 1079.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 363.27, maxY: 1079.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 12
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 363.27, maxY: 1079.52, viewYRange: 716.25
+AFTER: minY: 368.07, maxY: 1084.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 368.07, maxY: 1084.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 368.07, maxY: 1084.32, viewYRange: 716.25
+AFTER: minY: 372.87, maxY: 1089.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 372.87, maxY: 1089.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 372.87, maxY: 1089.12, viewYRange: 716.25
+AFTER: minY: 377.67, maxY: 1093.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 377.67, maxY: 1093.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 377.67, maxY: 1093.92, viewYRange: 716.25
+AFTER: minY: 382.47, maxY: 1098.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 382.47, maxY: 1098.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 382.47, maxY: 1098.72, viewYRange: 716.25
+AFTER: minY: 387.27, maxY: 1103.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 387.27, maxY: 1103.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 387.27, maxY: 1103.52, viewYRange: 716.25
+AFTER: minY: 392.07, maxY: 1108.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 392.07, maxY: 1108.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 392.07, maxY: 1108.32, viewYRange: 716.25
+AFTER: minY: 396.87, maxY: 1113.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 396.87, maxY: 1113.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 396.87, maxY: 1113.12, viewYRange: 716.25
+AFTER: minY: 401.67, maxY: 1117.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 401.67, maxY: 1117.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 401.67, maxY: 1117.92, viewYRange: 716.25
+AFTER: minY: 406.47, maxY: 1122.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 406.47, maxY: 1122.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 406.47, maxY: 1122.72, viewYRange: 716.25
+AFTER: minY: 411.27, maxY: 1127.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 411.27, maxY: 1127.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 411.27, maxY: 1127.52, viewYRange: 716.25
+AFTER: minY: 406.47, maxY: 1122.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 406.47, maxY: 1122.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 406.47, maxY: 1122.72, viewYRange: 716.25
+AFTER: minY: 401.67, maxY: 1117.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 401.67, maxY: 1117.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 401.67, maxY: 1117.92, viewYRange: 716.25
+AFTER: minY: 392.07, maxY: 1108.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 392.07, maxY: 1108.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 392.07, maxY: 1108.32, viewYRange: 716.25
+AFTER: minY: 387.27, maxY: 1103.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 387.27, maxY: 1103.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 387.27, maxY: 1103.52, viewYRange: 716.25
+AFTER: minY: 377.67, maxY: 1093.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 377.67, maxY: 1093.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 12
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 377.67, maxY: 1093.92, viewYRange: 716.25
+AFTER: minY: 368.07, maxY: 1084.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 368.07, maxY: 1084.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 368.07, maxY: 1084.32, viewYRange: 716.25
+AFTER: minY: 363.27, maxY: 1079.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 363.27, maxY: 1079.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 363.27, maxY: 1079.52, viewYRange: 716.25
+AFTER: minY: 358.47, maxY: 1074.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 358.47, maxY: 1074.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 15
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 358.47, maxY: 1074.72, viewYRange: 716.25
+AFTER: minY: 353.67, maxY: 1069.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 353.67, maxY: 1069.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 353.67, maxY: 1069.92, viewYRange: 716.25
+AFTER: minY: 348.87, maxY: 1065.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 348.87, maxY: 1065.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 18
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 348.87, maxY: 1065.12, viewYRange: 716.25
+AFTER: minY: 339.27, maxY: 1055.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 339.27, maxY: 1055.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 339.27, maxY: 1055.52, viewYRange: 716.25
+AFTER: minY: 334.48, maxY: 1050.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 334.48, maxY: 1050.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 20
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 334.48, maxY: 1050.73, viewYRange: 716.25
+AFTER: minY: 329.68, maxY: 1045.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 329.68, maxY: 1045.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 329.68, maxY: 1045.93, viewYRange: 716.25
+AFTER: minY: 324.88, maxY: 1041.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 324.88, maxY: 1041.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 324.88, maxY: 1041.13, viewYRange: 716.25
+AFTER: minY: 315.28, maxY: 1031.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 315.28, maxY: 1031.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 24
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 315.28, maxY: 1031.53, viewYRange: 716.25
+AFTER: minY: 310.48, maxY: 1026.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 310.48, maxY: 1026.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 310.48, maxY: 1026.73, viewYRange: 716.25
+AFTER: minY: 300.88, maxY: 1017.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 300.88, maxY: 1017.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 300.88, maxY: 1017.13, viewYRange: 716.25
+AFTER: minY: 296.08, maxY: 1012.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 296.08, maxY: 1012.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 29
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 296.08, maxY: 1012.33, viewYRange: 716.25
+AFTER: minY: 286.48, maxY: 1002.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 286.48, maxY: 1002.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 286.48, maxY: 1002.73, viewYRange: 716.25
+AFTER: minY: 281.68, maxY: 997.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 281.68, maxY: 997.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 31
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 281.68, maxY: 997.93, viewYRange: 716.25
+AFTER: minY: 276.88, maxY: 993.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 276.88, maxY: 993.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 33
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 276.88, maxY: 993.13, viewYRange: 716.25
+AFTER: minY: 267.28, maxY: 983.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 267.28, maxY: 983.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 35
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 267.28, maxY: 983.53, viewYRange: 716.25
+AFTER: minY: 257.68, maxY: 973.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 257.68, maxY: 973.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 36
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 257.68, maxY: 973.93, viewYRange: 716.25
+AFTER: minY: 252.89, maxY: 969.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 252.89, maxY: 969.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 37
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 252.89, maxY: 969.14, viewYRange: 716.25
+AFTER: minY: 248.09, maxY: 964.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 248.09, maxY: 964.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 248.09, maxY: 964.34, viewYRange: 716.25
+AFTER: minY: 243.29, maxY: 959.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 243.29, maxY: 959.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 39
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 243.29, maxY: 959.54, viewYRange: 716.25
+AFTER: minY: 238.49, maxY: 954.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 238.49, maxY: 954.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 41
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 238.49, maxY: 954.74, viewYRange: 716.25
+AFTER: minY: 228.89, maxY: 945.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 228.89, maxY: 945.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 228.89, maxY: 945.14, viewYRange: 716.25
+AFTER: minY: 224.09, maxY: 940.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 224.09, maxY: 940.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 43
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 224.09, maxY: 940.34, viewYRange: 716.25
+AFTER: minY: 219.29, maxY: 935.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 219.29, maxY: 935.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 40
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 219.29, maxY: 935.54, viewYRange: 716.25
+AFTER: minY: 233.69, maxY: 949.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 233.69, maxY: 949.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 233.69, maxY: 949.94, viewYRange: 716.25
+AFTER: minY: 243.29, maxY: 959.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 243.29, maxY: 959.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 36
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 243.29, maxY: 959.54, viewYRange: 716.25
+AFTER: minY: 252.89, maxY: 969.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 252.89, maxY: 969.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 252.89, maxY: 969.14, viewYRange: 716.25
+AFTER: minY: 262.48, maxY: 978.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 262.48, maxY: 978.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 32
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 262.48, maxY: 978.73, viewYRange: 716.25
+AFTER: minY: 272.08, maxY: 988.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 272.08, maxY: 988.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 272.08, maxY: 988.33, viewYRange: 716.25
+AFTER: minY: 281.68, maxY: 997.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 281.68, maxY: 997.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 28
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 281.68, maxY: 997.93, viewYRange: 716.25
+AFTER: minY: 291.28, maxY: 1007.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 291.28, maxY: 1007.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 25
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 291.28, maxY: 1007.53, viewYRange: 716.25
+AFTER: minY: 305.68, maxY: 1021.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 305.68, maxY: 1021.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 305.68, maxY: 1021.93, viewYRange: 716.25
+AFTER: minY: 315.28, maxY: 1031.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 315.28, maxY: 1031.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 315.28, maxY: 1031.53, viewYRange: 716.25
+AFTER: minY: 324.88, maxY: 1041.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 324.88, maxY: 1041.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 20
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 324.88, maxY: 1041.13, viewYRange: 716.25
+AFTER: minY: 329.68, maxY: 1045.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 329.68, maxY: 1045.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 18
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 329.68, maxY: 1045.93, viewYRange: 716.25
+AFTER: minY: 339.27, maxY: 1055.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 339.27, maxY: 1055.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 339.27, maxY: 1055.52, viewYRange: 716.25
+AFTER: minY: 348.87, maxY: 1065.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 348.87, maxY: 1065.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 348.87, maxY: 1065.12, viewYRange: 716.25
+AFTER: minY: 358.47, maxY: 1074.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 358.47, maxY: 1074.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 358.47, maxY: 1074.72, viewYRange: 716.25
+AFTER: minY: 363.27, maxY: 1079.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 363.27, maxY: 1079.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 363.27, maxY: 1079.52, viewYRange: 716.25
+AFTER: minY: 372.87, maxY: 1089.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 372.87, maxY: 1089.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 372.87, maxY: 1089.12, viewYRange: 716.25
+AFTER: minY: 377.67, maxY: 1093.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 377.67, maxY: 1093.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 377.67, maxY: 1093.92, viewYRange: 716.25
+AFTER: minY: 387.27, maxY: 1103.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 387.27, maxY: 1103.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 387.27, maxY: 1103.52, viewYRange: 716.25
+AFTER: minY: 392.07, maxY: 1108.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 392.07, maxY: 1108.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 392.07, maxY: 1108.32, viewYRange: 716.25
+AFTER: minY: 396.87, maxY: 1113.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 396.87, maxY: 1113.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 396.87, maxY: 1113.12, viewYRange: 716.25
+AFTER: minY: 401.67, maxY: 1117.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 401.67, maxY: 1117.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 401.67, maxY: 1117.92, viewYRange: 716.25
+AFTER: minY: 406.47, maxY: 1122.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 406.47, maxY: 1122.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 406.47, maxY: 1122.72, viewYRange: 716.25
+AFTER: minY: 411.27, maxY: 1127.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 411.27, maxY: 1127.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 411.27, maxY: 1127.52, viewYRange: 716.25
+AFTER: minY: 416.07, maxY: 1132.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 416.07, maxY: 1132.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 416.07, maxY: 1132.32, viewYRange: 716.25
+AFTER: minY: 420.87, maxY: 1137.11
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 420.87, maxY: 1137.11, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 420.87, maxY: 1137.11, viewYRange: 716.25
+AFTER: minY: 425.66, maxY: 1141.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 425.66, maxY: 1141.91, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 425.66, maxY: 1141.91, viewYRange: 716.25
+AFTER: minY: 420.87, maxY: 1137.11
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 420.87, maxY: 1137.11, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 420.87, maxY: 1137.11, viewYRange: 716.25
+AFTER: minY: 416.07, maxY: 1132.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 416.07, maxY: 1132.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 416.07, maxY: 1132.32, viewYRange: 716.25
+AFTER: minY: 411.27, maxY: 1127.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 411.27, maxY: 1127.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 411.27, maxY: 1127.52, viewYRange: 716.25
+AFTER: minY: 406.47, maxY: 1122.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 406.47, maxY: 1122.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 406.47, maxY: 1122.72, viewYRange: 716.25
+AFTER: minY: 396.87, maxY: 1113.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 396.87, maxY: 1113.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 396.87, maxY: 1113.12, viewYRange: 716.25
+AFTER: minY: 392.07, maxY: 1108.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 392.07, maxY: 1108.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 392.07, maxY: 1108.32, viewYRange: 716.25
+AFTER: minY: 387.27, maxY: 1103.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 387.27, maxY: 1103.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 387.27, maxY: 1103.52, viewYRange: 716.25
+AFTER: minY: 377.67, maxY: 1093.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 377.67, maxY: 1093.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 377.67, maxY: 1093.92, viewYRange: 716.25
+AFTER: minY: 372.87, maxY: 1089.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 372.87, maxY: 1089.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 12
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 372.87, maxY: 1089.12, viewYRange: 716.25
+AFTER: minY: 368.07, maxY: 1084.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 368.07, maxY: 1084.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 368.07, maxY: 1084.32, viewYRange: 716.25
+AFTER: minY: 363.27, maxY: 1079.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 363.27, maxY: 1079.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 363.27, maxY: 1079.52, viewYRange: 716.25
+AFTER: minY: 358.47, maxY: 1074.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 358.47, maxY: 1074.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 15
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 358.47, maxY: 1074.72, viewYRange: 716.25
+AFTER: minY: 353.67, maxY: 1069.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 353.67, maxY: 1069.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 353.67, maxY: 1069.92, viewYRange: 716.25
+AFTER: minY: 348.87, maxY: 1065.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 348.87, maxY: 1065.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 17
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 348.87, maxY: 1065.12, viewYRange: 716.25
+AFTER: minY: 344.07, maxY: 1060.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 344.07, maxY: 1060.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 18
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 344.07, maxY: 1060.32, viewYRange: 716.25
+AFTER: minY: 339.27, maxY: 1055.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 339.27, maxY: 1055.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 339.27, maxY: 1055.52, viewYRange: 716.25
+AFTER: minY: 334.48, maxY: 1050.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 334.48, maxY: 1050.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 20
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 334.48, maxY: 1050.73, viewYRange: 716.25
+AFTER: minY: 329.68, maxY: 1045.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 329.68, maxY: 1045.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 329.68, maxY: 1045.93, viewYRange: 716.25
+AFTER: minY: 324.88, maxY: 1041.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 324.88, maxY: 1041.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 324.88, maxY: 1041.13, viewYRange: 716.25
+AFTER: minY: 315.28, maxY: 1031.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 315.28, maxY: 1031.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 24
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 315.28, maxY: 1031.53, viewYRange: 716.25
+AFTER: minY: 310.48, maxY: 1026.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 310.48, maxY: 1026.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 25
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 310.48, maxY: 1026.73, viewYRange: 716.25
+AFTER: minY: 305.68, maxY: 1021.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 305.68, maxY: 1021.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 305.68, maxY: 1021.93, viewYRange: 716.25
+AFTER: minY: 300.88, maxY: 1017.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 300.88, maxY: 1017.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 300.88, maxY: 1017.13, viewYRange: 716.25
+AFTER: minY: 296.08, maxY: 1012.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 296.08, maxY: 1012.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 28
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 296.08, maxY: 1012.33, viewYRange: 716.25
+AFTER: minY: 291.28, maxY: 1007.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 291.28, maxY: 1007.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 29
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 291.28, maxY: 1007.53, viewYRange: 716.25
+AFTER: minY: 286.48, maxY: 1002.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 286.48, maxY: 1002.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 286.48, maxY: 1002.73, viewYRange: 716.25
+AFTER: minY: 281.68, maxY: 997.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 281.68, maxY: 997.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 31
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 281.68, maxY: 997.93, viewYRange: 716.25
+AFTER: minY: 276.88, maxY: 993.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 276.88, maxY: 993.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 32
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 276.88, maxY: 993.13, viewYRange: 716.25
+AFTER: minY: 272.08, maxY: 988.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 272.08, maxY: 988.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 33
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 272.08, maxY: 988.33, viewYRange: 716.25
+AFTER: minY: 267.28, maxY: 983.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 267.28, maxY: 983.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 267.28, maxY: 983.53, viewYRange: 716.25
+AFTER: minY: 262.48, maxY: 978.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 262.48, maxY: 978.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 35
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 262.48, maxY: 978.73, viewYRange: 716.25
+AFTER: minY: 257.68, maxY: 973.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 257.68, maxY: 973.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 36
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 257.68, maxY: 973.93, viewYRange: 716.25
+AFTER: minY: 252.89, maxY: 969.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 252.89, maxY: 969.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 37
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 252.89, maxY: 969.14, viewYRange: 716.25
+AFTER: minY: 248.09, maxY: 964.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 248.09, maxY: 964.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 248.09, maxY: 964.34, viewYRange: 716.25
+AFTER: minY: 243.29, maxY: 959.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 243.29, maxY: 959.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 39
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 243.29, maxY: 959.54, viewYRange: 716.25
+AFTER: minY: 238.49, maxY: 954.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 238.49, maxY: 954.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 40
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 238.49, maxY: 954.74, viewYRange: 716.25
+AFTER: minY: 233.69, maxY: 949.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 233.69, maxY: 949.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 41
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 233.69, maxY: 949.94, viewYRange: 716.25
+AFTER: minY: 228.89, maxY: 945.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 228.89, maxY: 945.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 228.89, maxY: 945.14, viewYRange: 716.25
+AFTER: minY: 224.09, maxY: 940.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 224.09, maxY: 940.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 43
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 224.09, maxY: 940.34, viewYRange: 716.25
+AFTER: minY: 219.29, maxY: 935.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 219.29, maxY: 935.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 219.29, maxY: 935.54, viewYRange: 716.25
+AFTER: minY: 224.09, maxY: 940.34
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 224.09, maxY: 940.34, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 41
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 224.09, maxY: 940.34, viewYRange: 716.25
+AFTER: minY: 228.89, maxY: 945.14
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 228.89, maxY: 945.14, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 40
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 228.89, maxY: 945.14, viewYRange: 716.25
+AFTER: minY: 233.69, maxY: 949.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 233.69, maxY: 949.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 39
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 233.69, maxY: 949.94, viewYRange: 716.25
+AFTER: minY: 238.49, maxY: 954.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 238.49, maxY: 954.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 238.49, maxY: 954.74, viewYRange: 716.25
+AFTER: minY: 243.29, maxY: 959.54
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 243.29, maxY: 959.54, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 35
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 243.29, maxY: 959.54, viewYRange: 716.25
+AFTER: minY: 257.68, maxY: 973.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 257.68, maxY: 973.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 32
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 257.68, maxY: 973.93, viewYRange: 716.25
+AFTER: minY: 272.08, maxY: 988.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 272.08, maxY: 988.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 272.08, maxY: 988.33, viewYRange: 716.25
+AFTER: minY: 281.68, maxY: 997.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 281.68, maxY: 997.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 28
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 281.68, maxY: 997.93, viewYRange: 716.25
+AFTER: minY: 291.28, maxY: 1007.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 291.28, maxY: 1007.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 291.28, maxY: 1007.53, viewYRange: 716.25
+AFTER: minY: 296.08, maxY: 1012.33
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 296.08, maxY: 1012.33, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 25
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 296.08, maxY: 1012.33, viewYRange: 716.25
+AFTER: minY: 305.68, maxY: 1021.93
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 305.68, maxY: 1021.93, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 305.68, maxY: 1021.93, viewYRange: 716.25
+AFTER: minY: 315.28, maxY: 1031.53
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 315.28, maxY: 1031.53, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 21
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 315.28, maxY: 1031.53, viewYRange: 716.25
+AFTER: minY: 324.88, maxY: 1041.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 324.88, maxY: 1041.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 324.88, maxY: 1041.13, viewYRange: 716.25
+AFTER: minY: 334.48, maxY: 1050.73
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 334.48, maxY: 1050.73, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 16
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 334.48, maxY: 1050.73, viewYRange: 716.25
+AFTER: minY: 348.87, maxY: 1065.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 348.87, maxY: 1065.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 348.87, maxY: 1065.12, viewYRange: 716.25
+AFTER: minY: 358.47, maxY: 1074.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 358.47, maxY: 1074.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 13
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 358.47, maxY: 1074.72, viewYRange: 716.25
+AFTER: minY: 363.27, maxY: 1079.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 363.27, maxY: 1079.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 363.27, maxY: 1079.52, viewYRange: 716.25
+AFTER: minY: 372.87, maxY: 1089.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 372.87, maxY: 1089.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 10
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 372.87, maxY: 1089.12, viewYRange: 716.25
+AFTER: minY: 377.67, maxY: 1093.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 377.67, maxY: 1093.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 377.67, maxY: 1093.92, viewYRange: 716.25
+AFTER: minY: 382.47, maxY: 1098.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 382.47, maxY: 1098.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 382.47, maxY: 1098.72, viewYRange: 716.25
+AFTER: minY: 387.27, maxY: 1103.52
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 387.27, maxY: 1103.52, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 387.27, maxY: 1103.52, viewYRange: 716.25
+AFTER: minY: 396.87, maxY: 1113.12
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 396.87, maxY: 1113.12, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 396.87, maxY: 1113.12, viewYRange: 716.25
+AFTER: minY: 401.67, maxY: 1117.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 401.67, maxY: 1117.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 401.67, maxY: 1117.92, viewYRange: 716.25
+AFTER: minY: 406.47, maxY: 1122.72
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 406.47, maxY: 1122.72, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 406.47, maxY: 1122.72, viewYRange: 716.25
+AFTER: minY: 416.07, maxY: 1132.32
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 416.07, maxY: 1132.32, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 416.07, maxY: 1132.32, viewYRange: 716.25
+AFTER: minY: 420.87, maxY: 1137.11
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 420.87, maxY: 1137.11, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 420.87, maxY: 1137.11, viewYRange: 716.25
+AFTER: minY: 425.66, maxY: 1141.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 425.66, maxY: 1141.91, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: -54.28, maxYFull: 1141.91
+BEFORE: minY: 425.66, maxY: 1141.91, viewYRange: 716.25
+AFTER: minY: 425.66, maxY: 1141.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 425.66, maxY: 1141.91, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+Поток 0x1030 завершился с кодом 0 (0x0).
+Поток 0x2848 завершился с кодом 0 (0x0).
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+Поток 0xa70 завершился с кодом 0 (0x0).
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 649.34, maxY: 934.89, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 25
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 649.34, maxY: 934.89, viewYRange: 285.55
+AFTER: minY: 711.47, maxY: 997.02
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 711.47, maxY: 997.02, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 711.47, maxY: 997.02, viewYRange: 285.55
+AFTER: minY: 705.00, maxY: 990.55
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 705.00, maxY: 990.55, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 27
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 705.00, maxY: 990.55, viewYRange: 285.55
+AFTER: minY: 698.53, maxY: 984.08
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 698.53, maxY: 984.08, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 29
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 698.53, maxY: 984.08, viewYRange: 285.55
+AFTER: minY: 685.60, maxY: 971.15
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 685.60, maxY: 971.15, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 685.60, maxY: 971.15, viewYRange: 285.55
+AFTER: minY: 679.13, maxY: 964.68
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 679.13, maxY: 964.68, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 32
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 679.13, maxY: 964.68, viewYRange: 285.55
+AFTER: minY: 666.19, maxY: 951.74
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 666.19, maxY: 951.74, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 666.19, maxY: 951.74, viewYRange: 285.55
+AFTER: minY: 653.26, maxY: 938.81
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 653.26, maxY: 938.81, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 36
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 653.26, maxY: 938.81, viewYRange: 285.55
+AFTER: minY: 640.32, maxY: 925.87
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 640.32, maxY: 925.87, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 640.32, maxY: 925.87, viewYRange: 285.55
+AFTER: minY: 627.39, maxY: 912.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 627.39, maxY: 912.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 40
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 627.39, maxY: 912.94, viewYRange: 285.55
+AFTER: minY: 614.45, maxY: 900.00
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 614.45, maxY: 900.00, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 42
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 614.45, maxY: 900.00, viewYRange: 285.55
+AFTER: minY: 601.52, maxY: 887.07
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 601.52, maxY: 887.07, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 44
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 601.52, maxY: 887.07, viewYRange: 285.55
+AFTER: minY: 588.58, maxY: 874.13
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 588.58, maxY: 874.13, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 46
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 588.58, maxY: 874.13, viewYRange: 285.55
+AFTER: minY: 575.65, maxY: 861.20
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 575.65, maxY: 861.20, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 48
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 575.65, maxY: 861.20, viewYRange: 285.55
+AFTER: minY: 562.71, maxY: 848.26
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 562.71, maxY: 848.26, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 49
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 562.71, maxY: 848.26, viewYRange: 285.55
+AFTER: minY: 556.24, maxY: 841.79
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 556.24, maxY: 841.79, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 51
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 556.24, maxY: 841.79, viewYRange: 285.55
+AFTER: minY: 543.31, maxY: 828.86
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 543.31, maxY: 828.86, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 52
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 543.31, maxY: 828.86, viewYRange: 285.55
+AFTER: minY: 536.84, maxY: 822.39
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 536.84, maxY: 822.39, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 53
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 536.84, maxY: 822.39, viewYRange: 285.55
+AFTER: minY: 530.37, maxY: 815.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 530.37, maxY: 815.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 55
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 530.37, maxY: 815.92, viewYRange: 285.55
+AFTER: minY: 517.44, maxY: 802.99
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 517.44, maxY: 802.99, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 57
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 517.44, maxY: 802.99, viewYRange: 285.55
+AFTER: minY: 504.50, maxY: 790.05
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 504.50, maxY: 790.05, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 58
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 504.50, maxY: 790.05, viewYRange: 285.55
+AFTER: minY: 498.04, maxY: 783.58
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 498.04, maxY: 783.58, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 60
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 498.04, maxY: 783.58, viewYRange: 285.55
+AFTER: minY: 485.10, maxY: 770.65
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 485.10, maxY: 770.65, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 62
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 485.10, maxY: 770.65, viewYRange: 285.55
+AFTER: minY: 472.16, maxY: 757.71
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 472.16, maxY: 757.71, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 64
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 472.16, maxY: 757.71, viewYRange: 285.55
+AFTER: minY: 459.23, maxY: 744.78
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 459.23, maxY: 744.78, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 65
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 459.23, maxY: 744.78, viewYRange: 285.55
+AFTER: minY: 452.76, maxY: 738.31
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 452.76, maxY: 738.31, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 67
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 452.76, maxY: 738.31, viewYRange: 285.55
+AFTER: minY: 439.83, maxY: 725.37
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 439.83, maxY: 725.37, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 68
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 439.83, maxY: 725.37, viewYRange: 285.55
+AFTER: minY: 433.36, maxY: 718.91
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 433.36, maxY: 718.91, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 69
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 433.36, maxY: 718.91, viewYRange: 285.55
+AFTER: minY: 426.89, maxY: 712.44
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 426.89, maxY: 712.44, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 70
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 426.89, maxY: 712.44, viewYRange: 285.55
+AFTER: minY: 420.42, maxY: 705.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 420.42, maxY: 705.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 71
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 420.42, maxY: 705.97, viewYRange: 285.55
+AFTER: minY: 413.96, maxY: 699.50
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 413.96, maxY: 699.50, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 72
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 413.96, maxY: 699.50, viewYRange: 285.55
+AFTER: minY: 407.49, maxY: 693.04
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 407.49, maxY: 693.04, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 73
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 407.49, maxY: 693.04, viewYRange: 285.55
+AFTER: minY: 401.02, maxY: 686.57
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 401.02, maxY: 686.57, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 74
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 401.02, maxY: 686.57, viewYRange: 285.55
+AFTER: minY: 394.55, maxY: 680.10
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 394.55, maxY: 680.10, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 75
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 394.55, maxY: 680.10, viewYRange: 285.55
+AFTER: minY: 388.08, maxY: 673.63
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 388.08, maxY: 673.63, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 74
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 388.08, maxY: 673.63, viewYRange: 285.55
+AFTER: minY: 394.55, maxY: 680.10
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 394.55, maxY: 680.10, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 72
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 394.55, maxY: 680.10, viewYRange: 285.55
+AFTER: minY: 407.49, maxY: 693.04
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 407.49, maxY: 693.04, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 70
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 407.49, maxY: 693.04, viewYRange: 285.55
+AFTER: minY: 420.42, maxY: 705.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 420.42, maxY: 705.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 67
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 420.42, maxY: 705.97, viewYRange: 285.55
+AFTER: minY: 439.83, maxY: 725.37
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 439.83, maxY: 725.37, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 63
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 439.83, maxY: 725.37, viewYRange: 285.55
+AFTER: minY: 465.70, maxY: 751.24
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 465.70, maxY: 751.24, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 58
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 465.70, maxY: 751.24, viewYRange: 285.55
+AFTER: minY: 498.04, maxY: 783.58
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 498.04, maxY: 783.58, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 53
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 498.04, maxY: 783.58, viewYRange: 285.55
+AFTER: minY: 530.37, maxY: 815.92
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 530.37, maxY: 815.92, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 48
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 530.37, maxY: 815.92, viewYRange: 285.55
+AFTER: minY: 562.71, maxY: 848.26
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 562.71, maxY: 848.26, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 43
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 562.71, maxY: 848.26, viewYRange: 285.55
+AFTER: minY: 595.05, maxY: 880.60
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 595.05, maxY: 880.60, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 38
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 595.05, maxY: 880.60, viewYRange: 285.55
+AFTER: minY: 627.39, maxY: 912.94
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 627.39, maxY: 912.94, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 34
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 627.39, maxY: 912.94, viewYRange: 285.55
+AFTER: minY: 653.26, maxY: 938.81
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 653.26, maxY: 938.81, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 30
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 653.26, maxY: 938.81, viewYRange: 285.55
+AFTER: minY: 679.13, maxY: 964.68
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 679.13, maxY: 964.68, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 26
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 679.13, maxY: 964.68, viewYRange: 285.55
+AFTER: minY: 705.00, maxY: 990.55
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 705.00, maxY: 990.55, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 23
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 705.00, maxY: 990.55, viewYRange: 285.55
+AFTER: minY: 724.40, maxY: 1009.95
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 724.40, maxY: 1009.95, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 19
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 724.40, maxY: 1009.95, viewYRange: 285.55
+AFTER: minY: 750.27, maxY: 1035.82
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 750.27, maxY: 1035.82, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 17
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 750.27, maxY: 1035.82, viewYRange: 285.55
+AFTER: minY: 763.21, maxY: 1048.76
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 763.21, maxY: 1048.76, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 14
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 763.21, maxY: 1048.76, viewYRange: 285.55
+AFTER: minY: 782.61, maxY: 1068.16
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 782.61, maxY: 1068.16, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 12
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 782.61, maxY: 1068.16, viewYRange: 285.55
+AFTER: minY: 795.55, maxY: 1081.10
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 795.55, maxY: 1081.10, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 11
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 795.55, maxY: 1081.10, viewYRange: 285.55
+AFTER: minY: 802.02, maxY: 1087.56
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 802.02, maxY: 1087.56, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 9
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 802.02, maxY: 1087.56, viewYRange: 285.55
+AFTER: minY: 814.95, maxY: 1100.50
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 814.95, maxY: 1100.50, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 8
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 814.95, maxY: 1100.50, viewYRange: 285.55
+AFTER: minY: 821.42, maxY: 1106.97
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 821.42, maxY: 1106.97, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 7
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 821.42, maxY: 1106.97, viewYRange: 285.55
+AFTER: minY: 827.89, maxY: 1113.43
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 827.89, maxY: 1113.43, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 6
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 827.89, maxY: 1113.43, viewYRange: 285.55
+AFTER: minY: 834.35, maxY: 1119.90
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 834.35, maxY: 1119.90, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 5
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 834.35, maxY: 1119.90, viewYRange: 285.55
+AFTER: minY: 840.82, maxY: 1126.37
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 840.82, maxY: 1126.37, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 4
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 840.82, maxY: 1126.37, viewYRange: 285.55
+AFTER: minY: 847.29, maxY: 1132.84
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 847.29, maxY: 1132.84, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 3
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 847.29, maxY: 1132.84, viewYRange: 285.55
+AFTER: minY: 853.76, maxY: 1139.30
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 853.76, maxY: 1139.30, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 2
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 853.76, maxY: 1139.30, viewYRange: 285.55
+AFTER: minY: 860.22, maxY: 1145.77
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 860.22, maxY: 1145.77, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 1
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 860.22, maxY: 1145.77, viewYRange: 285.55
+AFTER: minY: 866.69, maxY: 1152.24
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 866.69, maxY: 1152.24, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 866.69, maxY: 1152.24, viewYRange: 285.55
+AFTER: minY: 873.16, maxY: 1158.71
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 873.16, maxY: 1158.71, isZoomed: 1
+=== VERTICAL SCROLL EVENT ===
+Chart: 1, newPos: 0
+minYFull: 226.39, maxYFull: 1158.71
+BEFORE: minY: 873.16, maxY: 1158.71, viewYRange: 285.55
+AFTER: minY: 873.16, maxY: 1158.71
+=== END VERTICAL SCROLL ===
+=== DRAW CHART 1 (single axis) ===
+minY: 873.16, maxY: 1158.71, isZoomed: 1
+=== DRAW CHART 1 (single axis) ===
+minY: 873.16, maxY: 1158.71, isZoomed: 1

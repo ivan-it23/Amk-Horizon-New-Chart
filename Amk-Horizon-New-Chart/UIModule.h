@@ -15,6 +15,8 @@ private:
     // Скроллбары для графиков (показываются только при зуме)
     HWND hChart1HScrollBar;  // Горизонтальный скроллбар для первого графика
     HWND hChart2HScrollBar;  // Горизонтальный скроллбар для второго графика
+    HWND hChart1VScrollBar;  // Вертикальный скроллбар для первого графика
+    HWND hChart2VScrollBar;  // Вертикальный скроллбар для второго графика
 
     // Элементы управления X Range для Chart 1 (в панели инструментов)
     HWND hXRangeFromLabel;   // Метка "X Range:"
@@ -71,7 +73,9 @@ public:
     void ShowScrollBars(int chartNumber, bool show);
     void UpdateScrollBarPositions(int chartNumber, const RECT& chartRect);
     void SetScrollBarRange(int chartNumber, int min, int max, int page, int pos);
+    void SetVScrollBarRange(int chartNumber, int min, int max, int page, int pos);
     HWND GetHScrollBar(int chartNumber) const;
+    HWND GetVScrollBar(int chartNumber) const;
 
     // Управление X Range (chartNumber: 1 или 2)
     void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);

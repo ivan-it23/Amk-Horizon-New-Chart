@@ -364,7 +364,264 @@ bool IsValid() const {
 
 ---
 
-**Техническая документация AMK-Horizon-New-Chart** - справочник для разработчиков
+## 🔧 Zoom и скроллинг по оси Y (v2.12.0)
+
+### Обзор
+Версия 2.12.0 добавляет полную поддержку zoom и скроллинга по оси Y, что позволяет детально анализировать данные как по горизонтали, так и по вертикали.
+
+### Структура ZoomRange
+```cpp
+struct ZoomRange {
+    double minX, maxX, minY, maxY;
+    bool isZoomed;
+    
+    ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false) {}
+};
+```
+
+**Поля:**
+- `minX`, `maxX` - диапазон по оси X (индексы кадров или температура)
+- `minY`, `maxY` - диапазон по оси Y (значения данных)
+- `isZoomed` - флаг активного zoom
+
+### Новые методы UIModule
+
+#### SetVScrollBarRange
+```cpp
+void SetVScrollBarRange(int chartNumber, int min, int max, int page, int pos);
+```
+
+**Назначение**: Настройка диапазона вертикального scrollbar
+
+**Параметры**:
+- `chartNumber` - номер графика (1 или 2)
+- `min` - минимальное значение (обычно 0)
+- `max` - максимальное значение (обычно 100)
+- `page` - размер страницы (пропорционален видимому диапазону)
+- `pos` - текущая позиция ползунка
+
+**Особенность**: Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
+
+#### GetVScrollBar
+```cpp
+HWND GetVScrollBar(int chartNumber) const;
+```
+
+**Назначение**: Получение handle вертикального scrollbar
+
+**Возвращает**: HWND вертикального scrollbar или nullptr
+
+### Обновлённые методы ChartManager
+
+#### HandleMouseUp
+```cpp
+void HandleMouseUp(HWND hWnd, int x, int y);
+```
+
+**Изменения**:
+- Добавлена проверка минимального диапазона Y
+- Константа `MIN_Y_RANGE = 10.0`
+- Сообщение пользователю при достижении предела
+
+**Логика проверки**:
+```cpp
+const double MIN_Y_RANGE = 10.0;
+double yRange = maxDataY - minDataY;
+
+if (yRange < MIN_Y_RANGE) {
+    MessageBox(hWnd, 
+        L"Cannot zoom further: Y-axis range must be at least 10 units.\nMinimum range is 10 units.",
+        L"Zoom Limit Reached", 
+        MB_OK | MB_ICONINFORMATION);
+}
+```
+
+#### HandleScrollEvent
+```cpp
+void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
+```
+
+**Изменения**:
+- Добавлена обработка вертикального scrollbar
+- Определение типа scrollbar (горизонтальный или вертикальный)
+- Инвертированная логика для вертикального scrollbar
+
+**Алгоритм вертикального скроллинга**:
+```cpp
+if (isVertical) {
+    // Получаем полный диапазон Y из данных
+    double totalYRange = maxYFull - minYFull;
+    double viewYRange = zoom->maxY - zoom->minY;
+    
+    // Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
+    double newMinY = minYFull + ((100.0 - newPos) / 100.0) * (totalYRange - viewYRange);
+    zoom->minY = newMinY;
+    zoom->maxY = newMinY + viewYRange;
+}
+```
+
+#### UpdateScrollBars
+```cpp
+void UpdateScrollBars(HWND hWnd);
+```
+
+**Изменения**:
+- Добавлена настройка вертикального scrollbar
+- Получение полного диапазона Y из данных
+- Вычисление позиции с учётом инверсии
+
+**Алгоритм настройки вертикального scrollbar**:
+```cpp
+// Получаем полный диапазон Y из данных
+ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+std::vector<std::vector<float>> leftAxisData, rightAxisData;
+curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, ...);
+
+double minYFull, maxYFull, ...;
+chartModule->GetDataRanges(leftAxisData, rightAxisData, ..., minYFull, maxYFull, ...);
+
+double totalYRange = maxYFull - minYFull;
+double viewRangeY = zoom->maxY - zoom->minY;
+
+// Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
+int vScrollPos = static_cast<int>(100.0 - ((zoom->minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
+uiModule->SetVScrollBarRange(chartNumber, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
+```
+
+#### DrawChartWithCurves
+```cpp
+void DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber);
+```
+
+**Изменения**:
+- Передача параметров `zoom->minY` и `zoom->maxY` в методы вычисления данных
+- Получение диапазонов Y из данных
+- Передача Y параметров в методы отрисовки
+
+**Пример**:
+```cpp
+if (zoom->isZoomed) {
+    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                           leftAxisData, rightAxisData,
+                                           leftAxisCurves, rightAxisCurves,
+                                           zoom->minX, zoom->maxX, zoom->minY, zoom->maxY);
+}
+
+// Получаем диапазоны Y из данных
+double minYData, maxYData, ...;
+chartModule->GetDataRanges(leftAxisData, rightAxisData, ..., minYData, maxYData, ...);
+
+// Передаём в методы отрисовки
+chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
+                             leftAxisData, rightAxisData,
+                             title, dataModule->HasData(),
+                             zoom->isZoomed ? zoom->minX : 0.0,
+                             zoom->isZoomed ? zoom->maxX : ...,
+                             zoom->isZoomed ? zoom->minY : minYData,
+                             zoom->isZoomed ? zoom->maxY : maxYData,
+                             showAxes);
+```
+
+### Позиционирование вертикального scrollbar
+
+**Константы**:
+```cpp
+const int SCROLLBAR_SIZE = 15;     // Размер scrollbar
+const int MARGIN_RIGHT = 20;       // Отступ справа
+const int MARGIN_TOP = 60;         // Отступ сверху
+const int MARGIN_BOTTOM = 5;       // Отступ снизу
+```
+
+**Формула позиционирования**:
+```cpp
+SetWindowPos(hVScrollBar, HWND_TOP,
+             chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,  // X позиция
+             chartRect.top + MARGIN_TOP,                       // Y позиция
+             SCROLLBAR_SIZE,                                   // Ширина
+             chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,  // Высота
+             SWP_NOZORDER);
+```
+
+### Двойные оси
+
+**Поведение**: Zoom и scroll применяются к обеим осям Y одновременно
+
+**Реализация**:
+- Один вертикальный scrollbar управляет обеими осями
+- Левая ось (фазы) и правая ось (амплитуды) масштабируются пропорционально
+- Диапазон Y определяется по левой оси (основной)
+
+### Инверсия вертикального scrollbar
+
+**Причина**: В Windows координата Y растёт вниз, но для пользователя логично, что верх scrollbar = верх графика
+
+**Формула преобразования**:
+```cpp
+// Позиция scrollbar → позиция данных
+double newMinY = minYFull + ((100.0 - scrollPos) / 100.0) * (totalYRange - viewYRange);
+
+// Позиция данных → позиция scrollbar
+int scrollPos = static_cast<int>(100.0 - ((zoom->minY - minYFull) / (totalYRange - viewYRange)) * 100.0);
+```
+
+### Константы
+
+**Минимальные диапазоны**:
+```cpp
+const double MIN_X_RANGE = 10.0;  // Минимальный диапазон по X
+const double MIN_Y_RANGE = 10.0;  // Минимальный диапазон по Y
+```
+
+**ID элементов управления**:
+```cpp
+#define IDC_CHART1_VSCROLL  1041  // Вертикальный scrollbar для Chart 1
+#define IDC_CHART2_VSCROLL  1042  // Вертикальный scrollbar для Chart 2
+```
+
+### Примеры использования
+
+#### Zoom по обеим осям
+```cpp
+// Пользователь выделяет область мышью
+HandleMouseDown(hWnd, x1, y1);
+HandleMouseMove(hWnd, x2, y2);
+HandleMouseUp(hWnd, x2, y2);
+
+// Преобразование координат
+ConvertScreenToDataCoords(chartNum, x1, y1, minDataX, minDataY);
+ConvertScreenToDataCoords(chartNum, x2, y2, maxDataX, maxDataY);
+
+// Проверка минимальных диапазонов
+if (xRange >= MIN_X_RANGE && yRange >= MIN_Y_RANGE) {
+    zoom->minX = minDataX;
+    zoom->maxX = maxDataX;
+    zoom->minY = minDataY;
+    zoom->maxY = maxDataY;
+    zoom->isZoomed = true;
+}
+```
+
+#### Вертикальный скроллинг
+```cpp
+// Пользователь перемещает вертикальный scrollbar
+HandleScrollEvent(hWnd, wParam, lParam);
+
+// Определение типа scrollbar
+if (hScrollBar == uiModule->GetVScrollBar(chartNumber)) {
+    isVertical = true;
+}
+
+// Обновление диапазона Y
+if (isVertical) {
+    double newMinY = minYFull + ((100.0 - newPos) / 100.0) * (totalYRange - viewYRange);
+    zoom->minY = newMinY;
+    zoom->maxY = newMinY + viewYRange;
+}
+```
+
+---
+
+**Техническая документация AMK-Horizon-New-Chart v2.12.0** - справочник для разработчиков
 
 
 ## 🔬 Кроссплот: Температура на оси X (v2.10.0)

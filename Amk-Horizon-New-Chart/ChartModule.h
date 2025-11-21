@@ -133,6 +133,15 @@ public:
                          const std::vector<std::vector<float>>& rightAxisData,
                          const std::vector<float>& xAxisData,
                          double minXData, double maxXData) const;
+    
+    // v2.12.0: Новая функция для отрисовки с учетом zoom по Y
+    void DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
+                                  const std::vector<CurveDefinition>& curves,
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData,
+                                  double leftMinY, double leftMaxY,
+                                  double rightMinY, double rightMaxY) const;
+    
     void DrawDualAxisLegend(HDC hdc, const RECT& rect,
                            const std::vector<CurveDefinition>& curves) const;
 

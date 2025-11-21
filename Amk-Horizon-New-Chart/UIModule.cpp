@@ -7,6 +7,8 @@ UIModule::UIModule()
     , hChart2SchematicBtn(nullptr)
     , hChart1HScrollBar(nullptr)
     , hChart2HScrollBar(nullptr)
+    , hChart1VScrollBar(nullptr)
+    , hChart2VScrollBar(nullptr)
     , hXRangeFromLabel(nullptr)
     , hXRangeFromEdit(nullptr)
     , hXRangeToLabel(nullptr)
@@ -53,6 +55,15 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
         WS_CHILD | SBS_HORZ,
         0, 0, 100, 20, hWnd, (HMENU)IDC_CHART2_HSCROLL, hInst, NULL);
+    
+    // Создание вертикальных скроллбаров (изначально скрыты)
+    hChart1VScrollBar = CreateWindow(L"SCROLLBAR", NULL,
+        WS_CHILD | SBS_VERT,
+        0, 0, 20, 100, hWnd, (HMENU)IDC_CHART1_VSCROLL, hInst, NULL);
+    
+    hChart2VScrollBar = CreateWindow(L"SCROLLBAR", NULL,
+        WS_CHILD | SBS_VERT,
+        0, 0, 20, 100, hWnd, (HMENU)IDC_CHART2_VSCROLL, hInst, NULL);
 
     // Создание элементов управления X Range в панели инструментов
     // Размещаем их справа от кнопки Device Schematic
@@ -251,8 +262,10 @@ void UIModule::ShowScrollBars(int chartNumber, bool show) {
     
     if (chartNumber == 1) {
         ShowWindow(hChart1HScrollBar, showFlag);
+        ShowWindow(hChart1VScrollBar, showFlag);
     } else if (chartNumber == 2) {
         ShowWindow(hChart2HScrollBar, showFlag);
+        ShowWindow(hChart2VScrollBar, showFlag);
     }
 }
 
@@ -261,22 +274,39 @@ void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) 
     const int MARGIN_LEFT = 50;    // Отступ слева (для Y-оси)
     const int MARGIN_RIGHT = 20;   // Отступ справа
     const int MARGIN_BOTTOM = 5;   // Отступ снизу от края графика
+    const int MARGIN_TOP = 60;     // Отступ сверху (для заголовка)
     
     if (chartNumber == 1) {
         // Горизонтальный скроллбар располагается ВНУТРИ области графика, в нижней части
         SetWindowPos(hChart1HScrollBar, HWND_TOP, 
                      chartRect.left + MARGIN_LEFT, 
                      chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
-                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT, 
+                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT - SCROLLBAR_SIZE, 
                      SCROLLBAR_SIZE,
+                     SWP_NOZORDER);
+        
+        // Вертикальный скроллбар располагается справа от графика
+        SetWindowPos(hChart1VScrollBar, HWND_TOP,
+                     chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,
+                     chartRect.top + MARGIN_TOP,
+                     SCROLLBAR_SIZE,
+                     chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,
                      SWP_NOZORDER);
     } else if (chartNumber == 2) {
         // Горизонтальный скроллбар для второго графика
         SetWindowPos(hChart2HScrollBar, HWND_TOP,
                      chartRect.left + MARGIN_LEFT, 
                      chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
-                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT, 
+                     chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT - SCROLLBAR_SIZE, 
                      SCROLLBAR_SIZE,
+                     SWP_NOZORDER);
+        
+        // Вертикальный скроллбар для второго графика
+        SetWindowPos(hChart2VScrollBar, HWND_TOP,
+                     chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,
+                     chartRect.top + MARGIN_TOP,
+                     SCROLLBAR_SIZE,
+                     chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,
                      SWP_NOZORDER);
     }
 }
@@ -306,6 +336,33 @@ HWND UIModule::GetHScrollBar(int chartNumber) const {
     if (chartNumber == 1) return hChart1HScrollBar;
     if (chartNumber == 2) return hChart2HScrollBar;
     return nullptr;
+}
+
+HWND UIModule::GetVScrollBar(int chartNumber) const {
+    if (chartNumber == 1) return hChart1VScrollBar;
+    if (chartNumber == 2) return hChart2VScrollBar;
+    return nullptr;
+}
+
+void UIModule::SetVScrollBarRange(int chartNumber, int min, int max, int page, int pos) {
+    HWND hScrollBar = nullptr;
+    
+    if (chartNumber == 1) {
+        hScrollBar = hChart1VScrollBar;
+    } else if (chartNumber == 2) {
+        hScrollBar = hChart2VScrollBar;
+    }
+    
+    if (hScrollBar) {
+        SCROLLINFO si = {};
+        si.cbSize = sizeof(SCROLLINFO);
+        si.fMask = SIF_RANGE | SIF_PAGE | SIF_POS;
+        si.nMin = min;
+        si.nMax = max;
+        si.nPage = page;
+        si.nPos = pos;
+        SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
+    }
 }
 
 // Методы для управления X Range

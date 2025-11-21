@@ -335,12 +335,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             (std::min)(selectionStart.y, selectionEnd.y), 
             maxDataX, maxDataY);
         
-        // Проверяем минимальный диапазон: подписи должны быть целыми и отличаться минимум на 10
+        // Проверяем минимальный диапазон для X: подписи должны быть целыми и отличаться минимум на 10
         const double MIN_X_RANGE = 10.0;
         double xRange = maxDataX - minDataX;
         
         if (xRange < MIN_X_RANGE) {
-            // Диапазон слишком мал, показываем сообщение и не применяем zoom
+            // Диапазон X слишком мал
             MessageBox(hWnd, 
                 L"Cannot zoom further: X-axis labels must be integers with minimum spacing of 1.\nMinimum range is 10 points.",
                 L"Zoom Limit Reached", 
@@ -505,10 +505,19 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     }
     
     // Y координата обрабатывается одинаково для обоих режимов
+    // Получаем реальный диапазон Y из данных
+    ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
+    std::vector<std::vector<float>> leftAxisData, rightAxisData;
+    std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+    curveSelectionModule->CalculateCurveData(config2, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+    
+    double minYFull, maxYFull, minXFull, maxXFull, minY2, maxY2;
+    chartModule->GetDataRanges(leftAxisData, rightAxisData, minXFull, maxXFull, minYFull, maxYFull, minY2, maxY2);
+    
     if (zoom->isZoomed) {
         dataY = zoom->minY + yRatio * (zoom->maxY - zoom->minY);
     } else {
-        dataY = yRatio;
+        dataY = minYFull + yRatio * (maxYFull - minYFull);
     }
 }
 
@@ -518,13 +527,22 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     HWND hScrollBar = (HWND)lParam;
     int scrollCode = LOWORD(wParam);
     
-    // Определяем, какой скроллбар был использован (только горизонтальные)
+    // Определяем, какой скроллбар был использован
     int chartNumber = 0;
+    bool isVertical = false;
     
     if (hScrollBar == uiModule->GetHScrollBar(1)) {
         chartNumber = 1;
+        isVertical = false;
     } else if (hScrollBar == uiModule->GetHScrollBar(2)) {
         chartNumber = 2;
+        isVertical = false;
+    } else if (hScrollBar == uiModule->GetVScrollBar(1)) {
+        chartNumber = 1;
+        isVertical = true;
+    } else if (hScrollBar == uiModule->GetVScrollBar(2)) {
+        chartNumber = 2;
+        isVertical = true;
     } else {
         return; // Неизвестный скроллбар
     }
@@ -563,48 +581,127 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     si.nPos = newPos;
     SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
     
-    // Обновляем диапазон зума на основе новой позиции скроллбара (только горизонтальный)
+    // Обновляем диапазон зума на основе новой позиции скроллбара
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     
-    // Горизонтальный скроллинг (ось X)
-    double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
-    double viewRange = zoom->maxX - zoom->minX;
-    double newMinX = (newPos / 100.0) * (totalRange - viewRange);
-    zoom->minX = newMinX;
-    zoom->maxX = newMinX + viewRange;
+    if (isVertical) {
+        // Вертикальный скроллинг (ось Y)
+        if (!zoom->isZoomed) {
+            // Если график не в режиме zoom, вертикальный скроллинг не работает
+            return;
+        }
+        
+        OutputDebugStringW(L"=== VERTICAL SCROLL EVENT ===\n");
+        wchar_t debugMsg[256];
+        swprintf_s(debugMsg, L"Chart: %d, newPos: %d\n", chartNumber, newPos);
+        OutputDebugStringW(debugMsg);
+        
+        // Получаем полный диапазон Y из данных (без Y zoom, но с X zoom если есть)
+        ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+        std::vector<std::vector<float>> leftAxisDataFull, rightAxisDataFull;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        
+        // Вызываем CalculateCurveData с текущим X zoom, но без Y zoom
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisDataFull, rightAxisDataFull, leftAxisCurves, rightAxisCurves,
+                                                zoom->minX, zoom->maxX, -1e10, 1e10);
+        
+        double minYFull, maxYFull, minX, maxX, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisDataFull, rightAxisDataFull, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+        
+        swprintf_s(debugMsg, L"minYFull: %.2f, maxYFull: %.2f\n", minYFull, maxYFull);
+        OutputDebugStringW(debugMsg);
+        
+        double totalYRange = maxYFull - minYFull;
+        double viewYRange = zoom->maxY - zoom->minY;
+        
+        swprintf_s(debugMsg, L"BEFORE: minY: %.2f, maxY: %.2f, viewYRange: %.2f\n", zoom->minY, zoom->maxY, viewYRange);
+        OutputDebugStringW(debugMsg);
+        
+        // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+        // newPos = 0 означает верх (максимальный Y)
+        // newPos = 100 означает низ (минимальный Y)
+        double scrollRatio = (100.0 - newPos) / 100.0;
+        double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
+        zoom->minY = newMinY;
+        zoom->maxY = newMinY + viewYRange;
+        
+        swprintf_s(debugMsg, L"AFTER: minY: %.2f, maxY: %.2f\n", zoom->minY, zoom->maxY);
+        OutputDebugStringW(debugMsg);
+        OutputDebugStringW(L"=== END VERTICAL SCROLL ===\n");
+    } else {
+        // Горизонтальный скроллинг (ось X)
+        double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
+        double viewRange = zoom->maxX - zoom->minX;
+        double newMinX = (newPos / 100.0) * (totalRange - viewRange);
+        zoom->minX = newMinX;
+        zoom->maxX = newMinX + viewRange;
+    }
     
     // Перерисовываем только нужный график (избегаем мигания)
     InvalidateChart(hWnd, chartNumber);
 }
 
 void ChartManager::UpdateScrollBars(HWND hWnd) {
-    // Обновляем скроллбар для первого графика
+    // Обновляем скроллбары для первого графика
     if (chart1Zoom.isZoomed) {
         uiModule->ShowScrollBars(1, true);
         uiModule->UpdateScrollBarPositions(1, layoutModule->GetChart1Rect());
         
-        // Настраиваем диапазон горизонтального скроллбара
+        // Настраиваем диапазон горизонтального скроллбара (ось X)
         double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
         double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
         
         int hScrollPos = static_cast<int>((chart1Zoom.minX / (totalDataRange - viewRangeX)) * 100);
         uiModule->SetScrollBarRange(1, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+        
+        // Настраиваем диапазон вертикального скроллбара (ось Y)
+        // Получаем полный диапазон Y из данных
+        ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+        
+        double minYFull, maxYFull, minX, maxX, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+        
+        double totalYRange = maxYFull - minYFull;
+        double viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
+        
+        // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+        int vScrollPos = static_cast<int>(100.0 - ((chart1Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
+        uiModule->SetVScrollBarRange(1, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
     } else {
         uiModule->ShowScrollBars(1, false);
     }
     
-    // Обновляем скроллбар для второго графика (если в режиме двух графиков)
+    // Обновляем скроллбары для второго графика (если в режиме двух графиков)
     if (uiModule->IsDualMode()) {
         if (chart2Zoom.isZoomed) {
             uiModule->ShowScrollBars(2, true);
             uiModule->UpdateScrollBarPositions(2, layoutModule->GetChart2Rect());
             
-            // Настраиваем диапазон горизонтального скроллбара
+            // Настраиваем диапазон горизонтального скроллбара (ось X)
             double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
             double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
             
             int hScrollPos = static_cast<int>((chart2Zoom.minX / (totalDataRange - viewRangeX)) * 100);
             uiModule->SetScrollBarRange(2, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+            
+            // Настраиваем диапазон вертикального скроллбара (ось Y)
+            ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
+            std::vector<std::vector<float>> leftAxisData, rightAxisData;
+            std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+            curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+            
+            double minYFull, maxYFull, minX, maxX, minY2, maxY2;
+            chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+            
+            double totalYRange = maxYFull - minYFull;
+            double viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
+            
+            // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+            int vScrollPos = static_cast<int>(100.0 - ((chart2Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
+            uiModule->SetVScrollBarRange(2, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
         } else {
             uiModule->ShowScrollBars(2, false);
         }
@@ -627,6 +724,8 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     
     // Перерисовываем только область конкретного графика
     InvalidateRect(hWnd, &chartRect, TRUE);
+    // Принудительно обновляем окно для немедленной перерисовки
+    UpdateWindow(hWnd);
 }
 
 // Метод для отображения схемы прибора (v2.9.4: немодальное окно)
@@ -661,11 +760,12 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     std::vector<CurveDefinition> rightAxisCurves;
     
     if (zoom->isZoomed) {
-        // Используем zoom параметры (только для X, Y автоматически по данным)
+        // Используем zoom параметры только для X (не фильтруем по Y!)
+        // Y zoom используется только для отображения, не для фильтрации данных
         curveSelectionModule->CalculateCurveData(config, dataModule.get(),
                                                leftAxisData, rightAxisData,
                                                leftAxisCurves, rightAxisCurves,
-                                               zoom->minX, zoom->maxX, -1e6, 1e6);
+                                               zoom->minX, zoom->maxX, -1e10, 1e10);
     } else {
         // Используем полный диапазон данных
         curveSelectionModule->CalculateCurveData(config, dataModule.get(),
@@ -707,8 +807,13 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         // Определяем диапазоны
         double minXData = zoom->isZoomed ? zoom->minX : 0.0;
         double maxXData = zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() - 1);
-        double minYData = -1e6;
-        double maxYData = 1e6;
+        
+        // Получаем диапазоны Y из данных
+        double minYFull, maxYFull, minX, maxX, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+        
+        double minYData = zoom->isZoomed ? zoom->minY : minYFull;
+        double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
         
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
@@ -718,29 +823,57 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     } else {
         // Обычный режим: номер кадра на оси X
         
+        // Получаем диапазоны Y из данных
+        double minYData, maxYData, minXData, maxXData, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
+        
         // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
             // Используем новый метод для двойных осей с поддержкой zoom
             // Всегда показываем оси (включая ось X)
             bool showAxes = true;
+            
+            double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
+            double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
+            
+            // Отладочный вывод
+            wchar_t debugMsg[256];
+            swprintf_s(debugMsg, L"=== DRAW CHART %d ===\nminY: %.2f, maxY: %.2f, isZoomed: %d\n", 
+                      chartNumber, displayMinY, displayMaxY, zoom->isZoomed);
+            OutputDebugStringW(debugMsg);
+            
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                          leftAxisData, rightAxisData,
                                          title, dataModule->HasData(),
                                          zoom->isZoomed ? zoom->minX : 0.0,
                                          zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                         -1e6, 1e6, showAxes); // Y всегда автоматически
+                                         displayMinY,
+                                         displayMaxY,
+                                         showAxes);
         } else {
             // Используем обычный метод для одной оси
             if (!leftAxisData.empty()) {
                 // Отрисовываем график с кастомными кривыми
                 // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
                 bool showAxes = true;
+                
+                double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
+                double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
+                
+                // Отладочный вывод
+                wchar_t debugMsg[256];
+                swprintf_s(debugMsg, L"=== DRAW CHART %d (single axis) ===\nminY: %.2f, maxY: %.2f, isZoomed: %d\n", 
+                          chartNumber, displayMinY, displayMaxY, zoom->isZoomed);
+                OutputDebugStringW(debugMsg);
+                
                 chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
                                              leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось
                                              title, dataModule->HasData(),
                                              zoom->isZoomed ? zoom->minX : 0.0,
                                              zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                             -1e6, 1e6, showAxes);
+                                             displayMinY,
+                                             displayMaxY,
+                                             showAxes);
             }
         }
     }

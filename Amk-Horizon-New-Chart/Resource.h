@@ -20,9 +20,11 @@
 #define IDC_DUAL_MODE_CHECK		1001
 // ID 1002-1007 зарезервированы (ранее использовались для удаленных элементов)
 
-// Скроллбары для графиков (только горизонтальные)
+// Скроллбары для графиков (горизонтальные и вертикальные)
 #define IDC_CHART1_HSCROLL		1008
 #define IDC_CHART2_HSCROLL		1009
+#define IDC_CHART1_VSCROLL		1041
+#define IDC_CHART2_VSCROLL		1042
 
 // Кнопки схемы прибора
 #define IDC_CHART1_SCHEMATIC_BTN	1010
