@@ -617,6 +617,8 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<std::vector<float>>& leftAxisData,
                                    const std::vector<std::vector<float>>& rightAxisData,
                                    const std::wstring& title, bool hasData) const {
+    OutputDebugStringW(L"=== DrawDualAxisChart WITHOUT ZOOM PARAMS ===\n");
+    
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -677,6 +679,11 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
+    // Отладочный вывод
+    wchar_t debugMsg[256];
+    swprintf_s(debugMsg, L"=== DrawDualAxisChart ===\nminYData: %.2f, maxYData: %.2f\n", minYData, maxYData);
+    OutputDebugStringW(debugMsg);
+
     // Отрисовка фона и рамки
     DrawDualAxisBackground(hdc, rect);
     DrawChartBorder(hdc, rect);
@@ -690,9 +697,9 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
     
-    // Отрисовка сетки и осей с учетом zoom (включая ось X)
+    // Отрисовка сетки и осей с учетом zoom (включая ось X и Y)
     if (showAxes) {
-        DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData, minXData, maxXData);
+        DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData);
     }
     
     // Отрисовка левой и правой осей с подписями
@@ -708,10 +715,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     }
     
     if (!leftAxisData.empty()) {
-        DrawLeftAxis(hdc, plotRect, leftAxisData, leftUnits);
+        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
     }
     if (!rightAxisData.empty()) {
-        DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYData, maxYData);
     }
     
     // Отрисовка данных с учетом zoom по Y
@@ -795,13 +802,37 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
     }
 }
 
-// Перегрузка с поддержкой оси X
+// Перегрузка с поддержкой оси X и Y zoom
 void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
                                   const std::vector<std::vector<float>>& leftAxisData,
                                   const std::vector<std::vector<float>>& rightAxisData,
-                                  double minXData, double maxXData) const {
-    // Сначала рисуем обычную сетку для Y осей
-    DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData);
+                                  double minXData, double maxXData,
+                                  double minYData, double maxYData) const {
+    // Используем переданные параметры zoom для Y вместо вычисления из данных
+    float leftMin = static_cast<float>(minYData);
+    float leftMax = static_cast<float>(maxYData);
+    
+    // Отрисовка горизонтальных линий сетки с учетом zoom по Y
+    double niceStepY = CalculateNiceStep(leftMax - leftMin, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(leftMin, niceStepY);
+
+    while (currentYVal <= leftMax + niceStepY / 2) {
+        if (currentYVal >= leftMin - niceStepY / 2 && currentYVal <= leftMax + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(230, 230, 230));
+                HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+                
+                MoveToEx(hdc, plotRect.left, screenY, NULL);
+                LineTo(hdc, plotRect.right, screenY);
+                
+                SelectObject(hdc, hOldPen);
+                DeleteObject(hPen);
+            }
+        }
+        currentYVal += niceStepY;
+    }
     
     // Теперь добавляем ось X
     if (maxXData <= minXData) {
@@ -1616,7 +1647,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
 }
 
 
-// v2.10.0: Отрисовка графика с двойными осями и температурой на оси X
+// v2.10.0 + v2.12.0: Отрисовка графика с двойными осями и температурой на оси X с поддержкой zoom по Y
 void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<CurveDefinition>& curves,
                                    const std::vector<std::vector<float>>& leftAxisData,
@@ -1641,10 +1672,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
     
-    // Отрисовка сетки и осей с температурой
-    if (hasData && !xAxisData.empty()) {
-        DrawGridAndAxes(hdc, plotRect, leftAxisData, nullptr, xAxisData,
-                       minXData, maxXData, minYData, maxYData);
+    // Отрисовка сетки и осей с температурой и zoom по Y
+    if (hasData && !xAxisData.empty() && showAxes) {
+        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
+                                       xAxisData, minXData, maxXData, minYData, maxYData);
     }
     
     // Отрисовка левой и правой осей с подписями единиц измерения
@@ -1660,15 +1691,16 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     }
     
     if (!leftAxisData.empty()) {
-        DrawLeftAxis(hdc, plotRect, leftAxisData, leftUnits);
+        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
     }
     if (!rightAxisData.empty()) {
-        DrawRightAxis(hdc, plotRect, rightAxisData, rightUnits);
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYData, maxYData);
     }
     
-    // Отрисовка данных с температурой на оси X
+    // Отрисовка данных с температурой на оси X и zoom по Y
     if (hasData && !xAxisData.empty()) {
-        DrawDualAxisData(hdc, plotRect, curves, leftAxisData, rightAxisData, xAxisData, minXData, maxXData);
+        DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
+                                               xAxisData, minXData, maxXData, minYData, maxYData);
     }
     
     // Отрисовка легенды
@@ -1806,4 +1838,314 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         DeleteObject(hPen);
         rightIndex++;
     }
+}
+
+// v2.12.0: Вспомогательные функции для температурного режима с zoom по Y
+
+void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
+                                                  const std::vector<std::vector<float>>& leftAxisData,
+                                                  const std::vector<std::vector<float>>& rightAxisData,
+                                                  const std::vector<float>& xAxisData,
+                                                  double minXData, double maxXData,
+                                                  double minYData, double maxYData) const {
+    if (xAxisData.empty()) return;
+    
+    // Находим диапазон температур для отображаемого диапазона
+    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
+    
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f;
+    }
+    
+    // Рисуем сетку
+    HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
+    
+    // Вертикальные линии сетки (по температуре)
+    int numVerticalLines = 10;
+    std::set<int> drawnTempLabels;
+    
+    for (int i = 0; i <= numVerticalLines; i++) {
+        int x = plotRect.left + (plotRect.right - plotRect.left) * i / numVerticalLines;
+        MoveToEx(hdc, x, plotRect.top, NULL);
+        LineTo(hdc, x, plotRect.bottom);
+        
+        float temp = minTemp + (maxTemp - minTemp) * i / numVerticalLines;
+        int roundedTemp = static_cast<int>(std::round(temp));
+        
+        if (drawnTempLabels.find(roundedTemp) == drawnTempLabels.end()) {
+            drawnTempLabels.insert(roundedTemp);
+            
+            wchar_t label[32];
+            swprintf_s(label, L"%d", roundedTemp);
+            
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
+            TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
+        }
+    }
+    
+    // Горизонтальные линии сетки (по Y) с учетом zoom
+    double niceStepY = CalculateNiceStep(maxYData - minYData, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minYData, niceStepY);
+    
+    while (currentYVal <= maxYData + niceStepY / 2) {
+        if (currentYVal >= minYData - niceStepY / 2 && currentYVal <= maxYData + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minYData) / (maxYData - minYData) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                MoveToEx(hdc, plotRect.left, screenY, NULL);
+                LineTo(hdc, plotRect.right, screenY);
+                
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                
+                SIZE textSize;
+                GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
+                int textX = plotRect.left - 5 - textSize.cx;
+                TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
+    }
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hGridPen);
+}
+
+void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
+                                      const std::vector<std::vector<float>>& leftAxisData,
+                                      const std::string& units,
+                                      double minYData, double maxYData) const {
+    if (leftAxisData.empty()) return;
+    
+    // Отладочный вывод
+    wchar_t debugMsg[256];
+    swprintf_s(debugMsg, L"=== DrawLeftAxisWithZoom ===\nminYData: %.2f, maxYData: %.2f\n", minYData, maxYData);
+    OutputDebugStringW(debugMsg);
+    
+    // Используем переданные параметры zoom вместо вычисления из данных
+    float minVal = static_cast<float>(minYData);
+    float maxVal = static_cast<float>(maxYData);
+    
+    // Рисуем левую ось
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    MoveToEx(hdc, plotRect.left, plotRect.top, NULL);
+    LineTo(hdc, plotRect.left, plotRect.bottom);
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+    
+    // Рисуем метки левой оси с учетом zoom
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    SetBkMode(hdc, TRANSPARENT);
+    
+    while (currentYVal <= maxVal + niceStepY / 2) {
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                
+                SIZE textSize;
+                GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
+                
+                int textX = plotRect.left - 5 - textSize.cx;
+                TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
+    }
+    
+    // Подпись единиц измерения левой оси
+    if (!units.empty()) {
+        std::wstring wunits(units.begin(), units.end());
+        TextOut(hdc, plotRect.left - 45, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+    }
+}
+
+void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
+                                       const std::vector<std::vector<float>>& rightAxisData,
+                                       const std::string& units,
+                                       double minYData, double maxYData) const {
+    if (rightAxisData.empty()) return;
+    
+    // Используем переданные параметры zoom вместо вычисления из данных
+    float minVal = static_cast<float>(minYData);
+    float maxVal = static_cast<float>(maxYData);
+    
+    // Рисуем правую ось с отступом от края
+    int rightAxisX = plotRect.right + 40;
+    
+    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    MoveToEx(hdc, rightAxisX, plotRect.top, NULL);
+    LineTo(hdc, rightAxisX, plotRect.bottom);
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+    
+    // Рисуем метки правой оси с учетом zoom
+    double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
+    double currentYVal = CalculateNiceMin(minVal, niceStepY);
+    
+    SetTextColor(hdc, RGB(0, 0, 0));
+    SetBkMode(hdc, TRANSPARENT);
+    
+    while (currentYVal <= maxVal + niceStepY / 2) {
+        if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
+            long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
+            
+            if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                std::wstringstream ss;
+                ss << std::fixed << std::setprecision(1) << currentYVal;
+                std::wstring label = ss.str();
+                TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
+            }
+        }
+        currentYVal += niceStepY;
+    }
+    
+    // Подпись единиц измерения правой оси
+    if (!units.empty()) {
+        std::wstring wunits(units.begin(), units.end());
+        TextOut(hdc, rightAxisX + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+    }
+}
+
+void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& plotRect,
+                                                         const std::vector<CurveDefinition>& curves,
+                                                         const std::vector<std::vector<float>>& leftAxisData,
+                                                         const std::vector<std::vector<float>>& rightAxisData,
+                                                         const std::vector<float>& xAxisData,
+                                                         double minXData, double maxXData,
+                                                         double minYData, double maxYData) const {
+    if (xAxisData.empty()) return;
+    
+    // Создаем clipping region, чтобы кривые не выходили за границы графика
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
+    int regionType = GetClipRgn(hdc, hOldClipRegion);
+    SelectClipRgn(hdc, hClipRegion);
+    
+    // Находим диапазон температур
+    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) {
+        SelectClipRgn(hdc, regionType == 1 ? hOldClipRegion : NULL);
+        DeleteObject(hClipRegion);
+        DeleteObject(hOldClipRegion);
+        return;
+    }
+    
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f;
+    }
+    
+    float leftMin = static_cast<float>(minYData);
+    float leftMax = static_cast<float>(maxYData);
+    float rightMin = static_cast<float>(minYData);
+    float rightMax = static_cast<float>(maxYData);
+    
+    // Отрисовка кривых левой оси (сплошные линии)
+    size_t leftIndex = 0;
+    for (size_t i = 0; i < curves.size() && leftIndex < leftAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 0) continue;
+        
+        const auto& channel = leftAxisData[leftIndex];
+        if (channel.empty()) {
+            leftIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
+            // X координата по температуре
+            float temp = xAxisData[j];
+            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            
+            // Y координата с учетом zoom
+            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        leftIndex++;
+    }
+    
+    // Отрисовка кривых правой оси (пунктирные линии)
+    size_t rightIndex = 0;
+    for (size_t i = 0; i < curves.size() && rightIndex < rightAxisData.size(); i++) {
+        const auto& curve = curves[i];
+        if (!curve.enabled || curve.yAxisGroup != 1) continue;
+        
+        const auto& channel = rightAxisData[rightIndex];
+        if (channel.empty()) {
+            rightIndex++;
+            continue;
+        }
+        
+        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        bool firstPoint = true;
+        for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
+            // X координата по температуре
+            float temp = xAxisData[j];
+            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            
+            // Y координата с учетом zoom
+            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            
+            if (firstPoint) {
+                MoveToEx(hdc, x, y, NULL);
+                firstPoint = false;
+            } else {
+                LineTo(hdc, x, y);
+            }
+        }
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        rightIndex++;
+    }
+    
+    // Восстанавливаем предыдущий clipping region
+    if (regionType == 1) {
+        SelectClipRgn(hdc, hOldClipRegion);
+    } else {
+        SelectClipRgn(hdc, NULL);
+    }
+    DeleteObject(hClipRegion);
+    DeleteObject(hOldClipRegion);
 }

@@ -712,6 +712,10 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
 
 // Метод для частичной перерисовки конкретного графика
 void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
+    wchar_t debugMsg[128];
+    swprintf_s(debugMsg, L"=== InvalidateChart called for chart %d ===\n", chartNumber);
+    OutputDebugStringW(debugMsg);
+    
     RECT chartRect;
     
     if (chartNumber == 1) {
@@ -726,6 +730,8 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     InvalidateRect(hWnd, &chartRect, TRUE);
     // Принудительно обновляем окно для немедленной перерисовки
     UpdateWindow(hWnd);
+    
+    OutputDebugStringW(L"=== InvalidateChart completed ===\n");
 }
 
 // Метод для отображения схемы прибора (v2.9.4: немодальное окно)
@@ -744,6 +750,10 @@ void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
 
 // Методы для новой системы кривых
 void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber) {
+    wchar_t debugMsg[128];
+    swprintf_s(debugMsg, L"=== DrawChartWithCurves called for chart %d ===\n", chartNumber);
+    OutputDebugStringW(debugMsg);
+    
     if (!curveSelectionModule || !dataModule) return;
     
     // Получаем конфигурацию кривых
@@ -785,6 +795,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     // v2.10.0: Проверяем тип оси X
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // Режим кроссплота: температура на оси X
+        OutputDebugStringW(L"=== Temperature mode (Crossplot) ===\n");
         
         // Получаем температурные данные
         std::vector<float> temperatureData;
@@ -815,6 +826,11 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         double minYData = zoom->isZoomed ? zoom->minY : minYFull;
         double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
         
+        wchar_t debugMsg[512];
+        swprintf_s(debugMsg, L"=== TEMPERATURE CHART %d ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYFull: %.2f, maxYFull: %.2f\nminYData: %.2f, maxYData: %.2f\n", 
+                  chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYFull, maxYFull, minYData, maxYData);
+        OutputDebugStringW(debugMsg);
+        
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
@@ -822,13 +838,19 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                        minXData, maxXData, minYData, maxYData, true);
     } else {
         // Обычный режим: номер кадра на оси X
+        OutputDebugStringW(L"=== Normal mode (Frame Number) ===\n");
         
         // Получаем диапазоны Y из данных
         double minYData, maxYData, minXData, maxXData, minY2, maxY2;
         chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
         
+        wchar_t debugMsg2[256];
+        swprintf_s(debugMsg2, L"hasDualAxis: %d, rightAxisData.empty(): %d\n", config.hasDualAxis, rightAxisData.empty());
+        OutputDebugStringW(debugMsg2);
+        
         // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
+            OutputDebugStringW(L"=== Using dual axis path ===\n");
             // Используем новый метод для двойных осей с поддержкой zoom
             // Всегда показываем оси (включая ось X)
             bool showAxes = true;
@@ -837,9 +859,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
             
             // Отладочный вывод
-            wchar_t debugMsg[256];
-            swprintf_s(debugMsg, L"=== DRAW CHART %d ===\nminY: %.2f, maxY: %.2f, isZoomed: %d\n", 
-                      chartNumber, displayMinY, displayMaxY, zoom->isZoomed);
+            wchar_t debugMsg[512];
+            swprintf_s(debugMsg, L"=== DRAW CHART %d ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYData: %.2f, maxYData: %.2f\ndisplayMinY: %.2f, displayMaxY: %.2f\n", 
+                      chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
             OutputDebugStringW(debugMsg);
             
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
@@ -852,6 +874,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                          showAxes);
         } else {
             // Используем обычный метод для одной оси
+            OutputDebugStringW(L"=== Using single axis path ===\n");
             if (!leftAxisData.empty()) {
                 // Отрисовываем график с кастомными кривыми
                 // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
@@ -861,9 +884,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
                 
                 // Отладочный вывод
-                wchar_t debugMsg[256];
-                swprintf_s(debugMsg, L"=== DRAW CHART %d (single axis) ===\nminY: %.2f, maxY: %.2f, isZoomed: %d\n", 
-                          chartNumber, displayMinY, displayMaxY, zoom->isZoomed);
+                wchar_t debugMsg[512];
+                swprintf_s(debugMsg, L"=== DRAW CHART %d (single axis) ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYData: %.2f, maxYData: %.2f\ndisplayMinY: %.2f, displayMaxY: %.2f\n", 
+                          chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
                 OutputDebugStringW(debugMsg);
                 
                 chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,

@@ -57,6 +57,15 @@ Minimum range is 10 units.
 - Вертикальный scrollbar управляет обеими осями
 - Сохраняется соотношение между осями
 
+### 6. Поддержка режима кроссплота (Temperature)
+**Новое:** Вертикальный скроллинг теперь работает и в режиме кроссплота
+
+**Особенности:**
+- Ось X: температура (вместо номера кадра)
+- Ось Y: zoom и scroll работают так же, как в обычном режиме
+- Кривые корректно обрезаются по границам графика
+- Clipping region предотвращает наложение на легенду
+
 ### 5. Сброс zoom
 **Обновлено:** Правая кнопка мыши сбрасывает zoom по X и Y одновременно
 
@@ -131,6 +140,52 @@ DeleteObject(hOldClipRegion);
 - ✅ Кривые корректно обрезаются по границам области графика
 - ✅ Нет наложения на легенду и заголовок
 - ✅ Чистый и профессиональный вид графика
+
+### Проблема: Подписи оси Y не обновлялись при скроллинге
+**Симптомы:**
+- При вертикальном скроллинге подписи оси Y показывали старые значения
+- Значения не соответствовали текущему zoom диапазону
+- Подписи оставались из полного диапазона данных
+
+**Причина:**
+Функции `DrawLeftAxis` и `DrawRightAxis` вычисляли диапазон из данных, а не использовали переданные параметры zoom (`minYData`, `maxYData`).
+
+**Решение:**
+Реализованы функции `DrawLeftAxisWithZoom` и `DrawRightAxisWithZoom`, которые используют переданные параметры zoom:
+```cpp
+void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
+                                      const std::vector<std::vector<float>>& leftAxisData,
+                                      const std::string& units,
+                                      double minYData, double maxYData) const {
+    // Используем переданные параметры zoom вместо вычисления из данных
+    float minVal = static_cast<float>(minYData);
+    float maxVal = static_cast<float>(maxYData);
+    
+    // ... отрисовка оси с правильными подписями ...
+}
+```
+
+**Решение (дополнение):**
+Также обновлена функция `DrawDualAxisGrid` для поддержки zoom по Y:
+```cpp
+void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
+                                  const std::vector<std::vector<float>>& leftAxisData,
+                                  const std::vector<std::vector<float>>& rightAxisData,
+                                  double minXData, double maxXData,
+                                  double minYData, double maxYData) const {
+    // Используем переданные параметры zoom для Y вместо вычисления из данных
+    float leftMin = static_cast<float>(minYData);
+    float leftMax = static_cast<float>(maxYData);
+    
+    // ... отрисовка сетки с правильными значениями ...
+}
+```
+
+**Результат:**
+- ✅ Подписи оси Y корректно обновляются при скроллинге
+- ✅ Значения соответствуют текущему zoom диапазону
+- ✅ Сетка графика отрисовывается с правильными значениями Y
+- ✅ Работает как в обычном режиме, так и в режиме кроссплота
 
 ## 🔧 Технические изменения
 

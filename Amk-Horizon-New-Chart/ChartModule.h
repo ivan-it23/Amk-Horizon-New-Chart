@@ -104,10 +104,12 @@ public:
                          const std::vector<std::vector<float>>& rightAxisData) const;
     
     // Перегрузка с поддержкой оси X
+    // v2.12.0: Перегрузка с поддержкой zoom по X и Y
     void DrawDualAxisGrid(HDC hdc, const RECT& plotRect, 
                          const std::vector<std::vector<float>>& leftAxisData,
                          const std::vector<std::vector<float>>& rightAxisData,
-                         double minXData, double maxXData) const;
+                         double minXData, double maxXData,
+                         double minYData, double maxYData) const;
     
     // v2.10.0: Перегрузка с поддержкой температуры на оси X
     void DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
@@ -141,6 +143,32 @@ public:
                                   const std::vector<std::vector<float>>& rightAxisData,
                                   double leftMinY, double leftMaxY,
                                   double rightMinY, double rightMaxY) const;
+    
+    // v2.12.0: Вспомогательные функции для температурного режима с zoom по Y
+    void DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
+                                        const std::vector<std::vector<float>>& leftAxisData,
+                                        const std::vector<std::vector<float>>& rightAxisData,
+                                        const std::vector<float>& xAxisData,
+                                        double minXData, double maxXData,
+                                        double minYData, double maxYData) const;
+    
+    void DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
+                             const std::vector<std::vector<float>>& leftAxisData,
+                             const std::string& units,
+                             double minYData, double maxYData) const;
+    
+    void DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
+                              const std::vector<std::vector<float>>& rightAxisData,
+                              const std::string& units,
+                              double minYData, double maxYData) const;
+    
+    void DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& plotRect,
+                                               const std::vector<CurveDefinition>& curves,
+                                               const std::vector<std::vector<float>>& leftAxisData,
+                                               const std::vector<std::vector<float>>& rightAxisData,
+                                               const std::vector<float>& xAxisData,
+                                               double minXData, double maxXData,
+                                               double minYData, double maxYData) const;
     
     void DrawDualAxisLegend(HDC hdc, const RECT& rect,
                            const std::vector<CurveDefinition>& curves) const;
