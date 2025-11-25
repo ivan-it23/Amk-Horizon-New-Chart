@@ -434,13 +434,13 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     if (config.hasDualAxis) {
         // Для двойных осей используем CalculateDualAxisPlotRect
         plotRect.left = chartRect->left + 60;
-        plotRect.top = chartRect->top + 65;
+        plotRect.top = chartRect->top + 45;
         plotRect.right = chartRect->right - 140;
         plotRect.bottom = chartRect->bottom - 50;
     } else {
         // Для одной оси используем CalculatePlotRect
         plotRect.left = chartRect->left + 80;
-        plotRect.top = chartRect->top + 65;
+        plotRect.top = chartRect->top + 45;
         plotRect.right = chartRect->right - 30;
         plotRect.bottom = chartRect->bottom - 50;
     }

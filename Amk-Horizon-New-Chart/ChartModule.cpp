@@ -492,7 +492,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
 RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
     plotRect.left += 80;   // Увеличенный отступ для Y-оси (для длинных значений мВ и мдег)
-    plotRect.top += 65;    // Увеличенный отступ для заголовка + горизонтальная легенда
+    plotRect.top += 45;    // Отступ для заголовка + горизонтальная легенда (10px заголовок + 25px легенда + 10px отступ)
     plotRect.right -= 30;  // Увеличенный отступ справа
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
@@ -501,7 +501,7 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
 RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
     plotRect.left += 60;   // Отступ для левой Y-оси (для целых чисел мдег)
-    plotRect.top += 65;    // Увеличенный отступ для заголовка + горизонтальная легенда
+    plotRect.top += 45;    // Отступ для заголовка + горизонтальная легенда (10px заголовок + 25px легенда + 10px отступ)
     plotRect.right -= 140; // Увеличенный отступ для правой Y-оси (для мВ с 2 знаками + scrollbar)
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
@@ -1023,7 +1023,7 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
                                   const std::vector<std::vector<float>>& rightAxisData) const {
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 5, plotRect.right, plotRect.bottom + 5);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -1154,31 +1154,31 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                                            const std::vector<std::vector<float>>& rightAxisData,
                                            double leftMinY, double leftMaxY,
                                            double rightMinY, double rightMaxY) const {
-    // Используем переданные диапазоны вместо вычисления из данных
-    // Добавляем padding 3% к диапазону Y для визуального комфорта
+    // Добавляем небольшой padding только снизу (2%) для визуального комфорта
+    // Сверху padding не нужен, чтобы не было лишнего пространства
     float yRangeLeft = static_cast<float>(leftMaxY - leftMinY);
-    float yPaddingLeft = yRangeLeft * 0.03f;
+    float yPaddingLeft = yRangeLeft * 0.02f;
     float leftMin = static_cast<float>(leftMinY) - yPaddingLeft;
-    float leftMax = static_cast<float>(leftMaxY) + yPaddingLeft;
+    float leftMax = static_cast<float>(leftMaxY);
     
     float yRangeRight = static_cast<float>(rightMaxY - rightMinY);
-    float yPaddingRight = yRangeRight * 0.03f;
+    float yPaddingRight = yRangeRight * 0.02f;
     float rightMin = static_cast<float>(rightMinY) - yPaddingRight;
-    float rightMax = static_cast<float>(rightMaxY) + yPaddingRight;
+    float rightMax = static_cast<float>(rightMaxY);
     
     // Отладочный вывод
     wchar_t debugMsg[512];
     swprintf_s(debugMsg, L"=== DrawDualAxisDataWithZoom ===\n"
                          L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
-                         L"leftMinY=%.2f, leftMaxY=%.2f, yPaddingLeft=%.2f\n"
+                         L"leftMinY=%.2f, leftMaxY=%.2f\n"
                          L"leftMin=%.2f, leftMax=%.2f\n",
               plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
-              leftMinY, leftMaxY, yPaddingLeft, leftMin, leftMax);
+              leftMinY, leftMaxY, leftMin, leftMax);
     OutputDebugStringW(debugMsg);
     
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 5, plotRect.right, plotRect.bottom + 5);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -2095,7 +2095,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
     
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 5, plotRect.right, plotRect.bottom + 5);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -2118,25 +2118,23 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         maxTemp = minTemp + 1.0f;
     }
     
-    // Добавляем padding 3% к диапазону Y для визуального комфорта
-    // Это предотвращает обрезание крайних точек графика
+    // Добавляем небольшой padding только снизу (2%) для визуального комфорта
+    // Сверху padding не нужен, чтобы не было лишнего пространства
     float yRange = static_cast<float>(maxYData - minYData);
-    float yPadding = yRange * 0.03f;
-    
+    float yPadding = yRange * 0.02f;
     float leftMin = static_cast<float>(minYData) - yPadding;
-    float leftMax = static_cast<float>(maxYData) + yPadding;
+    float leftMax = static_cast<float>(maxYData);
     float rightMin = static_cast<float>(minYData) - yPadding;
-    float rightMax = static_cast<float>(maxYData) + yPadding;
+    float rightMax = static_cast<float>(maxYData);
     
     // Отладочный вывод
     wchar_t debugMsg[512];
     swprintf_s(debugMsg, L"=== DrawDualAxisDataWithTemperatureAndZoom ===\n"
                          L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
                          L"minYData=%.2f, maxYData=%.2f\n"
-                         L"yPadding=%.2f\n"
                          L"leftMin=%.2f, leftMax=%.2f\n",
               plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
-              minYData, maxYData, yPadding, leftMin, leftMax);
+              minYData, maxYData, leftMin, leftMax);
     OutputDebugStringW(debugMsg);
     
     // Отрисовка кривых левой оси (сплошные линии)
