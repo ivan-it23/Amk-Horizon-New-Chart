@@ -500,9 +500,9 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
 
 RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
-    plotRect.left += 80;   // Увеличенный отступ для левой Y-оси (для длинных значений мВ)
+    plotRect.left += 60;   // Отступ для левой Y-оси (для целых чисел мдег)
     plotRect.top += 65;    // Увеличенный отступ для заголовка + горизонтальная легенда
-    plotRect.right -= 120; // Увеличенный отступ для правой Y-оси (для длинных значений мдег)
+    plotRect.right -= 140; // Увеличенный отступ для правой Y-оси (для мВ с 2 знаками + scrollbar)
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара
     return plotRect;
 }
