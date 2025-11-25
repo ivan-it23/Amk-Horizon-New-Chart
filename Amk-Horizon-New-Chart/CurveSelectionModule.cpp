@@ -616,7 +616,7 @@ CurveDefinition CurveSelectionModule::CreateRatioCurve(int transmitterIndex, Fre
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
                                           DataType::AMPLITUDE_RATIO);
     
-    CurveDefinition curve(id, name, "V/V", ElementType::TRANSMITTER, transmitterIndex, 
+    CurveDefinition curve(id, name, "mV", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::AMPLITUDE_RATIO, frequency);
     curve.yAxisGroup = 1; // ИЗМЕНЕНО v2.7.0: Правая ось для амплитуд (отношений)
     curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
@@ -849,7 +849,7 @@ ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBa
         config.AddCurve(curve);
     }
     
-    config.leftAxisUnits = "V/V";
+    config.leftAxisUnits = "mV";
     config.hasDualAxis = false;
     
     return config;

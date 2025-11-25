@@ -920,11 +920,11 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
                     ss << std::fixed << std::setprecision(0) << currentYVal;
                 } else {
-                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                    ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
                 
@@ -997,11 +997,11 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
                     ss << std::fixed << std::setprecision(0) << currentYVal;
                 } else {
-                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                    ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
                 TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
@@ -1950,11 +1950,11 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                 LineTo(hdc, plotRect.right, screenY);
                 
                 std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (leftUnits == "mdeg") {
                     ss << std::fixed << std::setprecision(0) << currentYVal;
                 } else {
-                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                    ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
                 
@@ -2004,11 +2004,11 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
                     ss << std::fixed << std::setprecision(0) << currentYVal;
                 } else {
-                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                    ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
                 
@@ -2064,11 +2064,11 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
                     ss << std::fixed << std::setprecision(0) << currentYVal;
                 } else {
-                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                    ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
                 TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
