@@ -210,8 +210,6 @@ void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
     
     // Если окно уже существует, показываем и активируем его
     if (hSchematicDialog && IsWindow(hSchematicDialog)) {
-        OutputDebugStringA("=== ShowSchematicDialog: Window exists, showing and activating ===\n");
-        
         // Показываем окно (если оно было скрыто)
         ShowWindow(hSchematicDialog, SW_SHOW);
         
@@ -227,8 +225,6 @@ void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
     }
     
     // Создаем новое немодальное окно
-    OutputDebugStringA("=== ShowSchematicDialog: Creating new window ===\n");
-    OutputDebugStringA("Clearing schematicElements and deviceFrameRect before opening dialog\n");
     schematicElements.clear();
     deviceFrameRect = {0, 0, 0, 0};
     hoveredElement = nullptr;
@@ -243,12 +239,8 @@ void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
         // Показываем окно
         ShowWindow(hSchematicDialog, SW_SHOW);
         UpdateWindow(hSchematicDialog);
-        OutputDebugStringA("Modeless dialog created and shown successfully\n");
     } else {
-        OutputDebugStringA("ERROR: Failed to create modeless dialog\n");
     }
-    
-    OutputDebugStringA("=== END ShowSchematicDialog ===\n");
 }
 
 void SchematicModule::HideSchematicDialog() {
@@ -361,37 +353,19 @@ void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
     }
     
     // ОТЛАДКА: Выводим координаты рамки и элементов
-    char debugMsg[512];
-    sprintf_s(debugMsg, "=== RenderSchematic ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Input rect: left=%d, top=%d, right=%d, bottom=%d\n",
-             rect.left, rect.top, rect.right, rect.bottom);
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "deviceFrameRect: left=%d, top=%d, right=%d, bottom=%d\n",
-             deviceFrameRect.left, deviceFrameRect.top, deviceFrameRect.right, deviceFrameRect.bottom);
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "schematicElements.size() = %zu\n", schematicElements.size());
-    OutputDebugStringA(debugMsg);
     
     // Выводим координаты первых 3 элементов для отладки
     if (schematicElements.size() >= 3) {
         for (size_t i = 0; i < 3; i++) {
-            sprintf_s(debugMsg, "Element[%zu]: left=%d, top=%d, right=%d, bottom=%d\n",
-                     i, schematicElements[i].rect.left, schematicElements[i].rect.top,
-                     schematicElements[i].rect.right, schematicElements[i].rect.bottom);
-            OutputDebugStringA(debugMsg);
         }
     }
     
     // Отрисовываем рамку для основных элементов (T1-T4, R1-R2)
     if (deviceFrameRect.right > deviceFrameRect.left && 
         deviceFrameRect.bottom > deviceFrameRect.top) {
-        OutputDebugStringA("Drawing device frame...\n");
         DrawDeviceFrame(memDC, deviceFrameRect);
     } else {
-        OutputDebugStringA("Device frame NOT drawn - invalid coordinates\n");
     }
-    OutputDebugStringA("=== END RenderSchematic ===\n");
     
     // Отрисовываем все элементы схемы
     for (const auto& element : schematicElements) {
@@ -526,13 +500,6 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     }
     
     // ОТЛАДКА: Выводим информацию о клике
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== HandleElementClick ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Click: Type=%d, Index=%d, CurrentlySelected=%s\n", 
-             static_cast<int>(element->type), element->index,
-             element->selected ? "true" : "false");
-    OutputDebugStringA(debugMsg);
     
     // Проверяем логику выбора элементов
     bool newState = !element->selected;
@@ -540,8 +507,6 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     // ИСПРАВЛЕНО: Применяем правила взаимоисключения ТОЛЬКО если выбираем новый элемент
     // И ТОЛЬКО если есть реальная несовместимость
     if (newState && !IsSelectionCompatible(element->type, element->index)) {
-        sprintf_s(debugMsg, "Selection not compatible, clearing incompatible selections\n");
-        OutputDebugStringA(debugMsg);
         
         // Очищаем несовместимые выборы
         ClearIncompatibleSelections(element->type);
@@ -558,18 +523,10 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     SynchronizeElementStates();
     
     // ОТЛАДКА: Выводим итоговое состояние
-    OutputDebugStringA("Final selection state after click:\n");
     for (int i = 0; i < 4; i++) {
-        sprintf_s(debugMsg, "  T%d: %s\n", i + 1, currentSelection.transmitters[i] ? "selected" : "not selected");
-        OutputDebugStringA(debugMsg);
     }
     for (int i = 0; i < 2; i++) {
-        sprintf_s(debugMsg, "  R%d: %s\n", i + 1, currentSelection.receivers[i] ? "selected" : "not selected");
-        OutputDebugStringA(debugMsg);
-        sprintf_s(debugMsg, "  Silent R%d: %s\n", i + 1, currentSelection.silentTx[i] ? "selected" : "not selected");
-        OutputDebugStringA(debugMsg);
     }
-    OutputDebugStringA("=== END HandleElementClick ===\n");
     
     return true;
 }
@@ -826,23 +783,13 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
 
 void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     // ОТЛАДКА
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== CalculateSchematicLayout ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "schemaRect: left=%d, top=%d, right=%d, bottom=%d\n",
-             schemaRect.left, schemaRect.top, schemaRect.right, schemaRect.bottom);
-    OutputDebugStringA(debugMsg);
     
     InitializeSchematicElements(schemaRect);
-    
-    sprintf_s(debugMsg, "After InitializeSchematicElements: size=%zu\n", schematicElements.size());
-    OutputDebugStringA(debugMsg);
     
     // Рассчитываем координаты рамки для основных элементов (T1-T4, R1-R2)
     // Рамка должна охватывать элементы с позициями 0-5 (T3, T1, R1, R2, T2, T4)
     
     if (schematicElements.size() >= 6) {
-        OutputDebugStringA("Calculating frame rect for first 6 elements...\n");
         
         // Находим минимальные и максимальные координаты для первых 6 элементов
         int minX = INT_MAX, minY = INT_MAX;
@@ -850,9 +797,6 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
         
         for (size_t i = 0; i < 6; i++) {
             const RECT& rect = schematicElements[i].rect;
-            sprintf_s(debugMsg, "Element %zu: left=%d, top=%d, right=%d, bottom=%d\n",
-                     i, rect.left, rect.top, rect.right, rect.bottom);
-            OutputDebugStringA(debugMsg);
             
             minX = (minX < (int)rect.left) ? minX : (int)rect.left;
             minY = (minY < (int)rect.top) ? minY : (int)rect.top;
@@ -865,27 +809,19 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
         deviceFrameRect.top = minY - FRAME_PADDING;
         deviceFrameRect.right = maxX + FRAME_PADDING;
         deviceFrameRect.bottom = maxY + FRAME_PADDING;
-        
-        sprintf_s(debugMsg, "Calculated deviceFrameRect: left=%d, top=%d, right=%d, bottom=%d\n",
-                 deviceFrameRect.left, deviceFrameRect.top, deviceFrameRect.right, deviceFrameRect.bottom);
-        OutputDebugStringA(debugMsg);
     } else {
-        OutputDebugStringA("WARNING: Not enough elements for frame (need 6, have less)\n");
         // Если элементов меньше 6, рамка не отрисовывается
         deviceFrameRect = {0, 0, 0, 0};
     }
     
     // ИСПРАВЛЕНИЕ: Синхронизируем состояние элементов с currentSelection
     // После создания элементов нужно восстановить их состояние selected
-    OutputDebugStringA("Synchronizing element states with currentSelection...\n");
     for (auto& element : schematicElements) {
         switch (element.type) {
             case ElementType::TRANSMITTER:
                 if (element.index < currentSelection.transmitters.size()) {
                     element.selected = currentSelection.transmitters[element.index];
                     if (element.selected) {
-                        sprintf_s(debugMsg, "  Element T%d marked as SELECTED\n", element.index + 1);
-                        OutputDebugStringA(debugMsg);
                     }
                 }
                 break;
@@ -893,8 +829,6 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
                 if (element.index < currentSelection.receivers.size()) {
                     element.selected = currentSelection.receivers[element.index];
                     if (element.selected) {
-                        sprintf_s(debugMsg, "  Element R%d marked as SELECTED\n", element.index + 1);
-                        OutputDebugStringA(debugMsg);
                     }
                 }
                 break;
@@ -902,15 +836,11 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
                 if (element.index < currentSelection.silentTx.size()) {
                     element.selected = currentSelection.silentTx[element.index];
                     if (element.selected) {
-                        sprintf_s(debugMsg, "  Element Silent R%d marked as SELECTED\n", element.index + 1);
-                        OutputDebugStringA(debugMsg);
                     }
                 }
                 break;
         }
     }
-    
-    OutputDebugStringA("=== END CalculateSchematicLayout ===\n");
 }
 
 // Методы для работы с диалоговым окном
@@ -943,10 +873,6 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 // Режим ручного выбора - восстанавливаем элементы схемы из кривых
                 
                 // ОТЛАДКА: Выводим информацию о восстанавливаемых кривых
-                OutputDebugStringA("=== RESTORING CONFIGURATION ===\n");
-                char debugMsg[256];
-                sprintf_s(debugMsg, "Total curves to restore: %zu\n", existingConfig.curves.size());
-                OutputDebugStringA(debugMsg);
                 
                 // ИСПРАВЛЕНИЕ: Сначала анализируем типы данных кривых для определения выбора
                 // Ключевое отличие между выбором приёмников и передатчиков:
@@ -983,26 +909,19 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                     }
                 }
                 
-                sprintf_s(debugMsg, "Analysis: hasRX1Types=%d, hasRX2Types=%d, hasRatioOrDiff=%d, hasTransmitterSource=%d, hasSilentSource=%d, uniqueTransmitters=%zu\n",
-                         hasRX1Types, hasRX2Types, hasRatioOrDiff, hasTransmitterSource, hasSilentSource, uniqueTransmitters.size());
-                OutputDebugStringA(debugMsg);
-                
                 // Определяем, что было выбрано на схеме
                 if (hasRatioOrDiff) {
                     // Выбраны оба приемника R1+R2
                     currentSelection.receivers[0] = true;
                     currentSelection.receivers[1] = true;
-                    OutputDebugStringA("  -> Restored receivers R1+R2 (ratio/diff detected)\n");
                 }
                 else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
                     // Выбран только приемник R1 (кривые для ВСЕХ 4 передатчиков с R1)
                     currentSelection.receivers[0] = true;
-                    OutputDebugStringA("  -> Restored receiver R1 (RX1 types for all 4 transmitters detected)\n");
                 }
                 else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
                     // Выбран только приемник R2 (кривые для ВСЕХ 4 передатчиков с R2)
                     currentSelection.receivers[1] = true;
-                    OutputDebugStringA("  -> Restored receiver R2 (RX2 types for all 4 transmitters detected)\n");
                 }
                 else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < 4) {
                     // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 4 передатчиков)
@@ -1011,8 +930,6 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                         if (curve.sourceElement == ElementType::TRANSMITTER) {
                             if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
                                 currentSelection.transmitters[curve.elementIndex] = true;
-                                sprintf_s(debugMsg, "  -> Restored transmitter T%d\n", curve.elementIndex + 1);
-                                OutputDebugStringA(debugMsg);
                             }
                         }
                     }
@@ -1026,8 +943,6 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                         // Восстанавливаем все передатчики
                         for (int i = 0; i < 4; i++) {
                             currentSelection.transmitters[i] = true;
-                            sprintf_s(debugMsg, "  -> Restored transmitter T%d (all transmitters case)\n", i + 1);
-                            OutputDebugStringA(debugMsg);
                         }
                     } else {
                         // Восстанавливаем только те передатчики, которые есть в кривых
@@ -1035,8 +950,6 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                             if (curve.sourceElement == ElementType::TRANSMITTER) {
                                 if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
                                     currentSelection.transmitters[curve.elementIndex] = true;
-                                    sprintf_s(debugMsg, "  -> Restored transmitter T%d\n", curve.elementIndex + 1);
-                                    OutputDebugStringA(debugMsg);
                                 }
                             }
                         }
@@ -1049,26 +962,16 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                         if (curve.sourceElement == ElementType::SILENT_TX) {
                             if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
                                 currentSelection.silentTx[curve.elementIndex] = true;
-                                sprintf_s(debugMsg, "  -> Restored silent R%d\n", curve.elementIndex + 1);
-                                OutputDebugStringA(debugMsg);
                             }
                         }
                     }
                 }
                 
                 // ОТЛАДКА: Итоговое состояние выбора
-                OutputDebugStringA("Final selection state:\n");
                 for (int i = 0; i < 4; i++) {
-                    sprintf_s(debugMsg, "  T%d: %s\n", i + 1, currentSelection.transmitters[i] ? "selected" : "not selected");
-                    OutputDebugStringA(debugMsg);
                 }
                 for (int i = 0; i < 2; i++) {
-                    sprintf_s(debugMsg, "  R%d: %s\n", i + 1, currentSelection.receivers[i] ? "selected" : "not selected");
-                    OutputDebugStringA(debugMsg);
-                    sprintf_s(debugMsg, "  Silent R%d: %s\n", i + 1, currentSelection.silentTx[i] ? "selected" : "not selected");
-                    OutputDebugStringA(debugMsg);
                 }
-                OutputDebugStringA("=== END RESTORE ===\n");
             }
             else {
                 // Для пресетов (dataFilter != ALL) элементы схемы НЕ подсвечиваются,
@@ -1463,7 +1366,6 @@ void SchematicModule::HandleXAxisTypeChange(HWND hDlg) {
     // v2.10.0: Обработка изменения типа оси X
     // Тип оси X сохраняется и применяется при нажатии Apply
     // Здесь ничего не делаем, просто фиксируем изменение
-    OutputDebugStringA("X-Axis type changed\n");
 }
 
 void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
@@ -1572,21 +1474,7 @@ void SchematicModule::HandleCurveCheckboxChange(HWND hDlg, int itemIndex) {
     BOOL isChecked = ListView_GetCheckState(hCurveList, itemIndex);
     
 
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== HandleCurveCheckboxChange ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "ListView item index: %d, Real curve index: %d, New state: %s\n", 
-             itemIndex, curveIndex, isChecked ? "CHECKED" : "UNCHECKED");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Curve: %s\n", currentAvailableCurves[curveIndex].displayName.c_str());
-    OutputDebugStringA(debugMsg);
-    
-
     currentAvailableCurves[curveIndex].enabled = (isChecked == TRUE);
-    
-    sprintf_s(debugMsg, "Updated curve enabled state to: %s\n", currentAvailableCurves[curveIndex].enabled ? "true" : "false");
-    OutputDebugStringA(debugMsg);
-    OutputDebugStringA("=== END HandleCurveCheckboxChange ===\n");
     
 
     
@@ -1626,24 +1514,12 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     if (!curveSelectionModule) return false;
     
     // ОТЛАДКА: Выводим информацию о применяемой конфигурации
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== ApplyCurrentCurveConfiguration ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Total curves in configuration: %zu\n", currentAvailableCurves.size());
-    OutputDebugStringA(debugMsg);
     
     int enabledCount = 0;
     for (size_t i = 0; i < currentAvailableCurves.size(); i++) {
         const auto& curve = currentAvailableCurves[i];
-        sprintf_s(debugMsg, "Curve %zu: %s, Enabled: %s, DataType: %d, yAxisGroup: %d\n", 
-                 i, curve.displayName.c_str(), curve.enabled ? "YES" : "NO", 
-                 static_cast<int>(curve.dataType), curve.yAxisGroup);
-        OutputDebugStringA(debugMsg);
         if (curve.enabled) enabledCount++;
     }
-    
-    sprintf_s(debugMsg, "Total enabled curves: %d\n", enabledCount);
-    OutputDebugStringA(debugMsg);
     
     // Создаем конфигурацию из текущих кривых
     ChartConfiguration config;
@@ -1656,31 +1532,20 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     if (hXAxisCombo) {
         int selection = (int)SendMessage(hXAxisCombo, CB_GETCURSEL, 0, 0);
         config.xAxisType = (selection == 0) ? XAxisType::FRAME_NUMBER : XAxisType::TEMPERATURE;
-        sprintf_s(debugMsg, "X-Axis type: %s\n", (config.xAxisType == XAxisType::FRAME_NUMBER) ? "Frame Number" : "Temperature");
-        OutputDebugStringA(debugMsg);
     }
     
     // Валидируем конфигурацию
     if (!curveSelectionModule->ValidateConfiguration(config)) {
-        OutputDebugStringA("Configuration validation FAILED\n");
-        OutputDebugStringA("=== END ApplyCurrentCurveConfiguration ===\n");
         return false;
     }
-    
-    OutputDebugStringA("Configuration validation PASSED\n");
     
     // Применяем конфигурацию к соответствующему графику
     curveSelectionModule->ApplyCurveConfiguration(targetChartNumber, config);
     
-    OutputDebugStringA("Configuration applied successfully\n");
-    
     // Вызываем callback для обновления графика (v2.9.4)
     if (onConfigurationApplied) {
-        OutputDebugStringA("Calling onConfigurationApplied callback\n");
         onConfigurationApplied(targetChartNumber);
     }
-    
-    OutputDebugStringA("=== END ApplyCurrentCurveConfiguration ===\n");
     
     return true;
 }
@@ -1691,11 +1556,6 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     }
     
     // ОТЛАДКА: Выводим информацию о кривых
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== DetermineDataFilterFromCurves ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Total curves: %zu\n", curves.size());
-    OutputDebugStringA(debugMsg);
     
     // Подсчитываем типы данных в кривых
     bool hasAmplitudes = false;
@@ -1705,9 +1565,6 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     bool hasSilentAmplitudes = false;
     
     for (const auto& curve : curves) {
-        sprintf_s(debugMsg, "Curve: %s, DataType: %d, SourceElement: %d\n", 
-                 curve.id.c_str(), static_cast<int>(curve.dataType), static_cast<int>(curve.sourceElement));
-        OutputDebugStringA(debugMsg);
         
         switch (curve.dataType) {
             case DataType::AMPLITUDE_RX1:
@@ -1732,14 +1589,6 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
                 break;
         }
     }
-    
-    sprintf_s(debugMsg, "Data types found: Ampl=%s, Silent=%s, Phase=%s, Ratio=%s, Diff=%s\n",
-             hasAmplitudes ? "yes" : "no",
-             hasSilentAmplitudes ? "yes" : "no", 
-             hasPhases ? "yes" : "no",
-             hasRatios ? "yes" : "no",
-             hasDifferences ? "yes" : "no");
-    OutputDebugStringA(debugMsg);
     
     // Определяем фильтр на основе найденных типов
     // ИСПРАВЛЕНО: Учитываем молчащие передатчики
@@ -1766,10 +1615,6 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     else {
         result = DataTypeFilter::ALL;
     }
-    
-    sprintf_s(debugMsg, "Determined filter: %d\n", static_cast<int>(result));
-    OutputDebugStringA(debugMsg);
-    OutputDebugStringA("=== END DetermineDataFilterFromCurves ===\n");
     
     return result;
 }
@@ -1887,14 +1732,9 @@ bool SchematicModule::IsSelectionCompatible(ElementType type, int index) const {
 void SchematicModule::ClearIncompatibleSelections(ElementType newType) {
     // ИСПРАВЛЕНО: Минимальная очистка - только реально несовместимые элементы
     
-    char debugMsg[256];
-    sprintf_s(debugMsg, "ClearIncompatibleSelections for type: %d\n", static_cast<int>(newType));
-    OutputDebugStringA(debugMsg);
-    
     if (newType == ElementType::TRANSMITTER) {
         // Передатчики несовместимы только с приемниками
         if (currentSelection.GetSelectedReceiversCount() > 0) {
-            OutputDebugStringA("  Clearing receivers (incompatible with transmitters)\n");
             std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
         }
         // Молчащие передатчики СОВМЕСТИМЫ с активными передатчиками - НЕ очищаем
@@ -1902,21 +1742,18 @@ void SchematicModule::ClearIncompatibleSelections(ElementType newType) {
     else if (newType == ElementType::RECEIVER) {
         // Приемники несовместимы только с передатчиками
         if (currentSelection.GetSelectedTransmittersCount() > 0) {
-            OutputDebugStringA("  Clearing transmitters (incompatible with receivers)\n");
             std::fill(currentSelection.transmitters.begin(), currentSelection.transmitters.end(), false);
         }
         
         // Если выбираем второй приемник, очищаем молчащие (R1+R2+Silent запрещено)
         int selectedReceivers = currentSelection.GetSelectedReceiversCount();
         if (selectedReceivers >= 1 && currentSelection.GetSelectedSilentCount() > 0) {
-            OutputDebugStringA("  Clearing silent transmitters (R1+R2+Silent not allowed)\n");
             std::fill(currentSelection.silentTx.begin(), currentSelection.silentTx.end(), false);
         }
     }
     else if (newType == ElementType::SILENT_TX) {
         // Молчащие передатчики несовместимы только с R1+R2 одновременно
         if (currentSelection.GetSelectedReceiversCount() == 2) {
-            OutputDebugStringA("  Clearing receivers (R1+R2+Silent not allowed)\n");
             std::fill(currentSelection.receivers.begin(), currentSelection.receivers.end(), false);
         }
         // С передатчиками и одним приемником молчащие СОВМЕСТИМЫ - НЕ очищаем
@@ -2115,7 +1952,6 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                             // Применяем конфигурацию кривых
                             if (pSchematic->ApplyCurrentCurveConfiguration()) {
                                 // v2.9.4: НЕ закрываем окно после Apply - оставляем открытым
-                                OutputDebugStringA("Configuration applied successfully - window remains open\n");
                                 // Можно показать сообщение об успехе (опционально)
                                 // MessageBox(hDlg, L"Settings applied successfully", L"Success", MB_OK | MB_ICONINFORMATION);
                             } else {

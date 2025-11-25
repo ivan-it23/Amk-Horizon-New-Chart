@@ -101,54 +101,27 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
     }
     // РЕЖИМ РУЧНОГО ВЫБОРА: Если dataFilter == ALL, используем выбранные элементы схемы
     else {
-        // ОТЛАДКА: Выводим информацию о выборе элементов
-        char debugMsg[256];
-        sprintf_s(debugMsg, "=== GetAvailableCurves DEBUG ===\n");
-        OutputDebugStringA(debugMsg);
-        sprintf_s(debugMsg, "Selected receivers: %d, transmitters: %d, silent: %d\n", 
-                 selectedReceivers, selectedTransmitters, selectedSilent);
-        OutputDebugStringA(debugMsg);
-        
-        for (int i = 0; i < 4; i++) {
-            sprintf_s(debugMsg, "  T%d: %s\n", i + 1, selection.transmitters[i] ? "selected" : "not selected");
-            OutputDebugStringA(debugMsg);
-        }
-        for (int i = 0; i < 2; i++) {
-            sprintf_s(debugMsg, "  R%d: %s\n", i + 1, selection.receivers[i] ? "selected" : "not selected");
-            OutputDebugStringA(debugMsg);
-            sprintf_s(debugMsg, "  Silent R%d: %s\n", i + 1, selection.silentTx[i] ? "selected" : "not selected");
-            OutputDebugStringA(debugMsg);
-        }
-        
         // ИСПРАВЛЕНО: Поддержка комбинаций элементов
         // Логика определения доступных кривых на основе выбора элементов
         if (selectedReceivers == 2) {
             // Два приемника -> отношения амплитуд и разности фаз (4 кривые T1-T4)
-            OutputDebugStringA("Adding two receivers curves\n");
             AddTwoReceiversCurves(curves, selection);
         }
         else if (selectedReceivers == 1) {
             // Один приемник -> амплитуды и фазы для T1-T4 (8 кривых)
-            OutputDebugStringA("Adding single receiver curves\n");
             AddSingleReceiverCurves(curves, selection);
         }
         
         // ИСПРАВЛЕНО: Используем отдельные if вместо else if для поддержки комбинаций
         if (selectedTransmitters > 0) {
             // Выбранные передатчики -> амплитуды и фазы для R1 и R2
-            OutputDebugStringA("Adding transmitter curves\n");
             AddTransmitterCurves(curves, selection);
         }
         
         if (selectedSilent > 0) {
             // Молчащие передатчики -> только амплитуды для соответствующих приемников
-            OutputDebugStringA("Adding silent transmitter curves\n");
             AddSilentTransmitterCurves(curves, selection);
         }
-        
-        sprintf_s(debugMsg, "Total curves generated: %zu\n", curves.size());
-        OutputDebugStringA(debugMsg);
-        OutputDebugStringA("=== END GetAvailableCurves ===\n");
     }
     
     // ИЗМЕНЕНО v2.6.2: Отключена сортировка, чтобы сохранить порядок добавления кривых

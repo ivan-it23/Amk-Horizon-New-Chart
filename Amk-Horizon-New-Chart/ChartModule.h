@@ -150,7 +150,8 @@ public:
                                         const std::vector<std::vector<float>>& rightAxisData,
                                         const std::vector<float>& xAxisData,
                                         double minXData, double maxXData,
-                                        double minYData, double maxYData) const;
+                                        double minYData, double maxYData,
+                                        const std::string& leftUnits) const;
     
     void DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
                              const std::vector<std::vector<float>>& leftAxisData,

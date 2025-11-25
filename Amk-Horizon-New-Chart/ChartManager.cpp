@@ -591,11 +591,6 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             return;
         }
         
-        OutputDebugStringW(L"=== VERTICAL SCROLL EVENT ===\n");
-        wchar_t debugMsg[256];
-        swprintf_s(debugMsg, L"Chart: %d, newPos: %d\n", chartNumber, newPos);
-        OutputDebugStringW(debugMsg);
-        
         // Получаем полный диапазон Y из данных (без Y zoom, но с X zoom если есть)
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
         std::vector<std::vector<float>> leftAxisDataFull, rightAxisDataFull;
@@ -608,14 +603,14 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         double minYFull, maxYFull, minX, maxX, minY2, maxY2;
         chartModule->GetDataRanges(leftAxisDataFull, rightAxisDataFull, minX, maxX, minYFull, maxYFull, minY2, maxY2);
         
-        swprintf_s(debugMsg, L"minYFull: %.2f, maxYFull: %.2f\n", minYFull, maxYFull);
-        OutputDebugStringW(debugMsg);
+        // Добавляем padding 5% к диапазону данных для визуального комфорта
+        double dataYRange = maxYFull - minYFull;
+        double padding = dataYRange * 0.05;
+        minYFull -= padding;
+        maxYFull += padding;
         
         double totalYRange = maxYFull - minYFull;
         double viewYRange = zoom->maxY - zoom->minY;
-        
-        swprintf_s(debugMsg, L"BEFORE: minY: %.2f, maxY: %.2f, viewYRange: %.2f\n", zoom->minY, zoom->maxY, viewYRange);
-        OutputDebugStringW(debugMsg);
         
         // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
         // newPos = 0 означает верх (максимальный Y)
@@ -625,9 +620,16 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         zoom->minY = newMinY;
         zoom->maxY = newMinY + viewYRange;
         
-        swprintf_s(debugMsg, L"AFTER: minY: %.2f, maxY: %.2f\n", zoom->minY, zoom->maxY);
+        // Отладочный вывод
+        wchar_t debugMsg[512];
+        swprintf_s(debugMsg, L"=== VERTICAL SCROLL ===\n"
+                             L"newPos=%d, scrollRatio=%.3f\n"
+                             L"minYFull=%.2f, maxYFull=%.2f (with padding)\n"
+                             L"totalYRange=%.2f, viewYRange=%.2f\n"
+                             L"zoom->minY=%.2f, zoom->maxY=%.2f\n",
+                  newPos, scrollRatio, minYFull, maxYFull, totalYRange, viewYRange,
+                  zoom->minY, zoom->maxY);
         OutputDebugStringW(debugMsg);
-        OutputDebugStringW(L"=== END VERTICAL SCROLL ===\n");
     } else {
         // Горизонтальный скроллинг (ось X)
         double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
@@ -712,10 +714,6 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
 
 // Метод для частичной перерисовки конкретного графика
 void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
-    wchar_t debugMsg[128];
-    swprintf_s(debugMsg, L"=== InvalidateChart called for chart %d ===\n", chartNumber);
-    OutputDebugStringW(debugMsg);
-    
     RECT chartRect;
     
     if (chartNumber == 1) {
@@ -730,8 +728,6 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     InvalidateRect(hWnd, &chartRect, TRUE);
     // Принудительно обновляем окно для немедленной перерисовки
     UpdateWindow(hWnd);
-    
-    OutputDebugStringW(L"=== InvalidateChart completed ===\n");
 }
 
 // Метод для отображения схемы прибора (v2.9.4: немодальное окно)
@@ -750,10 +746,6 @@ void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
 
 // Методы для новой системы кривых
 void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber) {
-    wchar_t debugMsg[128];
-    swprintf_s(debugMsg, L"=== DrawChartWithCurves called for chart %d ===\n", chartNumber);
-    OutputDebugStringW(debugMsg);
-    
     if (!curveSelectionModule || !dataModule) return;
     
     // Получаем конфигурацию кривых
@@ -795,7 +787,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     // v2.10.0: Проверяем тип оси X
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // Режим кроссплота: температура на оси X
-        OutputDebugStringW(L"=== Temperature mode (Crossplot) ===\n");
         
         // Получаем температурные данные
         std::vector<float> temperatureData;
@@ -826,11 +817,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         double minYData = zoom->isZoomed ? zoom->minY : minYFull;
         double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
         
-        wchar_t debugMsg[512];
-        swprintf_s(debugMsg, L"=== TEMPERATURE CHART %d ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYFull: %.2f, maxYFull: %.2f\nminYData: %.2f, maxYData: %.2f\n", 
-                  chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYFull, maxYFull, minYData, maxYData);
-        OutputDebugStringW(debugMsg);
-        
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
@@ -838,31 +824,19 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                        minXData, maxXData, minYData, maxYData, true);
     } else {
         // Обычный режим: номер кадра на оси X
-        OutputDebugStringW(L"=== Normal mode (Frame Number) ===\n");
         
         // Получаем диапазоны Y из данных
         double minYData, maxYData, minXData, maxXData, minY2, maxY2;
         chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
         
-        wchar_t debugMsg2[256];
-        swprintf_s(debugMsg2, L"hasDualAxis: %d, rightAxisData.empty(): %d\n", config.hasDualAxis, rightAxisData.empty());
-        OutputDebugStringW(debugMsg2);
-        
         // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
-            OutputDebugStringW(L"=== Using dual axis path ===\n");
             // Используем новый метод для двойных осей с поддержкой zoom
             // Всегда показываем оси (включая ось X)
             bool showAxes = true;
             
             double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
             double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
-            
-            // Отладочный вывод
-            wchar_t debugMsg[512];
-            swprintf_s(debugMsg, L"=== DRAW CHART %d ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYData: %.2f, maxYData: %.2f\ndisplayMinY: %.2f, displayMaxY: %.2f\n", 
-                      chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
-            OutputDebugStringW(debugMsg);
             
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                          leftAxisData, rightAxisData,
@@ -874,7 +848,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                          showAxes);
         } else {
             // Используем обычный метод для одной оси
-            OutputDebugStringW(L"=== Using single axis path ===\n");
             if (!leftAxisData.empty()) {
                 // Отрисовываем график с кастомными кривыми
                 // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
@@ -882,12 +855,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 
                 double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
                 double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
-                
-                // Отладочный вывод
-                wchar_t debugMsg[512];
-                swprintf_s(debugMsg, L"=== DRAW CHART %d (single axis) ===\nisZoomed: %d\nzoom->minY: %.2f, zoom->maxY: %.2f\nminYData: %.2f, maxYData: %.2f\ndisplayMinY: %.2f, displayMaxY: %.2f\n", 
-                          chartNumber, zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
-                OutputDebugStringW(debugMsg);
                 
                 chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
                                              leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось

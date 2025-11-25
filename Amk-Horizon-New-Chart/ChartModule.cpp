@@ -617,8 +617,6 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<std::vector<float>>& leftAxisData,
                                    const std::vector<std::vector<float>>& rightAxisData,
                                    const std::wstring& title, bool hasData) const {
-    OutputDebugStringW(L"=== DrawDualAxisChart WITHOUT ZOOM PARAMS ===\n");
-    
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -678,11 +676,6 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    double minYData, double maxYData, bool showAxes) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
-
-    // Отладочный вывод
-    wchar_t debugMsg[256];
-    swprintf_s(debugMsg, L"=== DrawDualAxisChart ===\nminYData: %.2f, maxYData: %.2f\n", minYData, maxYData);
-    OutputDebugStringW(debugMsg);
 
     // Отрисовка фона и рамки
     DrawDualAxisBackground(hdc, rect);
@@ -927,7 +920,12 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                ss << std::fixed << std::setprecision(1) << currentYVal;
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                if (units == "mdeg") {
+                    ss << std::fixed << std::setprecision(0) << currentYVal;
+                } else {
+                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                }
                 std::wstring label = ss.str();
                 
                 // Вычисляем ширину текста для правильного выравнивания
@@ -999,7 +997,12 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                ss << std::fixed << std::setprecision(1) << currentYVal;
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                if (units == "mdeg") {
+                    ss << std::fixed << std::setprecision(0) << currentYVal;
+                } else {
+                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                }
                 std::wstring label = ss.str();
                 TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
             }
@@ -1018,8 +1021,9 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
                                   const std::vector<CurveDefinition>& curves,
                                   const std::vector<std::vector<float>>& leftAxisData,
                                   const std::vector<std::vector<float>>& rightAxisData) const {
-    // Создаем clipping region, чтобы кривые не выходили за границы графика
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
+    // Расширяем на 5 пикселей сверху и снизу
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -1083,7 +1087,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         bool firstPoint = true;
         for (size_t j = 0; j < channel.size(); j++) {
             int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1116,7 +1121,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         bool firstPoint = true;
         for (size_t j = 0; j < channel.size(); j++) {
             int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1149,13 +1155,30 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                                            double leftMinY, double leftMaxY,
                                            double rightMinY, double rightMaxY) const {
     // Используем переданные диапазоны вместо вычисления из данных
-    float leftMin = static_cast<float>(leftMinY);
-    float leftMax = static_cast<float>(leftMaxY);
-    float rightMin = static_cast<float>(rightMinY);
-    float rightMax = static_cast<float>(rightMaxY);
+    // Добавляем padding 3% к диапазону Y для визуального комфорта
+    float yRangeLeft = static_cast<float>(leftMaxY - leftMinY);
+    float yPaddingLeft = yRangeLeft * 0.03f;
+    float leftMin = static_cast<float>(leftMinY) - yPaddingLeft;
+    float leftMax = static_cast<float>(leftMaxY) + yPaddingLeft;
     
-    // Создаем clipping region, чтобы кривые не выходили за границы графика
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    float yRangeRight = static_cast<float>(rightMaxY - rightMinY);
+    float yPaddingRight = yRangeRight * 0.03f;
+    float rightMin = static_cast<float>(rightMinY) - yPaddingRight;
+    float rightMax = static_cast<float>(rightMaxY) + yPaddingRight;
+    
+    // Отладочный вывод
+    wchar_t debugMsg[512];
+    swprintf_s(debugMsg, L"=== DrawDualAxisDataWithZoom ===\n"
+                         L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
+                         L"leftMinY=%.2f, leftMaxY=%.2f, yPaddingLeft=%.2f\n"
+                         L"leftMin=%.2f, leftMax=%.2f\n",
+              plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
+              leftMinY, leftMaxY, yPaddingLeft, leftMin, leftMax);
+    OutputDebugStringW(debugMsg);
+    
+    // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
+    // Расширяем на 5 пикселей сверху и снизу
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -1175,10 +1198,24 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
+        // Отладка для кривой
+        float minChannelVal = *std::min_element(channel.begin(), channel.end());
+        float maxChannelVal = *std::max_element(channel.begin(), channel.end());
+        swprintf_s(debugMsg, L"Left Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
+        OutputDebugStringW(debugMsg);
+        
         bool firstPoint = true;
+        int minY = INT_MAX, maxY = INT_MIN;
         for (size_t j = 0; j < channel.size(); j++) {
             int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            // Ограничиваем значение данных к диапазону leftMin/leftMax для корректного отображения
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            // Отслеживаем min/max Y координаты
+            minY = (std::min)(minY, y);
+            maxY = (std::max)(maxY, y);
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1187,6 +1224,11 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                 LineTo(hdc, x, y);
             }
         }
+        
+        // Отладка: выводим диапазон Y координат
+        swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
+                  minY, maxY, plotRect.top, plotRect.bottom);
+        OutputDebugStringW(debugMsg);
         
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
@@ -1211,7 +1253,8 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         bool firstPoint = true;
         for (size_t j = 0; j < channel.size(); j++) {
             int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1672,13 +1715,7 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
         return;
     
-    // Отрисовка сетки и осей с температурой и zoom по Y
-    if (hasData && !xAxisData.empty() && showAxes) {
-        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
-                                       xAxisData, minXData, maxXData, minYData, maxYData);
-    }
-    
-    // Отрисовка левой и правой осей с подписями единиц измерения
+    // Получаем единицы измерения для осей
     std::string leftUnits, rightUnits;
     for (const auto& curve : curves) {
         if (!curve.enabled) continue;
@@ -1688,6 +1725,12 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
         } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
             rightUnits = curve.units;
         }
+    }
+    
+    // Отрисовка сетки и осей с температурой и zoom по Y
+    if (hasData && !xAxisData.empty() && showAxes) {
+        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
+                                       xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
     }
     
     if (!leftAxisData.empty()) {
@@ -1790,7 +1833,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1824,7 +1868,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
-            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -1847,7 +1892,8 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                                                   const std::vector<std::vector<float>>& rightAxisData,
                                                   const std::vector<float>& xAxisData,
                                                   double minXData, double maxXData,
-                                                  double minYData, double maxYData) const {
+                                                  double minYData, double maxYData,
+                                                  const std::string& leftUnits) const {
     if (xAxisData.empty()) return;
     
     // Находим диапазон температур для отображаемого диапазона
@@ -1904,7 +1950,12 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                 LineTo(hdc, plotRect.right, screenY);
                 
                 std::wstringstream ss;
-                ss << std::fixed << std::setprecision(1) << currentYVal;
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                if (leftUnits == "mdeg") {
+                    ss << std::fixed << std::setprecision(0) << currentYVal;
+                } else {
+                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                }
                 std::wstring label = ss.str();
                 
                 SIZE textSize;
@@ -1925,11 +1976,6 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
                                       const std::string& units,
                                       double minYData, double maxYData) const {
     if (leftAxisData.empty()) return;
-    
-    // Отладочный вывод
-    wchar_t debugMsg[256];
-    swprintf_s(debugMsg, L"=== DrawLeftAxisWithZoom ===\nminYData: %.2f, maxYData: %.2f\n", minYData, maxYData);
-    OutputDebugStringW(debugMsg);
     
     // Используем переданные параметры zoom вместо вычисления из данных
     float minVal = static_cast<float>(minYData);
@@ -1958,7 +2004,12 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                ss << std::fixed << std::setprecision(1) << currentYVal;
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                if (units == "mdeg") {
+                    ss << std::fixed << std::setprecision(0) << currentYVal;
+                } else {
+                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                }
                 std::wstring label = ss.str();
                 
                 SIZE textSize;
@@ -2013,7 +2064,12 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 std::wstringstream ss;
-                ss << std::fixed << std::setprecision(1) << currentYVal;
+                // Для фазовых данных (mdeg) используем целые числа, для остальных - дробные
+                if (units == "mdeg") {
+                    ss << std::fixed << std::setprecision(0) << currentYVal;
+                } else {
+                    ss << std::fixed << std::setprecision(1) << currentYVal;
+                }
                 std::wstring label = ss.str();
                 TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
             }
@@ -2037,8 +2093,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
                                                          double minYData, double maxYData) const {
     if (xAxisData.empty()) return;
     
-    // Создаем clipping region, чтобы кривые не выходили за границы графика
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+    // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
+    // Расширяем на 5 пикселей сверху и снизу
+    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 200, plotRect.right, plotRect.bottom + 200);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -2061,10 +2118,26 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         maxTemp = minTemp + 1.0f;
     }
     
-    float leftMin = static_cast<float>(minYData);
-    float leftMax = static_cast<float>(maxYData);
-    float rightMin = static_cast<float>(minYData);
-    float rightMax = static_cast<float>(maxYData);
+    // Добавляем padding 3% к диапазону Y для визуального комфорта
+    // Это предотвращает обрезание крайних точек графика
+    float yRange = static_cast<float>(maxYData - minYData);
+    float yPadding = yRange * 0.03f;
+    
+    float leftMin = static_cast<float>(minYData) - yPadding;
+    float leftMax = static_cast<float>(maxYData) + yPadding;
+    float rightMin = static_cast<float>(minYData) - yPadding;
+    float rightMax = static_cast<float>(maxYData) + yPadding;
+    
+    // Отладочный вывод
+    wchar_t debugMsg[512];
+    swprintf_s(debugMsg, L"=== DrawDualAxisDataWithTemperatureAndZoom ===\n"
+                         L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
+                         L"minYData=%.2f, maxYData=%.2f\n"
+                         L"yPadding=%.2f\n"
+                         L"leftMin=%.2f, leftMax=%.2f\n",
+              plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
+              minYData, maxYData, yPadding, leftMin, leftMax);
+    OutputDebugStringW(debugMsg);
     
     // Отрисовка кривых левой оси (сплошные линии)
     size_t leftIndex = 0;
@@ -2081,14 +2154,26 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
+        // Отладка для первой кривой
+        float minChannelVal = *std::min_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
+        float maxChannelVal = *std::max_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
+        swprintf_s(debugMsg, L"Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
+        OutputDebugStringW(debugMsg);
+        
         bool firstPoint = true;
+        int minY = INT_MAX, maxY = INT_MIN;
         for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
             // X координата по температуре
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             
             // Y координата с учетом zoom
-            int y = plotRect.bottom - (int)((channel[j] - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            
+            // Отслеживаем min/max Y координаты
+            minY = (std::min)(minY, y);
+            maxY = (std::max)(maxY, y);
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -2097,6 +2182,11 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
                 LineTo(hdc, x, y);
             }
         }
+        
+        // Отладка: выводим диапазон Y координат
+        swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
+                  minY, maxY, plotRect.top, plotRect.bottom);
+        OutputDebugStringW(debugMsg);
         
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
@@ -2125,7 +2215,8 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             
             // Y координата с учетом zoom
-            int y = plotRect.bottom - (int)((channel[j] - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
+            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);

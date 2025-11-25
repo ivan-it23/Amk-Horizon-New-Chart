@@ -411,40 +411,19 @@ void DataModule::GroupCurvesByAxis(const std::vector<CurveDefinition>& curves,
     leftAxisCurves.clear();
     rightAxisCurves.clear();
     
-    // ОТЛАДКА: Выводим информацию о группировке кривых
-    char debugMsg[256];
-    sprintf_s(debugMsg, "=== GroupCurvesByAxis ===\n");
-    OutputDebugStringA(debugMsg);
-    sprintf_s(debugMsg, "Total input curves: %zu\n", curves.size());
-    OutputDebugStringA(debugMsg);
-    
     for (size_t i = 0; i < curves.size(); i++) {
         const auto& curve = curves[i];
-        sprintf_s(debugMsg, "Curve %zu: %s, Enabled: %s, yAxisGroup: %d, DataType: %d\n", 
-                 i, curve.displayName.c_str(), curve.enabled ? "YES" : "NO", 
-                 curve.yAxisGroup, static_cast<int>(curve.dataType));
-        OutputDebugStringA(debugMsg);
         
         if (!curve.enabled) {
-            OutputDebugStringA("  -> SKIPPED (disabled)\n");
             continue; // Пропускаем отключенные кривые
         }
         
         if (curve.yAxisGroup == 0) {
             leftAxisCurves.push_back(curve);
-            OutputDebugStringA("  -> Added to LEFT axis\n");
         } else if (curve.yAxisGroup == 1) {
             rightAxisCurves.push_back(curve);
-            OutputDebugStringA("  -> Added to RIGHT axis\n");
-        } else {
-            OutputDebugStringA("  -> SKIPPED (unknown axis group)\n");
         }
     }
-    
-    sprintf_s(debugMsg, "Result: Left axis curves: %zu, Right axis curves: %zu\n", 
-             leftAxisCurves.size(), rightAxisCurves.size());
-    OutputDebugStringA(debugMsg);
-    OutputDebugStringA("=== END GroupCurvesByAxis ===\n");
 }
 
 // Внутренние методы для вычисления различных типов данных
