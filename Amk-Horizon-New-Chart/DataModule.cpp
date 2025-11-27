@@ -267,31 +267,37 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
 // Вспомогательные методы
 int DataModule::GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const {
     // Индексы для активных передатчиков T1-T4
+    // Согласно ANALYSIS_GP_TOOL_DATA.md:
+    // Индексы 0-3: TX1-TX4 @ 400 Гц
+    // Индексы 4-7: TX1-TX4 @ 2000 Гц
     if (freq == FrequencyBand::FREQ_400_KHZ) {
         switch (transmitter) {
-            case Transmitter::T1: return 2;
-            case Transmitter::T2: return 3;
-            case Transmitter::T3: return 4;
-            case Transmitter::T4: return 5;
+            case Transmitter::T1: return 0;  // TX1 @ 400 Гц
+            case Transmitter::T2: return 1;  // TX2 @ 400 Гц
+            case Transmitter::T3: return 2;  // TX3 @ 400 Гц
+            case Transmitter::T4: return 3;  // TX4 @ 400 Гц
             default: return -1; // Should not happen
         }
     } else { // FREQ_2000_KHZ
         switch (transmitter) {
-            case Transmitter::T1: return 6;
-            case Transmitter::T2: return 7;
-            case Transmitter::T3: return 8;
-            case Transmitter::T4: return 9;
+            case Transmitter::T1: return 4;  // TX1 @ 2000 Гц
+            case Transmitter::T2: return 5;  // TX2 @ 2000 Гц
+            case Transmitter::T3: return 6;  // TX3 @ 2000 Гц
+            case Transmitter::T4: return 7;  // TX4 @ 2000 Гц
             default: return -1; // Should not happen
         }
     }
 }
 
 int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
-    // Индексы для молчащих передатчиков
+    // Индексы для молчащих передатчиков (TX0)
+    // Согласно ANALYSIS_GP_TOOL_DATA.md:
+    // Индекс 8: TX0 @ 400 Гц
+    // Индекс 9: TX0 @ 2000 Гц
     if (freq == FrequencyBand::FREQ_400_KHZ)
-        return 0; // индекс 0
+        return 8; // TX0 @ 400 Гц
     else
-        return 1; // индекс 1
+        return 9; // TX0 @ 2000 Гц
 }
 
 // Новые методы для работы с произвольными кривыми
