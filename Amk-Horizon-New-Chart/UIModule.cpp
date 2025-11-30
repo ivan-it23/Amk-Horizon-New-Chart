@@ -470,6 +470,31 @@ void UIModule::ResetXRangeControls(int chartNumber) {
     EnableWindow(hResetBtn, FALSE);
 }
 
+bool UIModule::IsXRangeToEmpty(int chartNumber) const {
+    HWND hToEdit = nullptr;
+    
+    if (chartNumber == 1) {
+        hToEdit = hXRangeToEdit;
+    } else if (chartNumber == 2) {
+        hToEdit = hXRange2ToEdit;
+    } else {
+        return true;
+    }
+    
+    if (!hToEdit) return true;
+    
+    wchar_t toText[32];
+    GetWindowText(hToEdit, toText, 32);
+    
+    // Проверяем, пустая ли строка или содержит только пробелы
+    for (int i = 0; toText[i] != L'\0'; i++) {
+        if (toText[i] != L' ' && toText[i] != L'\t') {
+            return false;  // Найден непробельный символ
+        }
+    }
+    return true;  // Строка пустая или содержит только пробелы
+}
+
 
 // Методы для управления статусной строкой
 void UIModule::UpdateStatusBar(const std::wstring& text) {

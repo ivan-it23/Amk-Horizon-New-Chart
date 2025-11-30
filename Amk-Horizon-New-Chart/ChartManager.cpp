@@ -1122,9 +1122,19 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
     
+    // Получаем максимальное значение данных
+    double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
+    
     // Получаем значения из полей ввода для указанного графика
     double fromX, toX;
     uiModule->GetXRangeValues(chartNumber, fromX, toX);
+    
+    // Если поле "To" пустое, используем максимальное значение данных
+    if (uiModule->IsXRangeToEmpty(chartNumber)) {
+        toX = dataSize;
+        // Обновляем поле "To" в UI, чтобы пользователь видел применённое значение
+        uiModule->SetXRangeValues(chartNumber, fromX, toX);
+    }
     
     // Валидация входных данных
     if (fromX >= toX) {
@@ -1134,7 +1144,6 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
     
-    double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
     if (fromX < 0 || toX > dataSize || fromX > dataSize || toX < 0) {
         wchar_t message[256];
         swprintf_s(message, L"Chart %d: X Range must be between 0 and %.0f", chartNumber, dataSize);
