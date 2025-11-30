@@ -874,15 +874,26 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     bool hasData = dataModule && dataModule->HasData();
     
     std::wstring title = L"Chart " + std::to_wstring(chartNumber);
-    std::vector<std::vector<float>> emptyData;
-    std::vector<bool> emptyTransmitters(4, false);
     
-    // Отрисовываем фон и рамку графика
-    // Если данных нет, не показываем сетку (showAxes = false)
-    // Если данные есть, показываем сетку (showAxes = true)
-    chartModule->DrawChart(hdc, chartRect, emptyData, DataType::PHASE_DIFFERENCE, 
-                          title, false, emptyTransmitters, dataModule.get(),
-                          0.0, 1.0, -1.0, 1.0, hasData);
+    // Отрисовываем фон и рамку графика вручную (без подписей осей)
+    chartModule->DrawChartBackground(hdc, chartRect);
+    chartModule->DrawChartBorder(hdc, chartRect);
+    chartModule->DrawChartTitle(hdc, chartRect, title);
+    
+    // Расчет области для графика
+    RECT plotRect = chartRect;
+    plotRect.left += 80;
+    plotRect.top += 45;
+    plotRect.right -= 30;
+    plotRect.bottom -= 50;
+    
+    // Рисуем оси
+    chartModule->DrawChartAxes(hdc, plotRect, true);
+    
+    // Если данные загружены, рисуем только сетку БЕЗ подписей осей
+    if (hasData) {
+        chartModule->DrawGridOnly(hdc, plotRect);
+    }
     
     // Рисуем текст с инструкцией
     SetBkMode(hdc, TRANSPARENT);

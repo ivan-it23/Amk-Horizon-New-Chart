@@ -488,6 +488,37 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     }
 }
 
+// Метод для отрисовки только сетки без подписей осей (для состояния "кривые не выбраны")
+void ChartModule::DrawGridOnly(HDC hdc, const RECT& plotRect) const {
+    // Рисуем только линии сетки без подписей осей
+    // Используем фиксированное количество линий (10 горизонтальных и 10 вертикальных)
+    
+    int plotWidth = plotRect.right - plotRect.left;
+    int plotHeight = plotRect.bottom - plotRect.top;
+    
+    if (plotWidth <= 0 || plotHeight <= 0) return;
+    
+    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    
+    // Горизонтальные линии сетки (10 линий)
+    for (int i = 0; i <= 10; i++) {
+        int y = plotRect.top + (plotHeight * i) / 10;
+        MoveToEx(hdc, plotRect.left, y, NULL);
+        LineTo(hdc, plotRect.right, y);
+    }
+    
+    // Вертикальные линии сетки (10 линий)
+    for (int i = 0; i <= 10; i++) {
+        int x = plotRect.left + (plotWidth * i) / 10;
+        MoveToEx(hdc, x, plotRect.top, NULL);
+        LineTo(hdc, x, plotRect.bottom);
+    }
+    
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+}
+
 
 RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;

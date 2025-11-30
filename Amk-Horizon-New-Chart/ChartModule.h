@@ -73,6 +73,9 @@ public:
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData, 
                          const DataModule* dataModule, double minXData, double maxXData, double minYData, double maxYData) const;
     
+    // Метод для отрисовки только сетки без подписей осей (для состояния "кривые не выбраны")
+    void DrawGridOnly(HDC hdc, const RECT& plotRect) const;
+    
     // v2.10.0: Перегрузка с поддержкой температуры на оси X
     void DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vector<std::vector<float>>& chartData,
                          const DataModule* dataModule, const std::vector<float>& xAxisData,
