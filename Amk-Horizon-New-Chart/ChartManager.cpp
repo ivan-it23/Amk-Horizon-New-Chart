@@ -203,6 +203,16 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             HandleXRangeReset(hWnd, 2);
             return true;
             
+        case IDC_RESET_ZOOM1_BTN:
+            // Сброс zoom для Chart 1 (аналогично правому клику мыши)
+            HandleResetZoom(hWnd, 1);
+            return true;
+            
+        case IDC_RESET_ZOOM2_BTN:
+            // Сброс zoom для Chart 2 (аналогично правому клику мыши)
+            HandleResetZoom(hWnd, 2);
+            return true;
+            
         default:
             // Передаем остальные команды в UIModule
             needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
@@ -1194,6 +1204,21 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
     
     // Перерисовываем графики
     InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
+    // Сбрасываем zoom для указанного графика (аналогично правому клику мыши)
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    zoom->isZoomed = false;
+    
+    // Обновляем скроллбары
+    UpdateScrollBars(hWnd);
+    
+    // Обновляем UI (X Range controls)
+    UpdateXRangeUI(hWnd);
+    
+    // Перерисовываем только измененный график
+    InvalidateChart(hWnd, chartNumber);
 }
 
 void ChartManager::UpdateXRangeUI(HWND hWnd) {

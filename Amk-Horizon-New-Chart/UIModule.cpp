@@ -22,6 +22,8 @@ UIModule::UIModule()
     , hXRange2ApplyBtn(nullptr)
     , hXRange2ResetBtn(nullptr)
     , hSaveRange1Btn(nullptr)
+    , hResetZoom1Btn(nullptr)
+    , hResetZoom2Btn(nullptr)
     , hStatusBar(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -104,6 +106,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hSaveRange1Btn = CreateWindow(L"BUTTON", L"Save Range",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         xRangeStartX + 335, yPos - 2, 80, 24, hWnd, (HMENU)IDC_SAVE_RANGE1_BTN, hInst, NULL);
+    
+    // Кнопка "Reset Zoom" для Chart 1
+    hResetZoom1Btn = CreateWindow(L"BUTTON", L"Reset Zoom",
+        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+        xRangeStartX + 420, yPos - 2, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
@@ -138,6 +145,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hXRange2ResetBtn = CreateWindow(L"BUTTON", L"Reset",
         WS_CHILD | BS_PUSHBUTTON,
         xRange2StartX + 280, 298, 50, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
+    
+    // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта)
+    hResetZoom2Btn = CreateWindow(L"BUTTON", L"Reset Zoom",
+        WS_CHILD | BS_PUSHBUTTON,
+        xRange2StartX + 335, 298, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
     // Создание статусной строки
     hStatusBar = CreateWindowEx(
@@ -173,6 +185,7 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hXRange2ToEdit, showFlag);
     ShowWindow(hXRange2ApplyBtn, showFlag);
     ShowWindow(hXRange2ResetBtn, showFlag);
+    ShowWindow(hResetZoom2Btn, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -188,6 +201,7 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 155, yPos - 2, 60, 22, SWP_NOSIZE);
     SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 225, yPos - 2, 50, 24, SWP_NOSIZE);
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 280, yPos - 2, 50, 24, SWP_NOSIZE);
+    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 335, yPos - 2, 80, 24, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {

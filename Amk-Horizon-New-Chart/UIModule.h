@@ -37,6 +37,10 @@ private:
     // Кнопки сохранения диапазона
     HWND hSaveRange1Btn;     // Кнопка "Save Range" для Chart 1
 
+    // Кнопки сброса zoom
+    HWND hResetZoom1Btn;     // Кнопка "Reset Zoom" для Chart 1
+    HWND hResetZoom2Btn;     // Кнопка "Reset Zoom" для Chart 2
+
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
 

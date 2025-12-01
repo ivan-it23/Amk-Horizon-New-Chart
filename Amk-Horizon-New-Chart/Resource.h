@@ -73,6 +73,10 @@
 // Выбор типа оси X (v2.10.0)
 #define IDC_XAXIS_TYPE_COMBO		1040
 
+// Кнопки сброса zoom
+#define IDC_RESET_ZOOM1_BTN			1043
+#define IDC_RESET_ZOOM2_BTN			1044
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

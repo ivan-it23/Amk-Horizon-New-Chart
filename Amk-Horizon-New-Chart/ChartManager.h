@@ -83,6 +83,9 @@ public:
     void HandleXRangeReset(HWND hWnd, int chartNumber);
     void UpdateXRangeUI(HWND hWnd);
     
+    // Метод для сброса zoom (кнопка Reset Zoom)
+    void HandleResetZoom(HWND hWnd, int chartNumber);
+    
     // Методы для сохранения диапазона
     void HandleSaveRange(HWND hWnd, int chartNumber);
     
