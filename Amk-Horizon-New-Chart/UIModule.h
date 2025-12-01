@@ -41,6 +41,20 @@ private:
     HWND hResetZoom1Btn;     // Кнопка "Reset Zoom" для Chart 1
     HWND hResetZoom2Btn;     // Кнопка "Reset Zoom" для Chart 2
 
+    // Элементы отображения координат курсора (Chart 1)
+    HWND hCursor1Label;      // Метка "Cursor:"
+    HWND hCursor1XLabel;     // Метка "X:"
+    HWND hCursor1XEdit;      // Поле координаты X (только чтение)
+    HWND hCursor1YLabel;     // Метка "Y:"
+    HWND hCursor1YEdit;      // Поле координаты Y (только чтение)
+
+    // Элементы отображения координат курсора (Chart 2)
+    HWND hCursor2Label;      // Метка "Cursor:"
+    HWND hCursor2XLabel;     // Метка "X:"
+    HWND hCursor2XEdit;      // Поле координаты X (только чтение)
+    HWND hCursor2YLabel;     // Метка "Y:"
+    HWND hCursor2YEdit;      // Поле координаты Y (только чтение)
+
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
 
@@ -96,6 +110,10 @@ public:
     void ClearStatusBarCoordinates();
     void ResizeStatusBar(); // Обновление размера статусной строки при изменении размера окна
     HWND GetStatusBar() const { return hStatusBar; }
+
+    // Управление отображением координат курсора при клике
+    void UpdateClickCoordinates(int chartNumber, double x, double y);
+    void ClearClickCoordinates(int chartNumber);
 
 private:
     // Вспомогательные методы удалены после рефакторинга

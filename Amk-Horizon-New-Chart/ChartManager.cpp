@@ -255,6 +255,11 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     if (clickedChart != 0) {
         activeChart = clickedChart;
+        
+        // Обновляем координаты курсора при клике на график
+        double dataX, dataY;
+        ConvertScreenToDataCoords(clickedChart, x, y, dataX, dataY);
+        uiModule->UpdateClickCoordinates(clickedChart, dataX, dataY);
     }
 
     isSelecting = true;

@@ -24,6 +24,16 @@ UIModule::UIModule()
     , hSaveRange1Btn(nullptr)
     , hResetZoom1Btn(nullptr)
     , hResetZoom2Btn(nullptr)
+    , hCursor1Label(nullptr)
+    , hCursor1XLabel(nullptr)
+    , hCursor1XEdit(nullptr)
+    , hCursor1YLabel(nullptr)
+    , hCursor1YEdit(nullptr)
+    , hCursor2Label(nullptr)
+    , hCursor2XLabel(nullptr)
+    , hCursor2XEdit(nullptr)
+    , hCursor2YLabel(nullptr)
+    , hCursor2YEdit(nullptr)
     , hStatusBar(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -112,6 +122,29 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
         xRangeStartX + 420, yPos - 2, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
+    // Элементы отображения координат курсора для Chart 1
+    int cursorStartX = xRangeStartX + 505;
+    
+    hCursor1Label = CreateWindow(L"STATIC", L"Cursor:",
+        WS_VISIBLE | WS_CHILD | SS_LEFT,
+        cursorStartX, yPos, 45, 20, hWnd, (HMENU)IDC_CURSOR1_LABEL, hInst, NULL);
+    
+    hCursor1XLabel = CreateWindow(L"STATIC", L"X:",
+        WS_VISIBLE | WS_CHILD | SS_LEFT,
+        cursorStartX + 50, yPos, 15, 20, hWnd, (HMENU)IDC_CURSOR1_X_LABEL, hInst, NULL);
+    
+    hCursor1XEdit = CreateWindow(L"EDIT", L"",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY,
+        cursorStartX + 65, yPos - 2, 55, 22, hWnd, (HMENU)IDC_CURSOR1_X_EDIT, hInst, NULL);
+    
+    hCursor1YLabel = CreateWindow(L"STATIC", L"Y:",
+        WS_VISIBLE | WS_CHILD | SS_LEFT,
+        cursorStartX + 125, yPos, 15, 20, hWnd, (HMENU)IDC_CURSOR1_Y_LABEL, hInst, NULL);
+    
+    hCursor1YEdit = CreateWindow(L"EDIT", L"",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY,
+        cursorStartX + 140, yPos - 2, 70, 22, hWnd, (HMENU)IDC_CURSOR1_Y_EDIT, hInst, NULL);
+
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
     int xRange2StartX = 160; // Позиция после кнопки Device Schematic для Chart 2
@@ -151,6 +184,29 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | BS_PUSHBUTTON,
         xRange2StartX + 335, 298, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
+    // Элементы отображения координат курсора для Chart 2 (изначально скрыты)
+    int cursor2StartX = xRange2StartX + 420;
+    
+    hCursor2Label = CreateWindow(L"STATIC", L"Cursor:",
+        WS_CHILD | SS_LEFT,
+        cursor2StartX, 300, 45, 20, hWnd, (HMENU)IDC_CURSOR2_LABEL, hInst, NULL);
+    
+    hCursor2XLabel = CreateWindow(L"STATIC", L"X:",
+        WS_CHILD | SS_LEFT,
+        cursor2StartX + 50, 300, 15, 20, hWnd, (HMENU)IDC_CURSOR2_X_LABEL, hInst, NULL);
+    
+    hCursor2XEdit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY,
+        cursor2StartX + 65, 298, 55, 22, hWnd, (HMENU)IDC_CURSOR2_X_EDIT, hInst, NULL);
+    
+    hCursor2YLabel = CreateWindow(L"STATIC", L"Y:",
+        WS_CHILD | SS_LEFT,
+        cursor2StartX + 125, 300, 15, 20, hWnd, (HMENU)IDC_CURSOR2_Y_LABEL, hInst, NULL);
+    
+    hCursor2YEdit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY,
+        cursor2StartX + 140, 298, 70, 22, hWnd, (HMENU)IDC_CURSOR2_Y_EDIT, hInst, NULL);
+
     // Создание статусной строки
     hStatusBar = CreateWindowEx(
         0,                              // Расширенный стиль
@@ -186,6 +242,13 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hXRange2ApplyBtn, showFlag);
     ShowWindow(hXRange2ResetBtn, showFlag);
     ShowWindow(hResetZoom2Btn, showFlag);
+    
+    // Показываем/скрываем элементы координат курсора для Chart 2
+    ShowWindow(hCursor2Label, showFlag);
+    ShowWindow(hCursor2XLabel, showFlag);
+    ShowWindow(hCursor2XEdit, showFlag);
+    ShowWindow(hCursor2YLabel, showFlag);
+    ShowWindow(hCursor2YEdit, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -202,6 +265,14 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 225, yPos - 2, 50, 24, SWP_NOSIZE);
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 280, yPos - 2, 50, 24, SWP_NOSIZE);
     SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 335, yPos - 2, 80, 24, SWP_NOSIZE);
+    
+    // Позиционируем элементы координат курсора для Chart 2
+    int cursor2StartX = xRange2StartX + 420;
+    SetWindowPos(hCursor2Label, HWND_TOP, cursor2StartX, yPos, 45, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2XLabel, HWND_TOP, cursor2StartX + 50, yPos, 15, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 65, yPos - 2, 55, 22, SWP_NOSIZE);
+    SetWindowPos(hCursor2YLabel, HWND_TOP, cursor2StartX + 125, yPos, 15, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2YEdit, HWND_TOP, cursor2StartX + 140, yPos - 2, 70, 22, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {
@@ -584,4 +655,48 @@ void UIModule::ResizeStatusBar() {
         // Отправляем сообщение WM_SIZE статусной строке для автоматического изменения размера
         SendMessage(hStatusBar, WM_SIZE, 0, 0);
     }
+}
+
+// Обновление координат курсора при клике на график
+void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y) {
+    HWND hXEdit, hYEdit;
+    
+    if (chartNumber == 1) {
+        hXEdit = hCursor1XEdit;
+        hYEdit = hCursor1YEdit;
+    } else if (chartNumber == 2) {
+        hXEdit = hCursor2XEdit;
+        hYEdit = hCursor2YEdit;
+    } else {
+        return;
+    }
+    
+    if (!hXEdit || !hYEdit) return;
+    
+    // Форматируем координаты
+    wchar_t xText[32], yText[32];
+    swprintf_s(xText, L"%.0f", x);      // X как целое число (индекс кадра)
+    swprintf_s(yText, L"%.2f", y);      // Y с 2 знаками после запятой
+    
+    SetWindowText(hXEdit, xText);
+    SetWindowText(hYEdit, yText);
+}
+
+void UIModule::ClearClickCoordinates(int chartNumber) {
+    HWND hXEdit, hYEdit;
+    
+    if (chartNumber == 1) {
+        hXEdit = hCursor1XEdit;
+        hYEdit = hCursor1YEdit;
+    } else if (chartNumber == 2) {
+        hXEdit = hCursor2XEdit;
+        hYEdit = hCursor2YEdit;
+    } else {
+        return;
+    }
+    
+    if (!hXEdit || !hYEdit) return;
+    
+    SetWindowText(hXEdit, L"");
+    SetWindowText(hYEdit, L"");
 }

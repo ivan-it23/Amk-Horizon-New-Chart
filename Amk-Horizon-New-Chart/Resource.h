@@ -77,6 +77,20 @@
 #define IDC_RESET_ZOOM1_BTN			1043
 #define IDC_RESET_ZOOM2_BTN			1044
 
+// Элементы отображения координат курсора (Chart 1)
+#define IDC_CURSOR1_LABEL			1045
+#define IDC_CURSOR1_X_LABEL			1046
+#define IDC_CURSOR1_X_EDIT			1047
+#define IDC_CURSOR1_Y_LABEL			1048
+#define IDC_CURSOR1_Y_EDIT			1049
+
+// Элементы отображения координат курсора (Chart 2)
+#define IDC_CURSOR2_LABEL			1050
+#define IDC_CURSOR2_X_LABEL			1051
+#define IDC_CURSOR2_X_EDIT			1052
+#define IDC_CURSOR2_Y_LABEL			1053
+#define IDC_CURSOR2_Y_EDIT			1054
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif
