@@ -385,7 +385,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     if (activeChart > 0) {
         InvalidateChart(hWnd, activeChart);
     } else {
-        InvalidateRect(hWnd, NULL, TRUE); // Если не определен график, перерисовываем всё
+        InvalidateRect(hWnd, NULL, FALSE); // Если не определен график, перерисовываем всё (FALSE для double buffering)
     }
 }
 
@@ -408,7 +408,7 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     if (chartAtPoint > 0) {
         InvalidateChart(hWnd, chartAtPoint);
     } else {
-        InvalidateRect(hWnd, NULL, TRUE); // Если не определен график, перерисовываем всё
+        InvalidateRect(hWnd, NULL, FALSE); // Если не определен график, перерисовываем всё (FALSE для double buffering)
     }
 }
 
@@ -740,7 +740,8 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     }
     
     // Перерисовываем только область конкретного графика
-    InvalidateRect(hWnd, &chartRect, TRUE);
+    // FALSE - не стираем фон, т.к. используем double buffering для устранения мигания
+    InvalidateRect(hWnd, &chartRect, FALSE);
     // Принудительно обновляем окно для немедленной перерисовки
     UpdateWindow(hWnd);
 }
@@ -1192,8 +1193,8 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     // Обновляем UI
     UpdateXRangeUI(hWnd);
     
-    // Перерисовываем графики
-    InvalidateRect(hWnd, NULL, TRUE);
+    // Перерисовываем графики (FALSE для double buffering)
+    InvalidateRect(hWnd, NULL, FALSE);
 }
 
 void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
@@ -1207,8 +1208,8 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
     // Обновляем UI
     UpdateXRangeUI(hWnd);
     
-    // Перерисовываем графики
-    InvalidateRect(hWnd, NULL, TRUE);
+    // Перерисовываем графики (FALSE для double buffering)
+    InvalidateRect(hWnd, NULL, FALSE);
 }
 
 void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {

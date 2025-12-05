@@ -173,7 +173,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (GetOpenFileName(&ofn) && g_chartManager)
                     {
                         g_chartManager->LoadDataFromFile(szFile);
-                        InvalidateRect(hWnd, NULL, TRUE);
+                        InvalidateRect(hWnd, NULL, FALSE);
                     }
                 }
                 break;
@@ -182,14 +182,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 if (g_chartManager)
                 {
                     g_chartManager->ShowSchematicDialog(hWnd, 1);
-                    InvalidateRect(hWnd, NULL, TRUE);
+                    InvalidateRect(hWnd, NULL, FALSE);
                 }
                 break;
             case IDC_CHART2_SCHEMATIC_BTN:
                 if (g_chartManager)
                 {
                     g_chartManager->ShowSchematicDialog(hWnd, 2);
-                    InvalidateRect(hWnd, NULL, TRUE);
+                    InvalidateRect(hWnd, NULL, FALSE);
                 }
                 break;
             // Обработка кнопки сохранения диапазона
@@ -204,7 +204,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 {
                     if (g_chartManager->HandleCommand(wParam, lParam))
                     {
-                        InvalidateRect(hWnd, NULL, TRUE);
+                        InvalidateRect(hWnd, NULL, FALSE);
                     }
                 }
                 return DefWindowProc(hWnd, message, wParam, lParam);
@@ -215,7 +215,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         if (g_chartManager)
         {
             g_chartManager->UpdateLayout(hWnd);
-            InvalidateRect(hWnd, NULL, TRUE);
+            InvalidateRect(hWnd, NULL, FALSE);
         }
         break;
     case WM_LBUTTONDOWN:
@@ -265,10 +265,14 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             if (chartNumber >= 1 && chartNumber <= 2)
             {
                 // Обновляем конкретный график после применения настроек
-                InvalidateRect(hWnd, NULL, TRUE);
+                InvalidateRect(hWnd, NULL, FALSE);
             }
         }
         break;
+    case WM_ERASEBKGND:
+        // Предотвращаем стирание фона для устранения мигания при скроллинге
+        // Фон будет отрисован в WM_PAINT через double buffering
+        return 1;
     case WM_PAINT:
         {
             PAINTSTRUCT ps;
@@ -276,11 +280,35 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             
             if (g_chartManager)
             {
-                g_chartManager->DrawChart1(hdc);
+                // Получаем размеры клиентской области
+                RECT clientRect;
+                GetClientRect(hWnd, &clientRect);
+                int width = clientRect.right - clientRect.left;
+                int height = clientRect.bottom - clientRect.top;
+                
+                // Создаем буфер в памяти для double buffering (устранение мигания)
+                HDC hdcMem = CreateCompatibleDC(hdc);
+                HBITMAP hBitmap = CreateCompatibleBitmap(hdc, width, height);
+                HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmap);
+                
+                // Заполняем фон буфера цветом окна
+                HBRUSH hBrush = (HBRUSH)(COLOR_WINDOW + 1);
+                FillRect(hdcMem, &clientRect, hBrush);
+                
+                // Рисуем графики в буфер
+                g_chartManager->DrawChart1(hdcMem);
                 if (g_chartManager->IsDualMode())
                 {
-                    g_chartManager->DrawChart2(hdc);
+                    g_chartManager->DrawChart2(hdcMem);
                 }
+                
+                // Копируем буфер на экран одной операцией
+                BitBlt(hdc, 0, 0, width, height, hdcMem, 0, 0, SRCCOPY);
+                
+                // Освобождаем ресурсы
+                SelectObject(hdcMem, hOldBitmap);
+                DeleteObject(hBitmap);
+                DeleteDC(hdcMem);
             }
             
             EndPaint(hWnd, &ps);
