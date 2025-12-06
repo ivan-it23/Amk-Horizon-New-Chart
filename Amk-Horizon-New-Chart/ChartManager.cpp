@@ -361,6 +361,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 L"Zoom Limit Reached", 
                 MB_OK | MB_ICONINFORMATION);
         } else {
+            // Используем Y диапазон из выделенной области мышью
+            // Это позволяет пользователю точно выбрать интересующий участок по Y
+            // и затем использовать вертикальный scrollbar для навигации
+            
             // Устанавливаем новый видимый диапазон для соответствующего графика
             if (activeChart == 1) {
                 chart1Zoom.minX = minDataX;
@@ -606,17 +610,19 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             return;
         }
         
-        // Получаем полный диапазон Y из данных (без Y zoom, но с X zoom если есть)
+        // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
+        // Это позволяет скроллить в пределах данных текущего видимого X диапазона
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
-        std::vector<std::vector<float>> leftAxisDataFull, rightAxisDataFull;
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
         
-        // Вызываем CalculateCurveData с текущим X zoom, но без Y zoom
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisDataFull, rightAxisDataFull, leftAxisCurves, rightAxisCurves,
-                                                zoom->minX, zoom->maxX, -1e10, 1e10);
+        // Получаем данные для текущего X диапазона
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData,
+                                                 leftAxisCurves, rightAxisCurves,
+                                                 zoom->minX, zoom->maxX, -1e10, 1e10);
         
         double minYFull, maxYFull, minX, maxX, minY2, maxY2;
-        chartModule->GetDataRanges(leftAxisDataFull, rightAxisDataFull, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
         
         // Добавляем padding 5% к диапазону данных для визуального комфорта
         double dataYRange = maxYFull - minYFull;
@@ -630,21 +636,12 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
         // newPos = 0 означает верх (максимальный Y)
         // newPos = 100 означает низ (минимальный Y)
-        double scrollRatio = (100.0 - newPos) / 100.0;
-        double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
-        zoom->minY = newMinY;
-        zoom->maxY = newMinY + viewYRange;
-        
-        // Отладочный вывод
-        wchar_t debugMsg[512];
-        swprintf_s(debugMsg, L"=== VERTICAL SCROLL ===\n"
-                             L"newPos=%d, scrollRatio=%.3f\n"
-                             L"minYFull=%.2f, maxYFull=%.2f (with padding)\n"
-                             L"totalYRange=%.2f, viewYRange=%.2f\n"
-                             L"zoom->minY=%.2f, zoom->maxY=%.2f\n",
-                  newPos, scrollRatio, minYFull, maxYFull, totalYRange, viewYRange,
-                  zoom->minY, zoom->maxY);
-        OutputDebugStringW(debugMsg);
+        if (totalYRange > viewYRange && totalYRange > 0) {
+            double scrollRatio = (100.0 - newPos) / 100.0;
+            double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
+            zoom->minY = newMinY;
+            zoom->maxY = newMinY + viewYRange;
+        }
     } else {
         // Горизонтальный скроллинг (ось X)
         double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
@@ -652,6 +649,28 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         double newMinX = (newPos / 100.0) * (totalRange - viewRange);
         zoom->minX = newMinX;
         zoom->maxX = newMinX + viewRange;
+        
+        // Полный автомасштаб Y для нового X диапазона
+        // Это обеспечивает оптимальный масштаб Y для видимых данных
+        ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        
+        // Получаем данные только для нового X диапазона
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), 
+                                                 leftAxisData, rightAxisData, 
+                                                 leftAxisCurves, rightAxisCurves,
+                                                 zoom->minX, zoom->maxX, -1e10, 1e10);
+        
+        // Находим min/max Y для данных в этом диапазоне
+        double minYData, maxYData, minXData, maxXData, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
+        
+        // Добавляем padding 5% для визуального комфорта
+        double yDataRange = maxYData - minYData;
+        double padding = yDataRange * 0.05;
+        zoom->minY = minYData - padding;
+        zoom->maxY = maxYData + padding;
     }
     
     // Перерисовываем только нужный график (избегаем мигания)
@@ -672,21 +691,37 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         uiModule->SetScrollBarRange(1, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
         
         // Настраиваем диапазон вертикального скроллбара (ось Y)
-        // Получаем полный диапазон Y из данных
+        // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
         std::vector<std::vector<float>> leftAxisData, rightAxisData;
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+        
+        // Получаем данные для текущего X диапазона
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, 
+                                                 leftAxisCurves, rightAxisCurves,
+                                                 chart1Zoom.minX, chart1Zoom.maxX, -1e10, 1e10);
         
         double minYFull, maxYFull, minX, maxX, minY2, maxY2;
         chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+        
+        // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
+        double dataYRange = maxYFull - minYFull;
+        double padding = dataYRange * 0.05;
+        minYFull -= padding;
+        maxYFull += padding;
         
         double totalYRange = maxYFull - minYFull;
         double viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
         
         // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
-        int vScrollPos = static_cast<int>(100.0 - ((chart1Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
-        uiModule->SetVScrollBarRange(1, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
+        // Защита от деления на ноль
+        int vScrollPos = 50;
+        int vScrollPage = 100;
+        if (totalYRange > viewRangeY && totalYRange > 0) {
+            vScrollPos = static_cast<int>(100.0 - ((chart1Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
+            vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+        }
+        uiModule->SetVScrollBarRange(1, 0, 100, vScrollPage, vScrollPos);
     } else {
         uiModule->ShowScrollBars(1, false);
     }
@@ -705,20 +740,37 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             uiModule->SetScrollBarRange(2, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
             
             // Настраиваем диапазон вертикального скроллбара (ось Y)
+            // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
             ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
             std::vector<std::vector<float>> leftAxisData, rightAxisData;
             std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-            curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
+            
+            // Получаем данные для текущего X диапазона
+            curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData,
+                                                     leftAxisCurves, rightAxisCurves,
+                                                     chart2Zoom.minX, chart2Zoom.maxX, -1e10, 1e10);
             
             double minYFull, maxYFull, minX, maxX, minY2, maxY2;
             chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
+            
+            // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
+            double dataYRange = maxYFull - minYFull;
+            double padding = dataYRange * 0.05;
+            minYFull -= padding;
+            maxYFull += padding;
             
             double totalYRange = maxYFull - minYFull;
             double viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
             
             // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
-            int vScrollPos = static_cast<int>(100.0 - ((chart2Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
-            uiModule->SetVScrollBarRange(2, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
+            // Защита от деления на ноль
+            int vScrollPos = 50;
+            int vScrollPage = 100;
+            if (totalYRange > viewRangeY && totalYRange > 0) {
+                vScrollPos = static_cast<int>(100.0 - ((chart2Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
+                vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+            }
+            uiModule->SetVScrollBarRange(2, 0, 100, vScrollPage, vScrollPos);
         } else {
             uiModule->ShowScrollBars(2, false);
         }
@@ -1183,8 +1235,29 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     zoom->minX = fromX;
     zoom->maxX = toX;
-    zoom->minY = -1e6; // Y автоматически по данным
-    zoom->maxY = 1e6;
+    
+    // Вычисляем Y диапазон на основе данных в новом X диапазоне
+    // Это обеспечивает правильный масштаб Y для видимого участка
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+    std::vector<std::vector<float>> leftAxisData, rightAxisData;
+    std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+    
+    // Получаем данные только для нового X диапазона
+    curveSelectionModule->CalculateCurveData(config, dataModule.get(), 
+                                             leftAxisData, rightAxisData, 
+                                             leftAxisCurves, rightAxisCurves,
+                                             fromX, toX, -1e10, 1e10);
+    
+    // Находим min/max Y для данных в этом диапазоне
+    double minYData, maxYData, minXData, maxXData, minY2, maxY2;
+    chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
+    
+    // Добавляем padding 5% для визуального комфорта
+    double yRange = maxYData - minYData;
+    double padding = yRange * 0.05;
+    zoom->minY = minYData - padding;
+    zoom->maxY = maxYData + padding;
+    
     zoom->isZoomed = true;
     
     // Обновляем скроллбары
