@@ -47,6 +47,20 @@ private:
     ZoomRange chart1Zoom;
     ZoomRange chart2Zoom;
     
+    // Структура для хранения позиции перекрестия (crosshair)
+    struct CrosshairPosition {
+        int screenX, screenY;   // Экранные координаты
+        double dataX, dataY;    // Координаты данных
+        bool isVisible;         // Видимо ли перекрестие
+        int chartNumber;        // На каком графике (1 или 2)
+        
+        CrosshairPosition() : screenX(0), screenY(0), dataX(0.0), dataY(0.0), isVisible(false), chartNumber(0) {}
+    };
+    
+    // Перекрестие для каждого графика
+    CrosshairPosition chart1Crosshair;
+    CrosshairPosition chart2Crosshair;
+    
 public:
     ChartManager();
     ~ChartManager();
@@ -137,4 +151,7 @@ private:
                                     std::wstring& y1Unit, std::wstring& y2Unit,
                                     bool& hasDualAxis) const;
     std::wstring GetUnitForDataType(DataType dataType) const;
+    
+    // Метод для отрисовки перекрестия
+    void DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber) const;
 };

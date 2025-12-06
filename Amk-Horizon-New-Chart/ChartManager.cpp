@@ -112,6 +112,9 @@ void ChartManager::DrawChart1(HDC hdc)
         // Используем старую систему (для обратной совместимости)
         DrawChartLegacy(hdc, chart1Rect, 1);
     }
+    
+    // Отрисовываем перекрестие поверх графика
+    DrawCrosshair(hdc, chart1Rect, 1);
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -129,6 +132,9 @@ void ChartManager::DrawChart2(HDC hdc)
         // Используем старую систему (для обратной совместимости)
         DrawChartLegacy(hdc, chart2Rect, 2);
     }
+    
+    // Отрисовываем перекрестие поверх графика
+    DrawCrosshair(hdc, chart2Rect, 2);
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
@@ -260,6 +266,15 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
         double dataX, dataY;
         ConvertScreenToDataCoords(clickedChart, x, y, dataX, dataY);
         uiModule->UpdateClickCoordinates(clickedChart, dataX, dataY);
+        
+        // Сохраняем позицию перекрестия для отображения
+        CrosshairPosition* crosshair = (clickedChart == 1) ? &chart1Crosshair : &chart2Crosshair;
+        crosshair->screenX = x;
+        crosshair->screenY = y;
+        crosshair->dataX = dataX;
+        crosshair->dataY = dataY;
+        crosshair->isVisible = true;
+        crosshair->chartNumber = clickedChart;
     }
 
     isSelecting = true;
@@ -337,6 +352,13 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     int deltaY = abs(selectionEnd.y - selectionStart.y);
     
     if (deltaX > 10 && deltaY > 10) {
+        // Это zoom — скрываем перекрестие
+        if (activeChart == 1) {
+            chart1Crosshair.isVisible = false;
+        } else if (activeChart == 2) {
+            chart2Crosshair.isVisible = false;
+        }
+        
         // Преобразуем экранные координаты в координаты данных
         double minDataX, minDataY, maxDataX, maxDataY;
         
@@ -398,11 +420,13 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     // Определяем, на каком графике произошел клик
     int chartAtPoint = GetChartAtPoint(x, y);
     
-    // Сбрасываем масштаб только для соответствующего графика
+    // Сбрасываем масштаб и перекрестие только для соответствующего графика
     if (chartAtPoint == 1) {
         chart1Zoom.isZoomed = false;
+        chart1Crosshair.isVisible = false;
     } else if (chartAtPoint == 2) {
         chart2Zoom.isZoomed = false;
+        chart2Crosshair.isVisible = false;
     }
     
     // Обновляем скроллбары после сброса зума
@@ -1595,5 +1619,54 @@ void ChartManager::UpdateStatusBarFileInfo() {
         SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"No file loaded");
         uiModule->ClearStatusBarCoordinates();
     }
+}
+
+// Отрисовка перекрестия (crosshair) на графике
+void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber) const {
+    // Получаем перекрестие для указанного графика
+    const CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
+    
+    // Проверяем, нужно ли отображать перекрестие
+    if (!crosshair->isVisible || crosshair->chartNumber != chartNumber) {
+        return;
+    }
+    
+    // Вычисляем область графика (plotRect) с учётом отступов
+    RECT plotRect;
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+    
+    if (config.hasDualAxis) {
+        plotRect.left = chartRect.left + 60;
+        plotRect.top = chartRect.top + 45;
+        plotRect.right = chartRect.right - 140;
+        plotRect.bottom = chartRect.bottom - 50;
+    } else {
+        plotRect.left = chartRect.left + 80;
+        plotRect.top = chartRect.top + 45;
+        plotRect.right = chartRect.right - 30;
+        plotRect.bottom = chartRect.bottom - 50;
+    }
+    
+    // Проверяем, что перекрестие находится внутри области графика
+    if (crosshair->screenX < plotRect.left || crosshair->screenX > plotRect.right ||
+        crosshair->screenY < plotRect.top || crosshair->screenY > plotRect.bottom) {
+        return;
+    }
+    
+    // Создаём красное перо для перекрестия
+    HPEN hCrosshairPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hCrosshairPen);
+    
+    // Рисуем вертикальную линию (от верха до низа plotRect)
+    MoveToEx(hdc, crosshair->screenX, plotRect.top, NULL);
+    LineTo(hdc, crosshair->screenX, plotRect.bottom);
+    
+    // Рисуем горизонтальную линию (от левого до правого края plotRect)
+    MoveToEx(hdc, plotRect.left, crosshair->screenY, NULL);
+    LineTo(hdc, plotRect.right, crosshair->screenY);
+    
+    // Восстанавливаем старое перо и удаляем созданное
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hCrosshairPen);
 }
 
