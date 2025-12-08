@@ -145,7 +145,8 @@ public:
                                   const std::vector<std::vector<float>>& leftAxisData,
                                   const std::vector<std::vector<float>>& rightAxisData,
                                   double leftMinY, double leftMaxY,
-                                  double rightMinY, double rightMaxY) const;
+                                  double rightMinY, double rightMaxY,
+                                  double minXData, double maxXData) const;
     
     // v2.12.0: Вспомогательные функции для температурного режима с zoom по Y
     void DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,

@@ -683,7 +683,13 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         // Горизонтальный скроллинг (ось X)
         double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
         double viewRange = zoom->maxX - zoom->minX;
-        double newMinX = (newPos / 100.0) * (totalRange - viewRange);
+        
+        // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
+        // nMax = 100, nPage = (viewRange / totalRange) * 100
+        // Поэтому реальный максимум = 100 - page + 1
+        int maxScrollPos = si.nMax - (int)si.nPage + 1;
+        double scrollRatio = (maxScrollPos > 0) ? (double)newPos / (double)maxScrollPos : 0.0;
+        double newMinX = scrollRatio * (totalRange - viewRange);
         zoom->minX = newMinX;
         zoom->maxX = newMinX + viewRange;
         
@@ -724,8 +730,14 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
         double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
         
-        int hScrollPos = static_cast<int>((chart1Zoom.minX / (totalDataRange - viewRangeX)) * 100);
-        uiModule->SetScrollBarRange(1, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+        // Вычисляем page size и максимальную позицию скроллбара
+        int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
+        int maxScrollPos = 100 - pageSize + 1;
+        
+        // Вычисляем позицию скроллбара пропорционально
+        double scrollableRange = totalDataRange - viewRangeX;
+        int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart1Zoom.minX / scrollableRange) * maxScrollPos) : 0;
+        uiModule->SetScrollBarRange(1, 0, 100, pageSize, hScrollPos);
         
         // Настраиваем диапазон вертикального скроллбара (ось Y)
         // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
@@ -773,8 +785,14 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
             double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
             
-            int hScrollPos = static_cast<int>((chart2Zoom.minX / (totalDataRange - viewRangeX)) * 100);
-            uiModule->SetScrollBarRange(2, 0, 100, static_cast<int>((viewRangeX / totalDataRange) * 100), hScrollPos);
+            // Вычисляем page size и максимальную позицию скроллбара
+            int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
+            int maxScrollPos = 100 - pageSize + 1;
+            
+            // Вычисляем позицию скроллбара пропорционально
+            double scrollableRange = totalDataRange - viewRangeX;
+            int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart2Zoom.minX / scrollableRange) * maxScrollPos) : 0;
+            uiModule->SetScrollBarRange(2, 0, 100, pageSize, hScrollPos);
             
             // Настраиваем диапазон вертикального скроллбара (ось Y)
             // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)

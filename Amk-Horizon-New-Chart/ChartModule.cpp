@@ -783,7 +783,8 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     if (hasData) {
         // Используем разные диапазоны для левой и правой осей
         DrawDualAxisDataWithZoom(hdc, plotRect, curves, leftAxisData, rightAxisData, 
-                                 minYData, maxYData, minYRight, maxYRight);
+                                 minYData, maxYData, minYRight, maxYRight,
+                                 minXData, maxXData);
     }
     
     // Отрисовка легенды
@@ -1218,7 +1219,8 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                                            const std::vector<std::vector<float>>& leftAxisData,
                                            const std::vector<std::vector<float>>& rightAxisData,
                                            double leftMinY, double leftMaxY,
-                                           double rightMinY, double rightMaxY) const {
+                                           double rightMinY, double rightMaxY,
+                                           double minXData, double maxXData) const {
     // Добавляем небольшой padding только снизу (2%) для визуального комфорта
     // Сверху padding не нужен, чтобы не было лишнего пространства
     float yRangeLeft = static_cast<float>(leftMaxY - leftMinY);
@@ -1271,8 +1273,11 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         
         bool firstPoint = true;
         int minY = INT_MAX, maxY = INT_MIN;
+        double xRange = maxXData - minXData;
         for (size_t j = 0; j < channel.size(); j++) {
-            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            // Вычисляем реальный индекс данных и преобразуем в экранную координату
+            double dataX = minXData + (double)j;
+            int x = plotRect.left + (int)((dataX - minXData) / xRange * (plotRect.right - plotRect.left));
             
             // Ограничиваем значение данных к диапазону leftMin/leftMax для корректного отображения
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
@@ -1302,6 +1307,7 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
     
     // Отрисовка кривых правой оси (пунктирные линии)
     size_t rightIndex = 0;
+    double xRangeForRightAxis = maxXData - minXData;
     for (size_t i = 0; i < curves.size() && rightIndex < rightAxisData.size(); i++) {
         const auto& curve = curves[i];
         if (!curve.enabled || curve.yAxisGroup != 1) continue;
@@ -1317,7 +1323,9 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         
         bool firstPoint = true;
         for (size_t j = 0; j < channel.size(); j++) {
-            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            // Вычисляем реальный индекс данных и преобразуем в экранную координату
+            double dataX = minXData + (double)j;
+            int x = plotRect.left + (int)((dataX - minXData) / xRangeForRightAxis * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
             
