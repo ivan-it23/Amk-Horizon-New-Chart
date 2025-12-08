@@ -738,18 +738,52 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
         }
     }
     
+    // Вычисляем полные диапазоны из данных
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        leftMinFull = static_cast<double>(minVal);
+        leftMaxFull = static_cast<double>(maxVal);
+    }
+    
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        rightMinFull = static_cast<double>(minVal);
+        rightMaxFull = static_cast<double>(maxVal);
+    }
+    
+    // Вычисляем пропорциональный zoom для правой оси
+    // Если minYData/maxYData отличаются от полного диапазона левой оси, применяем ту же пропорцию к правой
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    double leftFullRange = leftMaxFull - leftMinFull;
+    double rightFullRange = rightMaxFull - rightMinFull;
+    
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        // Вычисляем пропорцию zoom от левой оси
+        double minRatio = (minYData - leftMinFull) / leftFullRange;
+        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        
+        // Применяем ту же пропорцию к правой оси
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+    
     if (!leftAxisData.empty()) {
         DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
     }
+    
     if (!rightAxisData.empty()) {
-        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYData, maxYData);
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
     }
     
     // Отрисовка данных с учетом zoom по Y
     if (hasData) {
-        // Используем переданные параметры minYData и maxYData для отрисовки
+        // Используем разные диапазоны для левой и правой осей
         DrawDualAxisDataWithZoom(hdc, plotRect, curves, leftAxisData, rightAxisData, 
-                                 minYData, maxYData, minYData, maxYData);
+                                 minYData, maxYData, minYRight, maxYRight);
     }
     
     // Отрисовка легенды
@@ -1764,11 +1798,41 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                        xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
     }
     
+    // Вычисляем полные диапазоны из данных
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        leftMinFull = static_cast<double>(minVal);
+        leftMaxFull = static_cast<double>(maxVal);
+    }
+    
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        rightMinFull = static_cast<double>(minVal);
+        rightMaxFull = static_cast<double>(maxVal);
+    }
+    
+    // Вычисляем пропорциональный zoom для правой оси
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    double leftFullRange = leftMaxFull - leftMinFull;
+    double rightFullRange = rightMaxFull - rightMinFull;
+    
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        double minRatio = (minYData - leftMinFull) / leftFullRange;
+        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+    
     if (!leftAxisData.empty()) {
         DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
     }
+    
     if (!rightAxisData.empty()) {
-        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYData, maxYData);
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
     }
     
     // Отрисовка данных с температурой на оси X и zoom по Y
@@ -2149,14 +2213,45 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         maxTemp = minTemp + 1.0f;
     }
     
+    // Вычисляем полные диапазоны из данных для пропорционального zoom
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        leftMinFull = static_cast<double>(minVal);
+        leftMaxFull = static_cast<double>(maxVal);
+    }
+    
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        rightMinFull = static_cast<double>(minVal);
+        rightMaxFull = static_cast<double>(maxVal);
+    }
+    
+    // Вычисляем пропорциональный zoom для правой оси
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    double leftFullRange = leftMaxFull - leftMinFull;
+    double rightFullRange = rightMaxFull - rightMinFull;
+    
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        double minRatio = (minYData - leftMinFull) / leftFullRange;
+        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+    
     // Добавляем небольшой padding только снизу (2%) для визуального комфорта
-    // Сверху padding не нужен, чтобы не было лишнего пространства
-    float yRange = static_cast<float>(maxYData - minYData);
-    float yPadding = yRange * 0.02f;
-    float leftMin = static_cast<float>(minYData) - yPadding;
+    float yRangeLeft = static_cast<float>(maxYData - minYData);
+    float yPaddingLeft = yRangeLeft * 0.02f;
+    float leftMin = static_cast<float>(minYData) - yPaddingLeft;
     float leftMax = static_cast<float>(maxYData);
-    float rightMin = static_cast<float>(minYData) - yPadding;
-    float rightMax = static_cast<float>(maxYData);
+    
+    float yRangeRight = static_cast<float>(maxYRight - minYRight);
+    float yPaddingRight = yRangeRight * 0.02f;
+    float rightMin = static_cast<float>(minYRight) - yPaddingRight;
+    float rightMax = static_cast<float>(maxYRight);
     
     // Отладочный вывод
     wchar_t debugMsg[512];
