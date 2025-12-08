@@ -8,6 +8,7 @@
 #include "LayoutModule.h"
 #include <commdlg.h>
 #include <memory>
+#include <vector>
 
 // Предварительные объявления новых модулей
 class SchematicModule;
@@ -46,6 +47,10 @@ private:
     // Независимые диапазоны масштабирования для каждого графика
     ZoomRange chart1Zoom;
     ZoomRange chart2Zoom;
+    
+    // v2.12.5: История zoom для пошагового отката (стек состояний)
+    std::vector<ZoomRange> chart1ZoomHistory;
+    std::vector<ZoomRange> chart2ZoomHistory;
     
     // Структура для хранения позиции перекрестия (crosshair)
     struct CrosshairPosition {

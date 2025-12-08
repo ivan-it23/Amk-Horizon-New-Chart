@@ -41,8 +41,10 @@ ChartManager::ChartManager()
                     // Сбрасываем zoom для соответствующего графика
                     if (chartNumber == 1) {
                         chart1Zoom.isZoomed = false;
+                        chart1ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
                     } else if (chartNumber == 2) {
                         chart2Zoom.isZoomed = false;
+                        chart2ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
                     }
                 }
                 
@@ -160,6 +162,10 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
+    
+    // v2.12.5: Очищаем историю zoom при загрузке нового файла
+    chart1ZoomHistory.clear();
+    chart2ZoomHistory.clear();
     
     // Сбрасываем X Range для обоих графиков при загрузке новых данных
     if (dataModule->HasData()) {
@@ -407,14 +413,21 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             // Это позволяет пользователю точно выбрать интересующий участок по Y
             // и затем использовать вертикальный scrollbar для навигации
             
+            // v2.12.5: Сохраняем текущее состояние в историю перед применением нового zoom
             // Устанавливаем новый видимый диапазон для соответствующего графика
             if (activeChart == 1) {
+                // Сохраняем текущее состояние в историю
+                chart1ZoomHistory.push_back(chart1Zoom);
+                
                 chart1Zoom.minX = minDataX;
                 chart1Zoom.maxX = maxDataX;
                 chart1Zoom.minY = minDataY;
                 chart1Zoom.maxY = maxDataY;
                 chart1Zoom.isZoomed = true;
             } else if (activeChart == 2) {
+                // Сохраняем текущее состояние в историю
+                chart2ZoomHistory.push_back(chart2Zoom);
+                
                 chart2Zoom.minX = minDataX;
                 chart2Zoom.maxX = maxDataX;
                 chart2Zoom.minY = minDataY;
@@ -440,16 +453,34 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     // Определяем, на каком графике произошел клик
     int chartAtPoint = GetChartAtPoint(x, y);
     
-    // Сбрасываем масштаб и перекрестие только для соответствующего графика
+    // v2.12.5: Пошаговый откат zoom из истории
+    // Если есть история — откатываемся на один шаг назад
+    // Если история пуста — сбрасываем к полному виду
     if (chartAtPoint == 1) {
-        chart1Zoom.isZoomed = false;
         chart1Crosshair.isVisible = false;
+        
+        if (!chart1ZoomHistory.empty()) {
+            // Откатываемся к предыдущему состоянию из истории
+            chart1Zoom = chart1ZoomHistory.back();
+            chart1ZoomHistory.pop_back();
+        } else {
+            // История пуста — полный сброс zoom
+            chart1Zoom.isZoomed = false;
+        }
     } else if (chartAtPoint == 2) {
-        chart2Zoom.isZoomed = false;
         chart2Crosshair.isVisible = false;
+        
+        if (!chart2ZoomHistory.empty()) {
+            // Откатываемся к предыдущему состоянию из истории
+            chart2Zoom = chart2ZoomHistory.back();
+            chart2ZoomHistory.pop_back();
+        } else {
+            // История пуста — полный сброс zoom
+            chart2Zoom.isZoomed = false;
+        }
     }
     
-    // Обновляем скроллбары после сброса зума
+    // Обновляем скроллбары после изменения зума
     UpdateScrollBars(hWnd);
     
     // Перерисовываем только измененный график (избегаем мигания)
@@ -1123,8 +1154,10 @@ void ChartManager::UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumbe
     // Сбрасываем масштабирование при изменении конфигурации
     if (chartNumber == 1) {
         chart1Zoom.isZoomed = false;
+        chart1ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
     } else if (chartNumber == 2) {
         chart2Zoom.isZoomed = false;
+        chart2ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
     }
     
     // Обновляем скроллбары
@@ -1354,9 +1387,16 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
 }
 
 void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
-    // Сбрасываем zoom для указанного графика (аналогично правому клику мыши)
+    // Сбрасываем zoom для указанного графика (полный сброс, не пошаговый)
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     zoom->isZoomed = false;
+    
+    // v2.12.5: Очищаем историю zoom при полном сбросе через кнопку
+    if (chartNumber == 1) {
+        chart1ZoomHistory.clear();
+    } else if (chartNumber == 2) {
+        chart2ZoomHistory.clear();
+    }
     
     // Обновляем скроллбары
     UpdateScrollBars(hWnd);
