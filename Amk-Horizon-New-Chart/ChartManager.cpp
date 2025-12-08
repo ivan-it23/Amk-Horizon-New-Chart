@@ -33,6 +33,19 @@ ChartManager::ChartManager()
         if (hSchematicDlg) {
             HWND hMainWnd = GetParent(hSchematicDlg);
             if (hMainWnd) {
+                // Сбрасываем X Range при смене функции/пресета
+                if (dataModule && dataModule->HasData()) {
+                    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+                    uiModule->UpdateXRangeControls(chartNumber, 0.0, maxX, false);
+                    
+                    // Сбрасываем zoom для соответствующего графика
+                    if (chartNumber == 1) {
+                        chart1Zoom.isZoomed = false;
+                    } else if (chartNumber == 2) {
+                        chart2Zoom.isZoomed = false;
+                    }
+                }
+                
                 // Перерисовываем соответствующий график
                 InvalidateChart(hMainWnd, chartNumber);
             }
@@ -147,6 +160,13 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
+    
+    // Сбрасываем X Range для обоих графиков при загрузке новых данных
+    if (dataModule->HasData()) {
+        double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+        uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
+        uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+    }
     
     // Сохраняем конфигурации кривых при загрузке новых данных
     // Новая система должна продолжать работать с теми же настройками

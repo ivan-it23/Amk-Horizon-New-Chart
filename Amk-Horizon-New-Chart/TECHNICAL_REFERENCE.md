@@ -93,6 +93,65 @@ float ConvertPhaseToMillidegrees(float radians) {
 2. Нормализация: `NormalizePhase(phase)`
 3. Преобразование: `phase * 57295.7795f`
 
+## 📐 Отступы области графика (plotRect) (v2.12.2)
+
+### Унифицированные отступы
+Все методы, работающие с координатами графика, используют одинаковые отступы:
+
+```cpp
+// Константы отступов (относительно chartRect)
+const int MARGIN_LEFT = 60;    // Отступ слева для левой оси Y
+const int MARGIN_RIGHT = 140;  // Отступ справа для правой оси Y + scrollbar
+const int MARGIN_TOP = 45;     // Отступ сверху для заголовка + легенды
+const int MARGIN_BOTTOM = 50;  // Отступ снизу для оси X + scrollbar
+
+// Вычисление plotRect
+plotRect.left = chartRect.left + 60;
+plotRect.top = chartRect.top + 45;
+plotRect.right = chartRect.right - 140;
+plotRect.bottom = chartRect.bottom - 50;
+```
+
+### Методы, использующие эти отступы
+- `ChartModule::CalculateDualAxisPlotRect()` — основной метод вычисления plotRect
+- `ChartManager::ConvertScreenToDataCoords()` — преобразование координат при клике
+- `ChartManager::ConvertScreenToChartCoords()` — преобразование для статусной строки
+- `ChartManager::DrawCrosshair()` — отрисовка перекрестия
+- `ChartManager::DrawChartLegacy()` — отрисовка пустого графика
+
+### Важно
+Все методы должны использовать **одинаковые отступы**, иначе координаты при клике не будут совпадать с подписями на осях.
+
+## 📊 Пропорциональный zoom для двойных осей (v2.12.2)
+
+### Проблема
+При zoom/scroll по оси Y изменяется диапазон левой оси, но правая ось имеет другие единицы измерения (мВ vs мдег) и другой диапазон значений.
+
+### Решение
+Вычисляется пропорция zoom от левой оси и применяется к правой:
+
+```cpp
+// Вычисляем полные диапазоны из данных
+double leftMinFull, leftMaxFull;   // Полный диапазон левой оси
+double rightMinFull, rightMaxFull; // Полный диапазон правой оси
+
+// Вычисляем пропорцию zoom
+double leftFullRange = leftMaxFull - leftMinFull;
+double rightFullRange = rightMaxFull - rightMinFull;
+
+double minRatio = (minYData - leftMinFull) / leftFullRange;
+double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+
+// Применяем ту же пропорцию к правой оси
+double minYRight = rightMinFull + minRatio * rightFullRange;
+double maxYRight = rightMinFull + maxRatio * rightFullRange;
+```
+
+### Результат
+- При zoom 50% левой оси, правая ось также показывает 50% своего диапазона
+- При scroll обе оси смещаются пропорционально
+- Визуально кривые на обеих осях масштабируются синхронно
+
 ## 📊 Расположение осей Y (v2.7.0)
 
 ### Логика двойных осей
