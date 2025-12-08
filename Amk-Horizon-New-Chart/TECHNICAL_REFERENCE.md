@@ -497,29 +497,50 @@ if (yRange < MIN_Y_RANGE) {
 }
 ```
 
-#### HandleScrollEvent
+#### HandleScrollEvent (v2.12.3 - исправлено)
 ```cpp
 void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
 ```
 
-**Изменения**:
-- Добавлена обработка вертикального scrollbar
-- Определение типа scrollbar (горизонтальный или вертикальный)
-- Инвертированная логика для вертикального scrollbar
+**Изменения v2.12.3**:
+- Исправлена формула скроллинга с учётом `nPage` в Windows API
+- Реальный максимум позиции скроллбара = `nMax - nPage + 1`, а не `nMax`
 
-**Алгоритм вертикального скроллинга**:
+**Алгоритм горизонтального скроллинга (исправленный)**:
+```cpp
+// Горизонтальный скроллинг (ось X)
+double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
+double viewRange = zoom->maxX - zoom->minX;
+
+// Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
+int maxScrollPos = si.nMax - (int)si.nPage + 1;
+double scrollRatio = (maxScrollPos > 0) ? (double)newPos / (double)maxScrollPos : 0.0;
+double newMinX = scrollRatio * (totalRange - viewRange);
+zoom->minX = newMinX;
+zoom->maxX = newMinX + viewRange;
+```
+
+**Алгоритм вертикального скроллинга (исправленный)**:
 ```cpp
 if (isVertical) {
     // Получаем полный диапазон Y из данных
     double totalYRange = maxYFull - minYFull;
     double viewYRange = zoom->maxY - zoom->minY;
     
-    // Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
-    double newMinY = minYFull + ((100.0 - newPos) / 100.0) * (totalYRange - viewYRange);
+    // Вертикальный scrollbar инвертирован (верх = 0, низ = maxScrollPos)
+    // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
+    int maxScrollPos = si.nMax - (int)si.nPage + 1;
+    double scrollRatio = (maxScrollPos > 0) ? (double)(maxScrollPos - newPos) / (double)maxScrollPos : 0.0;
+    double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
     zoom->minY = newMinY;
     zoom->maxY = newMinY + viewYRange;
 }
 ```
+
+**Важно**: В Windows API при установке `SCROLLINFO` с `nPage`:
+- `nMax = 100` (устанавливаем)
+- `nPage = (viewRange / totalRange) * 100` (размер видимой области)
+- Реальный максимум позиции = `100 - nPage + 1`
 
 #### UpdateScrollBars
 ```cpp

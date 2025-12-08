@@ -444,12 +444,16 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     bool addDifferences = (selection.dataFilter == DataTypeFilter::ALL || 
                            selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY);
     
+    // v2.12.4: Определяем, односортные ли данные (только один тип)
+    // Если данные односортные, все кривые идут на левую ось
+    bool isSingleType = (addRatios && !addDifferences) || (!addRatios && addDifferences);
+    
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем разности фаз (более важны для анализа)
     for (int i = 0; i < 4; i++) {
         // Разность фаз (ЛЕВАЯ ось, единицы: миллиградусы)
         if (addDifferences) {
             CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
-            differenceCurve.yAxisGroup = (addRatios ? 0 : 0); // ЛЕВАЯ ось если есть ratios, иначе тоже левая
+            differenceCurve.yAxisGroup = 0; // ЛЕВАЯ ось всегда для фаз
             differenceCurve.enabled = true; // По умолчанию включена
             // Умное назначение цвета с учетом уже созданных кривых
             differenceCurve.color = AssignSmartColor(curves, i, differenceCurve.yAxisGroup);
@@ -457,12 +461,14 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
         }
     }
     
-    // ИЗМЕНЕНО v2.7.0: Потом добавляем отношения амплитуд
+    // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем отношения амплитуд
     for (int i = 0; i < 4; i++) {
-        // Отношение амплитуд (ПРАВАЯ ось, единицы: В/В)
+        // Отношение амплитуд
         if (addRatios) {
             CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
-            ratioCurve.yAxisGroup = 1; // ПРАВАЯ ось
+            // v2.12.4: Если данные односортные (только амплитуды), используем левую ось
+            // Если данные разносортные (амплитуды + фазы), используем правую ось
+            ratioCurve.yAxisGroup = isSingleType ? 0 : 1;
             ratioCurve.enabled = true; // По умолчанию включена
             // Умное назначение цвета с учетом уже созданных кривых
             ratioCurve.color = AssignSmartColor(curves, i, ratioCurve.yAxisGroup);
@@ -502,12 +508,16 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     bool addPhases = (selection.dataFilter == DataTypeFilter::ALL || 
                       selection.dataFilter == DataTypeFilter::PHASE_ONLY);
     
+    // v2.12.4: Определяем, односортные ли данные (только один тип)
+    // Если данные односортные, все кривые идут на левую ось
+    bool isSingleType = (addAmplitudes && !addPhases) || (!addAmplitudes && addPhases);
+    
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем фазы (более важны для анализа)
     for (int i = 0; i < 4; i++) {
         // Фаза (ЛЕВАЯ ось)
         if (addPhases) {
             CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
-            phaseCurve.yAxisGroup = (addAmplitudes ? 0 : 0); // ЛЕВАЯ ось если есть амплитуды, иначе тоже левая
+            phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось всегда для фаз
             phaseCurve.enabled = true; // Включена по умолчанию для пресетов
             // Умное назначение цвета с учетом уже созданных кривых
             phaseCurve.color = AssignSmartColor(curves, i, phaseCurve.yAxisGroup);
@@ -515,12 +525,14 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
         }
     }
     
-    // ИЗМЕНЕНО v2.7.0: Потом добавляем амплитуды
+    // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем амплитуды
     for (int i = 0; i < 4; i++) {
-        // Амплитуда (ПРАВАЯ ось)
+        // Амплитуда
         if (addAmplitudes) {
             CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
-            amplitudeCurve.yAxisGroup = 1; // ПРАВАЯ ось
+            // v2.12.4: Если данные односортные (только амплитуды), используем левую ось
+            // Если данные разносортные (амплитуды + фазы), используем правую ось
+            amplitudeCurve.yAxisGroup = isSingleType ? 0 : 1;
             amplitudeCurve.enabled = true; // По умолчанию включена
             // Умное назначение цвета с учетом уже созданных кривых
             amplitudeCurve.color = AssignSmartColor(curves, i, amplitudeCurve.yAxisGroup);
