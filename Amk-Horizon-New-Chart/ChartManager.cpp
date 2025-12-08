@@ -473,20 +473,13 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNum);
     
     // Вычисляем область графика (plotRect) с учётом отступов
+    // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
+    // вызывается для всех графиков (даже с одной осью) и использует CalculateDualAxisPlotRect
     RECT plotRect;
-    if (config.hasDualAxis) {
-        // Для двойных осей используем CalculateDualAxisPlotRect
-        plotRect.left = chartRect->left + 60;
-        plotRect.top = chartRect->top + 45;
-        plotRect.right = chartRect->right - 140;
-        plotRect.bottom = chartRect->bottom - 50;
-    } else {
-        // Для одной оси используем CalculatePlotRect
-        plotRect.left = chartRect->left + 80;
-        plotRect.top = chartRect->top + 45;
-        plotRect.right = chartRect->right - 30;
-        plotRect.bottom = chartRect->bottom - 50;
-    }
+    plotRect.left = chartRect->left + 60;
+    plotRect.top = chartRect->top + 45;
+    plotRect.right = chartRect->right - 140;
+    plotRect.bottom = chartRect->bottom - 50;
 
     double plotWidth = static_cast<double>(plotRect.right - plotRect.left);
     double plotHeight = static_cast<double>(plotRect.bottom - plotRect.top);
@@ -973,10 +966,11 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     chartModule->DrawChartTitle(hdc, chartRect, title);
     
     // Расчет области для графика
+    // ВАЖНО: Используем те же отступы, что и в DrawDualAxisChart (CalculateDualAxisPlotRect)
     RECT plotRect = chartRect;
-    plotRect.left += 80;
+    plotRect.left += 60;
     plotRect.top += 45;
-    plotRect.right -= 30;
+    plotRect.right -= 140;
     plotRect.bottom -= 50;
     
     // Рисуем оси
@@ -1632,20 +1626,13 @@ void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber
     }
     
     // Вычисляем область графика (plotRect) с учётом отступов
+    // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
+    // вызывается для всех графиков и использует CalculateDualAxisPlotRect
     RECT plotRect;
-    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
-    
-    if (config.hasDualAxis) {
-        plotRect.left = chartRect.left + 60;
-        plotRect.top = chartRect.top + 45;
-        plotRect.right = chartRect.right - 140;
-        plotRect.bottom = chartRect.bottom - 50;
-    } else {
-        plotRect.left = chartRect.left + 80;
-        plotRect.top = chartRect.top + 45;
-        plotRect.right = chartRect.right - 30;
-        plotRect.bottom = chartRect.bottom - 50;
-    }
+    plotRect.left = chartRect.left + 60;
+    plotRect.top = chartRect.top + 45;
+    plotRect.right = chartRect.right - 140;
+    plotRect.bottom = chartRect.bottom - 50;
     
     // Проверяем, что перекрестие находится внутри области графика
     if (crosshair->screenX < plotRect.left || crosshair->screenX > plotRect.right ||
