@@ -672,9 +672,11 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         
         // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
         // newPos = 0 означает верх (максимальный Y)
-        // newPos = 100 означает низ (минимальный Y)
+        // newPos = maxScrollPos означает низ (минимальный Y)
+        // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
         if (totalYRange > viewYRange && totalYRange > 0) {
-            double scrollRatio = (100.0 - newPos) / 100.0;
+            int maxScrollPos = si.nMax - (int)si.nPage + 1;
+            double scrollRatio = (maxScrollPos > 0) ? (double)(maxScrollPos - newPos) / (double)maxScrollPos : 0.0;
             double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
             zoom->minY = newMinY;
             zoom->maxY = newMinY + viewYRange;
@@ -767,8 +769,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         int vScrollPos = 50;
         int vScrollPage = 100;
         if (totalYRange > viewRangeY && totalYRange > 0) {
-            vScrollPos = static_cast<int>(100.0 - ((chart1Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
             vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+            int maxScrollPos = 100 - vScrollPage + 1;
+            
+            // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
+            double scrollableRange = totalYRange - viewRangeY;
+            double scrollRatio = (chart1Zoom.minY - minYFull) / scrollableRange;
+            vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
         }
         uiModule->SetVScrollBarRange(1, 0, 100, vScrollPage, vScrollPos);
     } else {
@@ -822,8 +829,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             int vScrollPos = 50;
             int vScrollPage = 100;
             if (totalYRange > viewRangeY && totalYRange > 0) {
-                vScrollPos = static_cast<int>(100.0 - ((chart2Zoom.minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
                 vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+                int maxScrollPos = 100 - vScrollPage + 1;
+                
+                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
+                double scrollableRange = totalYRange - viewRangeY;
+                double scrollRatio = (chart2Zoom.minY - minYFull) / scrollableRange;
+                vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
             }
             uiModule->SetVScrollBarRange(2, 0, 100, vScrollPage, vScrollPos);
         } else {
