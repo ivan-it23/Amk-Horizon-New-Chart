@@ -1518,10 +1518,11 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         }
         
         // Преобразуем экранные координаты в координаты данных
-        const int MARGIN_LEFT = 50;
-        const int MARGIN_RIGHT = 50;
-        const int MARGIN_TOP = 60;
-        const int MARGIN_BOTTOM = 40;
+        // ВАЖНО: Используем те же отступы, что и в CalculateDualAxisPlotRect
+        const int MARGIN_LEFT = 60;
+        const int MARGIN_RIGHT = 140;
+        const int MARGIN_TOP = 45;
+        const int MARGIN_BOTTOM = 50;
         
         int plotWidth = chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT;
         int plotHeight = chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM;
