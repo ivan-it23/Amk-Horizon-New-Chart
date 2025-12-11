@@ -64,6 +64,15 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
     return data;
 }
 
+// v2.13.0: Добавление данных в реальном времени
+void DataModule::AddData(const GP_TOOL_DATA& newData) {
+    data.push_back(newData);
+}
+
+void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
+    data.insert(data.end(), newDataBatch.begin(), newDataBatch.end());
+}
+
 bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const {
     // Проверка корректности индексов
     if (data.empty()) {

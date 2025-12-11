@@ -470,3 +470,495 @@ DATA1[n].GP (вектор всех кадров)
 - Предварительно рассчитанные симметризованные значения (Ro_smt, PH_smt)
 
 Данные считываются из бинарных файлов, обрабатываются (скользящее среднее, вычисление разности фаз), и отображаются на графиках в различных представлениях в зависимости от выбранного режима визуализации.
+
+
+---
+
+# ЧАСТЬ 2: ЧТЕНИЕ ДАННЫХ С ПРИБОРА В РЕАЛЬНОМ ВРЕМЕНИ
+
+## 11. ЭМУЛЯТОР ПРИБОРА (emul__1_.ino)
+
+Эмулятор реализован на Arduino и имитирует работу реального прибора.
+
+### 11.1 Структура данных эмулятора
+
+```cpp
+struct AllData_P {
+    uint32_t signature;      // 0x31443454 ("1D4T")
+    uint32_t condition;
+    float Ro_smt[8];
+    float PH_smt[8];
+    uint32_t frame;
+    float temperature;
+    float AM_RX_1[10];
+    float AM_RX_2[10];
+    float PH_RX_1[10];
+    float PH_RX_2[10];
+};
+```
+
+**Структура идентична GP_TOOL_DATA!**
+
+### 11.2 Инициализация данных
+
+```cpp
+void setup() {
+    Serial.begin(125000);  // Скорость COM-порта: 125000 бод
+    
+    petr.signature = 0x31443453;  // Сигнатура "1D4S"
+    petr.frame = 0x30;
+    
+    for(int i = 0; i < 8; i++){
+        petr.PH_smt[i] = 0.01*i;
+        petr.Ro_smt[i] = 1.1*i;
+        petr.AM_RX_1[i] = 50+i;
+        petr.AM_RX_2[i] = 60+i;
+        petr.PH_RX_1[i] = 0.1;
+        petr.PH_RX_2[i] = 0.2;
+    }
+}
+```
+
+### 11.3 Обработка команд
+
+```cpp
+void loop() {
+    if (Serial.available() > 3) {
+        Serial.readBytes(buff, 4);
+        
+        // Команда 0x67 (CMD_WORK) - запрос данных
+        if(buff[0]==0x67 || buff[1]==0x67 || buff[2]==0x67 || buff[3]==0x67){
+            // Генерация тестовых данных
+            petr.signature = 0x31443454;  // "1D4T"
+            
+            for(int i = 0; i < 8; i++){
+                petr.PH_smt[i] = 100/mG;
+                petr.Ro_smt[i] = 10*(i+1);
+                petr.AM_RX_1[i] = 100*(100+i + petr.frame);
+                petr.AM_RX_2[i] = 100*(200+i + petr.frame);
+                petr.PH_RX_1[i] = 0;
+            }
+            
+            // Разность фаз для тестирования
+            petr.PH_RX_2[0] = -100.0/mG;  // TX1 @ 400 Гц
+            petr.PH_RX_2[1] = 100.0/mG;   // TX2 @ 400 Гц
+            petr.PH_RX_2[2] = -100.0/mG;  // TX3 @ 400 Гц
+            petr.PH_RX_2[3] = 100.0/mG;   // TX4 @ 400 Гц
+            petr.PH_RX_2[4] = -200.0/mG;  // TX1 @ 2000 Гц
+            petr.PH_RX_2[5] = 200.0/mG;   // TX2 @ 2000 Гц
+            petr.PH_RX_2[6] = -200.0/mG;  // TX3 @ 2000 Гц
+            petr.PH_RX_2[7] = 200.0/mG;   // TX4 @ 2000 Гц
+            
+            petr.frame++;  // Инкремент номера кадра
+            
+            // Отправка данных
+            send_out(0x67, (char*)(&petr), sizeof(AllData_P));
+        }
+        
+        // Команда 0x65 (CMD_READ_EE) - запрос метрологии
+        if(buff[0]==0x65 || buff[1]==0x65 || buff[2]==0x65 || buff[3]==0x65){
+            send_out_metro(0x65, (char*)(&METRO), sizeof(METROLOGY));
+        }
+    }
+}
+```
+
+---
+
+## 12. ПРОТОКОЛ ОБМЕНА ДАННЫМИ
+
+### 12.1 Команды
+
+| Код | Константа | Описание |
+|-----|-----------|----------|
+| 0x67 | CMD_WORK | Запрос данных измерений |
+| 0x65 | CMD_READ_EE | Чтение EEPROM (метрология) |
+| 0x66 | CMD_WRITE_EE | Запись EEPROM |
+| 0x61 | CMD_ERAM | Чтение ERAM |
+| 0xFD | CMD_TURBO | Турбо режим |
+
+### 12.2 Формат пакета (отправка от эмулятора)
+
+```
+┌─────────┬──────────────┬──────────────┬─────────┐
+│ CMD (1) │ Reserved(12) │ DATA (240)   │ CRC (2) │
+└─────────┴──────────────┴──────────────┴─────────┘
+```
+
+**Функция отправки в эмуляторе:**
+```cpp
+int send_out(uint8_t CMD, uint8_t* DATA, uint8_t length) {
+    uint8_t packet_to_send[length + 15];
+    
+    packet_to_send[0] = CMD;
+    // packet_to_send[1-12] = 0 (зарезервировано)
+    
+    for (int i = 0; i < length; i++) {
+        packet_to_send[i+13] = DATA[i];
+    }
+    
+    uint16_t CRC_res = CRC16(packet, length + 13);
+    packet_to_send[length + 13] = CRC_res;        // Младший байт CRC
+    packet_to_send[length + 14] = CRC_res >> 8;   // Старший байт CRC
+    
+    Serial.write(packet_to_send, length + 15);
+}
+```
+
+**Общий размер пакета:** 1 + 12 + 240 + 2 = **255 байт**
+
+### 12.3 Формат пакета (отправка от ПК)
+
+```
+┌─────────┬──────────────┬─────────┐
+│ CMD (1) │ DATA (N)     │ CRC (2) │
+└─────────┴──────────────┴─────────┘
+```
+
+**Функция отправки в ПК:**
+```cpp
+int send_to_tool(uint8_t CMD, uint8_t* DATA, uint8_t length) {
+    uint8_t packet[length + 3];
+    cli::array<byte>^ packet_to_send = gcnew cli::array<byte>(length + 3);
+    
+    packet[0] = CMD;
+    packet_to_send[0] = CMD;
+    
+    for (int i = 1; i < length + 1; i++) {
+        packet[i] = DATA[i - 1];
+        packet_to_send[i] = DATA[i - 1];
+    }
+    
+    uint16_t CRC_res = CRC16(packet, length + 1);
+    packet_to_send[length + 1] = CRC_res;        // Младший байт
+    packet_to_send[length + 2] = CRC_res >> 8;   // Старший байт
+    
+    serialPort1->Write(packet_to_send, 0, length + 3);
+}
+```
+
+### 12.4 CRC16 (Modbus)
+
+```cpp
+uint16_t CRC16(const uint8_t *nData, uint16_t wLength) {
+    static const uint16_t wCRCTable[] = {
+        0X0000, 0XC0C1, 0XC181, 0X0140, ...
+    };
+    
+    uint8_t nTemp;
+    uint16_t wCRCWord = 0xFFFF;
+    
+    while (wLength--) {
+        nTemp = *nData++ ^ wCRCWord;
+        wCRCWord >>= 8;
+        wCRCWord ^= wCRCTable[nTemp];
+    }
+    
+    return wCRCWord;
+}
+```
+
+---
+
+## 13. ЧТЕНИЕ ДАННЫХ В РЕАЛЬНОМ ВРЕМЕНИ (ПК)
+
+### 13.1 Два режима работы
+
+**Режим 1: AUTONOM (через DLL)**
+- Использует AMK_1DDS_AUTONOM.dll
+- Таймер: `timer_Sonde_ON_OFF` (интервал 2000 мс)
+- Функция: `AMK_GetData(ComPort, &P)`
+
+**Режим 2: LWD (через COM-порт напрямую)**
+- Использует System::IO::Ports::SerialPort
+- Таймер: `aTimer` (System.Timers.Timer, интервал 2000 мс)
+- Функции: `send_to_tool()` / `receive_from_tool()`
+
+### 13.2 Режим AUTONOM (timer_Sonde_ON_OFF_Tick)
+
+```cpp
+private: System::Void timer_Sonde_ON_OFF_Tick(System::Object^ sender, System::EventArgs^ e) {
+    extern string Dataout;
+    extern bool sonde_on_off;
+    
+    busy = true;
+    GP_TOOL_DATA P = { 0, };
+    
+    if (ComPort != NULL) {
+        // Получение данных через DLL
+        if (!AMK_GetData(ComPort, &P)) {
+            // Ошибка - нет данных
+            No_Data = 1;
+            this->button_ON_OFF->BackColor = Color::Red;
+        }
+        else {
+            // Данные получены успешно
+            
+            // Мигание индикатора
+            if (blink == 0) { 
+                blink = 1; 
+                this->button_ON_OFF->BackColor = Color::Red; 
+            }
+            else { 
+                blink = 0; 
+                this->button_ON_OFF->BackColor = DefaultBackColor; 
+            }
+            
+            // Проверка сигнатуры и запись в файл
+            if (first_sign_after_on == P.signature) {
+                fout = new ofstream;
+                fout->open(Dataout.c_str(), ios_base::app | ios_base::binary);
+                fout->write((char*)&P, sizeof(P));  // Запись 240 байт
+                fout->flush();
+                fout->close();
+                delete fout;
+                autonom_points_cntr++;
+            }
+            
+            // Вывод отладочной информации
+            cout << " SGN " << P.signature << endl;
+            cout << " frame " << P.frame << endl;
+            cout << "TEMP " << P.temperature << endl;
+            // ... вывод всех данных
+        }
+    }
+    
+    busy = false;
+}
+```
+
+### 13.3 Режим LWD (OnTimer)
+
+```cpp
+private:void OnTimer(System::Object^ source, ElapsedEventArgs^ e) {
+    GP_TOOL_DATA *P = new GP_TOOL_DATA;
+    const uint8_t length = 252;
+    uint8_t DATA_IN[length] = { 0, };
+    
+    // Настройка COM-порта
+    serialPort1->PortName = gcnew String(Com_Name.c_str());
+    serialPort1->ReadTimeout = 1000;
+    serialPort1->WriteTimeout = 1000;
+    serialPort1->BaudRate = 125000;
+    serialPort1->Open();
+    
+    // Отправка команды запроса данных
+    uint8_t *DATA = new uint8_t;
+    *DATA = length;
+    send_to_tool_(serialPort1, CMD_WORK, DATA, 1);
+    
+    Sleep(100);  // Ожидание ответа
+    
+    // Получение данных
+    int result = receive_from_tool_(serialPort1, CMD, DATA_IN, length);
+    serialPort1->Close();
+    
+    if (result == 0) {
+        // Данные начинаются с 12-го байта (после заголовка)
+        P = (GP_TOOL_DATA*)(DATA_IN + 12);
+        
+        // Проверка сигнатуры
+        if (P->signature == 0x31443453 || P->signature == 0x31443454) {
+            // Запись в файл
+            fout = new ofstream;
+            fout->open(Dataout_LWD.c_str(), ios_base::app | ios_base::binary);
+            fout->write((char*)P, sizeof(GP_TOOL_DATA));
+            fout->flush();
+            fout->close();
+            delete fout;
+        }
+    }
+}
+```
+
+### 13.4 Инициализация потока чтения
+
+```cpp
+// В конструкторе MyForm:
+Thread^ Read_Port_Thread = gcnew Thread(gcnew ThreadStart(this, &MyForm::Read_Port));
+Read_Port_Thread->Start();
+
+// Функция Read_Port:
+public: System::Void Read_Port() { 
+    aTimer = gcnew System::Timers::Timer(2000);  // Интервал 2 секунды
+    
+    if(checkBox_plateutest->Checked == true)
+        aTimer->Elapsed += gcnew ElapsedEventHandler(this, &MyForm::OnTimer_);
+    else
+        aTimer->Elapsed += gcnew ElapsedEventHandler(this, &MyForm::OnTimer);
+    
+    aTimer->AutoReset = true;
+    aTimer->Enabled = true;
+}
+```
+
+---
+
+## 14. ОБНОВЛЕНИЕ ГРАФИКОВ В РЕАЛЬНОМ ВРЕМЕНИ
+
+### 14.1 Процесс обновления
+
+1. **Таймер срабатывает** каждые 2 секунды
+2. **Данные получаются** с прибора (через DLL или COM-порт)
+3. **Данные записываются** во временный файл (Dataout или Dataout_LWD)
+4. **Пользователь нажимает** "Временный файл" или данные обновляются автоматически
+5. **Файл перечитывается** функцией `файлСкважиныToolStripMenuItem_Click`
+6. **Графики перерисовываются** функцией `do_chart()`
+
+### 14.2 Функция обновления (renew)
+
+```cpp
+private: System::Void renew(System::Object^ sender, System::EventArgs^ e) {
+    extern bool sonde_on_off;
+    extern bool on_off_1dds;
+    extern string Dataout;
+    
+    if (sonde_on_off == true) {
+        Data = Dataout.c_str();
+        extension = ".bin";
+    }
+    if (on_off_1dds == true) {
+        Data = Dataout_LWD.c_str();
+        extension = ".bin";
+    }
+    
+    // Чтение файла
+    ifstream fin;
+    fin.open(Data, ios::binary);
+    
+    for (int n = 0; n < Co; n++) {
+        DAT S;
+        S.GP = READ_BLOK_AllData_1DDS(fin, n);
+        DATA1[n] = S;
+        DATA_MA[n] = S;
+        NOICE[n] = S;
+        SKO[n] = S;
+    }
+    fin.close();
+    
+    // Перерисовка графиков
+    do_chart(1);
+    do_chart(2);
+}
+```
+
+---
+
+## 15. ПОЛНАЯ СХЕМА ПОТОКА ДАННЫХ В РЕАЛЬНОМ ВРЕМЕНИ
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         ПРИБОР / ЭМУЛЯТОР                       │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  AllData_P / GP_TOOL_DATA (240 байт)                    │   │
+│  │  - signature, condition, frame, temperature             │   │
+│  │  - Ro_smt[8], PH_smt[8]                                 │   │
+│  │  - AM_RX_1[10], AM_RX_2[10], PH_RX_1[10], PH_RX_2[10]  │   │
+│  └─────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              │ COM-порт (125000 бод)
+                              │ Протокол: CMD + DATA + CRC16
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                              ПК                                  │
+│                                                                  │
+│  ┌──────────────────┐    ┌──────────────────────────────────┐  │
+│  │ Таймер (2 сек)   │───▶│ OnTimer() / timer_Sonde_ON_OFF   │  │
+│  └──────────────────┘    │                                   │  │
+│                          │ 1. send_to_tool(CMD_WORK)         │  │
+│                          │ 2. receive_from_tool()            │  │
+│                          │ 3. P = (GP_TOOL_DATA*)(DATA_IN)   │  │
+│                          └──────────────────────────────────┘  │
+│                                        │                        │
+│                                        ▼                        │
+│                          ┌──────────────────────────────────┐  │
+│                          │ Запись в файл                     │  │
+│                          │ fout->write((char*)&P, sizeof(P)) │  │
+│                          │ Dataout.bin / Dataout_LWD.bin     │  │
+│                          └──────────────────────────────────┘  │
+│                                        │                        │
+│                                        ▼                        │
+│                          ┌──────────────────────────────────┐  │
+│                          │ Чтение файла                      │  │
+│                          │ READ_BLOK_AllData_1DDS()          │  │
+│                          │ DATA1[n].GP = P                   │  │
+│                          └──────────────────────────────────┘  │
+│                                        │                        │
+│                                        ▼                        │
+│                          ┌──────────────────────────────────┐  │
+│                          │ Обработка данных                  │  │
+│                          │ - Разность фаз (PH_RX_2 - PH_RX_1)│  │
+│                          │ - Скользящее среднее (W=20)       │  │
+│                          │ - Вычисление шума                 │  │
+│                          └──────────────────────────────────┘  │
+│                                        │                        │
+│                                        ▼                        │
+│                          ┌──────────────────────────────────┐  │
+│                          │ Отрисовка графиков                │  │
+│                          │ do_chart(1), do_chart(2)          │  │
+│                          │ CHART->Series[i]->Points->AddXY() │  │
+│                          └──────────────────────────────────┘  │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 16. КЛЮЧЕВЫЕ ПАРАМЕТРЫ ДЛЯ РЕАЛИЗАЦИИ
+
+### 16.1 Настройки COM-порта
+
+```cpp
+serialPort1->BaudRate = 125000;      // Скорость
+serialPort1->ReadTimeout = 1000;     // Таймаут чтения (мс)
+serialPort1->WriteTimeout = 1000;    // Таймаут записи (мс)
+```
+
+### 16.2 Интервал опроса
+
+```cpp
+aTimer = gcnew System::Timers::Timer(2000);  // 2 секунды
+// или
+timer_Sonde_ON_OFF->Interval = 2000;
+```
+
+### 16.3 Сигнатуры данных
+
+| Сигнатура | Hex | Описание |
+|-----------|-----|----------|
+| "1D4S" | 0x31443453 | Стандартный формат |
+| "1D4T" | 0x31443454 | Альтернативный формат |
+
+### 16.4 Размеры данных
+
+| Параметр | Размер |
+|----------|--------|
+| GP_TOOL_DATA | 240 байт |
+| Пакет от прибора | 255 байт (1+12+240+2) |
+| Пакет от ПК | 4 байта (1+1+2) |
+
+---
+
+## 17. РЕКОМЕНДАЦИИ ДЛЯ НОВОЙ РЕАЛИЗАЦИИ
+
+1. **Сохраните структуру GP_TOOL_DATA** - она является стандартом обмена данными
+
+2. **Используйте тот же протокол CRC16** - для совместимости с существующими приборами
+
+3. **Реализуйте два режима работы:**
+   - Через DLL (для автономных приборов)
+   - Через COM-порт напрямую (для LWD)
+
+4. **Используйте асинхронный таймер** для опроса прибора (2 секунды - оптимальный интервал)
+
+5. **Записывайте данные во временный файл** - это позволяет:
+   - Сохранять историю измерений
+   - Перечитывать данные для обновления графиков
+   - Восстанавливать данные после сбоя
+
+6. **Проверяйте сигнатуру** перед обработкой данных
+
+7. **Используйте скользящее среднее** (W=20) для сглаживания шума
+
+8. **Нормализуйте фазы** в диапазон [-π, π] перед отображением

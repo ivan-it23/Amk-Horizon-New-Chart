@@ -66,6 +66,10 @@ public:
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
     
+    // v2.13.0: Добавление данных в реальном времени
+    void AddData(const GP_TOOL_DATA& newData);
+    void AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch);
+    
     // Получение имени загруженного файла
     std::wstring GetLoadedFileName() const;
     

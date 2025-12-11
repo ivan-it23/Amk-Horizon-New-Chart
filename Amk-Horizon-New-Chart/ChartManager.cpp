@@ -17,6 +17,7 @@ ChartManager::ChartManager()
     , layoutModule(std::make_unique<LayoutModule>())
     , schematicModule(std::make_unique<SchematicModule>())
     , curveSelectionModule(std::make_unique<CurveSelectionModule>())
+    , serialModule(std::make_unique<SerialModule>())  // v2.13.0
     , isSelecting(false)
     , activeChart(0)
 {
@@ -61,6 +62,35 @@ ChartManager::~ChartManager() {
 void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
 {
     uiModule->CreateControls(hWnd, hInst);
+    
+    // v2.13.0: Устанавливаем callback для получения данных с прибора
+    // Элементы управления COM-портом теперь в меню "Прибор" и диалоге IDD_SERIAL_STATUS
+    serialModule->SetDataCallback([this, hWnd](const GP_TOOL_DATA& data) {
+        // Добавляем данные в DataModule
+        dataModule->AddData(data);
+        
+        // Перерисовываем графики
+        InvalidateChart(hWnd, 1);
+        if (uiModule->IsDualMode()) {
+            InvalidateChart(hWnd, 2);
+        }
+        
+        // Обновляем X Range controls
+        if (dataModule->HasData()) {
+            double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+            uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
+            if (uiModule->IsDualMode()) {
+                uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+            }
+        }
+    });
+    
+    // Устанавливаем callback для изменения состояния подключения
+    serialModule->SetStateCallback([this, hWnd](ConnectionState state, const std::wstring& error) {
+        if (state == ConnectionState::CONNECTION_ERROR && !error.empty()) {
+            MessageBox(hWnd, error.c_str(), L"Ошибка COM-порта", MB_OK | MB_ICONERROR);
+        }
+    });
 }
 
 void ChartManager::UpdateLayout(HWND hWnd)
@@ -243,6 +273,27 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
         case IDC_RESET_ZOOM2_BTN:
             // Сброс zoom для Chart 2 (аналогично правому клику мыши)
             HandleResetZoom(hWnd, 2);
+            return true;
+            
+        // === Команды COM-порта (v2.13.0) ===
+        case IDC_SERIAL_CONNECT_BTN:
+            if (serialModule->IsConnected()) {
+                HandleSerialDisconnect(hWnd);
+            } else {
+                HandleSerialConnect(hWnd);
+            }
+            return true;
+            
+        case IDC_SERIAL_START_BTN:
+            HandleSerialStart(hWnd);
+            return true;
+            
+        case IDC_SERIAL_STOP_BTN:
+            HandleSerialStop(hWnd);
+            return true;
+            
+        case IDC_SERIAL_CLEAR_BTN:
+            HandleSerialClear(hWnd);
             return true;
             
         default:
@@ -1748,3 +1799,105 @@ void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber
     DeleteObject(hCrosshairPen);
 }
 
+
+// === Методы для работы с COM-портом (v2.13.0) ===
+
+void ChartManager::HandleSerialConnect(HWND hWnd) {
+    // v2.13.0: Подключение теперь происходит через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости с меню, но не используется напрямую
+    // Вместо этого открывается диалог через IDM_DEVICE_CONNECT
+}
+
+void ChartManager::HandleSerialDisconnect(HWND hWnd) {
+    if (!serialModule) return;
+    
+    // Останавливаем опрос перед отключением
+    if (serialModule->IsPolling()) {
+        serialModule->StopPolling();
+    }
+    
+    serialModule->Disconnect();
+    
+    if (uiModule) {
+        uiModule->SetSerialConnected(false);
+        uiModule->SetSerialPolling(false);
+    }
+    
+    UpdateSerialUI(hWnd);
+}
+
+void ChartManager::HandleSerialStart(HWND hWnd) {
+    if (!serialModule || !serialModule->IsConnected()) return;
+    
+    // Запускаем периодический опрос (каждые 2 секунды)
+    serialModule->StartPolling(hWnd, 2000);
+    
+    if (uiModule) {
+        uiModule->SetSerialPolling(true);
+    }
+}
+
+void ChartManager::HandleSerialStop(HWND hWnd) {
+    if (!serialModule) return;
+    
+    serialModule->StopPolling();
+    
+    if (uiModule) {
+        uiModule->SetSerialPolling(false);
+    }
+}
+
+void ChartManager::HandleSerialClear(HWND hWnd) {
+    if (!dataModule) return;
+    
+    // Очищаем данные
+    dataModule->ClearData();
+    
+    // Сбрасываем статистику
+    if (serialModule) {
+        serialModule->ResetStatistics();
+    }
+    
+    // Сбрасываем zoom
+    chart1Zoom.isZoomed = false;
+    chart2Zoom.isZoomed = false;
+    chart1ZoomHistory.clear();
+    chart2ZoomHistory.clear();
+    
+    // Обновляем UI
+    if (uiModule) {
+        uiModule->UpdateSerialFrameInfo(0, 0, 0);
+        uiModule->UpdateXRangeControls(1, 0.0, 0.0, false);
+        uiModule->UpdateXRangeControls(2, 0.0, 0.0, false);
+    }
+    
+    // Перерисовываем графики
+    InvalidateRect(hWnd, nullptr, TRUE);
+    
+    UpdateStatusBarFileInfo();
+}
+
+void ChartManager::HandleSerialTimer(HWND hWnd) {
+    if (!serialModule) return;
+    
+    // Вызываем обработчик таймера в SerialModule
+    serialModule->OnTimer();
+}
+
+void ChartManager::UpdateSerialUI(HWND hWnd) {
+    // v2.13.0: UI обновляется через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости, но не выполняет действий
+}
+
+void ChartManager::RefreshPortList(HWND hWnd) {
+    // v2.13.0: Список портов обновляется через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости, но не выполняет действий
+}
+
+bool ChartManager::IsSerialConnected() const {
+    return serialModule && serialModule->IsConnected();
+}
+
+bool ChartManager::IsSerialPolling() const {
+    return serialModule && serialModule->IsPolling();
+}

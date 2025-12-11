@@ -700,3 +700,44 @@ void UIModule::ClearClickCoordinates(int chartNumber) {
     SetWindowText(hXEdit, L"");
     SetWindowText(hYEdit, L"");
 }
+
+// === Методы для работы с COM-портом (v2.13.0) ===
+// Элементы управления COM-портом теперь в отдельном диалоге IDD_SERIAL_STATUS
+// Эти методы оставлены пустыми для совместимости API
+
+void UIModule::CreateSerialControls(HWND hWnd, HINSTANCE hInst) {
+    // Элементы управления COM-портом теперь в меню "Прибор" и диалоге
+    // Этот метод больше не создаёт элементы на панели инструментов
+    hSerialPortCombo = nullptr;
+    hSerialConnectBtn = nullptr;
+    hSerialStatusLabel = nullptr;
+    hSerialStartBtn = nullptr;
+    hSerialStopBtn = nullptr;
+    hSerialClearBtn = nullptr;
+    hSerialFrameLabel = nullptr;
+    hSerialPacketsLabel = nullptr;
+}
+
+void UIModule::UpdateSerialPortList(const std::vector<std::wstring>& ports) {
+    // Реализация перенесена в диалог
+}
+
+std::wstring UIModule::GetSelectedPort() const {
+    return L"";  // Реализация перенесена в диалог
+}
+
+void UIModule::SetSerialConnected(bool connected) {
+    // Реализация перенесена в диалог
+}
+
+void UIModule::SetSerialPolling(bool polling) {
+    // Реализация перенесена в диалог
+}
+
+void UIModule::UpdateSerialStatus(const std::wstring& status) {
+    // Реализация перенесена в диалог
+}
+
+void UIModule::UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors) {
+    // Реализация перенесена в диалог
+}

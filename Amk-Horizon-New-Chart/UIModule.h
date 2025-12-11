@@ -58,6 +58,16 @@ private:
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
 
+    // === Элементы управления COM-портом (v2.13.0) ===
+    HWND hSerialPortCombo;   // Выпадающий список COM-портов
+    HWND hSerialConnectBtn;  // Кнопка Connect/Disconnect
+    HWND hSerialStatusLabel; // Метка статуса подключения
+    HWND hSerialStartBtn;    // Кнопка Start (начать опрос)
+    HWND hSerialStopBtn;     // Кнопка Stop (остановить опрос)
+    HWND hSerialClearBtn;    // Кнопка Clear (очистить данные)
+    HWND hSerialFrameLabel;  // Метка номера кадра
+    HWND hSerialPacketsLabel;// Метка количества пакетов
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -114,6 +124,20 @@ public:
     // Управление отображением координат курсора при клике
     void UpdateClickCoordinates(int chartNumber, double x, double y);
     void ClearClickCoordinates(int chartNumber);
+
+    // === Управление элементами COM-порта (v2.13.0) ===
+    void CreateSerialControls(HWND hWnd, HINSTANCE hInst);
+    void UpdateSerialPortList(const std::vector<std::wstring>& ports);
+    std::wstring GetSelectedPort() const;
+    void SetSerialConnected(bool connected);
+    void SetSerialPolling(bool polling);
+    void UpdateSerialStatus(const std::wstring& status);
+    void UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors);
+    HWND GetSerialPortCombo() const { return hSerialPortCombo; }
+    HWND GetSerialConnectBtn() const { return hSerialConnectBtn; }
+    HWND GetSerialStartBtn() const { return hSerialStartBtn; }
+    HWND GetSerialStopBtn() const { return hSerialStopBtn; }
+    HWND GetSerialClearBtn() const { return hSerialClearBtn; }
 
 private:
     // Вспомогательные методы удалены после рефакторинга

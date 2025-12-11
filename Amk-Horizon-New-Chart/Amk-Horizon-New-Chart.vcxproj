@@ -164,6 +164,7 @@
     <ClInclude Include="LayoutModule.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SchematicModule.h" />
+    <ClInclude Include="SerialModule.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="UIModule.h" />
   </ItemGroup>
@@ -175,6 +176,7 @@
     <ClCompile Include="DataModule.cpp" />
     <ClCompile Include="LayoutModule.cpp" />
     <ClCompile Include="SchematicModule.cpp" />
+    <ClCompile Include="SerialModule.cpp" />
     <ClCompile Include="UIModule.cpp" />
   </ItemGroup>
   <ItemGroup>

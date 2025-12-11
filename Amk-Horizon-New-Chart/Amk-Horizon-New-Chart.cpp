@@ -3,11 +3,14 @@
 
 #include "framework.h"
 #include "Amk-Horizon-New-Chart.h"
+#include "SerialModule.h"  // v2.13.0: Для IDT_SERIAL_POLL
 #include <algorithm>
 #include <fstream>
 #include <sstream>
 #include <cfloat>
 #include <cmath>
+#include <vector>
+#include <string>
 
 #define MAX_LOADSTRING 100
 
@@ -16,12 +19,14 @@ HINSTANCE hInst;                                // текущий экземпл
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 ChartManager* g_chartManager = nullptr;         // Менеджер графиков
+HWND g_hSerialDialog = nullptr;                 // v2.13.0: Handle диалога COM-порта
 
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+INT_PTR CALLBACK    SerialStatusDialogProc(HWND, UINT, WPARAM, LPARAM);  // v2.13.0
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
                      _In_opt_ HINSTANCE hPrevInstance,
@@ -153,6 +158,46 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_EXIT:
                 DestroyWindow(hWnd);
                 break;
+            
+            // === Команды меню "Прибор" (v2.13.0) ===
+            case IDM_DEVICE_CONNECT:
+                // Открываем диалог подключения к прибору
+                if (!g_hSerialDialog || !IsWindow(g_hSerialDialog)) {
+                    g_hSerialDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SERIAL_STATUS), 
+                                                   hWnd, SerialStatusDialogProc);
+                    if (g_hSerialDialog) {
+                        ShowWindow(g_hSerialDialog, SW_SHOW);
+                    }
+                } else {
+                    // Диалог уже открыт - выводим на передний план
+                    SetForegroundWindow(g_hSerialDialog);
+                }
+                break;
+                
+            case IDM_DEVICE_DISCONNECT:
+                if (g_chartManager) {
+                    g_chartManager->HandleSerialDisconnect(hWnd);
+                }
+                break;
+                
+            case IDM_DEVICE_START:
+                if (g_chartManager) {
+                    g_chartManager->HandleSerialStart(hWnd);
+                }
+                break;
+                
+            case IDM_DEVICE_STOP:
+                if (g_chartManager) {
+                    g_chartManager->HandleSerialStop(hWnd);
+                }
+                break;
+                
+            case IDM_DEVICE_CLEAR:
+                if (g_chartManager) {
+                    g_chartManager->HandleSerialClear(hWnd);
+                }
+                break;
+            
             case IDM_OPEN_FILE:
                 {
                     OPENFILENAME ofn;
@@ -258,6 +303,26 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             g_chartManager->HandleScrollEvent(hWnd, wParam, lParam);
         }
         break;
+    case WM_TIMER:
+        // v2.13.0: Обработка таймера опроса COM-порта
+        if (wParam == IDT_SERIAL_POLL && g_chartManager)
+        {
+            g_chartManager->GetSerialModule()->OnTimer();
+            
+            // Обновляем диалог статуса, если он открыт
+            if (g_hSerialDialog && IsWindow(g_hSerialDialog)) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    wchar_t frameText[32], packetsText[64];
+                    swprintf_s(frameText, L"%u", serial->GetLastFrameNumber());
+                    swprintf_s(packetsText, L"%u / %u", serial->GetPacketsReceived(), serial->GetPacketsErrors());
+                    
+                    SetDlgItemText(g_hSerialDialog, IDC_SERIAL_FRAME_LABEL, frameText);
+                    SetDlgItemText(g_hSerialDialog, IDC_SERIAL_PACKETS_LABEL, packetsText);
+                }
+            }
+        }
+        break;
     case WM_USER + 100: // Пользовательское сообщение для обновления графика после применения настроек схемы
         if (g_chartManager)
         {
@@ -345,5 +410,176 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     }
+    return (INT_PTR)FALSE;
+}
+
+// v2.13.0: Обработчик сообщений для диалога подключения к прибору
+INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
+{
+    static HWND hPortCombo = nullptr;
+    static HWND hStatusLabel = nullptr;
+    static HWND hFrameLabel = nullptr;
+    static HWND hPacketsLabel = nullptr;
+    static HWND hConnectBtn = nullptr;
+    static HWND hStartBtn = nullptr;
+    static HWND hStopBtn = nullptr;
+    
+    switch (message)
+    {
+    case WM_INITDIALOG:
+        {
+            // Получаем handles элементов управления
+            hPortCombo = GetDlgItem(hDlg, IDC_SERIAL_PORT_COMBO);
+            hStatusLabel = GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL);
+            hFrameLabel = GetDlgItem(hDlg, IDC_SERIAL_FRAME_LABEL);
+            hPacketsLabel = GetDlgItem(hDlg, IDC_SERIAL_PACKETS_LABEL);
+            hConnectBtn = GetDlgItem(hDlg, IDC_SERIAL_CONNECT_BTN);
+            hStartBtn = GetDlgItem(hDlg, IDC_SERIAL_START_BTN);
+            hStopBtn = GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN);
+            
+            // Заполняем список COM-портов
+            if (hPortCombo) {
+                SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
+                std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
+                for (const auto& port : ports) {
+                    SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
+                }
+                if (!ports.empty()) {
+                    SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+                }
+            }
+            
+            // Обновляем состояние кнопок
+            if (g_chartManager) {
+                bool connected = g_chartManager->IsSerialConnected();
+                bool polling = g_chartManager->IsSerialPolling();
+                
+                SetWindowText(hStartBtn, connected ? L"Подключить" : L"Подключить");
+                EnableWindow(hStartBtn, !connected);
+                EnableWindow(hStopBtn, connected);
+                
+                if (connected) {
+                    SetWindowText(hStatusLabel, polling ? L"Опрос..." : L"Подключено");
+                } else {
+                    SetWindowText(hStatusLabel, L"Отключено");
+                }
+            }
+            
+            return (INT_PTR)TRUE;
+        }
+        
+    case WM_COMMAND:
+        switch (LOWORD(wParam))
+        {
+        case IDC_SERIAL_CONNECT_BTN:
+            // Кнопка "Обновить" - обновляем список портов
+            if (hPortCombo) {
+                SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
+                std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
+                for (const auto& port : ports) {
+                    SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
+                }
+                if (!ports.empty()) {
+                    SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_START_BTN:
+            // Кнопка "Подключить"
+            if (g_chartManager && hPortCombo) {
+                // Получаем выбранный порт
+                int sel = (int)SendMessage(hPortCombo, CB_GETCURSEL, 0, 0);
+                if (sel != CB_ERR) {
+                    wchar_t portName[32];
+                    SendMessage(hPortCombo, CB_GETLBTEXT, sel, (LPARAM)portName);
+                    
+                    // Подключаемся
+                    SerialModule* serial = g_chartManager->GetSerialModule();
+                    if (serial) {
+                        SerialResult result = serial->Connect(portName);
+                        
+                        if (result == SerialResult::SUCCESS) {
+                            SetWindowText(hStatusLabel, L"Подключено");
+                            EnableWindow(hStartBtn, FALSE);
+                            EnableWindow(hStopBtn, TRUE);
+                            
+                            // Запускаем опрос
+                            HWND hMainWnd = GetParent(hDlg);
+                            serial->StartPolling(hMainWnd, 2000);
+                            SetWindowText(hStatusLabel, L"Опрос...");
+                            
+                            // Запрашиваем метрологию
+                            METROLOGY_DATA metro;
+                            if (serial->RequestMetrology(metro) == SerialResult::SUCCESS) {
+                                wchar_t info[128];
+                                swprintf_s(info, L"S/N: %u\nD: %u mm", metro.serial, metro.D_sonde_mm);
+                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
+                            }
+                        } else {
+                            std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result);
+                            SetWindowText(hStatusLabel, errorMsg.c_str());
+                        }
+                    }
+                } else {
+                    MessageBox(hDlg, L"Выберите COM-порт", L"Ошибка", MB_OK | MB_ICONWARNING);
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_STOP_BTN:
+            // Кнопка "Отключить"
+            if (g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    serial->StopPolling();
+                    serial->Disconnect();
+                    
+                    SetWindowText(hStatusLabel, L"Отключено");
+                    EnableWindow(hStartBtn, TRUE);
+                    EnableWindow(hStopBtn, FALSE);
+                    SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"");
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_CLEAR_BTN:
+            // Кнопка "Очистить данные"
+            if (g_chartManager) {
+                HWND hMainWnd = GetParent(hDlg);
+                g_chartManager->HandleSerialClear(hMainWnd);
+                SetWindowText(hFrameLabel, L"0");
+                SetWindowText(hPacketsLabel, L"0 / 0");
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDCANCEL:
+            // Закрытие диалога
+            DestroyWindow(hDlg);
+            g_hSerialDialog = nullptr;
+            return (INT_PTR)TRUE;
+        }
+        break;
+        
+    case WM_TIMER:
+        // Обновляем статистику в диалоге
+        if (g_chartManager) {
+            SerialModule* serial = g_chartManager->GetSerialModule();
+            if (serial && serial->IsConnected()) {
+                wchar_t frameText[32], packetsText[64];
+                swprintf_s(frameText, L"%u", serial->GetLastFrameNumber());
+                swprintf_s(packetsText, L"%u / %u", serial->GetPacketsReceived(), serial->GetPacketsErrors());
+                
+                SetWindowText(hFrameLabel, frameText);
+                SetWindowText(hPacketsLabel, packetsText);
+            }
+        }
+        return (INT_PTR)TRUE;
+        
+    case WM_DESTROY:
+        g_hSerialDialog = nullptr;
+        return (INT_PTR)TRUE;
+    }
+    
     return (INT_PTR)FALSE;
 }

@@ -6,6 +6,7 @@
 #include "ChartModule.h"
 #include "UIModule.h"
 #include "LayoutModule.h"
+#include "SerialModule.h"
 #include <commdlg.h>
 #include <memory>
 #include <vector>
@@ -29,6 +30,7 @@ private:
     std::unique_ptr<LayoutModule> layoutModule;
     std::unique_ptr<SchematicModule> schematicModule;
     std::unique_ptr<CurveSelectionModule> curveSelectionModule;
+    std::unique_ptr<SerialModule> serialModule;  // v2.13.0: Модуль работы с COM-портом
     
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
@@ -135,6 +137,31 @@ public:
     bool IsUsingNewCurveSystem(int chartNumber) const;
     void SynchronizeLegacyUIWithNewSystem(int chartNumber);
     void HandleLegacyUIChange(HWND hWnd, int chartNumber);
+    
+    // === Методы для работы с COM-портом (v2.13.0) ===
+    
+    // Подключение/отключение от прибора
+    void HandleSerialConnect(HWND hWnd);
+    void HandleSerialDisconnect(HWND hWnd);
+    
+    // Управление режимом реального времени
+    void HandleSerialStart(HWND hWnd);
+    void HandleSerialStop(HWND hWnd);
+    void HandleSerialClear(HWND hWnd);
+    
+    // Обработчик таймера опроса прибора
+    void HandleSerialTimer(HWND hWnd);
+    
+    // Обновление UI элементов COM-порта
+    void UpdateSerialUI(HWND hWnd);
+    void RefreshPortList(HWND hWnd);
+    
+    // Проверка состояния подключения
+    bool IsSerialConnected() const;
+    bool IsSerialPolling() const;
+    
+    // Получение модуля для внешнего доступа (например, из WndProc)
+    SerialModule* GetSerialModule() { return serialModule.get(); }
 
 private:
     // Методы для новой системы кривых
