@@ -198,6 +198,28 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
             
+            // v2.15.0: Команды записи в файл
+            case IDM_DEVICE_RECORD_FOLDER:
+                if (g_chartManager) {
+                    SerialModule* serial = g_chartManager->GetSerialModule();
+                    if (serial) {
+                        std::wstring folder = SerialModule::BrowseForFolder(hWnd);
+                        if (!folder.empty()) {
+                            serial->SetRecordFolder(folder);
+                        }
+                    }
+                }
+                break;
+                
+            case IDM_DEVICE_OPEN_FOLDER:
+                if (g_chartManager) {
+                    SerialModule* serial = g_chartManager->GetSerialModule();
+                    if (serial) {
+                        serial->OpenRecordFolder();
+                    }
+                }
+                break;
+            
             case IDM_OPEN_FILE:
                 {
                     OPENFILENAME ofn;
@@ -354,6 +376,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     
                     SetDlgItemText(g_hSerialDialog, IDC_SERIAL_FRAME_LABEL, frameText);
                     SetDlgItemText(g_hSerialDialog, IDC_SERIAL_PACKETS_LABEL, packetsText);
+                    
+                    // v2.15.0: Обновляем статус записи
+                    if (serial->IsRecordingEnabled() && serial->IsRecordingActive()) {
+                        std::wstring filePath = serial->GetRecordFilePath();
+                        size_t lastSlash = filePath.find_last_of(L"\\/");
+                        std::wstring fileName = (lastSlash != std::wstring::npos) 
+                            ? filePath.substr(lastSlash + 1) : filePath;
+                        SetDlgItemText(g_hSerialDialog, IDC_SERIAL_RECORD_STATUS, fileName.c_str());
+                        
+                        wchar_t framesText[32];
+                        swprintf_s(framesText, L"%u кадров", serial->GetRecordedFrames());
+                        SetDlgItemText(g_hSerialDialog, IDC_SERIAL_RECORD_FRAMES, framesText);
+                    }
                 }
             }
         }
@@ -449,6 +484,7 @@ INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 }
 
 // v2.13.0: Обработчик сообщений для диалога подключения к прибору
+// v2.15.0: Добавлена поддержка записи в файл
 INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
 {
     static HWND hPortCombo = nullptr;
@@ -458,6 +494,9 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
     static HWND hConnectBtn = nullptr;
     static HWND hStartBtn = nullptr;
     static HWND hStopBtn = nullptr;
+    static HWND hRecordCheck = nullptr;
+    static HWND hRecordStatus = nullptr;
+    static HWND hRecordFrames = nullptr;
     
     switch (message)
     {
@@ -471,6 +510,9 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             hConnectBtn = GetDlgItem(hDlg, IDC_SERIAL_CONNECT_BTN);
             hStartBtn = GetDlgItem(hDlg, IDC_SERIAL_START_BTN);
             hStopBtn = GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN);
+            hRecordCheck = GetDlgItem(hDlg, IDC_SERIAL_RECORD_CHECK);
+            hRecordStatus = GetDlgItem(hDlg, IDC_SERIAL_RECORD_STATUS);
+            hRecordFrames = GetDlgItem(hDlg, IDC_SERIAL_RECORD_FRAMES);
             
             // Заполняем список COM-портов
             if (hPortCombo) {
@@ -481,6 +523,15 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 }
                 if (!ports.empty()) {
                     SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+                }
+            }
+            
+            // v2.15.0: Инициализация чекбокса записи
+            if (g_chartManager && hRecordCheck) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    SendMessage(hRecordCheck, BM_SETCHECK, 
+                               serial->IsRecordingEnabled() ? BST_CHECKED : BST_UNCHECKED, 0);
                 }
             }
             
@@ -539,6 +590,15 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             EnableWindow(hStartBtn, FALSE);
                             EnableWindow(hStopBtn, TRUE);
                             
+                            // v2.15.0: Сначала запрашиваем метрологию (до начала записи!)
+                            // Это нужно для правильного именования файла записи
+                            METROLOGY_DATA metro;
+                            if (serial->RequestMetrology(metro) == SerialResult::SUCCESS) {
+                                wchar_t info[128];
+                                swprintf_s(info, L"S/N: %u\nD: %u mm", metro.serial, metro.D_sonde_mm);
+                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
+                            }
+                            
                             // v2.14.1: Очищаем данные перед началом опроса
                             // Режимы работы с файлом и COM-портом взаимоисключающие
                             HWND hMainWnd = GetParent(hDlg);
@@ -546,17 +606,9 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             SetWindowText(hFrameLabel, L"0");
                             SetWindowText(hPacketsLabel, L"0 / 0");
                             
-                            // Запускаем опрос
+                            // Запускаем опрос (после получения метрологии)
                             serial->StartPolling(hMainWnd, 2000);
                             SetWindowText(hStatusLabel, L"Опрос...");
-                            
-                            // Запрашиваем метрологию
-                            METROLOGY_DATA metro;
-                            if (serial->RequestMetrology(metro) == SerialResult::SUCCESS) {
-                                wchar_t info[128];
-                                swprintf_s(info, L"S/N: %u\nD: %u mm", metro.serial, metro.D_sonde_mm);
-                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
-                            }
                         } else {
                             std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result);
                             SetWindowText(hStatusLabel, errorMsg.c_str());
@@ -593,6 +645,44 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 SetWindowText(hPacketsLabel, L"0 / 0");
             }
             return (INT_PTR)TRUE;
+        
+        // v2.15.0: Обработка элементов записи в файл
+        case IDC_SERIAL_RECORD_CHECK:
+            if (g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    bool checked = (SendMessage(hRecordCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                    serial->SetRecordingEnabled(checked);
+                    
+                    if (!checked) {
+                        SetWindowText(hRecordStatus, L"Запись отключена");
+                    }
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_BROWSE_BTN:
+            // Кнопка выбора папки
+            if (g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    std::wstring folder = SerialModule::BrowseForFolder(hDlg);
+                    if (!folder.empty()) {
+                        serial->SetRecordFolder(folder);
+                    }
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_OPEN_FOLDER_BTN:
+            // Кнопка открытия папки
+            if (g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    serial->OpenRecordFolder();
+                }
+            }
+            return (INT_PTR)TRUE;
             
         case IDCANCEL:
             // Закрытие диалога
@@ -613,6 +703,27 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 
                 SetWindowText(hFrameLabel, frameText);
                 SetWindowText(hPacketsLabel, packetsText);
+                
+                // v2.15.0: Обновляем статус записи
+                if (hRecordStatus && hRecordFrames) {
+                    if (serial->IsRecordingEnabled() && serial->IsRecordingActive()) {
+                        // Показываем только имя файла (без пути)
+                        std::wstring filePath = serial->GetRecordFilePath();
+                        size_t lastSlash = filePath.find_last_of(L"\\/");
+                        std::wstring fileName = (lastSlash != std::wstring::npos) 
+                            ? filePath.substr(lastSlash + 1) : filePath;
+                        SetWindowText(hRecordStatus, fileName.c_str());
+                        
+                        wchar_t framesText[32];
+                        swprintf_s(framesText, L"%u кадров", serial->GetRecordedFrames());
+                        SetWindowText(hRecordFrames, framesText);
+                    } else if (!serial->IsRecordingEnabled()) {
+                        SetWindowText(hRecordStatus, L"Запись отключена");
+                        SetWindowText(hRecordFrames, L"0 кадров");
+                    } else {
+                        SetWindowText(hRecordStatus, L"Ожидание данных...");
+                    }
+                }
             }
         }
         return (INT_PTR)TRUE;

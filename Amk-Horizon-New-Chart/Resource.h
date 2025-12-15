@@ -118,6 +118,17 @@
 #define IDC_CHART2_SURF_EDIT		1074
 #define IDC_CHART2_SURF_LABEL		1075
 
+// === Элементы записи в файл (v2.15.0) ===
+#define IDC_SERIAL_RECORD_CHECK		1076
+#define IDC_SERIAL_RECORD_STATUS	1077
+#define IDC_SERIAL_RECORD_FRAMES	1078
+#define IDC_SERIAL_BROWSE_BTN		1079
+#define IDC_SERIAL_OPEN_FOLDER_BTN	1080
+
+// === Меню записи (v2.15.0) ===
+#define IDM_DEVICE_RECORD_FOLDER	112
+#define IDM_DEVICE_OPEN_FOLDER		113
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

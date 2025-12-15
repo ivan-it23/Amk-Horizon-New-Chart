@@ -172,37 +172,16 @@ void loop() {
       petr.Ro_smt[i] = 10*(i+1);
       petr.AM_RX_1[i] = 100*(100+i + petr.frame);
       petr.AM_RX_2[i] = 100*(200+i + petr.frame);
-      // PH_RX_1 теперь заполняется ниже с разными значениями для каждого канала
+      petr.PH_RX_1[i] = 0;
     }
-    // Разные значения для каждого передатчика, чтобы видеть все 4 кривые
-    petr.PH_RX_2[0] = -100.0/mG;  // T1 @ 400 Гц → -100 mdeg
-    petr.PH_RX_2[1] = -50.0/mG;   // T2 @ 400 Гц → -50 mdeg
-    petr.PH_RX_2[2] = 50.0/mG;    // T3 @ 400 Гц → +50 mdeg
-    petr.PH_RX_2[3] = 100.0/mG;   // T4 @ 400 Гц → +100 mdeg
-    petr.PH_RX_2[4] = -200.0/mG;  // T1 @ 2000 Гц → -200 mdeg
-    petr.PH_RX_2[5] = -100.0/mG;  // T2 @ 2000 Гц → -100 mdeg
-    petr.PH_RX_2[6] = 100.0/mG;   // T3 @ 2000 Гц → +100 mdeg
-    petr.PH_RX_2[7] = 200.0/mG;   // T4 @ 2000 Гц → +200 mdeg
-    
-    // Также заполним PH_RX_1 разными значениями
-    petr.PH_RX_1[0] = -80.0/mG;   // T1 @ 400 Гц
-    petr.PH_RX_1[1] = -40.0/mG;   // T2 @ 400 Гц
-    petr.PH_RX_1[2] = 40.0/mG;    // T3 @ 400 Гц
-    petr.PH_RX_1[3] = 80.0/mG;    // T4 @ 400 Гц
-    petr.PH_RX_1[4] = -160.0/mG;  // T1 @ 2000 Гц
-    petr.PH_RX_1[5] = -80.0/mG;   // T2 @ 2000 Гц
-    petr.PH_RX_1[6] = 80.0/mG;    // T3 @ 2000 Гц
-    petr.PH_RX_1[7] = 160.0/mG;   // T4 @ 2000 Гц
-    
-    // Данные для "молчащего" передатчика TX0 (индексы 8-9)
-    petr.AM_RX_1[8] = 50 + petr.frame;   // TX0 @ 400 Гц, RX1
-    petr.AM_RX_2[8] = 60 + petr.frame;   // TX0 @ 400 Гц, RX2
-    petr.AM_RX_1[9] = 55 + petr.frame;   // TX0 @ 2000 Гц, RX1
-    petr.AM_RX_2[9] = 65 + petr.frame;   // TX0 @ 2000 Гц, RX2
-    petr.PH_RX_1[8] = 10.0/mG;           // TX0 @ 400 Гц, RX1
-    petr.PH_RX_2[8] = 20.0/mG;           // TX0 @ 400 Гц, RX2
-    petr.PH_RX_1[9] = 15.0/mG;           // TX0 @ 2000 Гц, RX1
-    petr.PH_RX_2[9] = 25.0/mG;           // TX0 @ 2000 Гц, RX2
+    petr.PH_RX_2[0] = -100.0/mG;
+    petr.PH_RX_2[1] = 100.0/mG;
+    petr.PH_RX_2[2] = -100.0/mG;
+    petr.PH_RX_2[3] = 100.0/mG;
+    petr.PH_RX_2[4] = -200.0/mG;
+    petr.PH_RX_2[5] = 200.0/mG;
+    petr.PH_RX_2[6] = -200.0/mG;
+    petr.PH_RX_2[7] = 200.0/mG;
     petr.frame ++;
     send_out(0x67, (char*)(&petr), sizeof(AllData_P));
   }

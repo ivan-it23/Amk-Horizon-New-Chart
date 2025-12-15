@@ -6,6 +6,7 @@
 #include <functional>
 #include <vector>
 #include <cstdint>
+#include <fstream>
 
 // Команды протокола обмена с прибором
 namespace SerialCommands {
@@ -98,6 +99,14 @@ private:
     // CRC16 таблица (Modbus)
     static const uint16_t CRC16_TABLE[256];
     
+    // === Запись данных в файл (v2.15.0) ===
+    std::ofstream recordFile;           // Файл для записи данных
+    std::wstring recordFilePath;        // Полный путь к файлу записи
+    std::wstring recordFolderPath;      // Папка для сохранения файлов
+    bool isRecordingEnabled;            // Включена ли запись
+    uint32_t recordedFrames;            // Количество записанных кадров
+    std::wstring currentDeviceId;       // ID текущего прибора (SN_Diameter)
+    
 public:
     SerialModule();
     ~SerialModule();
@@ -171,6 +180,27 @@ public:
     // Преобразование результата в строку
     static std::wstring ResultToString(SerialResult result);
     
+    // === Запись данных в файл (v2.15.0) ===
+    
+    // Включение/выключение записи
+    void SetRecordingEnabled(bool enabled);
+    bool IsRecordingEnabled() const { return isRecordingEnabled; }
+    
+    // Установка папки для сохранения (по умолчанию - рабочий стол)
+    void SetRecordFolder(const std::wstring& folderPath);
+    std::wstring GetRecordFolder() const { return recordFolderPath; }
+    
+    // Получение информации о записи
+    std::wstring GetRecordFilePath() const { return recordFilePath; }
+    uint32_t GetRecordedFrames() const { return recordedFrames; }
+    bool IsRecordingActive() const { return recordFile.is_open(); }
+    
+    // Выбор папки через диалог
+    static std::wstring BrowseForFolder(HWND hWnd);
+    
+    // Открытие папки в Explorer
+    void OpenRecordFolder() const;
+    
 private:
     // === Низкоуровневые методы ===
     
@@ -194,6 +224,29 @@ private:
     
     // Очистка буферов COM-порта
     void PurgeBuffers();
+    
+    // === Методы записи в файл (v2.15.0) ===
+    
+    // Создание/открытие файла записи для текущего прибора
+    bool OpenRecordFile();
+    
+    // Закрытие файла записи
+    void CloseRecordFile();
+    
+    // Запись одного кадра данных
+    void WriteDataToFile(const GP_TOOL_DATA& data);
+    
+    // Генерация уникального имени файла
+    std::wstring GenerateRecordFileName() const;
+    
+    // Получение ID прибора из метрологии
+    std::wstring GetDeviceId() const;
+    
+    // Инициализация папки по умолчанию (рабочий стол)
+    void InitDefaultRecordFolder();
+    
+    // Создание папки если не существует
+    static bool EnsureFolderExists(const std::wstring& folderPath);
 };
 
 // ID таймера для опроса (используется в WndProc)

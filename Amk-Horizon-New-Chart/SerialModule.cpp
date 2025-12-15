@@ -1,9 +1,16 @@
 #include "SerialModule.h"
+#include <shellapi.h>   // Для ShellExecuteW
 #include <setupapi.h>
 #include <devguid.h>
+#include <commdlg.h>    // Для GetSaveFileName
 #include <algorithm>
+#include <ctime>
+#include <iomanip>
+#include <sstream>
 
 #pragma comment(lib, "setupapi.lib")
+#pragma comment(lib, "shell32.lib")
+#pragma comment(lib, "comdlg32.lib")
 
 // CRC16 таблица (Modbus) - идентична эмулятору
 const uint16_t SerialModule::CRC16_TABLE[256] = {
@@ -55,12 +62,16 @@ SerialModule::SerialModule()
     , packetsReceived(0)
     , packetsErrors(0)
     , lastFrameNumber(0)
+    , isRecordingEnabled(true)  // v2.15.0: Запись включена по умолчанию
+    , recordedFrames(0)
 {
     ZeroMemory(&metrology, sizeof(metrology));
+    InitDefaultRecordFolder();  // v2.15.0: Инициализация папки по умолчанию
 }
 
 SerialModule::~SerialModule() {
     StopPolling();
+    CloseRecordFile();  // v2.15.0: Закрываем файл записи
     Disconnect();
 }
 
@@ -164,6 +175,7 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
 
 void SerialModule::Disconnect() {
     StopPolling();
+    CloseRecordFile();  // v2.15.0: Закрываем файл записи при отключении
     
     if (hSerial != INVALID_HANDLE_VALUE) {
         CloseHandle(hSerial);
@@ -171,6 +183,7 @@ void SerialModule::Disconnect() {
     }
     
     hasMetrology = false;
+    currentDeviceId.clear();  // v2.15.0: Сбрасываем ID прибора
     SetState(ConnectionState::DISCONNECTED);
 }
 
@@ -221,6 +234,11 @@ void SerialModule::OnTimer() {
     if (result == SerialResult::SUCCESS) {
         packetsReceived++;
         lastFrameNumber = data.frame;
+        
+        // v2.15.0: Записываем данные в файл
+        if (isRecordingEnabled) {
+            WriteDataToFile(data);
+        }
         
         if (onDataReceived) {
             onDataReceived(data);
@@ -289,51 +307,72 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         return SerialResult::NOT_CONNECTED;
     }
     
-    // Очищаем буферы перед запросом
-    PurgeBuffers();
-    
-    // Отправляем команду CMD_READ_EE (0x65)
-    if (!SendCommand(SerialCommands::CMD_READ_EE, nullptr, 0)) {
-        return SerialResult::CONNECTION_FAILED;
+    // Пробуем несколько раз (эмулятор может не сразу ответить)
+    for (int attempt = 0; attempt < 3; attempt++) {
+        // Очищаем буферы перед запросом
+        PurgeBuffers();
+        
+        // Отправляем команду CMD_READ_EE (0x65)
+        // Эмулятор ожидает минимум 4 байта, поэтому добавляем 1 байт данных
+        uint8_t dummyData = 0;
+        if (!SendCommand(SerialCommands::CMD_READ_EE, &dummyData, 1)) {
+            Sleep(200);
+            continue;
+        }
+        
+        // Ждём ответа (увеличенный таймаут)
+        Sleep(300);
+        
+        // Читаем ответ
+        // Формат ответа: [CMD:1] [METROLOGY_DATA:240] [CRC:2] = 243 байта
+        // (структура METROLOGY_DATA = 240 байт, не 256!)
+        const size_t RESPONSE_SIZE = 1 + sizeof(METROLOGY_DATA) + 2;  // 243 байта
+        uint8_t buffer[300];  // С запасом
+        size_t bytesRead = 0;
+        
+        if (!ReceivePacket(buffer, RESPONSE_SIZE, bytesRead)) {
+            Sleep(200);
+            continue;
+        }
+        
+        if (bytesRead < RESPONSE_SIZE) {
+            Sleep(200);
+            continue;
+        }
+        
+        // Проверяем CRC
+        if (!ValidateCRC(buffer, RESPONSE_SIZE - 2)) {
+            Sleep(200);
+            continue;
+        }
+        
+        // Данные начинаются с 1-го байта (после CMD)
+        METROLOGY_DATA* pData = reinterpret_cast<METROLOGY_DATA*>(buffer + 1);
+        
+        // Копируем данные
+        memcpy(&outData, pData, sizeof(METROLOGY_DATA));
+        
+        // Кэшируем метрологию
+        memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
+        hasMetrology = true;
+        
+        // v2.15.0: Проверяем, изменился ли прибор
+        std::wstring newDeviceId = GetDeviceId();
+        if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {
+            // Прибор изменился - закрываем старый файл, откроем новый при следующей записи
+            CloseRecordFile();
+        }
+        currentDeviceId = newDeviceId;
+        
+        if (onMetrologyReceived) {
+            onMetrologyReceived(outData);
+        }
+        
+        return SerialResult::SUCCESS;
     }
     
-    // Ждём немного перед чтением
-    Sleep(100);
-    
-    // Читаем ответ
-    // Формат ответа: [CMD:1] [METROLOGY_DATA:256] [CRC:2] = 259 байт
-    const size_t RESPONSE_SIZE = 259;
-    uint8_t buffer[RESPONSE_SIZE];
-    size_t bytesRead = 0;
-    
-    if (!ReceivePacket(buffer, RESPONSE_SIZE, bytesRead)) {
-        return SerialResult::TIMEOUT;
-    }
-    
-    if (bytesRead < RESPONSE_SIZE) {
-        return SerialResult::INVALID_RESPONSE;
-    }
-    
-    // Проверяем CRC
-    if (!ValidateCRC(buffer, RESPONSE_SIZE - 2)) {
-        return SerialResult::CRC_ERROR;
-    }
-    
-    // Данные начинаются с 1-го байта (после CMD)
-    METROLOGY_DATA* pData = reinterpret_cast<METROLOGY_DATA*>(buffer + 1);
-    
-    // Копируем данные
-    memcpy(&outData, pData, sizeof(METROLOGY_DATA));
-    
-    // Кэшируем метрологию
-    memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
-    hasMetrology = true;
-    
-    if (onMetrologyReceived) {
-        onMetrologyReceived(outData);
-    }
-    
-    return SerialResult::SUCCESS;
+    // Все попытки неудачны
+    return SerialResult::TIMEOUT;
 }
 
 // === Callbacks ===
@@ -506,5 +545,194 @@ void SerialModule::SetState(ConnectionState newState, const std::wstring& error)
 void SerialModule::PurgeBuffers() {
     if (hSerial != INVALID_HANDLE_VALUE) {
         PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
+    }
+}
+
+// === Реализация методов записи в файл (v2.15.0) ===
+
+void SerialModule::SetRecordingEnabled(bool enabled) {
+    isRecordingEnabled = enabled;
+    
+    if (!enabled) {
+        CloseRecordFile();
+    }
+}
+
+void SerialModule::SetRecordFolder(const std::wstring& folderPath) {
+    if (folderPath.empty()) return;
+    
+    // Если папка изменилась и файл открыт - закрываем его
+    if (recordFolderPath != folderPath && recordFile.is_open()) {
+        CloseRecordFile();
+    }
+    
+    recordFolderPath = folderPath;
+    EnsureFolderExists(recordFolderPath);
+}
+
+void SerialModule::InitDefaultRecordFolder() {
+    // Получаем путь к рабочему столу через переменную окружения
+    wchar_t desktopPath[MAX_PATH] = { 0 };
+    
+    // Метод 1: Через USERPROFILE + Desktop
+    DWORD len = GetEnvironmentVariableW(L"USERPROFILE", desktopPath, MAX_PATH);
+    if (len > 0 && len < MAX_PATH) {
+        recordFolderPath = std::wstring(desktopPath) + L"\\Desktop\\AMK_Data";
+        EnsureFolderExists(recordFolderPath);
+    } else {
+        // Fallback - текущая директория
+        recordFolderPath = L".\\AMK_Data";
+        EnsureFolderExists(recordFolderPath);
+    }
+}
+
+bool SerialModule::EnsureFolderExists(const std::wstring& folderPath) {
+    DWORD attrs = GetFileAttributesW(folderPath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES) {
+        // Папка не существует - создаём
+        return CreateDirectoryW(folderPath.c_str(), nullptr) != 0;
+    }
+    return (attrs & FILE_ATTRIBUTE_DIRECTORY) != 0;
+}
+
+std::wstring SerialModule::GetDeviceId() const {
+    if (!hasMetrology || metrology.serial == 0) {
+        // Если метрология не получена, используем имя порта как идентификатор
+        if (!portName.empty()) {
+            return portName;
+        }
+        return L"Unknown";
+    }
+    
+    // Формат: SN_Diameter (например: 12345_105)
+    return std::to_wstring(metrology.serial) + L"_" + std::to_wstring(metrology.D_sonde_mm);
+}
+
+std::wstring SerialModule::GenerateRecordFileName() const {
+    // Формат: AMK_[SN]_[Diameter]_[YYYYMMDD]_[HHMMSS].bin
+    std::wstringstream ss;
+    ss << L"AMK_";
+    
+    if (hasMetrology) {
+        ss << metrology.serial << L"_" << metrology.D_sonde_mm;
+    } else {
+        ss << L"Unknown";
+    }
+    
+    // Добавляем дату и время
+    std::time_t now = std::time(nullptr);
+    std::tm localTime;
+    localtime_s(&localTime, &now);
+    
+    ss << L"_" 
+       << std::setfill(L'0') << std::setw(4) << (localTime.tm_year + 1900)
+       << std::setw(2) << (localTime.tm_mon + 1)
+       << std::setw(2) << localTime.tm_mday
+       << L"_"
+       << std::setw(2) << localTime.tm_hour
+       << std::setw(2) << localTime.tm_min
+       << std::setw(2) << localTime.tm_sec
+       << L".bin";
+    
+    std::wstring fileName = ss.str();
+    std::wstring fullPath = recordFolderPath + L"\\" + fileName;
+    
+    // Проверяем, существует ли файл, и добавляем суффикс если нужно
+    int suffix = 1;
+    while (GetFileAttributesW(fullPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+        std::wstringstream suffixSs;
+        suffixSs << recordFolderPath << L"\\" << fileName.substr(0, fileName.length() - 4) 
+                 << L"_" << suffix << L".bin";
+        fullPath = suffixSs.str();
+        suffix++;
+    }
+    
+    return fullPath;
+}
+
+bool SerialModule::OpenRecordFile() {
+    if (recordFile.is_open()) {
+        return true;  // Файл уже открыт
+    }
+    
+    // Убеждаемся, что папка существует
+    EnsureFolderExists(recordFolderPath);
+    
+    // Генерируем имя файла
+    recordFilePath = GenerateRecordFileName();
+    
+    // Открываем файл для бинарной записи
+    std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
+    recordFile.open(narrowPath, std::ios::binary | std::ios::app);
+    
+    if (!recordFile.is_open()) {
+        lastError = L"Не удалось создать файл записи: " + recordFilePath;
+        return false;
+    }
+    
+    recordedFrames = 0;
+    return true;
+}
+
+void SerialModule::CloseRecordFile() {
+    if (recordFile.is_open()) {
+        recordFile.flush();
+        recordFile.close();
+    }
+}
+
+void SerialModule::WriteDataToFile(const GP_TOOL_DATA& data) {
+    // Открываем файл если ещё не открыт
+    if (!recordFile.is_open()) {
+        if (!OpenRecordFile()) {
+            return;  // Не удалось открыть файл
+        }
+    }
+    
+    // Записываем структуру данных (240 байт)
+    recordFile.write(reinterpret_cast<const char*>(&data), sizeof(GP_TOOL_DATA));
+    recordFile.flush();  // Сразу сбрасываем на диск для надёжности
+    
+    recordedFrames++;
+}
+
+std::wstring SerialModule::BrowseForFolder(HWND hWnd) {
+    // Используем стандартный диалог выбора файла с хаком для выбора папки
+    // Или просто возвращаем пустую строку и предлагаем ввести путь вручную
+    
+    // Простой подход: используем GetOpenFileName с фильтром папок
+    // Но это не идеально, поэтому используем IFileDialog если доступен
+    
+    // Альтернатива: просто показываем MessageBox с инструкцией
+    // и возвращаем путь по умолчанию
+    
+    wchar_t folderPath[MAX_PATH] = { 0 };
+    
+    // Получаем текущую папку записи как начальную
+    OPENFILENAMEW ofn = { 0 };
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = folderPath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = L"Выберите папку (создайте файл placeholder.txt)";
+    ofn.lpstrFilter = L"Все файлы\0*.*\0";
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+    
+    if (GetSaveFileNameW(&ofn)) {
+        // Извлекаем путь к папке из полного пути
+        std::wstring fullPath = folderPath;
+        size_t lastSlash = fullPath.find_last_of(L"\\/");
+        if (lastSlash != std::wstring::npos) {
+            return fullPath.substr(0, lastSlash);
+        }
+    }
+    
+    return L"";
+}
+
+void SerialModule::OpenRecordFolder() const {
+    if (!recordFolderPath.empty()) {
+        // ShellExecute доступен через windows.h
+        ShellExecuteW(nullptr, L"explore", recordFolderPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
 }
