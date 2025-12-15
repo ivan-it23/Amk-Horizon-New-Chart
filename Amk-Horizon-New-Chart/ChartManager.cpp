@@ -202,6 +202,15 @@ void ChartManager::DrawChart2(HDC hdc)
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
 {
+    // v2.14.1: При открытии файла останавливаем опрос COM-порта
+    // Режимы работы с файлом и COM-портом взаимоисключающие
+    if (serialModule && serialModule->IsPolling()) {
+        serialModule->StopPolling();
+    }
+    if (serialModule && serialModule->IsConnected()) {
+        serialModule->Disconnect();
+    }
+    
     dataModule->LoadDataFromFile(filename);
     
     // Обновляем информацию о файле в статусной строке
@@ -1912,6 +1921,8 @@ void ChartManager::HandleSerialStart(HWND hWnd) {
     if (!serialModule || !serialModule->IsConnected()) return;
     
     // Запускаем периодический опрос (каждые 2 секунды)
+    // Примечание: Очистка данных происходит в диалоге SerialStatusDialogProc
+    // перед вызовом StartPolling через HandleSerialClear
     serialModule->StartPolling(hWnd, 2000);
     
     if (uiModule) {

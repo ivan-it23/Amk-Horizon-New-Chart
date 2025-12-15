@@ -539,8 +539,14 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             EnableWindow(hStartBtn, FALSE);
                             EnableWindow(hStopBtn, TRUE);
                             
-                            // Запускаем опрос
+                            // v2.14.1: Очищаем данные перед началом опроса
+                            // Режимы работы с файлом и COM-портом взаимоисключающие
                             HWND hMainWnd = GetParent(hDlg);
+                            g_chartManager->HandleSerialClear(hMainWnd);
+                            SetWindowText(hFrameLabel, L"0");
+                            SetWindowText(hPacketsLabel, L"0 / 0");
+                            
+                            // Запускаем опрос
                             serial->StartPolling(hMainWnd, 2000);
                             SetWindowText(hStatusLabel, L"Опрос...");
                             
