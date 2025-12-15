@@ -110,6 +110,14 @@
 #define IDC_SERIAL_PACKETS_LABEL	1067
 #define IDC_SERIAL_INFO_LABEL		1068
 
+// === Элементы управления режимом Surf (v2.14.0) ===
+#define IDC_CHART1_SURF_CHECK		1070
+#define IDC_CHART1_SURF_EDIT		1071
+#define IDC_CHART1_SURF_LABEL		1072
+#define IDC_CHART2_SURF_CHECK		1073
+#define IDC_CHART2_SURF_EDIT		1074
+#define IDC_CHART2_SURF_LABEL		1075
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif

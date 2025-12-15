@@ -68,6 +68,14 @@ private:
     HWND hSerialFrameLabel;  // Метка номера кадра
     HWND hSerialPacketsLabel;// Метка количества пакетов
 
+    // === Элементы управления режимом Surf (v2.14.0) ===
+    HWND hChart1SurfCheck;   // Checkbox "Surf" для Chart 1
+    HWND hChart1SurfEdit;    // Поле ввода количества точек для Chart 1
+    HWND hChart1SurfLabel;   // Метка "pts" для Chart 1
+    HWND hChart2SurfCheck;   // Checkbox "Surf" для Chart 2
+    HWND hChart2SurfEdit;    // Поле ввода количества точек для Chart 2
+    HWND hChart2SurfLabel;   // Метка "pts" для Chart 2
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -138,6 +146,20 @@ public:
     HWND GetSerialStartBtn() const { return hSerialStartBtn; }
     HWND GetSerialStopBtn() const { return hSerialStopBtn; }
     HWND GetSerialClearBtn() const { return hSerialClearBtn; }
+
+    // === Управление режимом Surf (v2.14.0) ===
+    void CreateSurfControls(HWND hWnd, HINSTANCE hInst);
+    void UpdateSurfControlsVisibility(bool showChart2Controls);
+    void PositionSurfControls(int chart2PanelY);
+    
+    // Получение/установка состояния Surf
+    bool IsSurfEnabled(int chartNumber) const;
+    void SetSurfEnabled(int chartNumber, bool enabled);
+    int GetSurfWindowSize(int chartNumber) const;
+    void SetSurfWindowSize(int chartNumber, int windowSize);
+    
+    // Обновление статусной строки с информацией о Surf
+    void UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window);
 
 private:
     // Вспомогательные методы удалены после рефакторинга

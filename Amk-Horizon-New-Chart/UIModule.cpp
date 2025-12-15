@@ -35,6 +35,12 @@ UIModule::UIModule()
     , hCursor2YLabel(nullptr)
     , hCursor2YEdit(nullptr)
     , hStatusBar(nullptr)
+    , hChart1SurfCheck(nullptr)
+    , hChart1SurfEdit(nullptr)
+    , hChart1SurfLabel(nullptr)
+    , hChart2SurfCheck(nullptr)
+    , hChart2SurfEdit(nullptr)
+    , hChart2SurfLabel(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
     chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -145,6 +151,24 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY,
         cursorStartX + 140, yPos - 2, 70, 22, hWnd, (HMENU)IDC_CURSOR1_Y_EDIT, hInst, NULL);
 
+    // === Элементы управления режимом Surf для Chart 1 (v2.14.0) ===
+    int surfStartX = cursorStartX + 220;
+    
+    // Checkbox "Surf"
+    hChart1SurfCheck = CreateWindow(L"BUTTON", L"Surf",
+        WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+        surfStartX, yPos, 50, 20, hWnd, (HMENU)IDC_CHART1_SURF_CHECK, hInst, NULL);
+    
+    // Поле ввода количества точек (по умолчанию 100)
+    hChart1SurfEdit = CreateWindow(L"EDIT", L"100",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
+        surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
+    
+    // Метка "pts"
+    hChart1SurfLabel = CreateWindow(L"STATIC", L"pts",
+        WS_VISIBLE | WS_CHILD | SS_LEFT,
+        surfStartX + 105, yPos, 25, 20, hWnd, (HMENU)IDC_CHART1_SURF_LABEL, hInst, NULL);
+
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
     int xRange2StartX = 160; // Позиция после кнопки Device Schematic для Chart 2
@@ -207,6 +231,24 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | WS_BORDER | ES_READONLY,
         cursor2StartX + 140, 298, 70, 22, hWnd, (HMENU)IDC_CURSOR2_Y_EDIT, hInst, NULL);
 
+    // === Элементы управления режимом Surf для Chart 2 (v2.14.0) ===
+    int surf2StartX = cursor2StartX + 220;
+    
+    // Checkbox "Surf" для Chart 2 (изначально скрыт)
+    hChart2SurfCheck = CreateWindow(L"BUTTON", L"Surf",
+        WS_CHILD | BS_AUTOCHECKBOX,
+        surf2StartX, 300, 50, 20, hWnd, (HMENU)IDC_CHART2_SURF_CHECK, hInst, NULL);
+    
+    // Поле ввода количества точек для Chart 2 (по умолчанию 100)
+    hChart2SurfEdit = CreateWindow(L"EDIT", L"100",
+        WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
+        surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
+    
+    // Метка "pts" для Chart 2
+    hChart2SurfLabel = CreateWindow(L"STATIC", L"pts",
+        WS_CHILD | SS_LEFT,
+        surf2StartX + 105, 300, 25, 20, hWnd, (HMENU)IDC_CHART2_SURF_LABEL, hInst, NULL);
+
     // Создание статусной строки
     hStatusBar = CreateWindowEx(
         0,                              // Расширенный стиль
@@ -249,6 +291,11 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hCursor2XEdit, showFlag);
     ShowWindow(hCursor2YLabel, showFlag);
     ShowWindow(hCursor2YEdit, showFlag);
+    
+    // Показываем/скрываем элементы Surf для Chart 2 (v2.14.0)
+    ShowWindow(hChart2SurfCheck, showFlag);
+    ShowWindow(hChart2SurfEdit, showFlag);
+    ShowWindow(hChart2SurfLabel, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -273,6 +320,12 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 65, yPos - 2, 55, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2YLabel, HWND_TOP, cursor2StartX + 125, yPos, 15, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2YEdit, HWND_TOP, cursor2StartX + 140, yPos - 2, 70, 22, SWP_NOSIZE);
+    
+    // Позиционируем элементы Surf для Chart 2 (v2.14.0)
+    int surf2StartX = cursor2StartX + 220;
+    SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
+    SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
+    SetWindowPos(hChart2SurfLabel, HWND_TOP, surf2StartX + 105, yPos, 25, 20, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {
@@ -740,4 +793,103 @@ void UIModule::UpdateSerialStatus(const std::wstring& status) {
 
 void UIModule::UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors) {
     // Реализация перенесена в диалог
+}
+
+// === Методы для работы с режимом Surf (v2.14.0) ===
+
+void UIModule::CreateSurfControls(HWND hWnd, HINSTANCE hInst) {
+    // Контролы создаются в CreateControls(), этот метод для совместимости
+}
+
+void UIModule::UpdateSurfControlsVisibility(bool showChart2Controls) {
+    int showFlag = showChart2Controls ? SW_SHOW : SW_HIDE;
+    ShowWindow(hChart2SurfCheck, showFlag);
+    ShowWindow(hChart2SurfEdit, showFlag);
+    ShowWindow(hChart2SurfLabel, showFlag);
+}
+
+void UIModule::PositionSurfControls(int chart2PanelY) {
+    // Позиционирование выполняется в PositionChart2Controls()
+}
+
+bool UIModule::IsSurfEnabled(int chartNumber) const {
+    HWND hCheck = nullptr;
+    
+    if (chartNumber == 1) {
+        hCheck = hChart1SurfCheck;
+    } else if (chartNumber == 2) {
+        hCheck = hChart2SurfCheck;
+    }
+    
+    if (!hCheck) return false;
+    
+    return SendMessage(hCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+}
+
+void UIModule::SetSurfEnabled(int chartNumber, bool enabled) {
+    HWND hCheck = nullptr;
+    
+    if (chartNumber == 1) {
+        hCheck = hChart1SurfCheck;
+    } else if (chartNumber == 2) {
+        hCheck = hChart2SurfCheck;
+    }
+    
+    if (hCheck) {
+        SendMessage(hCheck, BM_SETCHECK, enabled ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+}
+
+int UIModule::GetSurfWindowSize(int chartNumber) const {
+    HWND hEdit = nullptr;
+    
+    if (chartNumber == 1) {
+        hEdit = hChart1SurfEdit;
+    } else if (chartNumber == 2) {
+        hEdit = hChart2SurfEdit;
+    }
+    
+    if (!hEdit) return 100; // Значение по умолчанию
+    
+    wchar_t text[32];
+    GetWindowText(hEdit, text, 32);
+    
+    int value = _wtoi(text);
+    return (value > 0) ? value : 100; // Минимум 1, по умолчанию 100
+}
+
+void UIModule::SetSurfWindowSize(int chartNumber, int windowSize) {
+    HWND hEdit = nullptr;
+    
+    if (chartNumber == 1) {
+        hEdit = hChart1SurfEdit;
+    } else if (chartNumber == 2) {
+        hEdit = hChart2SurfEdit;
+    }
+    
+    if (hEdit) {
+        wchar_t text[32];
+        swprintf_s(text, L"%d", windowSize);
+        SetWindowText(hEdit, text);
+    }
+}
+
+void UIModule::UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window) {
+    if (!hStatusBar) return;
+    
+    // Формируем строку статуса Surf
+    wchar_t surfText[128];
+    
+    if (surf1Enabled && surf2Enabled) {
+        swprintf_s(surfText, L"Surf: C1 ON (%d) | C2 ON (%d)", surf1Window, surf2Window);
+    } else if (surf1Enabled) {
+        swprintf_s(surfText, L"Surf: C1 ON (%d) | C2 OFF", surf1Window);
+    } else if (surf2Enabled) {
+        swprintf_s(surfText, L"Surf: C1 OFF | C2 ON (%d)", surf2Window);
+    } else {
+        swprintf_s(surfText, L"Surf: OFF");
+    }
+    
+    // Обновляем часть 2 статусной строки (индекс 2)
+    SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)surfText);
 }

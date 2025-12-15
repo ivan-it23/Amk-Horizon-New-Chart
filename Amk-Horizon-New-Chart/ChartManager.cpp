@@ -69,19 +69,37 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
         // Добавляем данные в DataModule
         dataModule->AddData(data);
         
+        // v2.14.0: Обновляем диапазон для режима Surf
+        if (dataModule->HasData()) {
+            size_t dataSize = dataModule->GetDataSize();
+            double maxX = static_cast<double>(dataSize - 1);
+            
+            // Обработка Surf для Chart 1
+            if (uiModule->IsSurfEnabled(1)) {
+                // Используем UpdateSurfRange для корректного вычисления Y диапазона
+                UpdateSurfRange(1);
+            } else {
+                uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
+            }
+            
+            // Обработка Surf для Chart 2 (если Dual Mode)
+            if (uiModule->IsDualMode()) {
+                if (uiModule->IsSurfEnabled(2)) {
+                    // Используем UpdateSurfRange для корректного вычисления Y диапазона
+                    UpdateSurfRange(2);
+                } else {
+                    uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+                }
+            }
+            
+            // Обновляем статусную строку с информацией о Surf
+            UpdateSurfStatusBar();
+        }
+        
         // Перерисовываем графики
         InvalidateChart(hWnd, 1);
         if (uiModule->IsDualMode()) {
             InvalidateChart(hWnd, 2);
-        }
-        
-        // Обновляем X Range controls
-        if (dataModule->HasData()) {
-            double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-            uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
-            if (uiModule->IsDualMode()) {
-                uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
-            }
         }
     });
     
@@ -197,11 +215,26 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     chart1ZoomHistory.clear();
     chart2ZoomHistory.clear();
     
-    // Сбрасываем X Range для обоих графиков при загрузке новых данных
+    // v2.14.0: Обработка режима Surf при загрузке файла
     if (dataModule->HasData()) {
         double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-        uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
-        uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+        
+        // Если Surf включён для Chart 1 - показываем последние N точек
+        if (uiModule->IsSurfEnabled(1)) {
+            UpdateSurfRange(1);
+        } else {
+            uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
+        }
+        
+        // Если Surf включён для Chart 2 - показываем последние N точек
+        if (uiModule->IsSurfEnabled(2)) {
+            UpdateSurfRange(2);
+        } else {
+            uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+        }
+        
+        // Обновляем статусную строку с информацией о Surf
+        UpdateSurfStatusBar();
     }
     
     // Сохраняем конфигурации кривых при загрузке новых данных
@@ -294,6 +327,33 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             
         case IDC_SERIAL_CLEAR_BTN:
             HandleSerialClear(hWnd);
+            return true;
+            
+        // === Команды режима Surf (v2.14.0) ===
+        case IDC_CHART1_SURF_CHECK:
+            HandleSurfToggle(hWnd, 1);
+            return true;
+            
+        case IDC_CHART2_SURF_CHECK:
+            HandleSurfToggle(hWnd, 2);
+            return true;
+            
+        case IDC_CHART1_SURF_EDIT:
+            // При изменении размера окна Surf для Chart 1
+            if (HIWORD(wParam) == EN_CHANGE && uiModule->IsSurfEnabled(1)) {
+                UpdateSurfRange(1);
+                UpdateSurfStatusBar();
+                InvalidateChart(hWnd, 1);
+            }
+            return true;
+            
+        case IDC_CHART2_SURF_EDIT:
+            // При изменении размера окна Surf для Chart 2
+            if (HIWORD(wParam) == EN_CHANGE && uiModule->IsSurfEnabled(2)) {
+                UpdateSurfRange(2);
+                UpdateSurfStatusBar();
+                InvalidateChart(hWnd, 2);
+            }
             return true;
             
         default:
@@ -460,6 +520,28 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 L"Zoom Limit Reached", 
                 MB_OK | MB_ICONINFORMATION);
         } else {
+            // v2.14.0: Ограничиваем zoom областью Surf, если режим Surf активен
+            if (uiModule->IsSurfEnabled(activeChart)) {
+                size_t dataSize = dataModule->GetDataSize();
+                int surfWindow = uiModule->GetSurfWindowSize(activeChart);
+                double surfMinX = (dataSize > static_cast<size_t>(surfWindow)) 
+                    ? static_cast<double>(dataSize - surfWindow) : 0.0;
+                double surfMaxX = static_cast<double>(dataSize - 1);
+                
+                // Ограничиваем zoom областью Surf
+                minDataX = (std::max)(minDataX, surfMinX);
+                maxDataX = (std::min)(maxDataX, surfMaxX);
+                
+                // Проверяем, что диапазон всё ещё достаточен
+                if (maxDataX - minDataX < MIN_X_RANGE) {
+                    MessageBox(hWnd, 
+                        L"Cannot zoom further within Surf area.\nMinimum range is 10 points.",
+                        L"Zoom Limit Reached", 
+                        MB_OK | MB_ICONINFORMATION);
+                    return;
+                }
+            }
+            
             // Используем Y диапазон из выделенной области мышью
             // Это позволяет пользователю точно выбрать интересующий участок по Y
             // и затем использовать вертикальный scrollbar для навигации
@@ -1900,4 +1982,93 @@ bool ChartManager::IsSerialConnected() const {
 
 bool ChartManager::IsSerialPolling() const {
     return serialModule && serialModule->IsPolling();
+}
+
+// === Методы для режима Surf (v2.14.0) ===
+
+void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+    
+    bool surfEnabled = uiModule->IsSurfEnabled(chartNumber);
+    
+    if (surfEnabled) {
+        // Surf включён - устанавливаем диапазон на последние N точек
+        UpdateSurfRange(chartNumber);
+    } else {
+        // Surf выключён - сбрасываем zoom к полному диапазону
+        ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+        zoom->isZoomed = false;
+        
+        // Обновляем X Range controls на полный диапазон
+        double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+        uiModule->UpdateXRangeControls(chartNumber, 0.0, maxX, false);
+    }
+    
+    // Обновляем статусную строку
+    UpdateSurfStatusBar();
+    
+    // Перерисовываем график
+    InvalidateChart(hWnd, chartNumber);
+    UpdateScrollBars(hWnd);
+}
+
+void ChartManager::UpdateSurfRange(int chartNumber) {
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+    
+    if (!uiModule->IsSurfEnabled(chartNumber)) {
+        return;
+    }
+    
+    size_t dataSize = dataModule->GetDataSize();
+    int surfWindow = uiModule->GetSurfWindowSize(chartNumber);
+    
+    double surfMinX = (dataSize > static_cast<size_t>(surfWindow)) 
+        ? static_cast<double>(dataSize - surfWindow) : 0.0;
+    double surfMaxX = static_cast<double>(dataSize - 1);
+    
+    // Устанавливаем zoom на область Surf (только по X)
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    zoom->minX = surfMinX;
+    zoom->maxX = surfMaxX;
+    
+    // Вычисляем диапазон Y для данных в окне Surf
+    // Получаем конфигурацию кривых и вычисляем данные (без zoom, чтобы получить все данные)
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+    std::vector<std::vector<float>> leftAxisData, rightAxisData;
+    std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+    
+    // Используем версию с zoom для получения данных только в диапазоне Surf
+    // Передаём большой диапазон Y, чтобы не фильтровать по Y
+    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                            leftAxisData, rightAxisData,
+                                            leftAxisCurves, rightAxisCurves,
+                                            surfMinX, surfMaxX, -1e30, 1e30);
+    
+    // Получаем диапазоны Y из данных
+    double minX, maxX, minYData, maxYData, minY2, maxY2;
+    chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYData, maxYData, minY2, maxY2);
+    
+    // Устанавливаем Y диапазон с небольшим padding
+    double yRange = maxYData - minYData;
+    double padding = yRange * 0.05;
+    zoom->minY = minYData - padding;
+    zoom->maxY = maxYData + padding;
+    
+    zoom->isZoomed = true;
+    
+    // Обновляем X Range controls
+    uiModule->UpdateXRangeControls(chartNumber, surfMinX, surfMaxX, true);
+}
+
+void ChartManager::UpdateSurfStatusBar() {
+    bool surf1Enabled = uiModule->IsSurfEnabled(1);
+    int surf1Window = uiModule->GetSurfWindowSize(1);
+    bool surf2Enabled = uiModule->IsSurfEnabled(2);
+    int surf2Window = uiModule->GetSurfWindowSize(2);
+    
+    uiModule->UpdateStatusBarSurfInfo(surf1Enabled, surf1Window, surf2Enabled, surf2Window);
 }

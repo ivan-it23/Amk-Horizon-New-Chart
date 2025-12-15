@@ -244,6 +244,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     g_chartManager->HandleSaveRange(hWnd, 1);
                 }
                 break;
+            
+            // === Обработка режима Surf (v2.14.0) ===
+            case IDC_CHART1_SURF_CHECK:
+                if (g_chartManager)
+                {
+                    g_chartManager->HandleSurfToggle(hWnd, 1);
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
+                break;
+            case IDC_CHART2_SURF_CHECK:
+                if (g_chartManager)
+                {
+                    g_chartManager->HandleSurfToggle(hWnd, 2);
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
+                break;
+            case IDC_CHART1_SURF_EDIT:
+                if (HIWORD(wParam) == EN_CHANGE && g_chartManager)
+                {
+                    // Обновляем диапазон Surf при изменении значения
+                    g_chartManager->UpdateSurfRange(1);
+                    g_chartManager->UpdateSurfStatusBar();
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
+                break;
+            case IDC_CHART2_SURF_EDIT:
+                if (HIWORD(wParam) == EN_CHANGE && g_chartManager)
+                {
+                    // Обновляем диапазон Surf при изменении значения
+                    g_chartManager->UpdateSurfRange(2);
+                    g_chartManager->UpdateSurfStatusBar();
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
+                break;
+            
             default:
                 if (g_chartManager)
                 {

@@ -162,6 +162,11 @@ public:
     
     // Получение модуля для внешнего доступа (например, из WndProc)
     SerialModule* GetSerialModule() { return serialModule.get(); }
+    
+    // === Методы для режима Surf (v2.14.0) ===
+    void HandleSurfToggle(HWND hWnd, int chartNumber);
+    void UpdateSurfRange(int chartNumber);
+    void UpdateSurfStatusBar();
 
 private:
     // Методы для новой системы кривых
