@@ -134,6 +134,11 @@ void ChartManager::UpdateLayout(HWND hWnd)
     if (dualMode) {
         int panel2Y = layoutModule->GetChart2PanelY();
         uiModule->PositionChart2Controls(panel2Y);
+        // Позиционируем элементы координат к правому краю для обоих графиков
+        uiModule->PositionCursorControls(width, panel2Y);
+    } else {
+        // Позиционируем элементы координат к правому краю только для Chart 1
+        uiModule->PositionCursorControls(width, 0);
     }
     
     // Обновляем скроллбары после изменения компоновки

@@ -137,6 +137,7 @@ public:
                                 double y2 = 0.0, const std::wstring& y2Unit = L"", bool hasDualAxis = false);
     void ClearClickCoordinates(int chartNumber);
     void ShowDualAxisControls(int chartNumber, bool show);  // Показать/скрыть элементы для второй оси
+    void PositionCursorControls(int windowWidth, int panel2Y = 0);  // Позиционирование координат к правому краю
 
     // === Управление элементами COM-порта (v2.13.0) ===
     void CreateSerialControls(HWND hWnd, HINSTANCE hInst);

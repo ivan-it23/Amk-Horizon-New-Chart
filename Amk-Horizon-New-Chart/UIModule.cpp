@@ -154,10 +154,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
     int cursorStartX = surfStartX + 135;  // После Surf элементов
     
-    // Иконка 📍 (используем Unicode символ)
-    hCursor1Icon = CreateWindow(L"STATIC", L"\U0001F4CD",
-        WS_VISIBLE | WS_CHILD | SS_CENTER,
-        cursorStartX, yPos, 20, 20, hWnd, (HMENU)IDC_CURSOR1_ICON, hInst, NULL);
+    // Иконка маркера (Owner-Draw для красного цвета)
+    hCursor1Icon = CreateWindow(L"STATIC", L"",
+        WS_VISIBLE | WS_CHILD | SS_OWNERDRAW,
+        cursorStartX, yPos, 18, 20, hWnd, (HMENU)IDC_CURSOR1_ICON, hInst, NULL);
     
     // Поле X (компактное, 45px)
     hCursor1XEdit = CreateWindow(L"EDIT", L"",
@@ -246,10 +246,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
     int cursor2StartX = surf2StartX + 135;  // После Surf элементов
     
-    // Иконка 📍
-    hCursor2Icon = CreateWindow(L"STATIC", L"\U0001F4CD",
-        WS_CHILD | SS_CENTER,
-        cursor2StartX, 300, 20, 20, hWnd, (HMENU)IDC_CURSOR2_ICON, hInst, NULL);
+    // Иконка маркера (Owner-Draw для красного цвета)
+    hCursor2Icon = CreateWindow(L"STATIC", L"",
+        WS_CHILD | SS_OWNERDRAW,
+        cursor2StartX, 300, 18, 20, hWnd, (HMENU)IDC_CURSOR2_ICON, hInst, NULL);
     
     // Поле X (компактное, 45px)
     hCursor2XEdit = CreateWindow(L"EDIT", L"",
@@ -846,6 +846,69 @@ void UIModule::ClearClickCoordinates(int chartNumber) {
     ShowDualAxisControls(chartNumber, false);
 }
 
+// Позиционирование элементов координат к правому краю окна (v2.15.1)
+void UIModule::PositionCursorControls(int windowWidth, int panel2Y) {
+    // Константы размеров элементов
+    const int MARGIN_RIGHT = 10;      // Отступ от правого края
+    const int ICON_WIDTH = 18;        // Ширина иконки
+    const int X_EDIT_WIDTH = 45;      // Ширина поля X
+    const int SEPARATOR_WIDTH = 10;   // Ширина разделителя
+    const int Y_EDIT_WIDTH = 95;      // Ширина поля Y
+    const int ELEMENT_HEIGHT = 22;    // Высота элементов
+    const int LABEL_HEIGHT = 20;      // Высота меток
+    
+    // Расчёт позиций от правого края для Chart 1
+    // Полная ширина блока: иконка + X + : + Y1 + | + Y2 = 18 + 45 + 10 + 95 + 10 + 95 = 273px
+    int yPos = 10;  // Вертикальная позиция для Chart 1
+    
+    // Y2 поле (крайнее правое)
+    int y2EditX = windowWidth - MARGIN_RIGHT - Y_EDIT_WIDTH;
+    SetWindowPos(hCursor1Y2Edit, HWND_TOP, y2EditX, yPos - 2, Y_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+    
+    // Разделитель | 
+    int y2SepX = y2EditX - SEPARATOR_WIDTH;
+    SetWindowPos(hCursor1Y2Separator, HWND_TOP, y2SepX, yPos, SEPARATOR_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+    
+    // Y1 поле
+    int y1EditX = y2SepX - Y_EDIT_WIDTH;
+    SetWindowPos(hCursor1Y1Edit, HWND_TOP, y1EditX, yPos - 2, Y_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+    
+    // Разделитель :
+    int sepX = y1EditX - SEPARATOR_WIDTH;
+    SetWindowPos(hCursor1Separator, HWND_TOP, sepX, yPos, SEPARATOR_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+    
+    // X поле
+    int xEditX = sepX - X_EDIT_WIDTH;
+    SetWindowPos(hCursor1XEdit, HWND_TOP, xEditX, yPos - 2, X_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+    
+    // Иконка
+    int iconX = xEditX - ICON_WIDTH - 2;
+    SetWindowPos(hCursor1Icon, HWND_TOP, iconX, yPos, ICON_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+    
+    // Позиционирование для Chart 2 (если panel2Y > 0, значит Dual Mode активен)
+    if (panel2Y > 0) {
+        int yPos2 = panel2Y + 2;
+        
+        // Y2 поле
+        SetWindowPos(hCursor2Y2Edit, HWND_TOP, y2EditX, yPos2 - 2, Y_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+        
+        // Разделитель |
+        SetWindowPos(hCursor2Y2Separator, HWND_TOP, y2SepX, yPos2, SEPARATOR_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+        
+        // Y1 поле
+        SetWindowPos(hCursor2Y1Edit, HWND_TOP, y1EditX, yPos2 - 2, Y_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+        
+        // Разделитель :
+        SetWindowPos(hCursor2Separator, HWND_TOP, sepX, yPos2, SEPARATOR_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+        
+        // X поле
+        SetWindowPos(hCursor2XEdit, HWND_TOP, xEditX, yPos2 - 2, X_EDIT_WIDTH, ELEMENT_HEIGHT, SWP_NOZORDER);
+        
+        // Иконка
+        SetWindowPos(hCursor2Icon, HWND_TOP, iconX, yPos2, ICON_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+    }
+}
+
 // === Методы для работы с COM-портом (v2.13.0) ===
 // Элементы управления COM-портом теперь в отдельном диалоге IDD_SERIAL_STATUS
 // Эти методы оставлены пустыми для совместимости API
@@ -1022,7 +1085,7 @@ void UIModule::CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text) {
     SendMessage(hTooltip, TTM_ADDTOOL, 0, (LPARAM)&ti);
 }
 
-// Проверка, является ли кнопка Owner-Draw иконкой
+// Проверка, является ли элемент Owner-Draw иконкой
 bool UIModule::IsIconButton(UINT ctrlId) const {
     switch (ctrlId) {
         case IDC_XRANGE_APPLY_BTN:
@@ -1032,6 +1095,8 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
         case IDC_XRANGE2_APPLY_BTN:
         case IDC_XRANGE2_RESET_BTN:
         case IDC_RESET_ZOOM2_BTN:
+        case IDC_CURSOR1_ICON:  // Иконка маркера для Chart 1
+        case IDC_CURSOR2_ICON:  // Иконка маркера для Chart 2
             return true;
         default:
             return false;
@@ -1050,6 +1115,51 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
     // Определяем текст иконки
     const wchar_t* iconText = L"";
     const wchar_t* labelText = L"";
+    
+    // Специальная обработка для иконки маркера курсора
+    if (ctrlId == IDC_CURSOR1_ICON || ctrlId == IDC_CURSOR2_ICON) {
+        // Заливка фона (прозрачный/системный)
+        HBRUSH hBgBrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+        FillRect(hdc, &rc, hBgBrush);
+        DeleteObject(hBgBrush);
+        
+        // Рисуем красный маркер (круг с точкой внизу)
+        int centerX = (rc.left + rc.right) / 2;
+        int centerY = (rc.top + rc.bottom) / 2 - 2;
+        int radius = 6;
+        
+        // Красный круг
+        HBRUSH hRedBrush = CreateSolidBrush(RGB(220, 50, 50));
+        HPEN hRedPen = CreatePen(PS_SOLID, 1, RGB(180, 30, 30));
+        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hRedBrush);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hRedPen);
+        
+        Ellipse(hdc, centerX - radius, centerY - radius, centerX + radius, centerY + radius);
+        
+        // Белая точка внутри
+        HBRUSH hWhiteBrush = CreateSolidBrush(RGB(255, 255, 255));
+        SelectObject(hdc, hWhiteBrush);
+        int dotRadius = 2;
+        Ellipse(hdc, centerX - dotRadius, centerY - dotRadius, centerX + dotRadius, centerY + dotRadius);
+        
+        // Треугольник внизу (указатель)
+        POINT triangle[3] = {
+            { centerX - 3, centerY + radius - 2 },
+            { centerX + 3, centerY + radius - 2 },
+            { centerX, centerY + radius + 5 }
+        };
+        SelectObject(hdc, hRedBrush);
+        Polygon(hdc, triangle, 3);
+        
+        // Восстанавливаем объекты
+        SelectObject(hdc, hOldBrush);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hRedBrush);
+        DeleteObject(hRedPen);
+        DeleteObject(hWhiteBrush);
+        
+        return;
+    }
     
     switch (ctrlId) {
         case IDC_XRANGE_APPLY_BTN:
