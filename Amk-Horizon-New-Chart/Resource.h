@@ -77,19 +77,22 @@
 #define IDC_RESET_ZOOM1_BTN			1043
 #define IDC_RESET_ZOOM2_BTN			1044
 
-// Элементы отображения координат курсора (Chart 1)
-#define IDC_CURSOR1_LABEL			1045
-#define IDC_CURSOR1_X_LABEL			1046
-#define IDC_CURSOR1_X_EDIT			1047
-#define IDC_CURSOR1_Y_LABEL			1048
-#define IDC_CURSOR1_Y_EDIT			1049
+// Элементы отображения координат курсора (Chart 1) - новый компактный дизайн v2.15.1
+// Формат: 📍 [X] : [Y1] | [Y2] (Y2 только для двойных осей)
+#define IDC_CURSOR1_ICON			1045
+#define IDC_CURSOR1_X_EDIT			1046
+#define IDC_CURSOR1_SEPARATOR		1047
+#define IDC_CURSOR1_Y1_EDIT			1048
+#define IDC_CURSOR1_Y2_SEPARATOR	1049
+#define IDC_CURSOR1_Y2_EDIT			1081
 
-// Элементы отображения координат курсора (Chart 2)
-#define IDC_CURSOR2_LABEL			1050
-#define IDC_CURSOR2_X_LABEL			1051
-#define IDC_CURSOR2_X_EDIT			1052
-#define IDC_CURSOR2_Y_LABEL			1053
-#define IDC_CURSOR2_Y_EDIT			1054
+// Элементы отображения координат курсора (Chart 2) - новый компактный дизайн v2.15.1
+#define IDC_CURSOR2_ICON			1050
+#define IDC_CURSOR2_X_EDIT			1051
+#define IDC_CURSOR2_SEPARATOR		1052
+#define IDC_CURSOR2_Y1_EDIT			1053
+#define IDC_CURSOR2_Y2_SEPARATOR	1054
+#define IDC_CURSOR2_Y2_EDIT			1082
 
 // === Меню и диалог COM-порта (v2.13.0) ===
 #define IDM_DEVICE_CONNECT			107

@@ -41,19 +41,22 @@ private:
     HWND hResetZoom1Btn;     // Кнопка "Reset Zoom" для Chart 1
     HWND hResetZoom2Btn;     // Кнопка "Reset Zoom" для Chart 2
 
-    // Элементы отображения координат курсора (Chart 1)
-    HWND hCursor1Label;      // Метка "Cursor:"
-    HWND hCursor1XLabel;     // Метка "X:"
+    // Элементы отображения координат курсора (Chart 1) - компактный дизайн v2.15.1
+    // Формат: 📍 [X] : [Y1] | [Y2]
+    HWND hCursor1Icon;       // Иконка 📍
     HWND hCursor1XEdit;      // Поле координаты X (только чтение)
-    HWND hCursor1YLabel;     // Метка "Y:"
-    HWND hCursor1YEdit;      // Поле координаты Y (только чтение)
+    HWND hCursor1Separator;  // Разделитель ":"
+    HWND hCursor1Y1Edit;     // Поле координаты Y1 с единицами (только чтение)
+    HWND hCursor1Y2Separator;// Разделитель "|" для второй оси
+    HWND hCursor1Y2Edit;     // Поле координаты Y2 с единицами (только чтение, для двойных осей)
 
-    // Элементы отображения координат курсора (Chart 2)
-    HWND hCursor2Label;      // Метка "Cursor:"
-    HWND hCursor2XLabel;     // Метка "X:"
+    // Элементы отображения координат курсора (Chart 2) - компактный дизайн v2.15.1
+    HWND hCursor2Icon;       // Иконка 📍
     HWND hCursor2XEdit;      // Поле координаты X (только чтение)
-    HWND hCursor2YLabel;     // Метка "Y:"
-    HWND hCursor2YEdit;      // Поле координаты Y (только чтение)
+    HWND hCursor2Separator;  // Разделитель ":"
+    HWND hCursor2Y1Edit;     // Поле координаты Y1 с единицами (только чтение)
+    HWND hCursor2Y2Separator;// Разделитель "|" для второй оси
+    HWND hCursor2Y2Edit;     // Поле координаты Y2 с единицами (только чтение, для двойных осей)
 
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
@@ -129,9 +132,11 @@ public:
     void ResizeStatusBar(); // Обновление размера статусной строки при изменении размера окна
     HWND GetStatusBar() const { return hStatusBar; }
 
-    // Управление отображением координат курсора при клике
-    void UpdateClickCoordinates(int chartNumber, double x, double y);
+    // Управление отображением координат курсора при клике (v2.15.1 - поддержка двойных осей)
+    void UpdateClickCoordinates(int chartNumber, double x, double y1, const std::wstring& y1Unit,
+                                double y2 = 0.0, const std::wstring& y2Unit = L"", bool hasDualAxis = false);
     void ClearClickCoordinates(int chartNumber);
+    void ShowDualAxisControls(int chartNumber, bool show);  // Показать/скрыть элементы для второй оси
 
     // === Управление элементами COM-порта (v2.13.0) ===
     void CreateSerialControls(HWND hWnd, HINSTANCE hInst);

@@ -24,16 +24,18 @@ UIModule::UIModule()
     , hSaveRange1Btn(nullptr)
     , hResetZoom1Btn(nullptr)
     , hResetZoom2Btn(nullptr)
-    , hCursor1Label(nullptr)
-    , hCursor1XLabel(nullptr)
+    , hCursor1Icon(nullptr)
     , hCursor1XEdit(nullptr)
-    , hCursor1YLabel(nullptr)
-    , hCursor1YEdit(nullptr)
-    , hCursor2Label(nullptr)
-    , hCursor2XLabel(nullptr)
+    , hCursor1Separator(nullptr)
+    , hCursor1Y1Edit(nullptr)
+    , hCursor1Y2Separator(nullptr)
+    , hCursor1Y2Edit(nullptr)
+    , hCursor2Icon(nullptr)
     , hCursor2XEdit(nullptr)
-    , hCursor2YLabel(nullptr)
-    , hCursor2YEdit(nullptr)
+    , hCursor2Separator(nullptr)
+    , hCursor2Y1Edit(nullptr)
+    , hCursor2Y2Separator(nullptr)
+    , hCursor2Y2Edit(nullptr)
     , hStatusBar(nullptr)
     , hChart1SurfCheck(nullptr)
     , hChart1SurfEdit(nullptr)
@@ -128,31 +130,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         xRangeStartX + 206, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
-    // Элементы отображения координат курсора для Chart 1
-    int cursorStartX = xRangeStartX + 275;
-    
-    hCursor1Label = CreateWindow(L"STATIC", L"Cursor:",
-        WS_VISIBLE | WS_CHILD | SS_LEFT,
-        cursorStartX, yPos, 45, 20, hWnd, (HMENU)IDC_CURSOR1_LABEL, hInst, NULL);
-    
-    hCursor1XLabel = CreateWindow(L"STATIC", L"X:",
-        WS_VISIBLE | WS_CHILD | SS_LEFT,
-        cursorStartX + 50, yPos, 15, 20, hWnd, (HMENU)IDC_CURSOR1_X_LABEL, hInst, NULL);
-    
-    hCursor1XEdit = CreateWindow(L"EDIT", L"",
-        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY,
-        cursorStartX + 65, yPos - 2, 55, 22, hWnd, (HMENU)IDC_CURSOR1_X_EDIT, hInst, NULL);
-    
-    hCursor1YLabel = CreateWindow(L"STATIC", L"Y:",
-        WS_VISIBLE | WS_CHILD | SS_LEFT,
-        cursorStartX + 125, yPos, 15, 20, hWnd, (HMENU)IDC_CURSOR1_Y_LABEL, hInst, NULL);
-    
-    hCursor1YEdit = CreateWindow(L"EDIT", L"",
-        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY,
-        cursorStartX + 140, yPos - 2, 70, 22, hWnd, (HMENU)IDC_CURSOR1_Y_EDIT, hInst, NULL);
-
     // === Элементы управления режимом Surf для Chart 1 (v2.14.0) ===
-    int surfStartX = cursorStartX + 220;
+    // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
+    int surfStartX = xRangeStartX + 275;
     
     // Checkbox "Surf"
     hChart1SurfCheck = CreateWindow(L"BUTTON", L"Surf",
@@ -168,6 +148,41 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart1SurfLabel = CreateWindow(L"STATIC", L"pts",
         WS_VISIBLE | WS_CHILD | SS_LEFT,
         surfStartX + 105, yPos, 25, 20, hWnd, (HMENU)IDC_CHART1_SURF_LABEL, hInst, NULL);
+
+    // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
+    // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
+    // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
+    int cursorStartX = surfStartX + 135;  // После Surf элементов
+    
+    // Иконка 📍 (используем Unicode символ)
+    hCursor1Icon = CreateWindow(L"STATIC", L"\U0001F4CD",
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
+        cursorStartX, yPos, 20, 20, hWnd, (HMENU)IDC_CURSOR1_ICON, hInst, NULL);
+    
+    // Поле X (компактное, 45px)
+    hCursor1XEdit = CreateWindow(L"EDIT", L"",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursorStartX + 22, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CURSOR1_X_EDIT, hInst, NULL);
+    
+    // Разделитель ":"
+    hCursor1Separator = CreateWindow(L"STATIC", L":",
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
+        cursorStartX + 69, yPos, 10, 20, hWnd, (HMENU)IDC_CURSOR1_SEPARATOR, hInst, NULL);
+    
+    // Поле Y1 с единицами (80px для значения + единицы)
+    hCursor1Y1Edit = CreateWindow(L"EDIT", L"",
+        WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursorStartX + 81, yPos - 2, 80, 22, hWnd, (HMENU)IDC_CURSOR1_Y1_EDIT, hInst, NULL);
+    
+    // Разделитель "|" для второй оси (изначально скрыт)
+    hCursor1Y2Separator = CreateWindow(L"STATIC", L"|",
+        WS_CHILD | SS_CENTER,
+        cursorStartX + 163, yPos, 10, 20, hWnd, (HMENU)IDC_CURSOR1_Y2_SEPARATOR, hInst, NULL);
+    
+    // Поле Y2 с единицами для второй оси (изначально скрыто)
+    hCursor1Y2Edit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursorStartX + 175, yPos - 2, 80, 22, hWnd, (HMENU)IDC_CURSOR1_Y2_EDIT, hInst, NULL);
 
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
@@ -207,31 +222,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | BS_OWNERDRAW,
         xRange2StartX + 178, 298, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
-    // Элементы отображения координат курсора для Chart 2 (изначально скрыты)
-    int cursor2StartX = xRange2StartX + 247;
-    
-    hCursor2Label = CreateWindow(L"STATIC", L"Cursor:",
-        WS_CHILD | SS_LEFT,
-        cursor2StartX, 300, 45, 20, hWnd, (HMENU)IDC_CURSOR2_LABEL, hInst, NULL);
-    
-    hCursor2XLabel = CreateWindow(L"STATIC", L"X:",
-        WS_CHILD | SS_LEFT,
-        cursor2StartX + 50, 300, 15, 20, hWnd, (HMENU)IDC_CURSOR2_X_LABEL, hInst, NULL);
-    
-    hCursor2XEdit = CreateWindow(L"EDIT", L"",
-        WS_CHILD | WS_BORDER | ES_READONLY,
-        cursor2StartX + 65, 298, 55, 22, hWnd, (HMENU)IDC_CURSOR2_X_EDIT, hInst, NULL);
-    
-    hCursor2YLabel = CreateWindow(L"STATIC", L"Y:",
-        WS_CHILD | SS_LEFT,
-        cursor2StartX + 125, 300, 15, 20, hWnd, (HMENU)IDC_CURSOR2_Y_LABEL, hInst, NULL);
-    
-    hCursor2YEdit = CreateWindow(L"EDIT", L"",
-        WS_CHILD | WS_BORDER | ES_READONLY,
-        cursor2StartX + 140, 298, 70, 22, hWnd, (HMENU)IDC_CURSOR2_Y_EDIT, hInst, NULL);
-
     // === Элементы управления режимом Surf для Chart 2 (v2.14.0) ===
-    int surf2StartX = cursor2StartX + 220;
+    // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
+    int surf2StartX = xRange2StartX + 247;
     
     // Checkbox "Surf" для Chart 2 (изначально скрыт)
     hChart2SurfCheck = CreateWindow(L"BUTTON", L"Surf",
@@ -247,6 +240,41 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2SurfLabel = CreateWindow(L"STATIC", L"pts",
         WS_CHILD | SS_LEFT,
         surf2StartX + 105, 300, 25, 20, hWnd, (HMENU)IDC_CHART2_SURF_LABEL, hInst, NULL);
+
+    // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
+    // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
+    // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
+    int cursor2StartX = surf2StartX + 135;  // После Surf элементов
+    
+    // Иконка 📍
+    hCursor2Icon = CreateWindow(L"STATIC", L"\U0001F4CD",
+        WS_CHILD | SS_CENTER,
+        cursor2StartX, 300, 20, 20, hWnd, (HMENU)IDC_CURSOR2_ICON, hInst, NULL);
+    
+    // Поле X (компактное, 45px)
+    hCursor2XEdit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursor2StartX + 22, 298, 45, 22, hWnd, (HMENU)IDC_CURSOR2_X_EDIT, hInst, NULL);
+    
+    // Разделитель ":"
+    hCursor2Separator = CreateWindow(L"STATIC", L":",
+        WS_CHILD | SS_CENTER,
+        cursor2StartX + 69, 300, 10, 20, hWnd, (HMENU)IDC_CURSOR2_SEPARATOR, hInst, NULL);
+    
+    // Поле Y1 с единицами
+    hCursor2Y1Edit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursor2StartX + 81, 298, 80, 22, hWnd, (HMENU)IDC_CURSOR2_Y1_EDIT, hInst, NULL);
+    
+    // Разделитель "|" для второй оси (изначально скрыт)
+    hCursor2Y2Separator = CreateWindow(L"STATIC", L"|",
+        WS_CHILD | SS_CENTER,
+        cursor2StartX + 163, 300, 10, 20, hWnd, (HMENU)IDC_CURSOR2_Y2_SEPARATOR, hInst, NULL);
+    
+    // Поле Y2 с единицами для второй оси (изначально скрыто)
+    hCursor2Y2Edit = CreateWindow(L"EDIT", L"",
+        WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
+        cursor2StartX + 175, 298, 80, 22, hWnd, (HMENU)IDC_CURSOR2_Y2_EDIT, hInst, NULL);
 
     // Создание статусной строки
     hStatusBar = CreateWindowEx(
@@ -297,11 +325,11 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hResetZoom2Btn, showFlag);
     
     // Показываем/скрываем элементы координат курсора для Chart 2
-    ShowWindow(hCursor2Label, showFlag);
-    ShowWindow(hCursor2XLabel, showFlag);
+    ShowWindow(hCursor2Icon, showFlag);
     ShowWindow(hCursor2XEdit, showFlag);
-    ShowWindow(hCursor2YLabel, showFlag);
-    ShowWindow(hCursor2YEdit, showFlag);
+    ShowWindow(hCursor2Separator, showFlag);
+    ShowWindow(hCursor2Y1Edit, showFlag);
+    // Y2 элементы управляются отдельно через ShowDualAxisControls
     
     // Показываем/скрываем элементы Surf для Chart 2 (v2.14.0)
     ShowWindow(hChart2SurfCheck, showFlag);
@@ -326,19 +354,20 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 148, yPos - 2, 26, 24, SWP_NOSIZE);
     SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 178, yPos - 2, 65, 24, SWP_NOSIZE);
     
-    // Позиционируем элементы координат курсора для Chart 2
-    int cursor2StartX = xRange2StartX + 247;
-    SetWindowPos(hCursor2Label, HWND_TOP, cursor2StartX, yPos, 45, 20, SWP_NOSIZE);
-    SetWindowPos(hCursor2XLabel, HWND_TOP, cursor2StartX + 50, yPos, 15, 20, SWP_NOSIZE);
-    SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 65, yPos - 2, 55, 22, SWP_NOSIZE);
-    SetWindowPos(hCursor2YLabel, HWND_TOP, cursor2StartX + 125, yPos, 15, 20, SWP_NOSIZE);
-    SetWindowPos(hCursor2YEdit, HWND_TOP, cursor2StartX + 140, yPos - 2, 70, 22, SWP_NOSIZE);
-    
-    // Позиционируем элементы Surf для Chart 2 (v2.14.0)
-    int surf2StartX = cursor2StartX + 220;
+    // Позиционируем элементы Surf для Chart 2 (v2.15.1 - Surf ПЕРЕД Cursor)
+    int surf2StartX = xRange2StartX + 247;
     SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
     SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hChart2SurfLabel, HWND_TOP, surf2StartX + 105, yPos, 25, 20, SWP_NOSIZE);
+    
+    // Позиционируем элементы координат курсора для Chart 2 (v2.15.1 - Cursor КРАЙНИЙ СПРАВА)
+    int cursor2StartX = surf2StartX + 135;  // После Surf элементов
+    SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
+    SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y1Edit, HWND_TOP, cursor2StartX + 81, yPos - 2, 80, 22, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y2Separator, HWND_TOP, cursor2StartX + 163, yPos, 10, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y2Edit, HWND_TOP, cursor2StartX + 175, yPos - 2, 80, 22, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {
@@ -723,48 +752,98 @@ void UIModule::ResizeStatusBar() {
     }
 }
 
-// Обновление координат курсора при клике на график
-void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y) {
-    HWND hXEdit, hYEdit;
+// Обновление координат курсора при клике на график (v2.15.1 - поддержка двойных осей)
+void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y1, const std::wstring& y1Unit,
+                                      double y2, const std::wstring& y2Unit, bool hasDualAxis) {
+    HWND hXEdit, hY1Edit, hY2Edit;
     
     if (chartNumber == 1) {
         hXEdit = hCursor1XEdit;
-        hYEdit = hCursor1YEdit;
+        hY1Edit = hCursor1Y1Edit;
+        hY2Edit = hCursor1Y2Edit;
     } else if (chartNumber == 2) {
         hXEdit = hCursor2XEdit;
-        hYEdit = hCursor2YEdit;
+        hY1Edit = hCursor2Y1Edit;
+        hY2Edit = hCursor2Y2Edit;
     } else {
         return;
     }
     
-    if (!hXEdit || !hYEdit) return;
+    if (!hXEdit || !hY1Edit) return;
     
-    // Форматируем координаты
-    wchar_t xText[32], yText[32];
-    swprintf_s(xText, L"%.0f", x);      // X как целое число (индекс кадра)
-    swprintf_s(yText, L"%.2f", y);      // Y с 2 знаками после запятой
-    
+    // Форматируем X координату (целое число - индекс кадра)
+    wchar_t xText[32];
+    swprintf_s(xText, L"%.0f", x);
     SetWindowText(hXEdit, xText);
-    SetWindowText(hYEdit, yText);
+    
+    // Форматируем Y1 координату с единицами измерения
+    wchar_t y1Text[64];
+    if (y1Unit == L"mdeg") {
+        swprintf_s(y1Text, L"%.0f %s", y1, y1Unit.c_str());
+    } else if (y1Unit == L"mV") {
+        swprintf_s(y1Text, L"%.3f %s", y1, y1Unit.c_str());
+    } else if (y1Unit == L"V/V") {
+        swprintf_s(y1Text, L"%.4f %s", y1, y1Unit.c_str());
+    } else if (y1Unit == L"°C" || y1Unit == L"degC") {
+        swprintf_s(y1Text, L"%.2f °C", y1);
+    } else {
+        swprintf_s(y1Text, L"%.2f %s", y1, y1Unit.c_str());
+    }
+    SetWindowText(hY1Edit, y1Text);
+    
+    // Показываем/скрываем элементы для второй оси
+    ShowDualAxisControls(chartNumber, hasDualAxis);
+    
+    // Форматируем Y2 координату если есть двойные оси
+    if (hasDualAxis && hY2Edit && !y2Unit.empty()) {
+        wchar_t y2Text[64];
+        if (y2Unit == L"mdeg") {
+            swprintf_s(y2Text, L"%.0f %s", y2, y2Unit.c_str());
+        } else if (y2Unit == L"mV") {
+            swprintf_s(y2Text, L"%.3f %s", y2, y2Unit.c_str());
+        } else if (y2Unit == L"V/V") {
+            swprintf_s(y2Text, L"%.4f %s", y2, y2Unit.c_str());
+        } else {
+            swprintf_s(y2Text, L"%.2f %s", y2, y2Unit.c_str());
+        }
+        SetWindowText(hY2Edit, y2Text);
+    }
+}
+
+// Показать/скрыть элементы для второй оси Y
+void UIModule::ShowDualAxisControls(int chartNumber, bool show) {
+    int showFlag = show ? SW_SHOW : SW_HIDE;
+    
+    if (chartNumber == 1) {
+        ShowWindow(hCursor1Y2Separator, showFlag);
+        ShowWindow(hCursor1Y2Edit, showFlag);
+    } else if (chartNumber == 2) {
+        ShowWindow(hCursor2Y2Separator, showFlag);
+        ShowWindow(hCursor2Y2Edit, showFlag);
+    }
 }
 
 void UIModule::ClearClickCoordinates(int chartNumber) {
-    HWND hXEdit, hYEdit;
+    HWND hXEdit, hY1Edit, hY2Edit;
     
     if (chartNumber == 1) {
         hXEdit = hCursor1XEdit;
-        hYEdit = hCursor1YEdit;
+        hY1Edit = hCursor1Y1Edit;
+        hY2Edit = hCursor1Y2Edit;
     } else if (chartNumber == 2) {
         hXEdit = hCursor2XEdit;
-        hYEdit = hCursor2YEdit;
+        hY1Edit = hCursor2Y1Edit;
+        hY2Edit = hCursor2Y2Edit;
     } else {
         return;
     }
     
-    if (!hXEdit || !hYEdit) return;
+    if (hXEdit) SetWindowText(hXEdit, L"");
+    if (hY1Edit) SetWindowText(hY1Edit, L"");
+    if (hY2Edit) SetWindowText(hY2Edit, L"");
     
-    SetWindowText(hXEdit, L"");
-    SetWindowText(hYEdit, L"");
+    // Скрываем элементы второй оси
+    ShowDualAxisControls(chartNumber, false);
 }
 
 // === Методы для работы с COM-портом (v2.13.0) ===

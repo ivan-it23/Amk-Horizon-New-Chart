@@ -408,17 +408,21 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     if (clickedChart != 0) {
         activeChart = clickedChart;
         
-        // Обновляем координаты курсора при клике на график
-        double dataX, dataY;
-        ConvertScreenToDataCoords(clickedChart, x, y, dataX, dataY);
-        uiModule->UpdateClickCoordinates(clickedChart, dataX, dataY);
+        // Обновляем координаты курсора при клике на график (v2.15.1 - поддержка двойных осей)
+        double dataX, dataY1, dataY2;
+        std::wstring y1Unit, y2Unit;
+        bool hasDualAxis;
+        
+        if (ConvertScreenToChartCoords(clickedChart, x, y, dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
+            uiModule->UpdateClickCoordinates(clickedChart, dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
+        }
         
         // Сохраняем позицию перекрестия для отображения
         CrosshairPosition* crosshair = (clickedChart == 1) ? &chart1Crosshair : &chart2Crosshair;
         crosshair->screenX = x;
         crosshair->screenY = y;
         crosshair->dataX = dataX;
-        crosshair->dataY = dataY;
+        crosshair->dataY = dataY1;
         crosshair->isVisible = true;
         crosshair->chartNumber = clickedChart;
     }
