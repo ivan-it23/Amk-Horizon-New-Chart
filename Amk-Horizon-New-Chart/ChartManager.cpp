@@ -412,24 +412,8 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     if (clickedChart != 0) {
         activeChart = clickedChart;
-        
-        // Обновляем координаты курсора при клике на график (v2.15.1 - поддержка двойных осей)
-        double dataX, dataY1, dataY2;
-        std::wstring y1Unit, y2Unit;
-        bool hasDualAxis;
-        
-        if (ConvertScreenToChartCoords(clickedChart, x, y, dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
-            uiModule->UpdateClickCoordinates(clickedChart, dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
-        }
-        
-        // Сохраняем позицию перекрестия для отображения
-        CrosshairPosition* crosshair = (clickedChart == 1) ? &chart1Crosshair : &chart2Crosshair;
-        crosshair->screenX = x;
-        crosshair->screenY = y;
-        crosshair->dataX = dataX;
-        crosshair->dataY = dataY1;
-        crosshair->isVisible = true;
-        crosshair->chartNumber = clickedChart;
+        // v2.14.2: Координаты и перекрестие обновляются в HandleMouseUp,
+        // только если это был клик, а не drag (выделение области для zoom)
     }
 
     isSelecting = true;
@@ -585,6 +569,27 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart2Zoom.maxY = maxDataY;
                 chart2Zoom.isZoomed = true;
             }
+        }
+    } else {
+        // v2.14.2: Это клик (не drag) — обновляем координаты и перекрестие
+        if (activeChart != 0) {
+            double dataX, dataY1, dataY2;
+            std::wstring y1Unit, y2Unit;
+            bool hasDualAxis;
+            
+            if (ConvertScreenToChartCoords(activeChart, selectionStart.x, selectionStart.y, 
+                                           dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
+                uiModule->UpdateClickCoordinates(activeChart, dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
+            }
+            
+            // Сохраняем позицию перекрестия для отображения
+            CrosshairPosition* crosshair = (activeChart == 1) ? &chart1Crosshair : &chart2Crosshair;
+            crosshair->screenX = selectionStart.x;
+            crosshair->screenY = selectionStart.y;
+            crosshair->dataX = dataX;
+            crosshair->dataY = dataY1;
+            crosshair->isVisible = true;
+            crosshair->chartNumber = activeChart;
         }
     }
     
@@ -1897,6 +1902,20 @@ void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber
     // Восстанавливаем старое перо и удаляем созданное
     SelectObject(hdc, hOldPen);
     DeleteObject(hCrosshairPen);
+}
+
+// v2.14.2: Сброс перекрестия (вызывается при клике на иконку 📍)
+void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
+    if (chartNumber == 1) {
+        chart1Crosshair.isVisible = false;
+        uiModule->ClearClickCoordinates(1);
+    } else if (chartNumber == 2) {
+        chart2Crosshair.isVisible = false;
+        uiModule->ClearClickCoordinates(2);
+    }
+    
+    // Перерисовываем окно
+    InvalidateRect(hWnd, NULL, TRUE);
 }
 
 

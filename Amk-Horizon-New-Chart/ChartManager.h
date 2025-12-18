@@ -168,6 +168,9 @@ public:
     void HandleSurfToggle(HWND hWnd, int chartNumber);
     void UpdateSurfRange(int chartNumber);
     void UpdateSurfStatusBar();
+    
+    // v2.14.2: Метод для сброса перекрестия (вызывается при клике на иконку 📍)
+    void ClearCrosshair(HWND hWnd, int chartNumber);
 
 private:
     // Методы для новой системы кривых

@@ -157,8 +157,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     int cursorStartX = surfStartX + 135;  // После Surf элементов
     
     // Иконка маркера (Owner-Draw для красного цвета)
+    // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
     hCursor1Icon = CreateWindow(L"STATIC", L"",
-        WS_VISIBLE | WS_CHILD | SS_OWNERDRAW,
+        WS_VISIBLE | WS_CHILD | SS_OWNERDRAW | SS_NOTIFY,
         cursorStartX, yPos, 18, 20, hWnd, (HMENU)IDC_CURSOR1_ICON, hInst, NULL);
     
     // Поле X (компактное, 45px)
@@ -249,8 +250,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     int cursor2StartX = surf2StartX + 135;  // После Surf элементов
     
     // Иконка маркера (Owner-Draw для красного цвета)
+    // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
     hCursor2Icon = CreateWindow(L"STATIC", L"",
-        WS_CHILD | SS_OWNERDRAW,
+        WS_CHILD | SS_OWNERDRAW | SS_NOTIFY,
         cursor2StartX, 300, 18, 20, hWnd, (HMENU)IDC_CURSOR2_ICON, hInst, NULL);
     
     // Поле X (компактное, 45px)

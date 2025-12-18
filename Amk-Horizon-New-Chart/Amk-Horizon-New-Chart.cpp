@@ -114,8 +114,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    icex.dwICC = ICC_BAR_CLASSES; // Включаем статусную строку
    InitCommonControlsEx(&icex);
 
+   // v2.14.2: Увеличен начальный размер окна (800x600 → 1000x600) для корректного отображения всех элементов
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
-      CW_USEDEFAULT, 0, 800, 600, nullptr, nullptr, hInstance, nullptr);
+      CW_USEDEFAULT, 0, 1000, 600, nullptr, nullptr, hInstance, nullptr);
 
    if (!hWnd)
    {
@@ -301,6 +302,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
             
+            // === v2.14.2: Сброс перекрестия при клике на иконку 📍 ===
+            case IDC_CURSOR1_ICON:
+                if (HIWORD(wParam) == STN_CLICKED && g_chartManager)
+                {
+                    g_chartManager->ClearCrosshair(hWnd, 1);
+                }
+                break;
+            case IDC_CURSOR2_ICON:
+                if (HIWORD(wParam) == STN_CLICKED && g_chartManager)
+                {
+                    g_chartManager->ClearCrosshair(hWnd, 2);
+                }
+                break;
+            
             default:
                 if (g_chartManager)
                 {
@@ -470,6 +485,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         PostQuitMessage(0);
         break;
+    
+    // v2.14.2: Установка минимального размера окна для корректного отображения элементов
+    case WM_GETMINMAXINFO:
+        {
+            MINMAXINFO* mmi = (MINMAXINFO*)lParam;
+            mmi->ptMinTrackSize.x = 900;  // Минимальная ширина
+            mmi->ptMinTrackSize.y = 400;  // Минимальная высота
+        }
+        break;
+    
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
