@@ -161,6 +161,10 @@ public:
     // Обновление статусной строки с информацией о Surf
     void UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window);
 
+    // Обработка Owner-Draw кнопок
+    void DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem);
+    bool IsIconButton(UINT ctrlId) const;
+
 private:
     // Вспомогательные методы
     void CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text);

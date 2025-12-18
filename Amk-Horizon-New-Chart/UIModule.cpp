@@ -108,28 +108,28 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
         xRangeStartX + 66, yPos - 2, 50, 22, hWnd, (HMENU)IDC_XRANGE_TO_EDIT, hInst, NULL);
     
-    // Кнопка "Apply" - иконка ✓ (галочка)
-    hXRangeApplyBtn = CreateWindow(L"BUTTON", L"\u2714",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+    // Кнопка "Apply" - иконка ✓ (галочка) - Owner-Draw для цветной иконки
+    hXRangeApplyBtn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         xRangeStartX + 120, yPos - 2, 26, 24, hWnd, (HMENU)IDC_XRANGE_APPLY_BTN, hInst, NULL);
     
-    // Кнопка "Reset" - иконка ↺ (стрелка по кругу)
-    hXRangeResetBtn = CreateWindow(L"BUTTON", L"\u21BA",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+    // Кнопка "Reset" - иконка ↺ (стрелка по кругу) - Owner-Draw для цветной иконки
+    hXRangeResetBtn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         xRangeStartX + 148, yPos - 2, 26, 24, hWnd, (HMENU)IDC_XRANGE_RESET_BTN, hInst, NULL);
     
-    // Кнопка "Save Range" для Chart 1 - иконка 💾 (дискета) или S
-    hSaveRange1Btn = CreateWindow(L"BUTTON", L"\u2193",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
+    // Кнопка "Save Range" для Chart 1 - Owner-Draw для цветной иконки
+    hSaveRange1Btn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         xRangeStartX + 176, yPos - 2, 26, 24, hWnd, (HMENU)IDC_SAVE_RANGE1_BTN, hInst, NULL);
     
-    // Кнопка "Reset Zoom" для Chart 1 - иконка ↺ + "Zoom"
-    hResetZoom1Btn = CreateWindow(L"BUTTON", L"\u21BA Zoom",
-        WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        xRangeStartX + 206, yPos - 2, 55, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
+    // Кнопка "Reset Zoom" для Chart 1 - Owner-Draw для цветной иконки (увеличен размер)
+    hResetZoom1Btn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        xRangeStartX + 206, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 1
-    int cursorStartX = xRangeStartX + 265;
+    int cursorStartX = xRangeStartX + 275;
     
     hCursor1Label = CreateWindow(L"STATIC", L"Cursor:",
         WS_VISIBLE | WS_CHILD | SS_LEFT,
@@ -192,23 +192,23 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | WS_BORDER | ES_NUMBER,
         xRange2StartX + 66, 298, 50, 22, hWnd, (HMENU)IDC_XRANGE2_TO_EDIT, hInst, NULL);
     
-    // Кнопка "Apply" для Chart 2 - иконка ✓
-    hXRange2ApplyBtn = CreateWindow(L"BUTTON", L"\u2714",
-        WS_CHILD | BS_PUSHBUTTON,
+    // Кнопка "Apply" для Chart 2 - Owner-Draw для цветной иконки
+    hXRange2ApplyBtn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW,
         xRange2StartX + 120, 298, 26, 24, hWnd, (HMENU)IDC_XRANGE2_APPLY_BTN, hInst, NULL);
     
-    // Кнопка "Reset" для Chart 2 - иконка ↺
-    hXRange2ResetBtn = CreateWindow(L"BUTTON", L"\u21BA",
-        WS_CHILD | BS_PUSHBUTTON,
+    // Кнопка "Reset" для Chart 2 - Owner-Draw для цветной иконки
+    hXRange2ResetBtn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW,
         xRange2StartX + 148, 298, 26, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
     
-    // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта) - иконка ↺ + "Zoom"
-    hResetZoom2Btn = CreateWindow(L"BUTTON", L"\u21BA Zoom",
-        WS_CHILD | BS_PUSHBUTTON,
-        xRange2StartX + 178, 298, 55, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
+    // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта) - Owner-Draw (увеличен размер)
+    hResetZoom2Btn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW,
+        xRange2StartX + 178, 298, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 2 (изначально скрыты)
-    int cursor2StartX = xRange2StartX + 237;
+    int cursor2StartX = xRange2StartX + 247;
     
     hCursor2Label = CreateWindow(L"STATIC", L"Cursor:",
         WS_CHILD | SS_LEFT,
@@ -324,10 +324,10 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 66, yPos - 2, 50, 22, SWP_NOSIZE);
     SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 120, yPos - 2, 26, 24, SWP_NOSIZE);
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 148, yPos - 2, 26, 24, SWP_NOSIZE);
-    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 178, yPos - 2, 55, 24, SWP_NOSIZE);
+    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 178, yPos - 2, 65, 24, SWP_NOSIZE);
     
     // Позиционируем элементы координат курсора для Chart 2
-    int cursor2StartX = xRange2StartX + 237;
+    int cursor2StartX = xRange2StartX + 247;
     SetWindowPos(hCursor2Label, HWND_TOP, cursor2StartX, yPos, 45, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XLabel, HWND_TOP, cursor2StartX + 50, yPos, 15, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 65, yPos - 2, 55, 22, SWP_NOSIZE);
@@ -941,4 +941,153 @@ void UIModule::CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text) {
     ti.lpszText = const_cast<wchar_t*>(text);
     
     SendMessage(hTooltip, TTM_ADDTOOL, 0, (LPARAM)&ti);
+}
+
+// Проверка, является ли кнопка Owner-Draw иконкой
+bool UIModule::IsIconButton(UINT ctrlId) const {
+    switch (ctrlId) {
+        case IDC_XRANGE_APPLY_BTN:
+        case IDC_XRANGE_RESET_BTN:
+        case IDC_SAVE_RANGE1_BTN:
+        case IDC_RESET_ZOOM1_BTN:
+        case IDC_XRANGE2_APPLY_BTN:
+        case IDC_XRANGE2_RESET_BTN:
+        case IDC_RESET_ZOOM2_BTN:
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Отрисовка Owner-Draw кнопки с крупной иконкой
+void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
+    if (!lpDrawItem) return;
+    
+    HDC hdc = lpDrawItem->hDC;
+    RECT rc = lpDrawItem->rcItem;
+    UINT ctrlId = lpDrawItem->CtlID;
+    UINT state = lpDrawItem->itemState;
+    
+    // Определяем текст иконки
+    const wchar_t* iconText = L"";
+    const wchar_t* labelText = L"";
+    
+    switch (ctrlId) {
+        case IDC_XRANGE_APPLY_BTN:
+        case IDC_XRANGE2_APPLY_BTN:
+            iconText = L"\u2714";          // ✔
+            break;
+        case IDC_XRANGE_RESET_BTN:
+        case IDC_XRANGE2_RESET_BTN:
+            iconText = L"\u21BA";          // ↺
+            break;
+        case IDC_SAVE_RANGE1_BTN:
+            iconText = L"\u2193";          // ↓
+            break;
+        case IDC_RESET_ZOOM1_BTN:
+        case IDC_RESET_ZOOM2_BTN:
+            iconText = L"\u21BA";          // ↺
+            labelText = L"Zoom";
+            break;
+        default:
+            return;
+    }
+    
+    // Цвет текста — стандартный системный
+    COLORREF textColor = GetSysColor(COLOR_BTNTEXT);
+    
+    // Фон кнопки
+    COLORREF bgColor;
+    if (state & ODS_SELECTED) {
+        bgColor = RGB(200, 200, 200);  // Нажатая кнопка
+    } else if (state & ODS_DISABLED) {
+        bgColor = RGB(240, 240, 240);  // Отключённая кнопка
+        textColor = RGB(160, 160, 160);
+    } else {
+        bgColor = GetSysColor(COLOR_BTNFACE);  // Обычный фон
+    }
+    
+    // Заливка фона
+    HBRUSH hBrush = CreateSolidBrush(bgColor);
+    FillRect(hdc, &rc, hBrush);
+    DeleteObject(hBrush);
+    
+    // Рамка кнопки
+    if (state & ODS_SELECTED) {
+        DrawEdge(hdc, &rc, EDGE_SUNKEN, BF_RECT);
+    } else {
+        DrawEdge(hdc, &rc, EDGE_RAISED, BF_RECT);
+    }
+    
+    // Создаём крупный жирный шрифт для иконки
+    HFONT hIconFont = CreateFont(
+        22,                        // Высота шрифта (крупный)
+        0,                         // Ширина (авто)
+        0, 0,                      // Углы
+        FW_BOLD,                   // Жирный шрифт для лучшей видимости
+        FALSE, FALSE, FALSE,       // Курсив, подчёркивание, зачёркивание
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,         // Качественный рендеринг
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"Segoe UI Symbol"         // Шрифт с хорошей поддержкой Unicode символов
+    );
+    
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hIconFont);
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, textColor);
+    
+    // Смещение при нажатии
+    int offsetX = (state & ODS_SELECTED) ? 1 : 0;
+    int offsetY = (state & ODS_SELECTED) ? 1 : 0;
+    
+    // Отрисовка иконки и текста
+    if (wcslen(labelText) > 0) {
+        // Кнопка с иконкой и текстом (Reset Zoom)
+        RECT iconRect = rc;
+        iconRect.right = rc.left + 24;
+        iconRect.left += offsetX;
+        iconRect.top += offsetY;
+        DrawText(hdc, iconText, -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        
+        // Создаём шрифт для текста "Zoom" — жирный, как у других элементов панели
+        HFONT hTextFont = CreateFont(
+            15,                        // Высота шрифта (как у стандартных кнопок)
+            0, 0, 0,
+            FW_SEMIBOLD,               // Полужирный — как у стандартных элементов
+            FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS,
+            CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE,
+            L"Segoe UI"
+        );
+        SelectObject(hdc, hTextFont);
+        
+        RECT textRect = rc;
+        textRect.left = rc.left + 22 + offsetX;
+        textRect.top += offsetY;
+        DrawText(hdc, labelText, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        
+        DeleteObject(hTextFont);
+    } else {
+        // Только иконка
+        RECT iconRect = rc;
+        iconRect.left += offsetX;
+        iconRect.top += offsetY;
+        DrawText(hdc, iconText, -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+    }
+    
+    // Восстановление и удаление шрифта
+    SelectObject(hdc, hOldFont);
+    DeleteObject(hIconFont);
+    
+    // Фокус
+    if (state & ODS_FOCUS) {
+        RECT focusRect = rc;
+        InflateRect(&focusRect, -3, -3);
+        DrawFocusRect(hdc, &focusRect);
+    }
 }

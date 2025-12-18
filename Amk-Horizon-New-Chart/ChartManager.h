@@ -160,8 +160,9 @@ public:
     bool IsSerialConnected() const;
     bool IsSerialPolling() const;
     
-    // Получение модуля для внешнего доступа (например, из WndProc)
+    // Получение модулей для внешнего доступа (например, из WndProc)
     SerialModule* GetSerialModule() { return serialModule.get(); }
+    UIModule* GetUIModule() { return uiModule.get(); }
     
     // === Методы для режима Surf (v2.14.0) ===
     void HandleSurfToggle(HWND hWnd, int chartNumber);

@@ -404,6 +404,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    case WM_DRAWITEM:
+        // Обработка Owner-Draw кнопок с цветными иконками
+        {
+            LPDRAWITEMSTRUCT lpDrawItem = (LPDRAWITEMSTRUCT)lParam;
+            if (lpDrawItem && g_chartManager) {
+                UIModule* uiModule = g_chartManager->GetUIModule();
+                if (uiModule && uiModule->IsIconButton(lpDrawItem->CtlID)) {
+                    uiModule->DrawIconButton(lpDrawItem);
+                    return TRUE;
+                }
+            }
+        }
+        break;
     case WM_ERASEBKGND:
         // Предотвращаем стирание фона для устранения мигания при скроллинге
         // Фон будет отрисован в WM_PAINT через double buffering
