@@ -169,20 +169,20 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | SS_CENTER,
         cursorStartX + 69, yPos, 10, 20, hWnd, (HMENU)IDC_CURSOR1_SEPARATOR, hInst, NULL);
     
-    // Поле Y1 с единицами (80px для значения + единицы)
+    // Поле Y1 с единицами (95px для значения + единицы)
     hCursor1Y1Edit = CreateWindow(L"EDIT", L"",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
-        cursorStartX + 81, yPos - 2, 80, 22, hWnd, (HMENU)IDC_CURSOR1_Y1_EDIT, hInst, NULL);
+        cursorStartX + 81, yPos - 2, 95, 22, hWnd, (HMENU)IDC_CURSOR1_Y1_EDIT, hInst, NULL);
     
     // Разделитель "|" для второй оси (изначально скрыт)
     hCursor1Y2Separator = CreateWindow(L"STATIC", L"|",
         WS_CHILD | SS_CENTER,
-        cursorStartX + 163, yPos, 10, 20, hWnd, (HMENU)IDC_CURSOR1_Y2_SEPARATOR, hInst, NULL);
+        cursorStartX + 178, yPos, 10, 20, hWnd, (HMENU)IDC_CURSOR1_Y2_SEPARATOR, hInst, NULL);
     
-    // Поле Y2 с единицами для второй оси (изначально скрыто)
+    // Поле Y2 с единицами для второй оси (изначально скрыто, 95px)
     hCursor1Y2Edit = CreateWindow(L"EDIT", L"",
         WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
-        cursorStartX + 175, yPos - 2, 80, 22, hWnd, (HMENU)IDC_CURSOR1_Y2_EDIT, hInst, NULL);
+        cursorStartX + 190, yPos - 2, 95, 22, hWnd, (HMENU)IDC_CURSOR1_Y2_EDIT, hInst, NULL);
 
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
@@ -261,20 +261,20 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | SS_CENTER,
         cursor2StartX + 69, 300, 10, 20, hWnd, (HMENU)IDC_CURSOR2_SEPARATOR, hInst, NULL);
     
-    // Поле Y1 с единицами
+    // Поле Y1 с единицами (95px для значения + единицы)
     hCursor2Y1Edit = CreateWindow(L"EDIT", L"",
         WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
-        cursor2StartX + 81, 298, 80, 22, hWnd, (HMENU)IDC_CURSOR2_Y1_EDIT, hInst, NULL);
+        cursor2StartX + 81, 298, 95, 22, hWnd, (HMENU)IDC_CURSOR2_Y1_EDIT, hInst, NULL);
     
     // Разделитель "|" для второй оси (изначально скрыт)
     hCursor2Y2Separator = CreateWindow(L"STATIC", L"|",
         WS_CHILD | SS_CENTER,
-        cursor2StartX + 163, 300, 10, 20, hWnd, (HMENU)IDC_CURSOR2_Y2_SEPARATOR, hInst, NULL);
+        cursor2StartX + 178, 300, 10, 20, hWnd, (HMENU)IDC_CURSOR2_Y2_SEPARATOR, hInst, NULL);
     
-    // Поле Y2 с единицами для второй оси (изначально скрыто)
+    // Поле Y2 с единицами для второй оси (изначально скрыто, 95px)
     hCursor2Y2Edit = CreateWindow(L"EDIT", L"",
         WS_CHILD | WS_BORDER | ES_READONLY | ES_CENTER,
-        cursor2StartX + 175, 298, 80, 22, hWnd, (HMENU)IDC_CURSOR2_Y2_EDIT, hInst, NULL);
+        cursor2StartX + 190, 298, 95, 22, hWnd, (HMENU)IDC_CURSOR2_Y2_EDIT, hInst, NULL);
 
     // Создание статусной строки
     hStatusBar = CreateWindowEx(
@@ -365,9 +365,9 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
-    SetWindowPos(hCursor2Y1Edit, HWND_TOP, cursor2StartX + 81, yPos - 2, 80, 22, SWP_NOSIZE);
-    SetWindowPos(hCursor2Y2Separator, HWND_TOP, cursor2StartX + 163, yPos, 10, 20, SWP_NOSIZE);
-    SetWindowPos(hCursor2Y2Edit, HWND_TOP, cursor2StartX + 175, yPos - 2, 80, 22, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y1Edit, HWND_TOP, cursor2StartX + 81, yPos - 2, 95, 22, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y2Separator, HWND_TOP, cursor2StartX + 178, yPos, 10, 20, SWP_NOSIZE);
+    SetWindowPos(hCursor2Y2Edit, HWND_TOP, cursor2StartX + 190, yPos - 2, 95, 22, SWP_NOSIZE);
 }
 
 void UIModule::ToggleDualMode() {
@@ -781,7 +781,7 @@ void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y1, cons
     if (y1Unit == L"mdeg") {
         swprintf_s(y1Text, L"%.0f %s", y1, y1Unit.c_str());
     } else if (y1Unit == L"mV") {
-        swprintf_s(y1Text, L"%.3f %s", y1, y1Unit.c_str());
+        swprintf_s(y1Text, L"%.2f %s", y1, y1Unit.c_str());  // 2 знака для mV
     } else if (y1Unit == L"V/V") {
         swprintf_s(y1Text, L"%.4f %s", y1, y1Unit.c_str());
     } else if (y1Unit == L"°C" || y1Unit == L"degC") {
@@ -800,7 +800,7 @@ void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y1, cons
         if (y2Unit == L"mdeg") {
             swprintf_s(y2Text, L"%.0f %s", y2, y2Unit.c_str());
         } else if (y2Unit == L"mV") {
-            swprintf_s(y2Text, L"%.3f %s", y2, y2Unit.c_str());
+            swprintf_s(y2Text, L"%.2f %s", y2, y2Unit.c_str());  // 2 знака для mV
         } else if (y2Unit == L"V/V") {
             swprintf_s(y2Text, L"%.4f %s", y2, y2Unit.c_str());
         } else {
