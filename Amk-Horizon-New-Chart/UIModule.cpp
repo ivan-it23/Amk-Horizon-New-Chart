@@ -59,14 +59,15 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         10, 10, 100, 20, hWnd, (HMENU)IDC_DUAL_MODE_CHECK, hInst, NULL);
     
     // Создание кнопки Device Schematic для первого графика
+    // v2.14.2: Выравнивание высоты (25→22) и уменьшение отступа (120→115)
     hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        120, 10, 140, 25, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
+        115, 8, 140, 22, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
     
     // Создание кнопки Device Schematic для второго графика (изначально скрыта)
     hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
         WS_CHILD | BS_PUSHBUTTON,
-        10, 300, 140, 25, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
+        10, 300, 140, 22, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
 
     // Создание горизонтальных скроллбаров (изначально скрыты)
     hChart1HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
@@ -89,7 +90,8 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Создание элементов управления X Range в панели инструментов
     // Размещаем их справа от кнопки Device Schematic
     // Компактный формат: [From] - [To] [✓] [↺] [💾]
-    int xRangeStartX = 280; // Начальная позиция X Range элементов
+    // v2.14.2: Уменьшение отступа от Device Schematic (280→265)
+    int xRangeStartX = 265; // Начальная позиция X Range элементов
     int yPos = 10;          // Вертикальная позиция (та же, что у других элементов)
     
     // Метка "X Range:" - скрыта (nullptr), оставляем для совместимости
@@ -338,7 +340,8 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
-    SetWindowPos(hChart2SchematicBtn, HWND_TOP, 10, panel2Y, 140, 25, SWP_NOSIZE);
+    // v2.14.2: Высота кнопки 22 (выравнивание с Chart 1)
+    SetWindowPos(hChart2SchematicBtn, HWND_TOP, 10, panel2Y, 140, 22, SWP_NOZORDER);
     
     // Позиционируем элементы управления X Range для Chart 2
     // Компактный формат: [From] - [To] [✓] [↺] [Reset Zoom]
