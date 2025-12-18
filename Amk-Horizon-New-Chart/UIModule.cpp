@@ -41,6 +41,7 @@ UIModule::UIModule()
     , hChart2SurfCheck(nullptr)
     , hChart2SurfEdit(nullptr)
     , hChart2SurfLabel(nullptr)
+    , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
     chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -85,51 +86,50 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
 
     // Создание элементов управления X Range в панели инструментов
     // Размещаем их справа от кнопки Device Schematic
+    // Компактный формат: [From] - [To] [✓] [↺] [💾]
     int xRangeStartX = 280; // Начальная позиция X Range элементов
     int yPos = 10;          // Вертикальная позиция (та же, что у других элементов)
     
-    // Метка "X Range:"
-    hXRangeFromLabel = CreateWindow(L"STATIC", L"X Range:",
-        WS_VISIBLE | WS_CHILD | SS_LEFT,
-        xRangeStartX, yPos, 60, 20, hWnd, (HMENU)IDC_XRANGE_FROM_LABEL, hInst, NULL);
+    // Метка "X Range:" - скрыта (nullptr), оставляем для совместимости
+    hXRangeFromLabel = nullptr;
     
-    // Поле ввода "From"
+    // Поле ввода "From" (компактное, 50px)
     hXRangeFromEdit = CreateWindow(L"EDIT", L"",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        xRangeStartX + 65, yPos - 2, 60, 22, hWnd, (HMENU)IDC_XRANGE_FROM_EDIT, hInst, NULL);
+        xRangeStartX, yPos - 2, 50, 22, hWnd, (HMENU)IDC_XRANGE_FROM_EDIT, hInst, NULL);
     
-    // Метка "to"
-    hXRangeToLabel = CreateWindow(L"STATIC", L"to",
+    // Метка "-" (разделитель)
+    hXRangeToLabel = CreateWindow(L"STATIC", L"-",
         WS_VISIBLE | WS_CHILD | SS_CENTER,
-        xRangeStartX + 130, yPos, 20, 20, hWnd, (HMENU)IDC_XRANGE_TO_LABEL, hInst, NULL);
+        xRangeStartX + 52, yPos, 12, 20, hWnd, (HMENU)IDC_XRANGE_TO_LABEL, hInst, NULL);
     
-    // Поле ввода "To"
+    // Поле ввода "To" (компактное, 50px)
     hXRangeToEdit = CreateWindow(L"EDIT", L"",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER,
-        xRangeStartX + 155, yPos - 2, 60, 22, hWnd, (HMENU)IDC_XRANGE_TO_EDIT, hInst, NULL);
+        xRangeStartX + 66, yPos - 2, 50, 22, hWnd, (HMENU)IDC_XRANGE_TO_EDIT, hInst, NULL);
     
-    // Кнопка "Apply"
-    hXRangeApplyBtn = CreateWindow(L"BUTTON", L"Apply",
+    // Кнопка "Apply" - иконка ✓ (галочка)
+    hXRangeApplyBtn = CreateWindow(L"BUTTON", L"\u2714",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        xRangeStartX + 225, yPos - 2, 50, 24, hWnd, (HMENU)IDC_XRANGE_APPLY_BTN, hInst, NULL);
+        xRangeStartX + 120, yPos - 2, 26, 24, hWnd, (HMENU)IDC_XRANGE_APPLY_BTN, hInst, NULL);
     
-    // Кнопка "Reset"
-    hXRangeResetBtn = CreateWindow(L"BUTTON", L"Reset",
+    // Кнопка "Reset" - иконка ↺ (стрелка по кругу)
+    hXRangeResetBtn = CreateWindow(L"BUTTON", L"\u21BA",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        xRangeStartX + 280, yPos - 2, 50, 24, hWnd, (HMENU)IDC_XRANGE_RESET_BTN, hInst, NULL);
+        xRangeStartX + 148, yPos - 2, 26, 24, hWnd, (HMENU)IDC_XRANGE_RESET_BTN, hInst, NULL);
     
-    // Кнопка "Save Range" для Chart 1
-    hSaveRange1Btn = CreateWindow(L"BUTTON", L"Save Range",
+    // Кнопка "Save Range" для Chart 1 - иконка 💾 (дискета) или S
+    hSaveRange1Btn = CreateWindow(L"BUTTON", L"\u2193",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        xRangeStartX + 335, yPos - 2, 80, 24, hWnd, (HMENU)IDC_SAVE_RANGE1_BTN, hInst, NULL);
+        xRangeStartX + 176, yPos - 2, 26, 24, hWnd, (HMENU)IDC_SAVE_RANGE1_BTN, hInst, NULL);
     
-    // Кнопка "Reset Zoom" для Chart 1
-    hResetZoom1Btn = CreateWindow(L"BUTTON", L"Reset Zoom",
+    // Кнопка "Reset Zoom" для Chart 1 - иконка ↺ + "Zoom"
+    hResetZoom1Btn = CreateWindow(L"BUTTON", L"\u21BA Zoom",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        xRangeStartX + 420, yPos - 2, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
+        xRangeStartX + 206, yPos - 2, 55, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 1
-    int cursorStartX = xRangeStartX + 505;
+    int cursorStartX = xRangeStartX + 265;
     
     hCursor1Label = CreateWindow(L"STATIC", L"Cursor:",
         WS_VISIBLE | WS_CHILD | SS_LEFT,
@@ -171,45 +171,44 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
 
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
     // Размещаем их рядом с кнопкой Device Schematic для Chart 2
+    // Компактный формат: [From] - [To] [✓] [↺]
     int xRange2StartX = 160; // Позиция после кнопки Device Schematic для Chart 2
     
-    // Метка "X Range:" для Chart 2
-    hXRange2FromLabel = CreateWindow(L"STATIC", L"X Range:",
-        WS_CHILD | SS_LEFT,
-        xRange2StartX, 300, 60, 20, hWnd, (HMENU)IDC_XRANGE2_FROM_LABEL, hInst, NULL);
+    // Метка "X Range:" для Chart 2 - скрыта (nullptr), оставляем для совместимости
+    hXRange2FromLabel = nullptr;
     
-    // Поле ввода "From" для Chart 2
+    // Поле ввода "From" для Chart 2 (компактное, 50px)
     hXRange2FromEdit = CreateWindow(L"EDIT", L"",
         WS_CHILD | WS_BORDER | ES_NUMBER,
-        xRange2StartX + 65, 298, 60, 22, hWnd, (HMENU)IDC_XRANGE2_FROM_EDIT, hInst, NULL);
+        xRange2StartX, 298, 50, 22, hWnd, (HMENU)IDC_XRANGE2_FROM_EDIT, hInst, NULL);
     
-    // Метка "to" для Chart 2
-    hXRange2ToLabel = CreateWindow(L"STATIC", L"to",
+    // Метка "-" для Chart 2 (разделитель)
+    hXRange2ToLabel = CreateWindow(L"STATIC", L"-",
         WS_CHILD | SS_CENTER,
-        xRange2StartX + 130, 300, 20, 20, hWnd, (HMENU)IDC_XRANGE2_TO_LABEL, hInst, NULL);
+        xRange2StartX + 52, 300, 12, 20, hWnd, (HMENU)IDC_XRANGE2_TO_LABEL, hInst, NULL);
     
-    // Поле ввода "To" для Chart 2
+    // Поле ввода "To" для Chart 2 (компактное, 50px)
     hXRange2ToEdit = CreateWindow(L"EDIT", L"",
         WS_CHILD | WS_BORDER | ES_NUMBER,
-        xRange2StartX + 155, 298, 60, 22, hWnd, (HMENU)IDC_XRANGE2_TO_EDIT, hInst, NULL);
+        xRange2StartX + 66, 298, 50, 22, hWnd, (HMENU)IDC_XRANGE2_TO_EDIT, hInst, NULL);
     
-    // Кнопка "Apply" для Chart 2
-    hXRange2ApplyBtn = CreateWindow(L"BUTTON", L"Apply",
+    // Кнопка "Apply" для Chart 2 - иконка ✓
+    hXRange2ApplyBtn = CreateWindow(L"BUTTON", L"\u2714",
         WS_CHILD | BS_PUSHBUTTON,
-        xRange2StartX + 225, 298, 50, 24, hWnd, (HMENU)IDC_XRANGE2_APPLY_BTN, hInst, NULL);
+        xRange2StartX + 120, 298, 26, 24, hWnd, (HMENU)IDC_XRANGE2_APPLY_BTN, hInst, NULL);
     
-    // Кнопка "Reset" для Chart 2
-    hXRange2ResetBtn = CreateWindow(L"BUTTON", L"Reset",
+    // Кнопка "Reset" для Chart 2 - иконка ↺
+    hXRange2ResetBtn = CreateWindow(L"BUTTON", L"\u21BA",
         WS_CHILD | BS_PUSHBUTTON,
-        xRange2StartX + 280, 298, 50, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
+        xRange2StartX + 148, 298, 26, 24, hWnd, (HMENU)IDC_XRANGE2_RESET_BTN, hInst, NULL);
     
-    // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта)
-    hResetZoom2Btn = CreateWindow(L"BUTTON", L"Reset Zoom",
+    // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта) - иконка ↺ + "Zoom"
+    hResetZoom2Btn = CreateWindow(L"BUTTON", L"\u21BA Zoom",
         WS_CHILD | BS_PUSHBUTTON,
-        xRange2StartX + 335, 298, 80, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
+        xRange2StartX + 178, 298, 55, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 2 (изначально скрыты)
-    int cursor2StartX = xRange2StartX + 420;
+    int cursor2StartX = xRange2StartX + 237;
     
     hCursor2Label = CreateWindow(L"STATIC", L"Cursor:",
         WS_CHILD | SS_LEFT,
@@ -270,6 +269,17 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
     SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
     SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"No file loaded");
+    
+    // Создание tooltips для кнопок с иконками (Chart 1)
+    CreateTooltip(hWnd, hXRangeApplyBtn, L"Apply X Range");
+    CreateTooltip(hWnd, hXRangeResetBtn, L"Reset X Range");
+    CreateTooltip(hWnd, hSaveRange1Btn, L"Save Range to File");
+    CreateTooltip(hWnd, hResetZoom1Btn, L"Reset Zoom to Full View");
+    
+    // Создание tooltips для кнопок с иконками (Chart 2)
+    CreateTooltip(hWnd, hXRange2ApplyBtn, L"Apply X Range");
+    CreateTooltip(hWnd, hXRange2ResetBtn, L"Reset X Range");
+    CreateTooltip(hWnd, hResetZoom2Btn, L"Reset Zoom to Full View");
 }
 
 void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
@@ -277,7 +287,8 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hChart2SchematicBtn, showFlag);
     
     // Показываем/скрываем элементы управления X Range для Chart 2
-    ShowWindow(hXRange2FromLabel, showFlag);
+    // hXRange2FromLabel теперь nullptr (метка убрана)
+    if (hXRange2FromLabel) ShowWindow(hXRange2FromLabel, showFlag);
     ShowWindow(hXRange2FromEdit, showFlag);
     ShowWindow(hXRange2ToLabel, showFlag);
     ShowWindow(hXRange2ToEdit, showFlag);
@@ -302,19 +313,21 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hChart2SchematicBtn, HWND_TOP, 10, panel2Y, 140, 25, SWP_NOSIZE);
     
     // Позиционируем элементы управления X Range для Chart 2
+    // Компактный формат: [From] - [To] [✓] [↺] [Reset Zoom]
     int xRange2StartX = 160;
     int yPos = panel2Y + 2; // Выравниваем с кнопкой Device Schematic
     
-    SetWindowPos(hXRange2FromLabel, HWND_TOP, xRange2StartX, yPos, 60, 20, SWP_NOSIZE);
-    SetWindowPos(hXRange2FromEdit, HWND_TOP, xRange2StartX + 65, yPos - 2, 60, 22, SWP_NOSIZE);
-    SetWindowPos(hXRange2ToLabel, HWND_TOP, xRange2StartX + 130, yPos, 20, 20, SWP_NOSIZE);
-    SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 155, yPos - 2, 60, 22, SWP_NOSIZE);
-    SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 225, yPos - 2, 50, 24, SWP_NOSIZE);
-    SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 280, yPos - 2, 50, 24, SWP_NOSIZE);
-    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 335, yPos - 2, 80, 24, SWP_NOSIZE);
+    // hXRange2FromLabel теперь nullptr (метка убрана)
+    if (hXRange2FromLabel) SetWindowPos(hXRange2FromLabel, HWND_TOP, xRange2StartX, yPos, 60, 20, SWP_NOSIZE);
+    SetWindowPos(hXRange2FromEdit, HWND_TOP, xRange2StartX, yPos - 2, 50, 22, SWP_NOSIZE);
+    SetWindowPos(hXRange2ToLabel, HWND_TOP, xRange2StartX + 52, yPos, 12, 20, SWP_NOSIZE);
+    SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 66, yPos - 2, 50, 22, SWP_NOSIZE);
+    SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 120, yPos - 2, 26, 24, SWP_NOSIZE);
+    SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 148, yPos - 2, 26, 24, SWP_NOSIZE);
+    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 178, yPos - 2, 55, 24, SWP_NOSIZE);
     
     // Позиционируем элементы координат курсора для Chart 2
-    int cursor2StartX = xRange2StartX + 420;
+    int cursor2StartX = xRange2StartX + 237;
     SetWindowPos(hCursor2Label, HWND_TOP, cursor2StartX, yPos, 45, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XLabel, HWND_TOP, cursor2StartX + 50, yPos, 15, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 65, yPos - 2, 55, 22, SWP_NOSIZE);
@@ -892,4 +905,40 @@ void UIModule::UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool 
     
     // Обновляем часть 2 статусной строки (индекс 2)
     SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)surfText);
+}
+
+// Создание tooltip для элемента управления
+void UIModule::CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text) {
+    if (!hControl) return;
+    
+    // Создаём tooltip окно если ещё не создано
+    if (!hTooltip) {
+        hTooltip = CreateWindowEx(
+            WS_EX_TOPMOST,
+            TOOLTIPS_CLASS,
+            NULL,
+            WS_POPUP | TTS_ALWAYSTIP | TTS_NOPREFIX,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            CW_USEDEFAULT, CW_USEDEFAULT,
+            hWnd,
+            NULL,
+            GetModuleHandle(NULL),
+            NULL);
+        
+        if (!hTooltip) return;
+        
+        // Устанавливаем tooltip поверх всех окон
+        SetWindowPos(hTooltip, HWND_TOPMOST, 0, 0, 0, 0, 
+                     SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+    
+    // Добавляем инструмент (элемент управления) к tooltip
+    TOOLINFO ti = { 0 };
+    ti.cbSize = sizeof(TOOLINFO);
+    ti.uFlags = TTF_SUBCLASS | TTF_IDISHWND;
+    ti.hwnd = hWnd;
+    ti.uId = (UINT_PTR)hControl;
+    ti.lpszText = const_cast<wchar_t*>(text);
+    
+    SendMessage(hTooltip, TTM_ADDTOOL, 0, (LPARAM)&ti);
 }

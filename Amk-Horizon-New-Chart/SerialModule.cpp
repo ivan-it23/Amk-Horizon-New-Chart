@@ -697,14 +697,7 @@ void SerialModule::WriteDataToFile(const GP_TOOL_DATA& data) {
 }
 
 std::wstring SerialModule::BrowseForFolder(HWND hWnd) {
-    // Используем стандартный диалог выбора файла с хаком для выбора папки
-    // Или просто возвращаем пустую строку и предлагаем ввести путь вручную
-    
-    // Простой подход: используем GetOpenFileName с фильтром папок
-    // Но это не идеально, поэтому используем IFileDialog если доступен
-    
-    // Альтернатива: просто показываем MessageBox с инструкцией
-    // и возвращаем путь по умолчанию
+
     
     wchar_t folderPath[MAX_PATH] = { 0 };
     

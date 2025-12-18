@@ -162,5 +162,7 @@ public:
     void UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window);
 
 private:
-    // Вспомогательные методы удалены после рефакторинга
+    // Вспомогательные методы
+    void CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text);
+    HWND hTooltip;  // Общий tooltip для всех элементов
 };
