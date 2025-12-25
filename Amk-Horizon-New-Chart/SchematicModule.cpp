@@ -111,18 +111,21 @@ std::string SchematicSelection::GetValidationError() const {
     // Для ручного выбора (dataFilter == ALL) проверяем выбранные элементы
     // Должен быть выбран хотя бы один элемент
     if (receivers == 0 && transmitters == 0 && silent == 0) {
-        return "Please select elements to build the chart";
+        // "Выберите элементы для построения графика"
+        return "\xD0\x92\xD1\x8B\xD0\xB1\xD0\xB5\xD1\x80\xD0\xB8\xD1\x82\xD0\xB5 \xD1\x8D\xD0\xBB\xD0\xB5\xD0\xBC\xD0\xB5\xD0\xBD\xD1\x82\xD1\x8B \xD0\xB4\xD0\xBB\xD1\x8F \xD0\xBF\xD0\xBE\xD1\x81\xD1\x82\xD1\x80\xD0\xBE\xD0\xB5\xD0\xBD\xD0\xB8\xD1\x8F \xD0\xB3\xD1\x80\xD0\xB0\xD1\x84\xD0\xB8\xD0\xBA\xD0\xB0";
     }
     
     // Нельзя одновременно выбирать передатчики и приемники
     if (transmitters > 0 && receivers > 0) {
-        return "Cannot select transmitters and receivers simultaneously";
+        // "Нельзя выбирать передатчики и приёмники одновременно"
+        return "\xD0\x9D\xD0\xB5\xD0\xBB\xD1\x8C\xD0\xB7\xD1\x8F \xD0\xB2\xD1\x8B\xD0\xB1\xD0\xB8\xD1\x80\xD0\xB0\xD1\x82\xD1\x8C \xD0\xBF\xD0\xB5\xD1\x80\xD0\xB5\xD0\xB4\xD0\xB0\xD1\x82\xD1\x87\xD0\xB8\xD0\xBA\xD0\xB8 \xD0\xB8 \xD0\xBF\xD1\x80\xD0\xB8\xD1\x91\xD0\xBC\xD0\xBD\xD0\xB8\xD0\xBA\xD0\xB8 \xD0\xBE\xD0\xB4\xD0\xBD\xD0\xBE\xD0\xB2\xD1\x80\xD0\xB5\xD0\xBC\xD0\xB5\xD0\xBD\xD0\xBD\xD0\xBE";
     }
     
     // ИСПРАВЛЕНО: Разрешаем комбинации молчащих передатчиков с активными элементами
     // Запрещена только комбинация приемников R1+R2 с молчащими передатчиками
     if (silent > 0 && receivers == 2) {
-        return "Cannot select both receivers and silent transmitters simultaneously";
+        // "Нельзя выбирать оба приёмника и молчащие передатчики одновременно"
+        return "\xD0\x9D\xD0\xB5\xD0\xBB\xD1\x8C\xD0\xB7\xD1\x8F \xD0\xB2\xD1\x8B\xD0\xB1\xD0\xB8\xD1\x80\xD0\xB0\xD1\x82\xD1\x8C \xD0\xBE\xD0\xB1\xD0\xB0 \xD0\xBF\xD1\x80\xD0\xB8\xD1\x91\xD0\xBC\xD0\xBD\xD0\xB8\xD0\xBA\xD0\xB0 \xD0\xB8 \xD0\xBC\xD0\xBE\xD0\xBB\xD1\x87\xD0\xB0\xD1\x89\xD0\xB8\xD0\xB5 \xD0\xBF\xD0\xB5\xD1\x80\xD0\xB5\xD0\xB4\xD0\xB0\xD1\x82\xD1\x87\xD0\xB8\xD0\xBA\xD0\xB8";
     }
     
     return ""; // Выбор корректен
@@ -649,7 +652,8 @@ std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const
         case ElementType::RECEIVER:
             return L"R" + std::to_wstring(index + 1);
         case ElementType::SILENT_TX:
-            return L"Silent R" + std::to_wstring(index + 1);
+            // "Молч. R" в Unicode
+            return L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
         default:
             return L"Unknown";
     }
@@ -658,11 +662,14 @@ std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const
 std::wstring SchematicModule::GetElementTooltip(ElementType type, int index) const {
     switch (type) {
         case ElementType::TRANSMITTER:
-            return L"Transmitter T" + std::to_wstring(index + 1) + L" - click to select";
+            // "Передатчик T - нажмите для выбора"
+            return L"\x041F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A T" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
         case ElementType::RECEIVER:
-            return L"Receiver R" + std::to_wstring(index + 1) + L" - click to select";
+            // "Приёмник R - нажмите для выбора"
+            return L"\x041F\x0440\x0438\x0451\x043C\x043D\x0438\x043A R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
         case ElementType::SILENT_TX:
-            return L"Silent transmitter for R" + std::to_wstring(index + 1) + L" - click to select";
+            // "Молчащий передатчик для R - нажмите для выбора"
+            return L"\x041C\x043E\x043B\x0447\x0430\x0449\x0438\x0439 \x043F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A \x0434\x043B\x044F R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
         default:
             return L"Unknown element";
     }
@@ -679,7 +686,8 @@ void SchematicModule::DrawReceiver(HDC hdc, const RECT& rect, int index, bool se
 }
 
 void SchematicModule::DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
-    std::wstring label = L"Silent R" + std::to_wstring(index + 1);
+    // "Молч. R" в Unicode
+    std::wstring label = L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
     DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, false, label);
 }
 
@@ -1075,13 +1083,18 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     if (!currentSelection.IsValid()) {
         // Показываем сообщение об ошибке выбора
         std::string error = currentSelection.GetValidationError();
-        std::wstring werror(error.begin(), error.end());
+        
+        // Преобразуем UTF-8 строку в wstring
+        int size_needed = MultiByteToWideChar(CP_UTF8, 0, error.c_str(), (int)error.size(), NULL, 0);
+        std::wstring werror(size_needed, 0);
+        MultiByteToWideChar(CP_UTF8, 0, error.c_str(), (int)error.size(), &werror[0], size_needed);
         
         // Создаём одну колонку для сообщения об ошибке
+        // "Сообщение" в Unicode
         LVCOLUMN column = {};
         column.mask = LVCF_TEXT | LVCF_WIDTH;
         column.cx = 350;
-        column.pszText = const_cast<LPWSTR>(L"Message");
+        column.pszText = const_cast<LPWSTR>(L"\x0421\x043E\x043E\x0431\x0449\x0435\x043D\x0438\x0435");
         ListView_InsertColumn(hCurveList, 0, &column);
         
         LVITEM item = {};
@@ -1095,17 +1108,19 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     
     if (!curveSelectionModule) {
         // Создаём одну колонку для сообщения об ошибке
+        // "Сообщение" в Unicode
         LVCOLUMN column = {};
         column.mask = LVCF_TEXT | LVCF_WIDTH;
         column.cx = 350;
-        column.pszText = const_cast<LPWSTR>(L"Message");
+        column.pszText = const_cast<LPWSTR>(L"\x0421\x043E\x043E\x0431\x0449\x0435\x043D\x0438\x0435");
         ListView_InsertColumn(hCurveList, 0, &column);
         
         LVITEM item = {};
         item.mask = LVIF_TEXT;
         item.iItem = 0;
         item.iSubItem = 0;
-        item.pszText = const_cast<LPWSTR>(L"Curve selection module not initialized");
+        // "Модуль выбора кривых не инициализирован" в Unicode
+        item.pszText = const_cast<LPWSTR>(L"\x041C\x043E\x0434\x0443\x043B\x044C \x0432\x044B\x0431\x043E\x0440\x0430 \x043A\x0440\x0438\x0432\x044B\x0445 \x043D\x0435 \x0438\x043D\x0438\x0446\x0438\x0430\x043B\x0438\x0437\x0438\x0440\x043E\x0432\x0430\x043D");
         ListView_InsertItem(hCurveList, &item);
         return;
     }
@@ -1133,10 +1148,11 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     
     if (availableCurves.empty()) {
         // Создаём одну колонку для сообщения
+        // "Сообщение" в Unicode
         LVCOLUMN column = {};
         column.mask = LVCF_TEXT | LVCF_WIDTH;
         column.cx = 350;
-        column.pszText = const_cast<LPWSTR>(L"Message");
+        column.pszText = const_cast<LPWSTR>(L"\x0421\x043E\x043E\x0431\x0449\x0435\x043D\x0438\x0435");
         ListView_InsertColumn(hCurveList, 0, &column);
         
         LVITEM item = {};
@@ -1292,10 +1308,12 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
                     groupHeader = L"R" + std::to_wstring(elementIndex + 1);
                     break;
                 case ElementType::SILENT_TX:
-                    groupHeader = L"Silent R" + std::to_wstring(elementIndex + 1);
+                    // "Молч. R" в Unicode
+                    groupHeader = L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(elementIndex + 1);
                     break;
                 default:
-                    groupHeader = L"Group " + std::to_wstring(groupIndex + 1);
+                    // "Группа" в Unicode
+                    groupHeader = L"\x0413\x0440\x0443\x043F\x043F\x0430 " + std::to_wstring(groupIndex + 1);
             }
             
             // Создаём группу

@@ -385,10 +385,9 @@ bool ChartManager::IsDualMode() const
 }
 
 std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const {
-    std::wstring title = L"Chart ";
+    // "График " в Unicode escape
+    std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A ";
     title += std::to_wstring(chartNumber);
-    title += L": ";
-    title += dataModule->GetDataTypeName(dataType); // Используем DataModule для получения имени типа данных
     title += L" (";
     title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L"400 kHz" : L"2000 kHz";
     title += L")";
@@ -1098,7 +1097,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     }
     
     // Формируем заголовок с частотой
-    std::wstring title = L"Chart " + std::to_wstring(chartNumber);
+    // "График " в Unicode escape
+    std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
     
     // Добавляем частоту, если есть кривые
     if (!config.curves.empty()) {
@@ -1195,7 +1195,8 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Проверяем, загружены ли данные
     bool hasData = dataModule && dataModule->HasData();
     
-    std::wstring title = L"Chart " + std::to_wstring(chartNumber);
+    // "График " в Unicode escape
+    std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
     
     // Отрисовываем фон и рамку графика вручную (без подписей осей)
     chartModule->DrawChartBackground(hdc, chartRect);
@@ -1229,9 +1230,11 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Выбираем сообщение в зависимости от наличия данных
     std::wstring message;
     if (hasData) {
-        message = L"Нажмите 'Схема прибора' для настройки графика";
+        // "Нажмите 'Схема прибора' для настройки графика" в Unicode
+        message = L"\x041D\x0430\x0436\x043C\x0438\x0442\x0435 '\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430' \x0434\x043B\x044F \x043D\x0430\x0441\x0442\x0440\x043E\x0439\x043A\x0438 \x0433\x0440\x0430\x0444\x0438\x043A\x0430";
     } else {
-        message = L"Сначала откройте файл данных";
+        // "Сначала откройте файл данных" в Unicode
+        message = L"\x0421\x043D\x0430\x0447\x0430\x043B\x0430 \x043E\x0442\x043A\x0440\x043E\x0439\x0442\x0435 \x0444\x0430\x0439\x043B \x0434\x0430\x043D\x043D\x044B\x0445";
     }
     
     RECT textRect = chartRect;
@@ -1482,7 +1485,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     
     if (xRange < MIN_X_RANGE) {
         wchar_t message[256];
-        swprintf_s(message, L"Chart %d: X Range must be at least %.0f points.\nX-axis labels must be integers with minimum spacing of 1.", 
+        swprintf_s(message, L"Chart %d: X Range must be at least %.0f points.", 
                    chartNumber, MIN_X_RANGE);
         MessageBox(hWnd, message, L"X Range Error", MB_OK | MB_ICONERROR);
         return;

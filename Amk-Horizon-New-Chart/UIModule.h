@@ -74,10 +74,8 @@ private:
     // === Элементы управления режимом Surf (v2.14.0) ===
     HWND hChart1SurfCheck;   // Checkbox "Surf" для Chart 1
     HWND hChart1SurfEdit;    // Поле ввода количества точек для Chart 1
-    HWND hChart1SurfLabel;   // Метка "pts" для Chart 1
     HWND hChart2SurfCheck;   // Checkbox "Surf" для Chart 2
     HWND hChart2SurfEdit;    // Поле ввода количества точек для Chart 2
-    HWND hChart2SurfLabel;   // Метка "pts" для Chart 2
 
     // Состояние элементов управления
     bool dualMode;

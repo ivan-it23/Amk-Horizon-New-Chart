@@ -39,10 +39,8 @@ UIModule::UIModule()
     , hStatusBar(nullptr)
     , hChart1SurfCheck(nullptr)
     , hChart1SurfEdit(nullptr)
-    , hChart1SurfLabel(nullptr)
     , hChart2SurfCheck(nullptr)
     , hChart2SurfEdit(nullptr)
-    , hChart2SurfLabel(nullptr)
     , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
@@ -143,16 +141,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart1SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
-    
-    // Метка "pts"
-    hChart1SurfLabel = CreateWindow(L"STATIC", L"pts",
-        WS_VISIBLE | WS_CHILD | SS_LEFT,
-        surfStartX + 105, yPos, 25, 20, hWnd, (HMENU)IDC_CHART1_SURF_LABEL, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursorStartX = surfStartX + 135;  // После Surf элементов
+    int cursorStartX = surfStartX + 105;  // После Surf элементов (убрана метка "pts")
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -236,16 +229,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
-    
-    // Метка "pts" для Chart 2
-    hChart2SurfLabel = CreateWindow(L"STATIC", L"pts",
-        WS_CHILD | SS_LEFT,
-        surf2StartX + 105, 300, 25, 20, hWnd, (HMENU)IDC_CHART2_SURF_LABEL, hInst, NULL);
 
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursor2StartX = surf2StartX + 135;  // После Surf элементов
+    int cursor2StartX = surf2StartX + 105;  // После Surf элементов (убрана метка "pts")
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -336,7 +324,6 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     // Показываем/скрываем элементы Surf для Chart 2 (v2.14.0)
     ShowWindow(hChart2SurfCheck, showFlag);
     ShowWindow(hChart2SurfEdit, showFlag);
-    ShowWindow(hChart2SurfLabel, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -361,10 +348,9 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     int surf2StartX = xRange2StartX + 247;
     SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
     SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
-    SetWindowPos(hChart2SurfLabel, HWND_TOP, surf2StartX + 105, yPos, 25, 20, SWP_NOSIZE);
     
     // Позиционируем элементы координат курсора для Chart 2 (v2.15.1 - Cursor КРАЙНИЙ СПРАВА)
-    int cursor2StartX = surf2StartX + 135;  // После Surf элементов
+    int cursor2StartX = surf2StartX + 105;  // После Surf элементов (убрана метка "pts")
     SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
@@ -963,7 +949,6 @@ void UIModule::UpdateSurfControlsVisibility(bool showChart2Controls) {
     int showFlag = showChart2Controls ? SW_SHOW : SW_HIDE;
     ShowWindow(hChart2SurfCheck, showFlag);
     ShowWindow(hChart2SurfEdit, showFlag);
-    ShowWindow(hChart2SurfLabel, showFlag);
 }
 
 void UIModule::PositionSurfControls(int chart2PanelY) {

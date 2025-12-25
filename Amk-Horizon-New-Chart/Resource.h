@@ -116,10 +116,8 @@
 // === Элементы управления режимом Surf (v2.14.0) ===
 #define IDC_CHART1_SURF_CHECK		1070
 #define IDC_CHART1_SURF_EDIT		1071
-#define IDC_CHART1_SURF_LABEL		1072
 #define IDC_CHART2_SURF_CHECK		1073
 #define IDC_CHART2_SURF_EDIT		1074
-#define IDC_CHART2_SURF_LABEL		1075
 
 // === Элементы записи в файл (v2.15.0) ===
 #define IDC_SERIAL_RECORD_CHECK		1076
