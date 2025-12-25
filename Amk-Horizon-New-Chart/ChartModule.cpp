@@ -407,6 +407,9 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
         }
     }
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     // Отрисовка горизонтальных линий сетки и меток Y-оси
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40); // Примерное количество шагов
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
@@ -426,6 +429,14 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 
                 SelectObject(hdc, hOldPen);
                 DeleteObject(hPen);
+                
+                // Рисуем засечку (tick mark) влево от оси Y
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
+                LineTo(hdc, plotRect.left, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
 
                 // Отрисовка метки Y-оси (в области отступа слева от plotRect)
                 std::wstringstream ssY;
@@ -436,9 +447,8 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, yLabel.c_str(), (int)yLabel.length(), &textSize);
                 
-                // Рисуем текст так, чтобы он заканчивался в 5 пикселях от оси
-                // Текст начинается с (plotRect.left - 5 - textSize.cx) и заканчивается в (plotRect.left - 5)
-                int textX = plotRect.left - 5 - textSize.cx;
+                // Рисуем текст так, чтобы он заканчивался в 7 пикселях от оси (учитываем засечку)
+                int textX = plotRect.left - TICK_LENGTH - 2 - textSize.cx;
                 TextOut(hdc, textX, screenY - 7, yLabel.c_str(), (int)yLabel.length());
             }
         }
@@ -475,16 +485,32 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                     
                     SelectObject(hdc, hOldPen);
                     DeleteObject(hPen);
+                    
+                    // Рисуем засечку (tick mark) вниз от оси X
+                    HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                    HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                    MoveToEx(hdc, screenX, plotRect.bottom, NULL);
+                    LineTo(hdc, screenX, plotRect.bottom + TICK_LENGTH);
+                    SelectObject(hdc, hOldTickPen);
+                    DeleteObject(hTickPen);
 
                     // Отрисовка метки X-оси (в области отступа снизу от plotRect)
                     std::wstringstream ssX;
                     ssX << std::fixed << std::setprecision(1) << currentXVal;
                     std::wstring xLabel = ssX.str();
-                    TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                    TextOut(hdc, screenX - 10, plotRect.bottom + TICK_LENGTH + 2, xLabel.c_str(), (int)xLabel.length());
                 }
             }
             currentXVal += niceStepX;
         }
+        
+        // Рисуем жирную ось X
+        HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+        HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
+        MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
+        LineTo(hdc, plotRect.right, plotRect.bottom);
+        SelectObject(hdc, hOldAxisPen);
+        DeleteObject(hAxisPen);
     }
 }
 
@@ -908,6 +934,9 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
     // Отслеживание уже отрисованных целых значений для предотвращения дубликатов
     std::set<int> drawnLabels;
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     while (currentXVal <= maxXData + niceStepX / 2) {
         if (currentXVal >= minXData - niceStepX / 2 && currentXVal <= maxXData + niceStepX / 2) {
             long screenX = plotRect.left + (LONG)((currentXVal - minXData) / xRange * (plotRect.right - plotRect.left));
@@ -923,6 +952,14 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldPen);
                 DeleteObject(hPen);
                 
+                // Рисуем засечку (tick mark) вниз от оси X
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, screenX, plotRect.bottom, NULL);
+                LineTo(hdc, screenX, plotRect.bottom + TICK_LENGTH);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                
                 // Отрисовка метки X-оси целыми числами (только уникальные значения)
                 int roundedValue = static_cast<int>(std::round(currentXVal));
                 if (drawnLabels.find(roundedValue) == drawnLabels.end()) {
@@ -931,12 +968,20 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
                     std::wstringstream ssX;
                     ssX << roundedValue;
                     std::wstring xLabel = ssX.str();
-                    TextOut(hdc, screenX - 10, plotRect.bottom + 5, xLabel.c_str(), (int)xLabel.length());
+                    TextOut(hdc, screenX - 10, plotRect.bottom + TICK_LENGTH + 2, xLabel.c_str(), (int)xLabel.length());
                 }
             }
         }
         currentXVal += niceStepX;
     }
+    
+    // Рисуем жирную ось X
+    HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
+    MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
+    LineTo(hdc, plotRect.right, plotRect.bottom);
+    SelectObject(hdc, hOldAxisPen);
+    DeleteObject(hAxisPen);
 }
 
 void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect, 
@@ -980,11 +1025,22 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
     SetTextColor(hdc, RGB(0, 0, 0));
     SetBkMode(hdc, TRANSPARENT);
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
             long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                // Рисуем засечку (tick mark) влево от оси
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
+                LineTo(hdc, plotRect.left, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                
                 std::wstringstream ss;
                 // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
@@ -998,9 +1054,8 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
                 
-                // Рисуем текст так, чтобы он заканчивался в 5 пикселях от оси
-                // Текст начинается с (plotRect.left - 5 - textSize.cx) и заканчивается в (plotRect.left - 5)
-                int textX = plotRect.left - 5 - textSize.cx;
+                // Рисуем текст так, чтобы он заканчивался в 7 пикселях от оси (учитываем засечку)
+                int textX = plotRect.left - TICK_LENGTH - 2 - textSize.cx;
                 TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
             }
         }
@@ -1057,11 +1112,22 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     SetTextColor(hdc, RGB(0, 0, 0));
     SetBkMode(hdc, TRANSPARENT);
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
             long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                // Рисуем засечку (tick mark) вправо от оси
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, rightAxisX, screenY, NULL);
+                LineTo(hdc, rightAxisX + TICK_LENGTH, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                
                 std::wstringstream ss;
                 // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
@@ -1070,7 +1136,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
                     ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
-                TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
+                TextOut(hdc, rightAxisX + TICK_LENGTH + 2, screenY - 7, label.c_str(), (int)label.length());
             }
         }
         currentYVal += niceStepY;
@@ -1079,7 +1145,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     // Подпись единиц измерения правой оси
     if (!units.empty()) {
         std::wstring wunits(units.begin(), units.end());
-        TextOut(hdc, rightAxisX + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+        TextOut(hdc, rightAxisX + TICK_LENGTH + 2, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
 }
 
@@ -2012,6 +2078,9 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
         maxTemp = minTemp + 1.0f;
     }
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     // Рисуем сетку
     HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
     HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
@@ -2025,6 +2094,16 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
         MoveToEx(hdc, x, plotRect.top, NULL);
         LineTo(hdc, x, plotRect.bottom);
         
+        // Рисуем засечку (tick mark) вниз от оси X
+        SelectObject(hdc, hOldPen);
+        HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+        HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+        MoveToEx(hdc, x, plotRect.bottom, NULL);
+        LineTo(hdc, x, plotRect.bottom + TICK_LENGTH);
+        SelectObject(hdc, hOldTickPen);
+        DeleteObject(hTickPen);
+        SelectObject(hdc, hGridPen);
+        
         float temp = minTemp + (maxTemp - minTemp) * i / numVerticalLines;
         int roundedTemp = static_cast<int>(std::round(temp));
         
@@ -2036,7 +2115,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
             
             SIZE textSize;
             GetTextExtentPoint32(hdc, label, (int)wcslen(label), &textSize);
-            TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + 5, label, (int)wcslen(label));
+            TextOut(hdc, x - textSize.cx / 2, plotRect.bottom + TICK_LENGTH + 2, label, (int)wcslen(label));
         }
     }
     
@@ -2052,6 +2131,16 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                 MoveToEx(hdc, plotRect.left, screenY, NULL);
                 LineTo(hdc, plotRect.right, screenY);
                 
+                // Рисуем засечку (tick mark) влево от оси Y
+                SelectObject(hdc, hOldPen);
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
+                LineTo(hdc, plotRect.left, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                SelectObject(hdc, hGridPen);
+                
                 std::wstringstream ss;
                 // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (leftUnits == "mdeg") {
@@ -2063,7 +2152,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                 
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
-                int textX = plotRect.left - 5 - textSize.cx;
+                int textX = plotRect.left - TICK_LENGTH - 2 - textSize.cx;
                 TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
             }
         }
@@ -2072,6 +2161,14 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     
     SelectObject(hdc, hOldPen);
     DeleteObject(hGridPen);
+    
+    // Рисуем жирную ось X
+    HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
+    MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
+    LineTo(hdc, plotRect.right, plotRect.bottom);
+    SelectObject(hdc, hOldAxisPen);
+    DeleteObject(hAxisPen);
 }
 
 void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
@@ -2101,11 +2198,22 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
     SetTextColor(hdc, RGB(0, 0, 0));
     SetBkMode(hdc, TRANSPARENT);
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
             long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                // Рисуем засечку (tick mark) влево от оси
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
+                LineTo(hdc, plotRect.left, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                
                 std::wstringstream ss;
                 // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
@@ -2118,7 +2226,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
                 
-                int textX = plotRect.left - 5 - textSize.cx;
+                int textX = plotRect.left - TICK_LENGTH - 2 - textSize.cx;
                 TextOut(hdc, textX, screenY - 7, label.c_str(), (int)label.length());
             }
         }
@@ -2161,11 +2269,22 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
     SetTextColor(hdc, RGB(0, 0, 0));
     SetBkMode(hdc, TRANSPARENT);
     
+    // Константа для длины засечки
+    const int TICK_LENGTH = 5;
+    
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
             long screenY = plotRect.bottom - (LONG)((currentYVal - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
+                // Рисуем засечку (tick mark) вправо от оси
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
+                MoveToEx(hdc, rightAxisX, screenY, NULL);
+                LineTo(hdc, rightAxisX + TICK_LENGTH, screenY);
+                SelectObject(hdc, hOldTickPen);
+                DeleteObject(hTickPen);
+                
                 std::wstringstream ss;
                 // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
                 if (units == "mdeg") {
@@ -2174,7 +2293,7 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
                     ss << std::fixed << std::setprecision(2) << currentYVal;
                 }
                 std::wstring label = ss.str();
-                TextOut(hdc, rightAxisX + 5, screenY - 7, label.c_str(), (int)label.length());
+                TextOut(hdc, rightAxisX + TICK_LENGTH + 2, screenY - 7, label.c_str(), (int)label.length());
             }
         }
         currentYVal += niceStepY;
@@ -2183,7 +2302,7 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
     // Подпись единиц измерения правой оси
     if (!units.empty()) {
         std::wstring wunits(units.begin(), units.end());
-        TextOut(hdc, rightAxisX + 5, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
+        TextOut(hdc, rightAxisX + TICK_LENGTH + 2, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
 }
 
