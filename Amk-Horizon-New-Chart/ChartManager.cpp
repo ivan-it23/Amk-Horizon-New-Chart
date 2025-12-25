@@ -1229,9 +1229,9 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Выбираем сообщение в зависимости от наличия данных
     std::wstring message;
     if (hasData) {
-        message = L"Click 'Device Schematic' to configure this chart";
+        message = L"Нажмите 'Схема прибора' для настройки графика";
     } else {
-        message = L"Please open a data file first";
+        message = L"Сначала откройте файл данных";
     }
     
     RECT textRect = chartRect;

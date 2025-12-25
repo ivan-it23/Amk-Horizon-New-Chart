@@ -1018,8 +1018,10 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
     // Инициализируем комбобокс типа оси X (v2.10.0)
     HWND hXAxisCombo = GetDlgItem(hDlg, IDC_XAXIS_TYPE_COMBO);
     if (hXAxisCombo) {
-        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"Frame Number");
-        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"Temperature");
+        // "Номер кадра" в Unicode
+        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041D\x043E\x043C\x0435\x0440 \x043A\x0430\x0434\x0440\x0430");
+        // "Температура" в Unicode
+        SendMessage(hXAxisCombo, CB_ADDSTRING, 0, (LPARAM)L"\x0422\x0435\x043C\x043F\x0435\x0440\x0430\x0442\x0443\x0440\x0430");
         
         // Устанавливаем тип оси X из восстановленной конфигурации или по умолчанию
         XAxisType xAxisType = XAxisType::FRAME_NUMBER;
@@ -1141,7 +1143,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         item.mask = LVIF_TEXT;
         item.iItem = 0;
         item.iSubItem = 0;
-        item.pszText = const_cast<LPWSTR>(L"No available curves for current selection");
+        item.pszText = const_cast<LPWSTR>(L"\x041D\x0435\x0442 \x0434\x043E\x0441\x0442\x0443\x043F\x043D\x044B\x0445 \x043A\x0440\x0438\x0432\x044B\x0445 \x0434\x043B\x044F \x0442\x0435\x043A\x0443\x0449\x0435\x0433\x043E \x0432\x044B\x0431\x043E\x0440\x0430");
         ListView_InsertItem(hCurveList, &item);
         return;
     }
@@ -1174,7 +1176,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     LVCOLUMN column = {};
     column.mask = LVCF_TEXT | LVCF_WIDTH;
     column.cx = 400;
-    column.pszText = const_cast<LPWSTR>(L"Available Curves");
+    column.pszText = const_cast<LPWSTR>(L"\x0414\x043E\x0441\x0442\x0443\x043F\x043D\x044B\x0435 \x043A\x0440\x0438\x0432\x044B\x0435");
     ListView_InsertColumn(hCurveList, 0, &column);
     
     // ИЗМЕНЕНО v2.6.2: Для одного приёмника (R1 или R2) отображаем кривые в плоском списке
@@ -1502,7 +1504,8 @@ void SchematicModule::ValidateCurrentCurveConfiguration(HWND hDlg) {
     if (!error.empty()) {
         // TODO: Показать ошибку в статусной области диалога
         // Пока что просто обновляем заголовок окна
-        std::wstring title = L"Device Schematic - Chart " + std::to_wstring(targetChartNumber);
+        // "Схема прибора - График N"
+        std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(targetChartNumber);
         if (!error.empty()) {
             title += L" [Configuration Error]";
         }
@@ -1800,7 +1803,8 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                 SetWindowLongPtr(hDlg, GWLP_USERDATA, lParam);
                 
                 // Устанавливаем заголовок окна
-                std::wstring title = L"Device Schematic - Chart " + std::to_wstring(pSchematic->targetChartNumber);
+                // "Схема прибора - График N" в Unicode
+                std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(pSchematic->targetChartNumber);
                 SetWindowText(hDlg, title.c_str());
                 
                 // Инициализируем элементы управления

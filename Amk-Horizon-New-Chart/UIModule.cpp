@@ -53,21 +53,20 @@ UIModule::~UIModule() {
 }
 
 void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
-    // Создание чекбокса Dual Mode
-    hDualModeCheck = CreateWindow(L"BUTTON", L"Dual Mode", 
+    // Создание чекбокса Dual Mode (Двойной режим)
+    hDualModeCheck = CreateWindow(L"BUTTON", L"\x0414\x0432\x043E\x0439\x043D\x043E\x0439 \x0440\x0435\x0436\x0438\x043C", 
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-        10, 10, 100, 20, hWnd, (HMENU)IDC_DUAL_MODE_CHECK, hInst, NULL);
+        10, 10, 130, 20, hWnd, (HMENU)IDC_DUAL_MODE_CHECK, hInst, NULL);
     
-    // Создание кнопки Device Schematic для первого графика
-    // v2.14.2: Выравнивание высоты (25→22) и уменьшение отступа (120→115)
-    hChart1SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
+    // Создание кнопки Device Schematic для первого графика (Схема прибора)
+    hChart1SchematicBtn = CreateWindow(L"BUTTON", L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430",
         WS_VISIBLE | WS_CHILD | BS_PUSHBUTTON,
-        115, 8, 140, 22, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
+        145, 8, 120, 22, hWnd, (HMENU)IDC_CHART1_SCHEMATIC_BTN, hInst, NULL);
     
     // Создание кнопки Device Schematic для второго графика (изначально скрыта)
-    hChart2SchematicBtn = CreateWindow(L"BUTTON", L"Device Schematic",
+    hChart2SchematicBtn = CreateWindow(L"BUTTON", L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430",
         WS_CHILD | BS_PUSHBUTTON,
-        10, 300, 140, 22, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
+        10, 300, 120, 22, hWnd, (HMENU)IDC_CHART2_SCHEMATIC_BTN, hInst, NULL);
 
     // Создание горизонтальных скроллбаров (изначально скрыты)
     hChart1HScrollBar = CreateWindow(L"SCROLLBAR", NULL,
@@ -88,10 +87,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         0, 0, 20, 100, hWnd, (HMENU)IDC_CHART2_VSCROLL, hInst, NULL);
 
     // Создание элементов управления X Range в панели инструментов
-    // Размещаем их справа от кнопки Device Schematic
+    // Размещаем их справа от кнопки "Схема прибора"
     // Компактный формат: [From] - [To] [✓] [↺] [💾]
-    // v2.14.2: Уменьшение отступа от Device Schematic (280→265)
-    int xRangeStartX = 265; // Начальная позиция X Range элементов
+    int xRangeStartX = 275; // Начальная позиция X Range элементов (после кнопки "Схема прибора" + отступ)
     int yPos = 10;          // Вертикальная позиция (та же, что у других элементов)
     
     // Метка "X Range:" - скрыта (nullptr), оставляем для совместимости
@@ -188,9 +186,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         cursorStartX + 190, yPos - 2, 95, 22, hWnd, (HMENU)IDC_CURSOR1_Y2_EDIT, hInst, NULL);
 
     // Создание элементов управления X Range для Chart 2 (изначально скрыты)
-    // Размещаем их рядом с кнопкой Device Schematic для Chart 2
+    // Размещаем их рядом с кнопкой "Схема прибора" для Chart 2
     // Компактный формат: [From] - [To] [✓] [↺]
-    int xRange2StartX = 160; // Позиция после кнопки Device Schematic для Chart 2
+    int xRange2StartX = 140; // Позиция после кнопки "Схема прибора" для Chart 2
     
     // Метка "X Range:" для Chart 2 - скрыта (nullptr), оставляем для совместимости
     hXRange2FromLabel = nullptr;
