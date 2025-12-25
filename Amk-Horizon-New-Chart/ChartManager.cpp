@@ -1745,22 +1745,54 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             return false;
         }
 
-        // Получаем данные для кривых
+        // Получаем параметры zoom
+        ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
+
+        // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
         std::vector<std::vector<float>> leftAxisData, rightAxisData;
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
         
-        // Определяем диапазоны данных
-        double minX, maxX, minY1, maxY1, minY2, maxY2;
-        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minY1, maxY1, minY2, maxY2);
+        if (zoom.isZoomed) {
+            // Используем zoom параметры для X (как в DrawChartWithCurves)
+            curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                                   leftAxisData, rightAxisData,
+                                                   leftAxisCurves, rightAxisCurves,
+                                                   zoom.minX, zoom.maxX, -1e10, 1e10);
+        } else {
+            // Используем полный диапазон данных
+            curveSelectionModule->CalculateCurveData(config, dataModule.get(), 
+                                                   leftAxisData, rightAxisData, 
+                                                   leftAxisCurves, rightAxisCurves);
+        }
         
-        // Применяем zoom если есть
-        ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
+        // Определяем диапазоны данных (полные диапазоны из текущих данных)
+        double minX, maxX, minY1Full, maxY1Full, minY2Full, maxY2Full;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minY1Full, maxY1Full, minY2Full, maxY2Full);
+        
+        // Текущие диапазоны для отображения (могут быть изменены zoom по Y)
+        double minY1 = minY1Full, maxY1 = maxY1Full;
+        double minY2 = minY2Full, maxY2 = maxY2Full;
+        
+        // Применяем zoom по Y если есть (zoom по X уже применён при получении данных)
         if (zoom.isZoomed) {
             minX = zoom.minX;
             maxX = zoom.maxX;
             minY1 = zoom.minY;
             maxY1 = zoom.maxY;
+            
+            // Вычисляем пропорциональный zoom для правой оси (как в ChartModule)
+            double leftFullRange = maxY1Full - minY1Full;
+            double rightFullRange = maxY2Full - minY2Full;
+            
+            if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+                // Вычисляем пропорцию zoom от левой оси
+                double minRatio = (minY1 - minY1Full) / leftFullRange;
+                double maxRatio = (maxY1 - minY1Full) / leftFullRange;
+                
+                // Применяем ту же пропорцию к правой оси
+                minY2 = minY2Full + minRatio * rightFullRange;
+                maxY2 = minY2Full + maxRatio * rightFullRange;
+            }
         }
         
         // Преобразуем экранные координаты в координаты данных
@@ -1785,7 +1817,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         if (hasDualAxis) {
             // Двойные оси
             dataY1 = maxY1 - (double)relY / plotHeight * (maxY1 - minY1); // Левая ось
-            dataY2 = maxY2 - (double)relY / plotHeight * (maxY2 - minY2); // Правая ось (пропорционально)
+            dataY2 = maxY2 - (double)relY / plotHeight * (maxY2 - minY2); // Правая ось (с учётом пропорционального zoom)
             
             // Определяем единицы измерения из первых кривых каждой оси
             // Преобразуем std::string в std::wstring
