@@ -132,7 +132,9 @@ std::string SchematicSelection::GetValidationError() const {
 }
 
 // Реализация ChartConfiguration
-ChartConfiguration::ChartConfiguration() : hasDualAxis(false), xAxisType(XAxisType::FRAME_NUMBER) {
+ChartConfiguration::ChartConfiguration() 
+    : hasDualAxis(false), xAxisType(XAxisType::FRAME_NUMBER), 
+      activePreset(PresetType::NONE), presetDisplayName(L"") {
 }
 
 void ChartConfiguration::Clear() {
@@ -141,6 +143,8 @@ void ChartConfiguration::Clear() {
     leftAxisUnits.clear();
     rightAxisUnits.clear();
     xAxisType = XAxisType::FRAME_NUMBER;
+    activePreset = PresetType::NONE;
+    presetDisplayName.clear();
 }
 
 bool ChartConfiguration::IsEmpty() const {
@@ -154,6 +158,8 @@ ChartConfiguration ChartConfiguration::Copy() const {
     copy.leftAxisUnits = this->leftAxisUnits;
     copy.rightAxisUnits = this->rightAxisUnits;
     copy.xAxisType = this->xAxisType;
+    copy.activePreset = this->activePreset;
+    copy.presetDisplayName = this->presetDisplayName;
     return copy;
 }
 
@@ -199,7 +205,8 @@ void ChartConfiguration::UpdateAxisConfiguration() {
 // Реализация SchematicModule
 SchematicModule::SchematicModule() 
     : curveSelectionModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
-      hSchematicDialog(nullptr), hParentWindow(nullptr) {
+      hSchematicDialog(nullptr), hParentWindow(nullptr),
+      currentPreset(PresetType::NONE), currentPresetDisplayName(L"") {
 }
 
 SchematicModule::~SchematicModule() {
@@ -521,6 +528,10 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     
     // При ручном выборе элементов сбрасываем фильтр на ALL
     currentSelection.dataFilter = DataTypeFilter::ALL;
+    
+    // v2.15.0: При ручном выборе элементов сбрасываем информацию о пресете
+    currentPreset = PresetType::NONE;
+    currentPresetDisplayName.clear();
     
     // Обновляем визуальное состояние всех элементов
     SynchronizeElementStates();
@@ -1393,37 +1404,51 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     currentSelection.Clear();
     currentAvailableCurves.clear();
     
-    // Применяем пресет с соответствующим фильтром типов данных
+    // v2.15.0: Сохраняем информацию о пресете для отображения в легенде
     switch (presetId) {
         case IDC_PRESET_ALL_AMP_R1:
             currentSelection.receivers[0] = true; // R1
             currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
+            currentPreset = PresetType::ALL_AMPLITUDES_R1;
+            currentPresetDisplayName = L"Амплитуда RX1";
             break;
         case IDC_PRESET_ALL_AMP_R2:
             currentSelection.receivers[1] = true; // R2
             currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
+            currentPreset = PresetType::ALL_AMPLITUDES_R2;
+            currentPresetDisplayName = L"Амплитуда RX2";
             break;
         case IDC_PRESET_ALL_PHASE_R1:
             currentSelection.receivers[0] = true; // R1
             currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
+            currentPreset = PresetType::ALL_PHASES_R1;
+            currentPresetDisplayName = L"Фаза RX1";
             break;
         case IDC_PRESET_ALL_PHASE_R2:
             currentSelection.receivers[1] = true; // R2
             currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
+            currentPreset = PresetType::ALL_PHASES_R2;
+            currentPresetDisplayName = L"Фаза RX2";
             break;
         case IDC_PRESET_RATIOS:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
             currentSelection.dataFilter = DataTypeFilter::RATIO_ONLY;
+            currentPreset = PresetType::AMPLITUDE_RATIOS;
+            currentPresetDisplayName = L"Отношение амплитуд";
             break;
         case IDC_PRESET_DIFFERENCES:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
             currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
+            currentPreset = PresetType::PHASE_DIFFERENCES;
+            currentPresetDisplayName = L"Разность фаз";
             break;
         case IDC_PRESET_TEMPERATURE:
             // Температура не требует выбора приёмников или передатчиков
             currentSelection.dataFilter = DataTypeFilter::TEMPERATURE_ONLY;
+            currentPreset = PresetType::TEMPERATURE;
+            currentPresetDisplayName = L"Температура";
             break;
     }
     
@@ -1440,7 +1465,7 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     }
     
     // Обновляем список кривых
-    UpdateAvailableCurves(hDlg);
+    UpdateAvailableCurves(hDlg);;
 }
 
 void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
@@ -1546,6 +1571,10 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     ChartConfiguration config;
     config.curves = currentAvailableCurves;
     config.UpdateAxisConfiguration();
+    
+    // v2.15.0: Передаём информацию о пресете
+    config.activePreset = currentPreset;
+    config.presetDisplayName = currentPresetDisplayName;
     
     // v2.10.0: Получаем тип оси X из combobox
     HWND hDlg = GetParent(GetDlgItem(hSchematicDialog, IDC_XAXIS_TYPE_COMBO));

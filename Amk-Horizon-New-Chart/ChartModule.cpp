@@ -819,6 +819,98 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     }
 }
 
+// v2.15.0: Перегрузка с поддержкой zoom и конфигурации (для пресетов)
+void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                                   const std::vector<CurveDefinition>& curves,
+                                   const std::vector<std::vector<float>>& leftAxisData,
+                                   const std::vector<std::vector<float>>& rightAxisData,
+                                   const std::wstring& title, bool hasData,
+                                   double minXData, double maxXData, 
+                                   double minYData, double maxYData,
+                                   const ChartConfiguration& config, bool showAxes) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика с двойными осями
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
+    
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Отрисовка сетки и осей с учетом zoom (включая ось X и Y)
+    if (showAxes) {
+        DrawDualAxisGrid(hdc, plotRect, leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData);
+    }
+    
+    // Отрисовка левой и правой осей с подписями
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+    
+    // Вычисляем полные диапазоны из данных
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        leftMinFull = static_cast<double>(minVal);
+        leftMaxFull = static_cast<double>(maxVal);
+    }
+    
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        rightMinFull = static_cast<double>(minVal);
+        rightMaxFull = static_cast<double>(maxVal);
+    }
+    
+    // Вычисляем пропорциональный zoom для правой оси
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    double leftFullRange = leftMaxFull - leftMinFull;
+    double rightFullRange = rightMaxFull - rightMinFull;
+    
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        double minRatio = (minYData - leftMinFull) / leftFullRange;
+        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+    
+    if (!leftAxisData.empty()) {
+        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
+    }
+    
+    if (!rightAxisData.empty()) {
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
+    }
+    
+    // Отрисовка данных с учетом zoom по Y
+    if (hasData) {
+        DrawDualAxisDataWithZoom(hdc, plotRect, curves, leftAxisData, rightAxisData, 
+                                 minYData, maxYData, minYRight, maxYRight,
+                                 minXData, maxXData);
+    }
+    
+    // Отрисовка легенды с учетом пресета
+    if (!curves.empty()) {
+        DrawDualAxisLegend(hdc, rect, curves, config);
+    }
+}
+
 void ChartModule::DrawDualAxisBackground(HDC hdc, const RECT& rect) const {
     // Используем тот же фон, что и для обычных графиков
     DrawChartBackground(hdc, rect);
@@ -1599,6 +1691,193 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     SelectObject(hdc, hOldFont);
 }
 
+// v2.15.0: Перегрузка с поддержкой пресетов (компактная легенда)
+void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
+                                    const std::vector<CurveDefinition>& curves,
+                                    const ChartConfiguration& config) const {
+    // Если пресет не активен, используем стандартную отрисовку
+    if (!config.IsPresetActive()) {
+        DrawDualAxisLegend(hdc, rect, curves);
+        return;
+    }
+    
+    // Параметры легенды для пресетов
+    int lineLength = 15;
+    int elementSpacing = 15;
+    int lineHeight = 20;
+    
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetBkMode(hdc, TRANSPARENT);
+    
+    // Группируем кривые по осям
+    std::vector<const CurveDefinition*> leftAxisCurves;
+    std::vector<const CurveDefinition*> rightAxisCurves;
+    
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0) {
+            leftAxisCurves.push_back(&curve);
+        } else {
+            rightAxisCurves.push_back(&curve);
+        }
+    }
+    
+    if (leftAxisCurves.empty() && rightAxisCurves.empty()) {
+        SelectObject(hdc, hOldFont);
+        return;
+    }
+    
+    // Получаем единицы измерения для каждой оси
+    std::string leftUnits, rightUnits;
+    if (!leftAxisCurves.empty()) {
+        leftUnits = leftAxisCurves[0]->units;
+    }
+    if (!rightAxisCurves.empty()) {
+        rightUnits = rightAxisCurves[0]->units;
+    }
+    
+    // Вычисляем ширину элементов легенды
+    int totalWidth = 0;
+    
+    // Подпись левой оси: [Left Axis (mdeg)]
+    std::wstring leftAxisLabel = L"[Left Axis (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
+    SIZE leftLabelSize;
+    GetTextExtentPoint32(hdc, leftAxisLabel.c_str(), (int)leftAxisLabel.length(), &leftLabelSize);
+    totalWidth += leftLabelSize.cx + 10;
+    
+    // Название пресета с двоеточием
+    std::wstring presetLabel = config.presetDisplayName + L":";
+    SIZE presetLabelSize;
+    GetTextExtentPoint32(hdc, presetLabel.c_str(), (int)presetLabel.length(), &presetLabelSize);
+    totalWidth += presetLabelSize.cx + 10;
+    
+    // Вычисляем ширину кривых (только короткие имена: T1, T2, T3, T4)
+    for (const auto* curve : leftAxisCurves) {
+        // Извлекаем короткое имя (T1, T2, T3, T4 или Temperature)
+        std::wstring shortName;
+        std::string displayName = curve->displayName;
+        
+        // Для температуры используем полное имя
+        if (curve->dataType == DataType::TEMPERATURE) {
+            shortName = L"Temp";
+        } else {
+            // Извлекаем первые 2 символа (T1, T2, T3, T4)
+            if (displayName.length() >= 2) {
+                shortName = std::wstring(displayName.begin(), displayName.begin() + 2);
+            } else {
+                shortName = std::wstring(displayName.begin(), displayName.end());
+            }
+        }
+        
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, shortName.c_str(), (int)shortName.length(), &textSize);
+        totalWidth += lineLength + 5 + textSize.cx + elementSpacing;
+    }
+    
+    // Вычисляем начальную X позицию для центрирования
+    int chartWidth = rect.right - rect.left;
+    int startX = rect.left + (chartWidth - totalWidth) / 2;
+    
+    // Позиция Y - под заголовком
+    int legendY = rect.top + 35;
+    
+    // Отрисовка легенды
+    int currentX = startX;
+    
+    // Отрисовка подписи левой оси
+    SetTextColor(hdc, RGB(0, 0, 0));
+    TextOut(hdc, currentX, legendY, leftAxisLabel.c_str(), (int)leftAxisLabel.length());
+    currentX += leftLabelSize.cx + 10;
+    
+    // Отрисовка названия пресета
+    TextOut(hdc, currentX, legendY, presetLabel.c_str(), (int)presetLabel.length());
+    currentX += presetLabelSize.cx + 10;
+    
+    // Отрисовка кривых с короткими именами
+    for (const auto* curve : leftAxisCurves) {
+        // Линия
+        HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        
+        MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+        LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+        
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
+        
+        currentX += lineLength + 5;
+        
+        // Короткое имя
+        std::wstring shortName;
+        std::string displayName = curve->displayName;
+        
+        if (curve->dataType == DataType::TEMPERATURE) {
+            shortName = L"Temp";
+        } else {
+            if (displayName.length() >= 2) {
+                shortName = std::wstring(displayName.begin(), displayName.begin() + 2);
+            } else {
+                shortName = std::wstring(displayName.begin(), displayName.end());
+            }
+        }
+        
+        TextOut(hdc, currentX, legendY, shortName.c_str(), (int)shortName.length());
+        
+        SIZE textSize;
+        GetTextExtentPoint32(hdc, shortName.c_str(), (int)shortName.length(), &textSize);
+        currentX += textSize.cx + elementSpacing;
+    }
+    
+    // Если есть кривые на правой оси (для пресетов обычно нет, но на всякий случай)
+    if (!rightAxisCurves.empty()) {
+        // Разделитель
+        SetTextColor(hdc, RGB(128, 128, 128));
+        TextOut(hdc, currentX, legendY, L"|", 1);
+        currentX += 20;
+        
+        // Подпись правой оси
+        std::wstring rightAxisLabel = L"[Right Axis (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
+        
+        SIZE rightLabelSize;
+        GetTextExtentPoint32(hdc, rightAxisLabel.c_str(), (int)rightAxisLabel.length(), &rightLabelSize);
+        currentX += rightLabelSize.cx + 10;
+        
+        // Кривые правой оси
+        for (const auto* curve : rightAxisCurves) {
+            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            
+            MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+            LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+            
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+            
+            currentX += lineLength + 5;
+            
+            std::wstring shortName;
+            std::string displayName = curve->displayName;
+            if (displayName.length() >= 2) {
+                shortName = std::wstring(displayName.begin(), displayName.begin() + 2);
+            } else {
+                shortName = std::wstring(displayName.begin(), displayName.end());
+            }
+            
+            TextOut(hdc, currentX, legendY, shortName.c_str(), (int)shortName.length());
+            
+            SIZE textSize;
+            GetTextExtentPoint32(hdc, shortName.c_str(), (int)shortName.length(), &textSize);
+            currentX += textSize.cx + elementSpacing;
+        }
+    }
+    
+    SelectObject(hdc, hOldFont);
+}
+
 // Метод для получения диапазонов данных
 void ChartModule::GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
                                const std::vector<std::vector<float>>& rightAxisData,
@@ -1918,6 +2197,99 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     // Отрисовка легенды
     if (!curves.empty()) {
         DrawDualAxisLegend(hdc, rect, curves);
+    }
+}
+
+// v2.15.0: Перегрузка с поддержкой температуры и конфигурации (для пресетов)
+void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
+                                   const std::vector<CurveDefinition>& curves,
+                                   const std::vector<std::vector<float>>& leftAxisData,
+                                   const std::vector<std::vector<float>>& rightAxisData,
+                                   const std::wstring& title, bool hasData,
+                                   const std::vector<float>& xAxisData,
+                                   double minXData, double maxXData,
+                                   double minYData, double maxYData,
+                                   const ChartConfiguration& config, bool showAxes) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    // Отрисовка фона и рамки
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    
+    // Отрисовка заголовка
+    DrawChartTitle(hdc, rect, title);
+    
+    // Расчет области для графика
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
+
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+    
+    // Получаем единицы измерения для осей
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+        
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+    
+    // Отрисовка сетки и осей с температурой и zoom по Y
+    if (hasData && !xAxisData.empty() && showAxes) {
+        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
+                                       xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
+    }
+    
+    // Вычисляем полные диапазоны из данных
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    if (!leftAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(leftAxisData, minVal, maxVal);
+        leftMinFull = static_cast<double>(minVal);
+        leftMaxFull = static_cast<double>(maxVal);
+    }
+    
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    if (!rightAxisData.empty()) {
+        float minVal = FLT_MAX, maxVal = -FLT_MAX;
+        FindMinMaxValues(rightAxisData, minVal, maxVal);
+        rightMinFull = static_cast<double>(minVal);
+        rightMaxFull = static_cast<double>(maxVal);
+    }
+    
+    // Вычисляем пропорциональный zoom для правой оси
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    double leftFullRange = leftMaxFull - leftMinFull;
+    double rightFullRange = rightMaxFull - rightMinFull;
+    
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        double minRatio = (minYData - leftMinFull) / leftFullRange;
+        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+    
+    if (!leftAxisData.empty()) {
+        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
+    }
+    
+    if (!rightAxisData.empty()) {
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
+    }
+    
+    // Отрисовка данных с температурой на оси X и zoom по Y
+    if (hasData && !xAxisData.empty()) {
+        DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
+                                               xAxisData, minXData, maxXData, minYData, maxYData);
+    }
+    
+    // Отрисовка легенды с учетом пресета
+    if (!curves.empty()) {
+        DrawDualAxisLegend(hdc, rect, curves, config);
     }
 }
 

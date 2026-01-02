@@ -795,6 +795,8 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR1Preset(FrequencyBa
     
     config.leftAxisUnits = "V";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::ALL_AMPLITUDES_R1;
+    config.presetDisplayName = L"Амплитуда RX1";
     
     return config;
 }
@@ -812,6 +814,8 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBa
     
     config.leftAxisUnits = "V";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::ALL_AMPLITUDES_R2;
+    config.presetDisplayName = L"Амплитуда RX2";
     
     return config;
 }
@@ -829,6 +833,8 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR1Preset(FrequencyBand f
     
     config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::ALL_PHASES_R1;
+    config.presetDisplayName = L"Фаза RX1";
     
     return config;
 }
@@ -846,6 +852,8 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR2Preset(FrequencyBand f
     
     config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::ALL_PHASES_R2;
+    config.presetDisplayName = L"Фаза RX2";
     
     return config;
 }
@@ -863,6 +871,8 @@ ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBa
     
     config.leftAxisUnits = "mV";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::AMPLITUDE_RATIOS;
+    config.presetDisplayName = L"Отношение амплитуд";
     
     return config;
 }
@@ -880,6 +890,8 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
     
     config.leftAxisUnits = "deg";
     config.hasDualAxis = false;
+    config.activePreset = PresetType::PHASE_DIFFERENCES;
+    config.presetDisplayName = L"Разность фаз";
     
     return config;
 }

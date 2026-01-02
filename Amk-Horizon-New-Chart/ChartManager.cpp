@@ -1140,10 +1140,12 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
         
         // Вызываем новый метод отрисовки с температурой и правильной легендой
+        // v2.15.0: Передаём config для поддержки компактной легенды пресетов
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
                                        title, true, temperatureData,
-                                       minXData, maxXData, minYData, maxYData, true);
+                                       minXData, maxXData, minYData, maxYData,
+                                       config, true);
     } else {
         // Обычный режим: номер кадра на оси X
         
@@ -1167,6 +1169,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                          zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
                                          displayMinY,
                                          displayMaxY,
+                                         config,  // v2.15.0: Передаём config для поддержки компактной легенды пресетов
                                          showAxes);
         } else {
             // Используем обычный метод для одной оси
@@ -1185,6 +1188,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                              zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
                                              displayMinY,
                                              displayMaxY,
+                                             config,  // v2.15.0: Передаём config для поддержки компактной легенды пресетов
                                              showAxes);
             }
         }

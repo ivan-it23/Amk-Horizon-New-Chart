@@ -6,6 +6,7 @@
 
 // Предварительное объявление
 struct CurveDefinition;
+struct ChartConfiguration;
 
 // Класс для отрисовки графиков
 class ChartModule {
@@ -52,6 +53,16 @@ public:
                           double minXData, double maxXData, 
                           double minYData, double maxYData, bool showAxes = true) const;
     
+    // v2.15.0: Перегрузка с поддержкой zoom и конфигурации (для пресетов)
+    void DrawDualAxisChart(HDC hdc, const RECT& rect, 
+                          const std::vector<CurveDefinition>& curves,
+                          const std::vector<std::vector<float>>& leftAxisData,
+                          const std::vector<std::vector<float>>& rightAxisData,
+                          const std::wstring& title, bool hasData,
+                          double minXData, double maxXData, 
+                          double minYData, double maxYData,
+                          const ChartConfiguration& config, bool showAxes = true) const;
+    
     // v2.10.0: Перегрузка с поддержкой температуры на оси X
     void DrawDualAxisChart(HDC hdc, const RECT& rect,
                           const std::vector<CurveDefinition>& curves,
@@ -61,6 +72,17 @@ public:
                           const std::vector<float>& xAxisData,
                           double minXData, double maxXData,
                           double minYData, double maxYData, bool showAxes = true) const;
+    
+    // v2.15.0: Перегрузка с поддержкой температуры и конфигурации (для пресетов)
+    void DrawDualAxisChart(HDC hdc, const RECT& rect,
+                          const std::vector<CurveDefinition>& curves,
+                          const std::vector<std::vector<float>>& leftAxisData,
+                          const std::vector<std::vector<float>>& rightAxisData,
+                          const std::wstring& title, bool hasData,
+                          const std::vector<float>& xAxisData,
+                          double minXData, double maxXData,
+                          double minYData, double maxYData,
+                          const ChartConfiguration& config, bool showAxes = true) const;
 
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
@@ -177,6 +199,11 @@ public:
     
     void DrawDualAxisLegend(HDC hdc, const RECT& rect,
                            const std::vector<CurveDefinition>& curves) const;
+    
+    // v2.15.0: Перегрузка с поддержкой пресетов (компактная легенда)
+    void DrawDualAxisLegend(HDC hdc, const RECT& rect,
+                           const std::vector<CurveDefinition>& curves,
+                           const ChartConfiguration& config) const;
 
 private:
     // Вспомогательные методы для расчетов

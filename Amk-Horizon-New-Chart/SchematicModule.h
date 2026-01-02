@@ -73,6 +73,19 @@ struct SchematicSelection {
     std::string GetValidationError() const;
 };
 
+// Типы быстрых пресетов (объявление перенесено выше для использования в ChartConfiguration)
+enum class PresetType {
+    NONE,                   // Нет пресета (пользовательская конфигурация)
+    ALL_AMPLITUDES_R1,      // Все амплитуды для R1
+    ALL_AMPLITUDES_R2,      // Все амплитуды для R2
+    ALL_PHASES_R1,          // Все фазы для R1
+    ALL_PHASES_R2,          // Все фазы для R2
+    AMPLITUDE_RATIOS,       // Отношения амплитуд R2/R1
+    PHASE_DIFFERENCES,      // Разности фаз R2-R1
+    TEMPERATURE,            // Температура
+    CUSTOM                  // Пользовательская конфигурация (устаревшее, для совместимости)
+};
+
 // Конфигурация графика
 struct ChartConfiguration {
     std::vector<CurveDefinition> curves;  // Список кривых для отображения
@@ -80,6 +93,8 @@ struct ChartConfiguration {
     std::string leftAxisUnits;            // Единицы измерения левой оси
     std::string rightAxisUnits;           // Единицы измерения правой оси
     XAxisType xAxisType;                  // Тип данных для оси X
+    PresetType activePreset;              // Активный пресет (NONE если пользовательская конфигурация)
+    std::wstring presetDisplayName;       // Русское название пресета для отображения в легенде
     
     ChartConfiguration();
     void Clear();
@@ -88,18 +103,13 @@ struct ChartConfiguration {
     void AddCurve(const CurveDefinition& curve);
     void RemoveCurve(const std::string& curveId);
     void UpdateAxisConfiguration();
+    
+    // Проверка, используется ли пресет
+    bool IsPresetActive() const { return activePreset != PresetType::NONE && activePreset != PresetType::CUSTOM; }
 };
 
-// Типы быстрых пресетов
-enum class PresetType {
-    ALL_AMPLITUDES_R1,      // Все амплитуды для R1
-    ALL_AMPLITUDES_R2,      // Все амплитуды для R2
-    ALL_PHASES_R1,          // Все фазы для R1
-    ALL_PHASES_R2,          // Все фазы для R2
-    AMPLITUDE_RATIOS,       // Отношения амплитуд R2/R1
-    PHASE_DIFFERENCES,      // Разности фаз R2-R1
-    CUSTOM                  // Пользовательская конфигурация
-};
+// Типы быстрых пресетов (перенесено выше в ChartConfiguration)
+// enum class PresetType определён выше
 
 // Класс для управления интерактивной схемой прибора
 class SchematicModule {
@@ -126,6 +136,10 @@ private:
     
     // Текущие доступные кривые (для работы с ListView)
     std::vector<CurveDefinition> currentAvailableCurves;
+    
+    // Информация о текущем пресете (v2.15.0)
+    PresetType currentPreset;                    // Текущий активный пресет
+    std::wstring currentPresetDisplayName;       // Русское название пресета
     
     // Немодальное окно (v2.9.4)
     HWND hSchematicDialog;                       // Handle немодального окна
