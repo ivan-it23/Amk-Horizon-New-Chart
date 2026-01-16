@@ -4,11 +4,38 @@
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <cwctype>  // v2.15.1: для towlower
 
 DataModule::DataModule() {
 }
 
 DataModule::~DataModule() {
+}
+
+// v2.15.1: Определение формата файла по расширению
+FileFormat DataModule::DetectFileFormat(const std::wstring& filename) {
+    // Находим расширение файла
+    size_t lastDot = filename.find_last_of(L'.');
+    if (lastDot == std::wstring::npos) {
+        return FileFormat::FORMAT_UNKNOWN;
+    }
+    
+    std::wstring extension = filename.substr(lastDot);
+    
+    // Приводим к нижнему регистру для сравнения
+    for (auto& c : extension) {
+        c = towlower(c);
+    }
+    
+    if (extension == L".bin") {
+        return FileFormat::FORMAT_BIN;
+    } else if (extension == L".biv") {
+        return FileFormat::FORMAT_BIV;
+    } else if (extension == L".dev") {
+        return FileFormat::FORMAT_DEV;
+    }
+    
+    return FileFormat::FORMAT_UNKNOWN;
 }
 
 bool DataModule::LoadDataFromFile(const std::wstring& filename) {
@@ -18,9 +45,95 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
         
     data.clear();
     
-    GP_TOOL_DATA record;
-    while (file.read(reinterpret_cast<char*>(&record), sizeof(GP_TOOL_DATA))) {
-        data.push_back(record);
+    // v2.15.1: Определяем формат файла
+    FileFormat format = DetectFileFormat(filename);
+    
+    // Определяем размер файла
+    file.seekg(0, std::ios::end);
+    std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+    
+    if (fileSize <= 0) {
+        file.close();
+        return false;
+    }
+    
+    // Константы размеров
+    const size_t GP_TOOL_DATA_SIZE = sizeof(GP_TOOL_DATA);  // 240 байт
+    const size_t DEV_HEADER_SIZE = 11;                       // 11-байтный заголовок для .DEV
+    const size_t DEV_BLOCK_SIZE = GP_TOOL_DATA_SIZE + DEV_HEADER_SIZE;  // 251 байт
+    
+    size_t frameCount = 0;
+    
+    switch (format) {
+        case FileFormat::FORMAT_BIN:
+        case FileFormat::FORMAT_BIV:
+            // .bin и .biv: последовательность GP_TOOL_DATA без заголовков
+            // Формула: количество_кадров = размер_файла / 240
+            frameCount = static_cast<size_t>(fileSize) / GP_TOOL_DATA_SIZE;
+            
+            if (frameCount == 0) {
+                file.close();
+                return false;
+            }
+            
+            data.reserve(frameCount);
+            
+            for (size_t n = 0; n < frameCount; ++n) {
+                GP_TOOL_DATA record;
+                // Смещение: n * 240
+                file.seekg(n * GP_TOOL_DATA_SIZE);
+                if (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
+                    data.push_back(record);
+                }
+            }
+            break;
+            
+        case FileFormat::FORMAT_DEV:
+            // .DEV: 11-байтный заголовок + GP_TOOL_DATA для каждого кадра
+            // Формула: количество_кадров = размер_файла / 251
+            frameCount = static_cast<size_t>(fileSize) / DEV_BLOCK_SIZE;
+            
+            if (frameCount == 0) {
+                file.close();
+                return false;
+            }
+            
+            data.reserve(frameCount);
+            
+            for (size_t n = 0; n < frameCount; ++n) {
+                // Смещение блока: n * 251
+                file.seekg(n * DEV_BLOCK_SIZE);
+                
+                // Пропускаем 11-байтный заголовок
+                char headerBuffer[DEV_HEADER_SIZE];
+                file.read(headerBuffer, DEV_HEADER_SIZE);
+                
+                // Читаем данные GP_TOOL_DATA
+                GP_TOOL_DATA record;
+                if (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
+                    data.push_back(record);
+                }
+            }
+            break;
+            
+        case FileFormat::FORMAT_UNKNOWN:
+        default:
+            // Неизвестный формат - пробуем читать как .bin
+            frameCount = static_cast<size_t>(fileSize) / GP_TOOL_DATA_SIZE;
+            
+            if (frameCount == 0) {
+                file.close();
+                return false;
+            }
+            
+            data.reserve(frameCount);
+            
+            GP_TOOL_DATA record;
+            while (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
+                data.push_back(record);
+            }
+            break;
     }
     
     file.close();
@@ -33,7 +146,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
             ? filename.substr(lastSlash + 1) 
             : filename;
         
-        // Удаляем расширение .bin
+        // Удаляем расширение
         size_t lastDot = fileNameOnly.find_last_of(L'.');
         loadedFileName = (lastDot != std::wstring::npos) 
             ? fileNameOnly.substr(0, lastDot) 

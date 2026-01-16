@@ -49,6 +49,14 @@ enum class FrequencyBand {
     FREQ_2000_KHZ    // 2000 кГц
 };
 
+// v2.15.1: Типы файлов данных
+enum class FileFormat {
+    FORMAT_BIN,      // .bin - последовательность GP_TOOL_DATA (240 байт на кадр)
+    FORMAT_BIV,      // .biv - идентичен .bin
+    FORMAT_DEV,      // .DEV - 11-байтный заголовок + GP_TOOL_DATA (251 байт на кадр)
+    FORMAT_UNKNOWN   // Неизвестный формат
+};
+
 // Класс для управления данными
 class DataModule {
 private:
@@ -62,6 +70,9 @@ public:
     // Управление данными
     bool LoadDataFromFile(const std::wstring& filename);
     void ClearData();
+    
+    // v2.15.1: Определение формата файла по расширению
+    static FileFormat DetectFileFormat(const std::wstring& filename);
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;

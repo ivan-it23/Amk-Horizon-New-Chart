@@ -325,7 +325,7 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         
         // Читаем ответ
         // Формат ответа: [CMD:1] [METROLOGY_DATA:240] [CRC:2] = 243 байта
-        // (структура METROLOGY_DATA = 240 байт, не 256!)
+
         const size_t RESPONSE_SIZE = 1 + sizeof(METROLOGY_DATA) + 2;  // 243 байта
         uint8_t buffer[300];  // С запасом
         size_t bytesRead = 0;

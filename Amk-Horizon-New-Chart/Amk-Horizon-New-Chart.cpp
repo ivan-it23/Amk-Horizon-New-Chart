@@ -231,7 +231,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     ofn.hwndOwner = hWnd;
                     ofn.lpstrFile = szFile;
                     ofn.nMaxFile = sizeof(szFile);
-                    ofn.lpstrFilter = L"Binary Files\0*.bin\0All Files\0*.*\0";
+                    // v2.15.1: Добавлена поддержка форматов .biv и .DEV
+                    ofn.lpstrFilter = L"All Data Files\0*.bin;*.biv;*.DEV\0Binary Files (*.bin)\0*.bin\0BIV Files (*.biv)\0*.biv\0DEV Files (*.DEV)\0*.DEV\0All Files\0*.*\0";
                     ofn.nFilterIndex = 1;
                     ofn.lpstrFileTitle = NULL;
                     ofn.nMaxFileTitle = 0;
