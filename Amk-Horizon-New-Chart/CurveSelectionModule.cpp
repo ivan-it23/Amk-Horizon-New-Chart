@@ -86,7 +86,8 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             // Температура -> создаём одну кривую температуры
             CurveDefinition tempCurve;
             tempCurve.id = "TEMPERATURE";
-            tempCurve.displayName = "Temperature";
+            // Локализованное отображаемое имя, единицы остаются ASCII (degC)
+            tempCurve.displayName = "Температура";
             tempCurve.units = "degC";  // Используем ASCII-совместимое обозначение
             tempCurve.yAxisGroup = 0;  // Левая ось
             tempCurve.enabled = true;
@@ -558,9 +559,9 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось
             phaseCurve.enabled = true; // По умолчанию включена (как и амплитуды)
             
-            // Обновляем отображаемое имя для ясности
-            phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + 
-                                    " Phase R" + std::to_string(rxIndex + 1);
+            // Обновляем отображаемое имя для ясности (локализовано)
+            phaseCurve.displayName = "T" + std::to_string(txIndex + 1) +
+                                    " Фаза R" + std::to_string(rxIndex + 1);
             
             // Умное назначение цвета с учетом уже созданных кривых
             phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
@@ -574,9 +575,9 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
             amplitudeCurve.yAxisGroup = 1; // ПРАВАЯ ось
             amplitudeCurve.enabled = true;
             
-            // Обновляем отображаемое имя для ясности
-            amplitudeCurve.displayName = "T" + std::to_string(txIndex + 1) + 
-                                        " Amplitude R" + std::to_string(rxIndex + 1);
+            // Обновляем отображаемое имя для ясности (локализовано)
+            amplitudeCurve.displayName = "T" + std::to_string(txIndex + 1) +
+                                        " Амплитуда R" + std::to_string(rxIndex + 1);
             
             // Умное назначение цвета с учетом уже созданных кривых
             amplitudeCurve.color = AssignSmartColor(curves, txIndex, amplitudeCurve.yAxisGroup);
@@ -614,7 +615,7 @@ void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinitio
             silentCurve.color = AssignSmartColor(curves, i, silentCurve.yAxisGroup);
             
             // Обновляем отображаемое имя
-            silentCurve.displayName = "Silent R" + std::to_string(i + 1) + " Amplitude";
+            silentCurve.displayName = "Молчащий R" + std::to_string(i + 1) + " Амплитуда";
             
             curves.push_back(silentCurve);
         }
@@ -1012,7 +1013,7 @@ std::string CurveSelectionModule::GenerateDisplayName(ElementType element, int e
             oss << "R" << (elementIndex + 1) << " ";
             break;
         case ElementType::SILENT_TX:
-            oss << "Silent R" << (elementIndex + 1) << " ";
+            oss << "Молчащий R" << (elementIndex + 1) << " ";
             break;
     }
     
@@ -1031,14 +1032,14 @@ std::string CurveSelectionModule::GetDataTypeDisplayName(DataType dataType) cons
         case DataType::AMPLITUDE_RX2:
         case DataType::SILENT_AMPLITUDE_RX1:
         case DataType::SILENT_AMPLITUDE_RX2:
-            return "Amplitude";
+            return "Амплитуда";
         case DataType::PHASE_RX1:
         case DataType::PHASE_RX2:
-            return "Phase";
+            return "Фаза";
         case DataType::AMPLITUDE_RATIO:
-            return "Amplitude Ratio";
+            return "Отношение амплитуд";
         case DataType::PHASE_DIFFERENCE:
-            return "Phase Difference";
+            return "Разность фаз";
         default:
             return "Unknown";
     }
@@ -1047,9 +1048,9 @@ std::string CurveSelectionModule::GetDataTypeDisplayName(DataType dataType) cons
 std::string CurveSelectionModule::GetFrequencyDisplayName(FrequencyBand frequency) const {
     switch (frequency) {
         case FrequencyBand::FREQ_400_KHZ:
-            return "400 kHz";
+            return "400 кГц";
         case FrequencyBand::FREQ_2000_KHZ:
-            return "2000 kHz";
+            return "2000 кГц";
         default:
             return "Unknown";
     }

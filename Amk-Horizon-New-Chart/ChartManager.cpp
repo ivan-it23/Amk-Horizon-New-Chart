@@ -384,12 +384,15 @@ bool ChartManager::IsDualMode() const
     return uiModule->IsDualMode();
 }
 
-std::wstring ChartManager::BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const {
-    // "График " в Unicode escape
+std::wstring ChartManager::GetChartTitle(int chartNumber, FrequencyBand frequency, const std::wstring& customTitle) const {
+    if (!customTitle.empty()) {
+        return customTitle;
+    }
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A ";
     title += std::to_wstring(chartNumber);
     title += L" (";
-    title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L"400 kHz" : L"2000 kHz";
+    // Локализованное отображение частоты в заголовке (кГц)
+    title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L"400 кГц" : L"2000 кГц";
     title += L")";
     return title;
 }

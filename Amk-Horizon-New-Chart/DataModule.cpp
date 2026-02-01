@@ -373,14 +373,14 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
 
 std::wstring DataModule::GetDataTypeName(DataType type) const {
     switch (type) {
-    case DataType::PHASE_DIFFERENCE: return L"Phase Difference";
-    case DataType::AMPLITUDE_RATIO: return L"Amplitude Ratio";
-    case DataType::AMPLITUDE_RX1: return L"Amplitude RX1";
-    case DataType::AMPLITUDE_RX2: return L"Amplitude RX2";
-    case DataType::PHASE_RX1: return L"Phase RX1";
-    case DataType::PHASE_RX2: return L"Phase RX2";
-    case DataType::SILENT_AMPLITUDE_RX1: return L"Silent Amplitude RX1";
-    case DataType::SILENT_AMPLITUDE_RX2: return L"Silent Amplitude RX2";
+    case DataType::PHASE_DIFFERENCE: return L"Разность фаз";
+    case DataType::AMPLITUDE_RATIO: return L"Отношение амплитуд";
+    case DataType::AMPLITUDE_RX1: return L"Амплитуда RX1";
+    case DataType::AMPLITUDE_RX2: return L"Амплитуда RX2";
+    case DataType::PHASE_RX1: return L"Фаза RX1";
+    case DataType::PHASE_RX2: return L"Фаза RX2";
+    case DataType::SILENT_AMPLITUDE_RX1: return L"Молчащий Амплитуда RX1";
+    case DataType::SILENT_AMPLITUDE_RX2: return L"Молчащий Амплитуда RX2";
     case DataType::TEMPERATURE: return L"Temperature";
     default: return L"Unknown Type";
     }

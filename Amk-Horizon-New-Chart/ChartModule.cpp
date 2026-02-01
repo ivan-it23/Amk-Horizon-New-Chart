@@ -9,6 +9,16 @@
 #include <iomanip> // Для std::fixed и std::setprecision
 #include <set>     // Для std::set (отслеживание уникальных значений)
 
+// Вспомогательная функция для конвертации UTF-8 в UTF-16 (локальная для этого файла)
+static std::wstring Utf8ToWide(const std::string& utf8str) {
+    if (utf8str.empty()) return std::wstring();
+
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), (int)utf8str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), (int)utf8str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[4] = {
     RGB(0, 255, 0),    // Зеленый - T1
@@ -273,11 +283,12 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
         
         currentX += lineLength + 5;
         
-        // Отрисовка названия канала
-        TextOut(hdc, currentX, legendY, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]));
+        // Отрисовка названия канала (CHANNEL_NAMES уже wide-строки)
+        const wchar_t* name = CHANNEL_NAMES[channelIdx];
+        TextOut(hdc, currentX, legendY, name, (int)wcslen(name));
         
         SIZE textSize;
-        GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+        GetTextExtentPoint32(hdc, name, (int)wcslen(name), &textSize);
         currentX += textSize.cx + elementSpacing;
     }
     
@@ -1562,14 +1573,14 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int rightGroupWidth = 0;
     
     // Вычисляем ширину подписи левой оси
-    std::wstring leftAxisLabel = L"[Left Axis (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
+    std::wstring leftAxisLabel = L"[Левая ось (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
     SIZE leftLabelSize;
     GetTextExtentPoint32(hdc, leftAxisLabel.c_str(), (int)leftAxisLabel.length(), &leftLabelSize);
     leftGroupWidth = leftLabelSize.cx + 10; // +10 для отступа после подписи
     
     // Добавляем элементы левой оси
     for (const auto* curve : leftAxisCurves) {
-        std::wstring name(curve->displayName.begin(), curve->displayName.end());
+        std::wstring name = Utf8ToWide(curve->displayName);
         SIZE textSize;
         GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         
@@ -1582,14 +1593,14 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int separatorWidth = 20;
     
     // Вычисляем ширину подписи правой оси
-    std::wstring rightAxisLabel = L"[Right Axis (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
+    std::wstring rightAxisLabel = L"[Правая ось (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
     SIZE rightLabelSize;
     GetTextExtentPoint32(hdc, rightAxisLabel.c_str(), (int)rightAxisLabel.length(), &rightLabelSize);
     rightGroupWidth = rightLabelSize.cx + 10; // +10 для отступа после подписи
     
     // Добавляем элементы правой оси
     for (const auto* curve : rightAxisCurves) {
-        std::wstring name(curve->displayName.begin(), curve->displayName.end());
+        std::wstring name = Utf8ToWide(curve->displayName);
         SIZE textSize;
         GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         
@@ -1636,7 +1647,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             currentX += lineLength + 5;
             
             // Название
-            std::wstring name(curve->displayName.begin(), curve->displayName.end());
+            std::wstring name = Utf8ToWide(curve->displayName);
             TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
             
             SIZE textSize;
@@ -1678,8 +1689,8 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             
             currentX += lineLength + 5;
             
-            // Название
-            std::wstring name(curve->displayName.begin(), curve->displayName.end());
+            // Название (конвертируем UTF-8 в UTF-16)
+            std::wstring name = Utf8ToWide(curve->displayName);
             TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
             
             SIZE textSize;
@@ -1741,8 +1752,8 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     // Вычисляем ширину элементов легенды
     int totalWidth = 0;
     
-    // Подпись левой оси: [Left Axis (mdeg)]
-    std::wstring leftAxisLabel = L"[Left Axis (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
+    // Подпись левой оси: [Левая ось (mdeg)]
+    std::wstring leftAxisLabel = L"[Левая ось (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
     SIZE leftLabelSize;
     GetTextExtentPoint32(hdc, leftAxisLabel.c_str(), (int)leftAxisLabel.length(), &leftLabelSize);
     totalWidth += leftLabelSize.cx + 10;
@@ -1838,7 +1849,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         currentX += 20;
         
         // Подпись правой оси
-        std::wstring rightAxisLabel = L"[Right Axis (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
+        std::wstring rightAxisLabel = L"[Правая ось (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
         SetTextColor(hdc, RGB(0, 0, 0));
         TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
         

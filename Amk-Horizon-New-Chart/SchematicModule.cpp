@@ -8,6 +8,16 @@
 #include <map>
 #include <set>
 
+// Вспомогательная функция для конвертации UTF-8 в UTF-16 (static - локальная для этого файла)
+static std::wstring Utf8ToWide(const std::string& utf8str) {
+    if (utf8str.empty()) return std::wstring();
+    
+    int size_needed = MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), (int)utf8str.size(), NULL, 0);
+    std::wstring wstrTo(size_needed, 0);
+    MultiByteToWideChar(CP_UTF8, 0, utf8str.c_str(), (int)utf8str.size(), &wstrTo[0], size_needed);
+    return wstrTo;
+}
+
 // Определение цветов для элементов схемы
 const COLORREF SchematicModule::TRANSMITTER_COLOR = RGB(180, 100, 100);  // Приглушенный красный
 const COLORREF SchematicModule::RECEIVER_COLOR = RGB(100, 180, 100);     // Приглушенный зеленый  
@@ -1026,8 +1036,9 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
     // Инициализируем комбобокс частоты
     HWND hFreqCombo = GetDlgItem(hDlg, IDC_FREQUENCY_COMBO);
     if (hFreqCombo) {
-        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 kHz");
-        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 kHz");
+        // Локализованные подписи частот (кГц)
+        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"400 кГц");
+        SendMessage(hFreqCombo, CB_ADDSTRING, 0, (LPARAM)L"2000 кГц");
         
         // Устанавливаем частоту из восстановленной конфигурации или по умолчанию
         int freqIndex = (currentSelection.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
@@ -1216,15 +1227,15 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         for (size_t i = 0; i < availableCurves.size(); i++) {
             const auto& curve = availableCurves[i];
             
-            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            std::wstring displayText = Utf8ToWide(curve.displayName);
             displayText += L" (";
-            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += Utf8ToWide(curve.units);
             displayText += L")";
             
             if (curve.yAxisGroup == 0) {
-                displayText += L" [Left Axis]";
+                displayText += L" [Левая ось]";
             } else {
-                displayText += L" [Right Axis]";
+                displayText += L" [Правая ось]";
             }
             
             LVITEM item = {};
@@ -1247,15 +1258,15 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         for (size_t i = 0; i < availableCurves.size(); i++) {
             const auto& curve = availableCurves[i];
             
-            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            std::wstring displayText = Utf8ToWide(curve.displayName);
             displayText += L" (";
-            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += Utf8ToWide(curve.units);
             displayText += L")";
             
             if (curve.yAxisGroup == 0) {
-                displayText += L" [Left Axis]";
+                displayText += L" [Левая ось]";
             } else {
-                displayText += L" [Right Axis]";
+                displayText += L" [Правая ось]";
             }
             
             LVITEM item = {};
@@ -1279,15 +1290,15 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         for (size_t curveIdx : curvesByElement[elementIndex]) {
             const auto& curve = availableCurves[curveIdx];
             
-            std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+            std::wstring displayText = Utf8ToWide(curve.displayName);
             displayText += L" (";
-            displayText += std::wstring(curve.units.begin(), curve.units.end());
+            displayText += Utf8ToWide(curve.units);
             displayText += L")";
             
             if (curve.yAxisGroup == 0) {
-                displayText += L" [Left Axis]";
+                displayText += L" [Левая ось]";
             } else {
-                displayText += L" [Right Axis]";
+                displayText += L" [Правая ось]";
             }
             
             LVITEM item = {};
@@ -1348,15 +1359,15 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
             for (size_t curveIdx : curvesInGroup) {
                 const auto& curve = availableCurves[curveIdx];
                 
-                std::wstring displayText = std::wstring(curve.displayName.begin(), curve.displayName.end());
+                std::wstring displayText = Utf8ToWide(curve.displayName);
                 displayText += L" (";
-                displayText += std::wstring(curve.units.begin(), curve.units.end());
+                displayText += Utf8ToWide(curve.units);
                 displayText += L")";
                 
                 if (curve.yAxisGroup == 0) {
-                    displayText += L" [Left Axis]";
+                    displayText += L" [Левая ось]";
                 } else {
-                    displayText += L" [Right Axis]";
+                    displayText += L" [Правая ось]";
                 }
                 
                 LVITEM item = {};

@@ -182,7 +182,9 @@ private:
     void SynchronizeUIWithConfiguration(int chartNumber);
     bool ValidateChartConfiguration(const ChartConfiguration& config) const;
     // Вспомогательные методы
+    std::wstring GetChartTitle(int chartNumber, FrequencyBand frequency, const std::wstring& customTitle) const;
     std::wstring BuildChartTitle(int chartNumber, DataType dataType, FrequencyBand frequency) const;
+    
     int GetChartAtPoint(int x, int y) const;
     void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
     
