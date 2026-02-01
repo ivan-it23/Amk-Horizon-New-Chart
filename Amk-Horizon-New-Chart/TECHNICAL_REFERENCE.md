@@ -348,7 +348,7 @@ void CalculateCurveData(const ChartConfiguration& config,
 ```cpp
 const COLORREF CHANNEL_COLORS[4] = {
     RGB(0, 255, 0),    // T1 - Зеленый
-    RGB(255, 255, 0),  // T2 - Желтый
+    RGB(139, 69, 19),  // T2 - Коричневый
     RGB(255, 0, 0),    // T3 - Красный
     RGB(0, 0, 255)     // T4 - Синий
 };
@@ -358,7 +358,7 @@ const COLORREF CHANNEL_COLORS[4] = {
 ```cpp
 const COLORREF EXTENDED_PALETTE[12] = {
     RGB(0, 128, 0),      // Зелёный (T1)
-    RGB(255, 255, 0),    // Жёлтый (T2)
+    RGB(139, 69, 19),    // Коричневый (T2)
     RGB(255, 0, 0),      // Красный (T3)
     RGB(0, 0, 255),      // Синий (T4)
     RGB(0, 100, 100),    // Тёмно-бирюзовый
