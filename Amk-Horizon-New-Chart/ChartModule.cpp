@@ -8,6 +8,24 @@
 #include <sstream> // Для std::wstringstream
 #include <iomanip> // Для std::fixed и std::setprecision
 #include <set>     // Для std::set (отслеживание уникальных значений)
+ #include <cstdarg>
+ #include <cstdio>
+
+ static void AppendDebugLog(const wchar_t* fmt, ...) {
+     wchar_t buffer[2048];
+     va_list args;
+     va_start(args, fmt);
+     _vsnwprintf_s(buffer, _countof(buffer), _TRUNCATE, fmt, args);
+     va_end(args);
+
+     OutputDebugStringW(buffer);
+
+     FILE* f = nullptr;
+     if (_wfopen_s(&f, L"\u0432\u044b\u0432\u043e\u0434.txt", L"a+, ccs=UTF-8") == 0 && f) {
+         fputws(buffer, f);
+         fclose(f);
+     }
+ }
 
 // Вспомогательная функция для конвертации UTF-8 в UTF-16 (локальная для этого файла)
 static std::wstring Utf8ToWide(const std::string& utf8str) {
@@ -1390,6 +1408,17 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                                            double leftMinY, double leftMaxY,
                                            double rightMinY, double rightMaxY,
                                            double minXData, double maxXData) const {
+    RECT dataRect = plotRect;
+    int plotHeight = plotRect.bottom - plotRect.top;
+    int yMargin = plotHeight * 3 / 100;
+    yMargin = (std::max)(8, (std::min)(24, yMargin));
+    dataRect.top += yMargin;
+    dataRect.bottom -= yMargin;
+
+    if (dataRect.bottom <= dataRect.top) {
+        return;
+    }
+
     // Добавляем небольшой padding только снизу (2%) для визуального комфорта
     // Сверху padding не нужен, чтобы не было лишнего пространства
     float yRangeLeft = static_cast<float>(leftMaxY - leftMinY);
@@ -1410,11 +1439,11 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
                          L"leftMin=%.2f, leftMax=%.2f\n",
               plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
               leftMinY, leftMaxY, leftMin, leftMax);
-    OutputDebugStringW(debugMsg);
+    AppendDebugLog(L"%ls", debugMsg);
     
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 5, plotRect.right, plotRect.bottom + 5);
+    HRGN hClipRegion = CreateRectRgn(dataRect.left, dataRect.top - 5, dataRect.right, dataRect.bottom + 5);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -1438,10 +1467,12 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         float minChannelVal = *std::min_element(channel.begin(), channel.end());
         float maxChannelVal = *std::max_element(channel.begin(), channel.end());
         swprintf_s(debugMsg, L"Left Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
-        OutputDebugStringW(debugMsg);
+        AppendDebugLog(L"%ls", debugMsg);
         
         bool firstPoint = true;
         int minY = INT_MAX, maxY = INT_MIN;
+        int clampedToMin = 0;
+        int clampedToMax = 0;
         double xRange = maxXData - minXData;
         for (size_t j = 0; j < channel.size(); j++) {
             // Вычисляем реальный индекс данных и преобразуем в экранную координату
@@ -1449,8 +1480,11 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             int x = plotRect.left + (int)((dataX - minXData) / xRange * (plotRect.right - plotRect.left));
             
             // Ограничиваем значение данных к диапазону leftMin/leftMax для корректного отображения
-            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            float v = channel[j];
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, v));
+            if (clampedValue == leftMin && v < leftMin) clampedToMin++;
+            if (clampedValue == leftMax && v > leftMax) clampedToMax++;
+            int y = dataRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (dataRect.bottom - dataRect.top));
             
             // Отслеживаем min/max Y координаты
             minY = (std::min)(minY, y);
@@ -1467,7 +1501,9 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         // Отладка: выводим диапазон Y координат
         swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
                   minY, maxY, plotRect.top, plotRect.bottom);
-        OutputDebugStringW(debugMsg);
+        AppendDebugLog(L"%ls", debugMsg);
+
+        AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, channel.size());
         
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
@@ -1496,7 +1532,7 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             double dataX = minXData + (double)j;
             int x = plotRect.left + (int)((dataX - minXData) / xRangeForRightAxis * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            int y = dataRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (dataRect.bottom - dataRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);
@@ -2697,10 +2733,21 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
                                                          double minXData, double maxXData,
                                                          double minYData, double maxYData) const {
     if (xAxisData.empty()) return;
+
+    RECT dataRect = plotRect;
+    int plotHeight = plotRect.bottom - plotRect.top;
+    int yMargin = plotHeight * 3 / 100;
+    yMargin = (std::max)(8, (std::min)(24, yMargin));
+    dataRect.top += yMargin;
+    dataRect.bottom -= yMargin;
+
+    if (dataRect.bottom <= dataRect.top) {
+        return;
+    }
     
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
-    HRGN hClipRegion = CreateRectRgn(plotRect.left, plotRect.top - 5, plotRect.right, plotRect.bottom + 5);
+    HRGN hClipRegion = CreateRectRgn(dataRect.left, dataRect.top - 5, dataRect.right, dataRect.bottom + 5);
     HRGN hOldClipRegion = CreateRectRgn(0, 0, 0, 0);
     int regionType = GetClipRgn(hdc, hOldClipRegion);
     SelectClipRgn(hdc, hClipRegion);
@@ -2771,7 +2818,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
                          L"leftMin=%.2f, leftMax=%.2f\n",
               plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
               minYData, maxYData, leftMin, leftMax);
-    OutputDebugStringW(debugMsg);
+    AppendDebugLog(L"%ls", debugMsg);
     
     // Отрисовка кривых левой оси (сплошные линии)
     size_t leftIndex = 0;
@@ -2792,18 +2839,23 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         float minChannelVal = *std::min_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
         float maxChannelVal = *std::max_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
         swprintf_s(debugMsg, L"Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
-        OutputDebugStringW(debugMsg);
+        AppendDebugLog(L"%ls", debugMsg);
         
         bool firstPoint = true;
         int minY = INT_MAX, maxY = INT_MIN;
+        int clampedToMin = 0;
+        int clampedToMax = 0;
         for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
             // X координата по температуре
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             
             // Y координата с учетом zoom
-            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
+            float v = channel[j];
+            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, v));
+            if (clampedValue == leftMin && v < leftMin) clampedToMin++;
+            if (clampedValue == leftMax && v > leftMax) clampedToMax++;
+            int y = dataRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (dataRect.bottom - dataRect.top));
             
             // Отслеживаем min/max Y координаты
             minY = (std::min)(minY, y);
@@ -2820,7 +2872,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         // Отладка: выводим диапазон Y координат
         swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
                   minY, maxY, plotRect.top, plotRect.bottom);
-        OutputDebugStringW(debugMsg);
+        AppendDebugLog(L"%ls", debugMsg);
+
+        AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, (size_t)(endIdx - startIdx));
         
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
@@ -2850,7 +2904,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             
             // Y координата с учетом zoom
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
+            int y = dataRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (dataRect.bottom - dataRect.top));
             
             if (firstPoint) {
                 MoveToEx(hdc, x, y, NULL);

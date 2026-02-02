@@ -7,6 +7,24 @@
 #include <sstream>
 #include <cfloat>
 #include <cmath>
+ #include <cstdarg>
+ #include <cstdio>
+
+ static void AppendDebugLog(const wchar_t* fmt, ...) {
+     wchar_t buffer[2048];
+     va_list args;
+     va_start(args, fmt);
+     _vsnwprintf_s(buffer, _countof(buffer), _TRUNCATE, fmt, args);
+     va_end(args);
+
+     OutputDebugStringW(buffer);
+
+     FILE* f = nullptr;
+     if (_wfopen_s(&f, L"\u0432\u044b\u0432\u043e\u0434.txt", L"a+, ccs=UTF-8") == 0 && f) {
+         fputws(buffer, f);
+         fclose(f);
+     }
+ }
 
 // Реализация класса ChartManager с модульной архитектурой
 
@@ -1078,6 +1096,24 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     
     // Получаем параметры zoom
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+
+    auto ApplyYDisplayPadding = [](double& minY, double& maxY) {
+        double range = maxY - minY;
+        if (!(range > 0.0)) {
+            range = 1.0;
+        }
+        double padding = range * 0.05;
+        minY -= padding;
+        maxY += padding;
+    };
+
+     AppendDebugLog(L"[DrawChartWithCurves] chart=%d zoom=%d xAxisType=%d hasDualAxis=%d zoomX=[%.3f..%.3f] zoomY=[%.3f..%.3f]\r\n",
+                    chartNumber,
+                    zoom->isZoomed ? 1 : 0,
+                    static_cast<int>(config.xAxisType),
+                    config.hasDualAxis ? 1 : 0,
+                    zoom->minX, zoom->maxX,
+                    zoom->minY, zoom->maxY);
     
     // Вычисляем данные для кривых с учетом zoom
     std::vector<std::vector<float>> leftAxisData;
@@ -1141,6 +1177,13 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         
         double minYData = zoom->isZoomed ? zoom->minY : minYFull;
         double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
+
+        if (zoom->isZoomed) {
+            ApplyYDisplayPadding(minYData, maxYData);
+        }
+
+         AppendDebugLog(L"  [TempX] minYFull=%.6f maxYFull=%.6f -> drawY=[%.6f..%.6f]\r\n",
+                        minYFull, maxYFull, minYData, maxYData);
         
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         // v2.15.0: Передаём config для поддержки компактной легенды пресетов
@@ -1164,6 +1207,13 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             
             double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
             double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
+
+            if (zoom->isZoomed) {
+                ApplyYDisplayPadding(displayMinY, displayMaxY);
+            }
+
+             AppendDebugLog(L"  [FrameX Dual] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
+                            minYData, maxYData, displayMinY, displayMaxY);
             
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                          leftAxisData, rightAxisData,
@@ -1183,6 +1233,13 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 
                 double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
                 double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
+
+                if (zoom->isZoomed) {
+                    ApplyYDisplayPadding(displayMinY, displayMaxY);
+                }
+
+                 AppendDebugLog(L"  [FrameX Single] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
+                                minYData, maxYData, displayMinY, displayMaxY);
                 
                 chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
                                              leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось

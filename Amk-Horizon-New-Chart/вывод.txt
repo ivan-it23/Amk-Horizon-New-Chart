@@ -1,0 +1,256 @@
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\Desktop\Amk-Horizon-New-Chart\x64\Release\Amk-Horizon-New-Chart.exe". Символы загружены.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntdll.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\KernelBase.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\user32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\win32u.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\gdi32full.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp_win.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ucrtbase.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\comdlg32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcrt.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\combase.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\rpcrt4.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\SHCore.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shlwapi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shell32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\advapi32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sechost.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcrypt.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp140.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140_1.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\imm32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\uxtheme.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msctf.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleaut32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextShaping.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\kernel.appcore.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcryptprimitives.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextInputFramework.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreUIComponents.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreMessaging.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ws2_32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntmarta.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\WinTypes.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ole32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\clbcatq.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\windows.storage.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wldp.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dui70.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_6.0.19041.6456_none_60b8a6cb71f64256\comctl32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\duser.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dwmapi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Program Files\Common Files\microsoft shared\ink\tiptsf.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\edputil.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ExplorerFrame.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d2d1.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WindowsCodecs.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\profapi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\thumbcache.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DataExchange.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d3d11.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dcomp.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dxgi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.appcore.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msftedit.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Globalization.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47Langs.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\BCP47mrm.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\globinputhost.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\propsys.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cfgmgr32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\xmllite.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\apphelp.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\networkexplorer.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\mpr.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\p9np.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\drprov.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winsta.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntlanman.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davclnt.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\davhlpr.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleacc.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\UIAutomationCore.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sxs.dll". Загрузка символов отключена параметром включения и исключения.
+mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFEB77FA726: (caller: 00007FFEB77F9B39) ReturnHr(1) tid(5e54) 8002801D Библиотека не зарегистрирована.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atlthunk.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\StructuredQuery.dll". Загрузка символов отключена параметром включения и исключения.
+Поток 22148 завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.FileExplorer.Common.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\iertutil.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\netutils.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\srvcli.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Storage.Search.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.StateRepositoryPS.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\linkinfo.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wkscli.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cscapi.dll". Загрузка символов отключена параметром включения и исключения.
+Вызвано исключение по адресу 0x00007FFEB6E95369 (KernelBase.dll) в Amk-Horizon-New-Chart.exe: 0x000006BA: Сервер RPC недоступен.
+Поток 12832 завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dlnashext.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PlayToDevice.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DevDispItemProvider.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\MMDevAPI.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\devobj.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wpdshext.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_91a399b0cc88bc24\GdiPlus.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PortableDeviceApi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\setupapi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\prnfldr.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wintrust.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\crypt32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msasn1.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorShell.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\lxss\LxssManagerProxyStub.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorAPI.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wtsapi32.dll". Загрузка символов отключена параметром включения и исключения.
+Поток 7880 завершился с кодом 0 (0x0).
+Поток 18988 завершился с кодом 0 (0x0).
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntshrui.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sspicli.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winmm.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\coml2.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\actxprxy.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\AppData\Local\Microsoft\OneDrive\25.243.1211.0001\FileSyncShell64.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\secur32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wininet.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\userenv.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\version.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cryptbase.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\GROOVEEX.DLL". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atl100.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcr100.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp100.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msi.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\policymanager.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp110_win.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\urlmon.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\msftedit.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\xmllite.dll"
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\prnfldr.dll"
+Поток 13980 завершился с кодом 0 (0x0).
+[DrawChartWithCurves] chart=1 zoom=0 xAxisType=0 hasDualAxis=0 zoomX=[0.000..0.000] zoomY=[0.000..0.000]
+  [FrameX Single] dataY=[-197977.031250..197952.125000] -> drawY=[-197977.031250..197952.125000]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-197977.03, leftMaxY=197952.13
+leftMin=-205895.61, leftMax=197952.13
+Left Curve 0: minVal=-179980.25, maxVal=179955.34
+  Screen Y range: minY=110, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 1: minVal=-179536.02, maxVal=177526.88
+  Screen Y range: minY=114, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 2: minVal=-179934.02, maxVal=179768.17
+  Screen Y range: minY=111, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 3: minVal=-179646.30, maxVal=179919.28
+  Screen Y range: minY=110, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+[DrawChartWithCurves] chart=1 zoom=1 xAxisType=0 hasDualAxis=0 zoomX=[347.119..815.261] zoomY=[-43297.313..61095.584]
+  [FrameX Single] dataY=[-197977.031250..197952.125000] -> drawY=[-48516.957476..66315.228678]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-48516.96, leftMaxY=66315.23
+leftMin=-50813.60, leftMax=66315.23
+Left Curve 0: minVal=-179980.25, maxVal=179955.34
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=173 toMax=296 (points=469)
+Left Curve 1: minVal=-38478.66, maxVal=62069.35
+  Screen Y range: minY=105, maxY=639 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=469)
+Left Curve 2: minVal=-17881.14, maxVal=81087.05
+  Screen Y range: minY=82, maxY=530 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=45 (points=469)
+Left Curve 3: minVal=-179598.19, maxVal=179882.48
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=465 toMax=4 (points=469)
+[DrawChartWithCurves] chart=1 zoom=0 xAxisType=0 hasDualAxis=0 zoomX=[0.000..0.000] zoomY=[0.000..0.000]
+  [FrameX Single] dataY=[-197977.031250..197952.125000] -> drawY=[-197977.031250..197952.125000]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-197977.03, leftMaxY=197952.13
+leftMin=-205895.61, leftMax=197952.13
+Left Curve 0: minVal=-179980.25, maxVal=179955.34
+  Screen Y range: minY=110, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 1: minVal=-179536.02, maxVal=177526.88
+  Screen Y range: minY=114, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 2: minVal=-179934.02, maxVal=179768.17
+  Screen Y range: minY=111, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 3: minVal=-179646.30, maxVal=179919.28
+  Screen Y range: minY=110, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+[DrawChartWithCurves] chart=1 zoom=1 xAxisType=0 hasDualAxis=0 zoomX=[352.748..641.701] zoomY=[-22927.967..44545.491]
+  [FrameX Single] dataY=[-197925.890625..197949.687500] -> drawY=[-26301.639866..47919.163379]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-26301.64, leftMaxY=47919.16
+leftMin=-27786.06, leftMax=47919.16
+Left Curve 0: minVal=-179931.55, maxVal=179955.34
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=111 toMax=179 (points=290)
+Left Curve 1: minVal=-38478.66, maxVal=62069.35
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=4 toMax=20 (points=290)
+Left Curve 2: minVal=-17881.14, maxVal=81087.05
+  Screen Y range: minY=82, maxY=623 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=98 (points=290)
+Left Curve 3: minVal=-179598.19, maxVal=170325.88
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=289 toMax=1 (points=290)
+[DrawChartWithCurves] chart=1 zoom=0 xAxisType=0 hasDualAxis=0 zoomX=[0.000..0.000] zoomY=[0.000..0.000]
+  [FrameX Single] dataY=[-197977.031250..197952.125000] -> drawY=[-197977.031250..197952.125000]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-197977.03, leftMaxY=197952.13
+leftMin=-205895.61, leftMax=197952.13
+Left Curve 0: minVal=-179980.25, maxVal=179955.34
+  Screen Y range: minY=110, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 1: minVal=-179536.02, maxVal=177526.88
+  Screen Y range: minY=114, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 2: minVal=-179934.02, maxVal=179768.17
+  Screen Y range: minY=111, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 3: minVal=-179646.30, maxVal=179919.28
+  Screen Y range: minY=110, maxY=664 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+[DrawChartWithCurves] chart=1 zoom=0 xAxisType=0 hasDualAxis=1 zoomX=[0.000..0.000] zoomY=[0.000..0.000]
+  [FrameX Dual] dataY=[-197389.156250..195380.015625] -> drawY=[-197389.156250..195380.015625]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-197389.16, leftMaxY=195380.02
+leftMin=-205244.55, leftMax=195380.02
+Left Curve 0: minVal=-128847.73, maxVal=172951.56
+  Screen Y range: minY=117, maxY=586 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Left Curve 1: minVal=-179536.02, maxVal=177526.88
+  Screen Y range: minY=110, maxY=665 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=0 toMax=0 (points=1245)
+Поток 19068 завершился с кодом 0 (0x0).
+Поток 23900 завершился с кодом 0 (0x0).
+[DrawChartWithCurves] chart=1 zoom=1 xAxisType=0 hasDualAxis=1 zoomX=[57.228..250.489] zoomY=[-9845.034..61510.137]
+  [FrameX Dual] dataY=[-197389.156250..195380.015625] -> drawY=[-13412.792543..65077.895663]
+=== DrawDualAxisDataWithZoom ===
+plotRect: left=65, top=82, right=1391, bottom=704
+leftMinY=-13412.79, leftMaxY=65077.90
+leftMin=-14982.61, leftMax=65077.89
+Left Curve 0: minVal=-128847.73, maxVal=172951.56
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=39 toMax=22 (points=194)
+Left Curve 1: minVal=-179536.02, maxVal=177526.88
+  Screen Y range: minY=82, maxY=704 (plotRect.top=82, plotRect.bottom=704)
+  Clamp stats: toMin=76 toMax=10 (points=194)
