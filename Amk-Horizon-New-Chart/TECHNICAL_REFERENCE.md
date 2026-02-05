@@ -286,9 +286,6 @@ void GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
                   double& minX, double& maxX,
                   double& minY1, double& maxY1,
                   double& minY2, double& maxY2) const;
-
-// Интерактивность
-int HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, DataType type) const;
 ```
 
 ### ChartManager
@@ -312,7 +309,7 @@ void UpdateStatusBarFileInfo();
 ### SchematicModule
 ```cpp
 // Диалог схемы прибора
-bool ShowSchematicDialog(HWND parent, int chartNumber, ChartConfiguration& config);
+void ShowSchematicDialog(HWND parent, int chartNumber);
 
 // Обработка событий
 bool HandleElementClick(int x, int y);
@@ -576,9 +573,9 @@ void DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber);
 ```
 
 **Изменения**:
-- Передача параметров `zoom->minY` и `zoom->maxY` в методы вычисления данных
-- Получение диапазонов Y из данных
-- Передача Y параметров в методы отрисовки
+- При активном zoom данные фильтруются только по X (по Y данные не фильтруются)
+- Диапазон по Y используется только для отображения (оси/сетка/проекция)
+- Для сохранения визуального разделения после zoom применяется дополнительный отступ при отрисовке
 
 **Пример**:
 ```cpp
@@ -586,14 +583,15 @@ if (zoom->isZoomed) {
     curveSelectionModule->CalculateCurveData(config, dataModule.get(),
                                            leftAxisData, rightAxisData,
                                            leftAxisCurves, rightAxisCurves,
-                                           zoom->minX, zoom->maxX, zoom->minY, zoom->maxY);
+                                           zoom->minX, zoom->maxX, -1e10, 1e10);
 }
 
-// Получаем диапазоны Y из данных
+// Получаем диапазоны Y из данных (полный диапазон выбранного участка по X)
 double minYData, maxYData, ...;
 chartModule->GetDataRanges(leftAxisData, rightAxisData, ..., minYData, maxYData, ...);
 
-// Передаём в методы отрисовки
+// Передаём в методы отрисовки диапазон для отображения
+// (при zoom используется zoom->minY/maxY, при необходимости расширяется для визуального отступа)
 chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                              leftAxisData, rightAxisData,
                              title, dataModule->HasData(),
