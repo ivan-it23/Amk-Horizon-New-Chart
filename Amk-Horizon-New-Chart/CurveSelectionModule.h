@@ -95,8 +95,6 @@ private:
     // Методы для создания пресетов
     ChartConfiguration CreateAllAmplitudesR1Preset(FrequencyBand frequency) const;
     ChartConfiguration CreateAllAmplitudesR2Preset(FrequencyBand frequency) const;
-    ChartConfiguration CreateAllPhasesR1Preset(FrequencyBand frequency) const;
-    ChartConfiguration CreateAllPhasesR2Preset(FrequencyBand frequency) const;
     ChartConfiguration CreateAmplitudeRatiosPreset(FrequencyBand frequency) const;
     ChartConfiguration CreatePhaseDifferencesPreset(FrequencyBand frequency) const;
     

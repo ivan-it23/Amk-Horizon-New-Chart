@@ -1428,18 +1428,6 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             currentPreset = PresetType::ALL_AMPLITUDES_R2;
             currentPresetDisplayName = L"Амплитуда RX2";
             break;
-        case IDC_PRESET_ALL_PHASE_R1:
-            currentSelection.receivers[0] = true; // R1
-            currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
-            currentPreset = PresetType::ALL_PHASES_R1;
-            currentPresetDisplayName = L"Фаза RX1";
-            break;
-        case IDC_PRESET_ALL_PHASE_R2:
-            currentSelection.receivers[1] = true; // R2
-            currentSelection.dataFilter = DataTypeFilter::PHASE_ONLY;
-            currentPreset = PresetType::ALL_PHASES_R2;
-            currentPresetDisplayName = L"Фаза RX2";
-            break;
         case IDC_PRESET_RATIOS:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
@@ -2049,8 +2037,6 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     // Обработка быстрых пресетов
                     case IDC_PRESET_ALL_AMP_R1:
                     case IDC_PRESET_ALL_AMP_R2:
-                    case IDC_PRESET_ALL_PHASE_R1:
-                    case IDC_PRESET_ALL_PHASE_R2:
                     case IDC_PRESET_RATIOS:
                     case IDC_PRESET_DIFFERENCES:
                     case IDC_PRESET_TEMPERATURE:

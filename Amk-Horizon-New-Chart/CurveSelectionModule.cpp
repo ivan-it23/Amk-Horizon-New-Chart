@@ -163,10 +163,6 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             return CreateAllAmplitudesR1Preset(frequency);
         case PresetType::ALL_AMPLITUDES_R2:
             return CreateAllAmplitudesR2Preset(frequency);
-        case PresetType::ALL_PHASES_R1:
-            return CreateAllPhasesR1Preset(frequency);
-        case PresetType::ALL_PHASES_R2:
-            return CreateAllPhasesR2Preset(frequency);
         case PresetType::AMPLITUDE_RATIOS:
             return CreateAmplitudeRatiosPreset(frequency);
         case PresetType::PHASE_DIFFERENCES:
@@ -828,44 +824,6 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBa
     config.hasDualAxis = false;
     config.activePreset = PresetType::ALL_AMPLITUDES_R2;
     config.presetDisplayName = L"Амплитуда RX2";
-    
-    return config;
-}
-
-ChartConfiguration CurveSelectionModule::CreateAllPhasesR1Preset(FrequencyBand frequency) const {
-    ChartConfiguration config;
-    
-    // Создаем кривые фаз для всех передатчиков T1-T5 на приемнике R1
-    for (int i = 0; i < 5; i++) {
-        CurveDefinition curve = CreatePhaseCurve(i, 0, frequency); // 0 = R1
-        curve.yAxisGroup = 0; // Левая ось (для фаз тоже можно использовать левую)
-        curve.enabled = true;
-        config.AddCurve(curve);
-    }
-    
-    config.leftAxisUnits = "deg";
-    config.hasDualAxis = false;
-    config.activePreset = PresetType::ALL_PHASES_R1;
-    config.presetDisplayName = L"Фаза RX1";
-    
-    return config;
-}
-
-ChartConfiguration CurveSelectionModule::CreateAllPhasesR2Preset(FrequencyBand frequency) const {
-    ChartConfiguration config;
-    
-    // Создаем кривые фаз для всех передатчиков T1-T5 на приемнике R2
-    for (int i = 0; i < 5; i++) {
-        CurveDefinition curve = CreatePhaseCurve(i, 1, frequency); // 1 = R2
-        curve.yAxisGroup = 0; // Левая ось
-        curve.enabled = true;
-        config.AddCurve(curve);
-    }
-    
-    config.leftAxisUnits = "deg";
-    config.hasDualAxis = false;
-    config.activePreset = PresetType::ALL_PHASES_R2;
-    config.presetDisplayName = L"Фаза RX2";
     
     return config;
 }

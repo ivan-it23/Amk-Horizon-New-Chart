@@ -297,8 +297,6 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             
         case IDC_PRESET_ALL_AMP_R1:
         case IDC_PRESET_ALL_AMP_R2:
-        case IDC_PRESET_ALL_PHASE_R1:
-        case IDC_PRESET_ALL_PHASE_R2:
         case IDC_PRESET_RATIOS:
         case IDC_PRESET_DIFFERENCES:
             // Команды пресетов обрабатываются в диалоговом окне схемы
@@ -1439,12 +1437,6 @@ void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId,
             break;
         case IDC_PRESET_ALL_AMP_R2:
             preset = PresetType::ALL_AMPLITUDES_R2;
-            break;
-        case IDC_PRESET_ALL_PHASE_R1:
-            preset = PresetType::ALL_PHASES_R1;
-            break;
-        case IDC_PRESET_ALL_PHASE_R2:
-            preset = PresetType::ALL_PHASES_R2;
             break;
         case IDC_PRESET_RATIOS:
             preset = PresetType::AMPLITUDE_RATIOS;

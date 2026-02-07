@@ -37,8 +37,6 @@
 #define IDC_CURVE_LIST				1015
 #define IDC_PRESET_ALL_AMP_R1		1016
 #define IDC_PRESET_ALL_AMP_R2		1017
-#define IDC_PRESET_ALL_PHASE_R1		1018
-#define IDC_PRESET_ALL_PHASE_R2		1019
 #define IDC_PRESET_RATIOS			1020
 #define IDC_PRESET_DIFFERENCES		1021
 // ID 1022 зарезервирован (ранее использовался для IDC_COPY_FROM_CHART, удалён в v2.9.6)

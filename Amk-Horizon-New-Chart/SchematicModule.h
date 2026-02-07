@@ -78,8 +78,6 @@ enum class PresetType {
     NONE,                   // Нет пресета (пользовательская конфигурация)
     ALL_AMPLITUDES_R1,      // Все амплитуды для R1
     ALL_AMPLITUDES_R2,      // Все амплитуды для R2
-    ALL_PHASES_R1,          // Все фазы для R1
-    ALL_PHASES_R2,          // Все фазы для R2
     AMPLITUDE_RATIOS,       // Отношения амплитуд R2/R1
     PHASE_DIFFERENCES,      // Разности фаз R2-R1
     TEMPERATURE,            // Температура
