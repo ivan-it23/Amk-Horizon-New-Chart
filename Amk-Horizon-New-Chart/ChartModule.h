@@ -12,8 +12,8 @@ struct ChartConfiguration;
 class ChartModule {
 private:
     // Цвета для разных каналов
-    static const COLORREF CHANNEL_COLORS[4];
-    static const wchar_t* CHANNEL_NAMES[4]; // Добавляем статическое объявление для имен каналов
+    static const COLORREF CHANNEL_COLORS[5];
+    static const wchar_t* CHANNEL_NAMES[5]; // Добавляем статическое объявление для имен каналов
 
 public:
     ChartModule();

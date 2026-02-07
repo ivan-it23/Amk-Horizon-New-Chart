@@ -10,35 +10,29 @@
 
 // Команды протокола обмена с прибором
 namespace SerialCommands {
-    constexpr uint8_t CMD_WORK = 0x67;      // Запрос данных измерений
-    constexpr uint8_t CMD_READ_EE = 0x65;   // Чтение EEPROM (метрология)
-    constexpr uint8_t CMD_WRITE_EE = 0x66;  // Запись EEPROM
-    constexpr uint8_t CMD_ERAM = 0x61;      // Чтение ERAM
-    constexpr uint8_t CMD_TURBO = 0xFD;     // Турбо режим
-}
-
-// Сигнатуры данных прибора
-namespace DataSignatures {
-    constexpr uint32_t SIGNATURE_1D4S = 0x31443453;  // "1D4S" - стандартный формат
-    constexpr uint32_t SIGNATURE_1D4T = 0x31443454;  // "1D4T" - альтернативный формат
-    constexpr uint32_t SIGNATURE_METRO = 0x31443453; // Сигнатура метрологии
+    constexpr uint8_t CMD_DATA = 0x11;          // Запрос данных измерений
+    constexpr uint8_t CMD_SET_METROLOGY = 0x12; // Запись метрологии (квитанция)
+    constexpr uint8_t CMD_GET_METROLOGY = 0x13; // Запрос метрологии
+    constexpr uint8_t CMD_GET_SIGNATURE = 0x16; // Запрос сигнатуры
+    constexpr uint8_t CMD_SET_SELECTED_KEY = 0x17; // Запись selected_key (квитанция)
 }
 
 // Структура метрологических данных прибора
 #pragma pack(push, 1)
 struct METROLOGY_DATA {
-    uint32_t signature;         // Сигнатура для идентификации
-    uint32_t serial;            // Серийный номер прибора
-    uint16_t L1[8];             // Расстояния L1
-    uint16_t L2[8];             // Расстояния L2
-    uint16_t F[8];              // Частоты
-    int16_t Air_zz[8];          // Воздушные поправки
-    uint16_t PhaseOffsets[4];   // Сдвиг между квадратурами
-    uint32_t D_sonde_mm;        // Диаметр зонда в мм
-    int16_t Air_zz_amt[8];      // Воздушные поправки AMT
-    uint8_t service[140];       // Резерв (до 256 байт)
+    uint32_t signature;
+    uint32_t serial;
+    uint16_t L1[5];
+    uint16_t L2[5];
+    uint16_t F[2];
+    int16_t Air_zz[10];
+    int16_t Air_zz_amt[10];
+    uint32_t D_sonde_mm;
+    uint8_t service[164];
 };
 #pragma pack(pop)
+
+static_assert(sizeof(METROLOGY_DATA) == 240, "METROLOGY_DATA must be exactly 240 bytes");
 
 // Состояние подключения
 enum class ConnectionState {
@@ -144,11 +138,14 @@ public:
     
     // === Команды прибора ===
     
-    // Запрос данных измерений (CMD_WORK = 0x67)
+    // Запрос данных измерений (CMD_DATA = 0x11)
     SerialResult RequestData(GP_TOOL_DATA& outData);
     
-    // Запрос метрологии (CMD_READ_EE = 0x65)
+    // Запрос метрологии (CMD_GET_METROLOGY = 0x13)
     SerialResult RequestMetrology(METROLOGY_DATA& outData);
+    
+    // Запрос сигнатуры (CMD_GET_SIGNATURE = 0x16)
+    SerialResult RequestSignature(uint32_t& outSignature);
     
     // === Callbacks ===
     
@@ -204,20 +201,17 @@ public:
 private:
     // === Низкоуровневые методы ===
     
-    // Отправка команды прибору
-    bool SendCommand(uint8_t cmd, const uint8_t* data, size_t dataLength);
+    // Отправка пакета прибору (формат: CMD + uint16 length + payload + CRC16)
+    bool SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLength);
     
-    // Получение пакета от прибора
-    bool ReceivePacket(uint8_t* buffer, size_t bufferSize, size_t& bytesRead);
+    // Получение пакета от прибора (формат: CMD + uint16 length + payload + CRC16)
+    bool ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPayload);
     
     // Вычисление CRC16 (Modbus)
     uint16_t CalculateCRC16(const uint8_t* data, size_t length) const;
     
-    // Проверка CRC пакета
-    bool ValidateCRC(const uint8_t* packet, size_t length) const;
-    
-    // Проверка сигнатуры данных
-    bool ValidateSignature(uint32_t signature) const;
+    // Проверка CRC пакета (CRC считается по первым (packetSize-2) байтам)
+    bool ValidateCRC(const uint8_t* packet, size_t packetSize) const;
     
     // Установка состояния с уведомлением
     void SetState(ConnectionState newState, const std::wstring& error = L"");

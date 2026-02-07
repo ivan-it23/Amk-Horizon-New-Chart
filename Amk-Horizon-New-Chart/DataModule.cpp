@@ -214,13 +214,13 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true}; // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true}; // По умолчанию все передатчики включены
     CalculateChartData(type, freq, outData, allTransmittersEnabled, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
                                    double minX, double maxX, double minY, double maxY) const {
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true}; // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true}; // По умолчанию все передатчики включены
     CalculateChartData(type, freq, outData, allTransmittersEnabled, minX, maxX, minY, maxY);
 }
 
@@ -240,84 +240,73 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     if (startIndex >= endIndex) 
         return;
     
+    const int freqIdx = (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+
     switch (type) {
     case DataType::PHASE_DIFFERENCE:
     case DataType::AMPLITUDE_RATIO:
     case DataType::AMPLITUDE_RX1:
     case DataType::AMPLITUDE_RX2:
-    case DataType::PHASE_RX1:
-    case DataType::PHASE_RX2:
+    case DataType::PHASE_SMT:
+    case DataType::RHO_SMT:
         {
-            // 4 канала для активных передатчиков
-            outData.resize(4); // Четыре канала T1-T4
-            
-            // Предварительно вычисляем индексы для оптимизации
-            int rxIndices[4];
-            bool validTransmitters[4];
-            for (int t = 0; t < 4; ++t) {
-                validTransmitters[t] = enabledTransmitters[t];
-                rxIndices[t] = validTransmitters[t] ? 
-                    GetActiveTransmitterIndex(static_cast<Transmitter>(t), freq) : -1;
-                if (rxIndices[t] == -1) {
-                    validTransmitters[t] = false;
-                }
+            // 5 каналов для активных передатчиков
+            outData.resize(5); // Каналы T1-T5
+
+            bool validTransmitters[5];
+            for (int t = 0; t < 5; ++t) {
+                validTransmitters[t] = (t < (int)enabledTransmitters.size()) ? enabledTransmitters[t] : true;
             }
-            
+
             // Резервируем память для оптимизации
             size_t expectedSize = endIndex - startIndex;
-            for (int t = 0; t < 4; ++t) {
+            for (int t = 0; t < 5; ++t) {
                 if (validTransmitters[t]) {
                     outData[t].reserve(expectedSize);
                 }
             }
-            
+
             // Основной цикл вычислений
             for (size_t i = startIndex; i < endIndex; ++i) {
                 const GP_TOOL_DATA& record = data[i];
-                
-                for (int t = 0; t < 4; ++t) {
+
+                for (int t = 0; t < 5; ++t) {
                     if (!validTransmitters[t]) continue;
-                    
-                    int rxIdx = rxIndices[t];
+
                     float value = 0.0f;
-                    
+
                     switch (type) {
                         case DataType::PHASE_DIFFERENCE:
                             {
-                                float phaseDiff = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
-                                phaseDiff = NormalizePhase(phaseDiff); // Нормализация в диапазон (-π, π]
-                                value = phaseDiff * 57295.7795f; // Преобразование рад -> мдег
+                                float phaseDiff = record.DELTA_PH[freqIdx][t];
+                                phaseDiff = NormalizePhase(phaseDiff);
+                                value = phaseDiff * 57295.7795f; // рад -> мдег
                             }
                             break;
                         case DataType::AMPLITUDE_RATIO:
-                            value = (record.AM_RX_1[rxIdx] != 0.0f) ? 
-                                   (record.AM_RX_2[rxIdx] / record.AM_RX_1[rxIdx]) : 0.0f;
+                            value = (record.AM_RX_1[freqIdx][t] != 0.0f) ?
+                                   (record.AM_RX_2[freqIdx][t] / record.AM_RX_1[freqIdx][t]) : 0.0f;
                             break;
                         case DataType::AMPLITUDE_RX1:
-                            value = record.AM_RX_1[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
+                            value = record.AM_RX_1[freqIdx][t] * 4000.0f / pow(2.0f, 24.0f);
                             break;
                         case DataType::AMPLITUDE_RX2:
-                            value = record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
+                            value = record.AM_RX_2[freqIdx][t] * 4000.0f / pow(2.0f, 24.0f);
                             break;
-                        case DataType::PHASE_RX1:
+                        case DataType::PHASE_SMT:
                             {
-                                float phase = record.PH_RX_1[rxIdx];
-                                phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
-                                value = phase * 57295.7795f; // Преобразование рад -> мдег
+                                float phase = record.phase_smt[freqIdx][t];
+                                phase = NormalizePhase(phase);
+                                value = phase * 57295.7795f; // рад -> мдег
                             }
                             break;
-                        case DataType::PHASE_RX2:
-                            {
-                                float phase = record.PH_RX_2[rxIdx];
-                                phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
-                                value = phase * 57295.7795f; // Преобразование рад -> мдег
-                            }
+                        case DataType::RHO_SMT:
+                            value = record.rho_smt[freqIdx][t];
                             break;
                         default:
                             continue;
                     }
-                    
-                    // Проверяем диапазон значений для фильтрации
+
                     if (value >= minY && value <= maxY) {
                         outData[t].push_back(value);
                     }
@@ -331,17 +320,16 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
         {
             // 1 канал для молчащих передатчиков
             outData.resize(1);
-            int rxIdx = GetSilentTransmitterIndex(freq);
-            if (rxIdx == -1) break;
+            
             
             // Резервируем память для оптимизации
             outData[0].reserve(endIndex - startIndex);
             
             for (size_t i = startIndex; i < endIndex; ++i) {
                 const GP_TOOL_DATA& record = data[i];
-                float value = (type == DataType::SILENT_AMPLITUDE_RX1) ? 
-                             record.AM_RX_1[rxIdx] * 4000.0f / pow(2.0f, 24.0f) : 
-                             record.AM_RX_2[rxIdx] * 4000.0f / pow(2.0f, 24.0f); // Преобразование В -> мВ
+                float value = (type == DataType::SILENT_AMPLITUDE_RX1) ?
+                             (record.ZERO_AM_RX_1[freqIdx] * 4000.0f / pow(2.0f, 24.0f)) :
+                             (record.ZERO_AM_RX_2[freqIdx] * 4000.0f / pow(2.0f, 24.0f));
                 
                 // Проверяем диапазон значений для фильтрации
                 if (value >= minY && value <= maxY) {
@@ -377,8 +365,8 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
     case DataType::AMPLITUDE_RATIO: return L"Отношение амплитуд";
     case DataType::AMPLITUDE_RX1: return L"Амплитуда RX1";
     case DataType::AMPLITUDE_RX2: return L"Амплитуда RX2";
-    case DataType::PHASE_RX1: return L"Фаза RX1";
-    case DataType::PHASE_RX2: return L"Фаза RX2";
+    case DataType::PHASE_SMT: return L"Фаза";
+    case DataType::RHO_SMT: return L"УЭС";
     case DataType::SILENT_AMPLITUDE_RX1: return L"Молчащий Амплитуда RX1";
     case DataType::SILENT_AMPLITUDE_RX2: return L"Молчащий Амплитуда RX2";
     case DataType::TEMPERATURE: return L"Temperature";
@@ -388,38 +376,14 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
 
 // Вспомогательные методы
 int DataModule::GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const {
-    // Индексы для активных передатчиков T1-T4
-    // Согласно ANALYSIS_GP_TOOL_DATA.md:
-    // Индексы 0-3: TX1-TX4 @ 400 Гц
-    // Индексы 4-7: TX1-TX4 @ 2000 Гц
-    if (freq == FrequencyBand::FREQ_400_KHZ) {
-        switch (transmitter) {
-            case Transmitter::T1: return 0;  // TX1 @ 400 Гц
-            case Transmitter::T2: return 1;  // TX2 @ 400 Гц
-            case Transmitter::T3: return 2;  // TX3 @ 400 Гц
-            case Transmitter::T4: return 3;  // TX4 @ 400 Гц
-            default: return -1; // Should not happen
-        }
-    } else { // FREQ_2000_KHZ
-        switch (transmitter) {
-            case Transmitter::T1: return 4;  // TX1 @ 2000 Гц
-            case Transmitter::T2: return 5;  // TX2 @ 2000 Гц
-            case Transmitter::T3: return 6;  // TX3 @ 2000 Гц
-            case Transmitter::T4: return 7;  // TX4 @ 2000 Гц
-            default: return -1; // Should not happen
-        }
-    }
+    (void)freq;
+    const int idx = static_cast<int>(transmitter);
+    return (idx >= 0 && idx < 5) ? idx : -1;
 }
 
 int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
-    // Индексы для молчащих передатчиков (TX0)
-    // Согласно ANALYSIS_GP_TOOL_DATA.md:
-    // Индекс 8: TX0 @ 400 Гц
-    // Индекс 9: TX0 @ 2000 Гц
-    if (freq == FrequencyBand::FREQ_400_KHZ)
-        return 8; // TX0 @ 400 Гц
-    else
-        return 9; // TX0 @ 2000 Гц
+    // Для нового формата возвращаем индекс частоты (0=400, 1=2000)
+    return (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
 }
 
 // Новые методы для работы с произвольными кривыми
@@ -501,12 +465,28 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
             CalculateAmplitudeData(curve.elementIndex, 1, curve.frequency, outData, minX, maxX);
             break;
             
-        case DataType::PHASE_RX1:
+        case DataType::PHASE_SMT:
             CalculatePhaseData(curve.elementIndex, 0, curve.frequency, outData, minX, maxX);
             break;
-            
-        case DataType::PHASE_RX2:
-            CalculatePhaseData(curve.elementIndex, 1, curve.frequency, outData, minX, maxX);
+
+        case DataType::RHO_SMT:
+            {
+                auto indexRange = GetDataIndexRange(minX, maxX);
+                size_t startIndex = indexRange.first;
+                size_t endIndex = indexRange.second;
+
+                const int freqIdx = (curve.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+                const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(curve.elementIndex), curve.frequency);
+                if (txIdx == -1) break;
+
+                outData.reserve(endIndex - startIndex);
+                for (size_t i = startIndex; i < endIndex; ++i) {
+                    float value = data[i].rho_smt[freqIdx][txIdx];
+                    if (value >= minY && value <= maxY) {
+                        outData.push_back(value);
+                    }
+                }
+            }
             break;
             
         case DataType::SILENT_AMPLITUDE_RX1:
@@ -561,9 +541,10 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
     auto indexRange = GetDataIndexRange(minX, maxX);
     size_t startIndex = indexRange.first;
     size_t endIndex = indexRange.second;
-    
-    int rxIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (rxIdx == -1) return;
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
+    if (txIdx == -1) return;
     
     // Резервируем память для оптимизации
     outData.reserve(endIndex - startIndex);
@@ -573,10 +554,10 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float denominator = record.AM_RX_1[rxIdx];
+        float denominator = record.AM_RX_1[freqIdx][txIdx];
         
         if (std::abs(denominator) > EPSILON) { // Избегаем деления на ноль
-            float ratio = record.AM_RX_2[rxIdx] / denominator;
+            float ratio = record.AM_RX_2[freqIdx][txIdx] / denominator;
             outData.push_back(ratio);
         } else {
             outData.push_back(0.0f); // Или можно использовать std::numeric_limits<float>::quiet_NaN()
@@ -590,19 +571,19 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
     auto indexRange = GetDataIndexRange(minX, maxX);
     size_t startIndex = indexRange.first;
     size_t endIndex = indexRange.second;
-    
-    int rxIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (rxIdx == -1) return;
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
+    if (txIdx == -1) return;
     
     // Резервируем память для оптимизации
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float difference = record.PH_RX_2[rxIdx] - record.PH_RX_1[rxIdx];
-        difference = NormalizePhase(difference); // Нормализация в диапазон (-π, π]
-        difference *= 57295.7795f; // Преобразование рад -> мдег
-        outData.push_back(difference);
+        float difference = record.DELTA_PH[freqIdx][txIdx];
+        difference = NormalizePhase(difference);
+        outData.push_back(difference * 57295.7795f);
     }
 }
 
@@ -612,19 +593,17 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
     auto indexRange = GetDataIndexRange(minX, maxX);
     size_t startIndex = indexRange.first;
     size_t endIndex = indexRange.second;
-    
-    int rxIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (rxIdx == -1) return;
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
+    if (txIdx == -1) return;
     
     // Резервируем память для оптимизации
     outData.reserve(endIndex - startIndex);
     
-    // Выбираем массив данных один раз для оптимизации
-    const float* dataArray = (receiverIndex == 0) ? nullptr : nullptr; // Будет установлено в цикле
-    
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float amplitude = (receiverIndex == 0) ? record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
+        float amplitude = (receiverIndex == 0) ? record.AM_RX_1[freqIdx][txIdx] : record.AM_RX_2[freqIdx][txIdx];
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
@@ -632,21 +611,23 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
 void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex, 
                                    FrequencyBand frequency, std::vector<float>& outData,
                                    double minX, double maxX) const {
+    (void)receiverIndex;
     auto indexRange = GetDataIndexRange(minX, maxX);
     size_t startIndex = indexRange.first;
     size_t endIndex = indexRange.second;
-    
-    int rxIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (rxIdx == -1) return;
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
+    if (txIdx == -1) return;
     
     // Резервируем память для оптимизации
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float phase = (receiverIndex == 0) ? record.PH_RX_1[rxIdx] : record.PH_RX_2[rxIdx];
-        phase = NormalizePhase(phase); // Нормализация в диапазон (-π, π]
-        outData.push_back(phase * 57295.7795f); // Преобразование рад -> мдег
+        float phase = record.phase_smt[freqIdx][txIdx];
+        phase = NormalizePhase(phase);
+        outData.push_back(phase * 57295.7795f);
     }
 }
 
@@ -656,16 +637,16 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
     auto indexRange = GetDataIndexRange(minX, maxX);
     size_t startIndex = indexRange.first;
     size_t endIndex = indexRange.second;
-    
-    int rxIdx = GetSilentTransmitterIndex(frequency);
-    if (rxIdx == -1) return;
+
+    const int freqIdx = GetSilentTransmitterIndex(frequency);
+    if (freqIdx == -1) return;
     
     // Резервируем память для оптимизации
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
         const GP_TOOL_DATA& record = data[i];
-        float amplitude = (receiverIndex == 0) ? record.AM_RX_1[rxIdx] : record.AM_RX_2[rxIdx];
+        float amplitude = (receiverIndex == 0) ? record.ZERO_AM_RX_1[freqIdx] : record.ZERO_AM_RX_2[freqIdx];
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }

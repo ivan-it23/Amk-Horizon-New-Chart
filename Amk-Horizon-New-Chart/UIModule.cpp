@@ -43,8 +43,8 @@ UIModule::UIModule()
     , hChart2SurfEdit(nullptr)
     , hTooltip(nullptr)
     , dualMode(false) {
-    chart1EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
-    chart2EnabledTransmitters.resize(4, true); // Изначально все T1-T4 включены (для совместимости)
+    chart1EnabledTransmitters.resize(5, true);
+    chart2EnabledTransmitters.resize(5, true);
 }
 
 UIModule::~UIModule() {

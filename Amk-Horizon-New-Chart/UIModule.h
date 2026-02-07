@@ -81,8 +81,8 @@ private:
     bool dualMode;
 
     // Состояние включенных/отключенных передатчиков (для совместимости с ChartModule)
-    std::vector<bool> chart1EnabledTransmitters; // Размер 4: T1, T2, T3, T4
-    std::vector<bool> chart2EnabledTransmitters; // Размер 4: T1, T2, T3, T4
+    std::vector<bool> chart1EnabledTransmitters; // Размер 5: T1, T2, T3, T4, T5
+    std::vector<bool> chart2EnabledTransmitters; // Размер 5: T1, T2, T3, T4, T5
 
 public:
     UIModule();

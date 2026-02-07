@@ -38,15 +38,16 @@ static std::wstring Utf8ToWide(const std::string& utf8str) {
 }
 
 // Определение цветов для каналов
-const COLORREF ChartModule::CHANNEL_COLORS[4] = {
+const COLORREF ChartModule::CHANNEL_COLORS[5] = {
     RGB(0, 255, 0),    // Зеленый - T1
     RGB(139, 69, 19),  // Коричневый - T2
     RGB(255, 0, 0),    // Красный - T3
-    RGB(0, 0, 255)     // Синий - T4
+    RGB(0, 0, 255),    // Синий - T4
+    RGB(255, 20, 147)  // Розовый - T5
 };
 
-const wchar_t* ChartModule::CHANNEL_NAMES[4] = {
-    L"T1", L"T2", L"T3", L"T4"
+const wchar_t* ChartModule::CHANNEL_NAMES[5] = {
+    L"T1", L"T2", L"T3", L"T4", L"T5"
 };
 
 ChartModule::ChartModule() {
@@ -58,7 +59,7 @@ ChartModule::~ChartModule() {
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                            DataType type, const std::wstring& title, bool hasData, bool showAxes) const {
     // По умолчанию все передатчики включены
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true};
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true};
     DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr, 0.0, 0.0, 0.0, 0.0, showAxes);
 }
 
@@ -144,7 +145,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         if (channel.empty())
             continue;
             
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -185,7 +186,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         if (channel.empty())
             continue;
             
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -221,7 +222,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     bool isMultiChannel = false;
     if (type == DataType::PHASE_DIFFERENCE || type == DataType::AMPLITUDE_RATIO ||
         type == DataType::AMPLITUDE_RX1 || type == DataType::AMPLITUDE_RX2 ||
-        type == DataType::PHASE_RX1 || type == DataType::PHASE_RX2) {
+        type == DataType::PHASE_SMT || type == DataType::RHO_SMT) {
         isMultiChannel = true;
     }
 
@@ -250,7 +251,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     int totalWidth = 0;
     int lineLength = 15; // Длина цветной линии
     
-    for (size_t channelIdx = 0; channelIdx < 4; channelIdx++) {
+    for (size_t channelIdx = 0; channelIdx < 5; channelIdx++) {
         if (isMultiChannel && channelIdx < enabledTransmitters.size()) {
             // Ширина элемента = чекбокс + отступ + линия + отступ + текст
             SIZE textSize;
@@ -260,7 +261,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
             elements.push_back({elementWidth, (int)channelIdx});
             totalWidth += elementWidth;
             
-            if (channelIdx < 3) { // Добавляем промежуток между элементами (кроме последнего)
+            if (channelIdx < 5) { // Добавляем промежуток между элементами (кроме последнего)
                 totalWidth += elementSpacing;
             }
         }
@@ -278,7 +279,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     
     for (const auto& elem : elements) {
         int channelIdx = elem.channelIdx;
-        COLORREF color = CHANNEL_COLORS[channelIdx % 4];
+        COLORREF color = CHANNEL_COLORS[channelIdx % 5];
         
         // Отрисовка чекбокса
         RECT checkboxRect = {currentX,
@@ -316,7 +317,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
 // Обновленная DrawChartLegend (для совместимости)
 void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const {
     // По умолчанию все передатчики включены
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true};
+    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true};
     DrawChartLegend(hdc, rect, chartData, DataType::PHASE_DIFFERENCE, allTransmittersEnabled); // Используем PHASE_DIFFERENCE как заглушку для многоканального типа
 }
 
@@ -326,7 +327,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     bool isMultiChannel = false;
     if (type == DataType::PHASE_DIFFERENCE || type == DataType::AMPLITUDE_RATIO ||
         type == DataType::AMPLITUDE_RX1 || type == DataType::AMPLITUDE_RX2 ||
-        type == DataType::PHASE_RX1 || type == DataType::PHASE_RX2) {
+        type == DataType::PHASE_SMT || type == DataType::RHO_SMT) {
         isMultiChannel = true;
     }
 
@@ -355,7 +356,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     std::vector<LegendElement> elements;
     int totalWidth = 0;
     
-    for (int channelIdx = 0; channelIdx < 4; channelIdx++) {
+    for (int channelIdx = 0; channelIdx < 5; channelIdx++) {
         if (isMultiChannel) {
             SIZE textSize;
             GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
@@ -364,7 +365,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
             elements.push_back({elementWidth, channelIdx, 0});
             totalWidth += elementWidth;
             
-            if (channelIdx < 3) {
+            if (channelIdx < 5) {
                 totalWidth += elementSpacing;
             }
         }
@@ -2032,7 +2033,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         const auto& channel = chartData[channelIdx];
         if (channel.empty()) continue;
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 4]);
+        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;

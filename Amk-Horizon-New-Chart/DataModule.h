@@ -8,28 +8,34 @@
 struct CurveDefinition;
 struct ChartConfiguration;
 
-// Структура данных прибора
+// Структура данных прибора (новый формат 5Tx, 240 байт)
+#pragma pack(push, 1)
 struct GP_TOOL_DATA {
-    uint32_t signature;      // Сигнатура для идентификации данных
-    uint32_t condition;      // Состояние измерения (контроль качества)
-    float Ro_smt[8];        // Симметризованное удельное сопротивление
-    float PH_smt[8];        // Симметризованная разность фаз
-    uint32_t frame;         // Номер кадра
-    float temperature;      // Температура
-    float AM_RX_1[10];      // Амплитуды приемника RX1
-    float AM_RX_2[10];      // Амплитуды приемника RX2
-    float PH_RX_1[10];      // Фазы приемника RX1
-    float PH_RX_2[10];      // Фазы приемника RX2
+    uint32_t signature;
+    uint32_t condition;
+    uint32_t frame;
+    float temperature;
+    float rho_smt[2][5];
+    float phase_smt[2][5];
+    float AM_RX_1[2][5];
+    float ZERO_AM_RX_1[2];
+    float AM_RX_2[2][5];
+    float ZERO_AM_RX_2[2];
+    float DELTA_PH[2][5];
+    float ZERO_dPH[2];
 };
+#pragma pack(pop)
+
+static_assert(sizeof(GP_TOOL_DATA) == 240, "GP_TOOL_DATA must be exactly 240 bytes");
 
 // Типы данных для отображения
 enum class DataType {
-    PHASE_DIFFERENCE,        // Разность фаз RX2-RX1 (4 канала T1-T4)
-    AMPLITUDE_RATIO,         // Отношение амплитуд RX2/RX1 (4 канала T1-T4)
-    AMPLITUDE_RX1,           // Амплитуды RX1 активных передатчиков (4 канала)
-    AMPLITUDE_RX2,           // Амплитуды RX2 активных передатчиков (4 канала)
-    PHASE_RX1,              // Фазы RX1 активных передатчиков (4 канала)
-    PHASE_RX2,              // Фазы RX2 активных передатчиков (4 канала)
+    PHASE_DIFFERENCE,        // Разность фаз (источник: DELTA_PH) (5 каналов T1-T5)
+    AMPLITUDE_RATIO,         // Отношение амплитуд RX2/RX1 (5 каналов T1-T5)
+    AMPLITUDE_RX1,           // Амплитуды RX1 активных передатчиков (5 каналов)
+    AMPLITUDE_RX2,           // Амплитуды RX2 активных передатчиков (5 каналов)
+    PHASE_SMT,               // Симметризованные фазы (5 каналов)
+    RHO_SMT,                 // Симметризованные УЭС (5 каналов)
     SILENT_AMPLITUDE_RX1,    // Амплитуды молчащих передатчиков RX1 (1 канал)
     SILENT_AMPLITUDE_RX2,    // Амплитуды молчащих передатчиков RX2 (1 канал)
     TEMPERATURE             // Температура прибора (1 значение на запись)
@@ -40,7 +46,8 @@ enum class Transmitter {
     T1 = 0,
     T2 = 1,
     T3 = 2,
-    T4 = 3
+    T4 = 3,
+    T5 = 4
 };
 
 // Частотные диапазоны

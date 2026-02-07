@@ -78,7 +78,7 @@ CurveDefinition::CurveDefinition(const std::string& id, const std::string& name,
 
 // Реализация SchematicSelection
 SchematicSelection::SchematicSelection() : frequency(FrequencyBand::FREQ_400_KHZ), dataFilter(DataTypeFilter::ALL) {
-    transmitters.resize(4, false);  // T1-T4
+    transmitters.resize(5, false);  // T1-T5
     receivers.resize(2, false);     // R1-R2
     silentTx.resize(2, false);      // Молчащие для R1 и R2
 }
@@ -380,7 +380,7 @@ void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
         }
     }
     
-    // Отрисовываем рамку для основных элементов (T1-T4, R1-R2)
+    // Отрисовываем рамку для основных элементов (T1-T5, R1-R2)
     if (deviceFrameRect.right > deviceFrameRect.left && 
         deviceFrameRect.bottom > deviceFrameRect.top) {
         DrawDeviceFrame(memDC, deviceFrameRect);
@@ -547,7 +547,7 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     SynchronizeElementStates();
     
     // ОТЛАДКА: Выводим итоговое состояние
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
     }
     for (int i = 0; i < 2; i++) {
     }
@@ -558,7 +558,7 @@ bool SchematicModule::HandleElementClick(int x, int y) {
 void SchematicModule::UpdateSelection(ElementType type, int index, bool selected) {
     switch (type) {
         case ElementType::TRANSMITTER:
-            if (index >= 0 && index < 4) {
+            if (index >= 0 && index < 5) {
                 currentSelection.transmitters[index] = selected;
             }
             break;
@@ -637,8 +637,8 @@ void SchematicModule::InitializeSchematicElements(const RECT& schemaRect) {
     // TODO: Реализовать инициализацию элементов схемы
     // Пока что создаем заглушки для элементов
     
-    // Добавляем передатчики T1-T4
-    for (int i = 0; i < 4; i++) {
+    // Добавляем передатчики T1-T5
+    for (int i = 0; i < 5; i++) {
         RECT rect = CalculateElementRect(schemaRect, ElementType::TRANSMITTER, i);
         schematicElements.emplace_back(rect, ElementType::TRANSMITTER, i);
     }
@@ -745,8 +745,8 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
     const int spacing = 10;        // Уменьшено с 12 до 10
     const int frameToSilentSpacing = 8;  // Уменьшено с 10 до 8 (максимальная компактность)
     
-    // Рассчитываем ширину рамки (6 элементов: T1-T4, R1-R2)
-    const int frameElementsCount = 6;
+    // Рассчитываем ширину рамки (7 элементов: T1-T5, R1-R2)
+    const int frameElementsCount = 7;
     const int frameWidth = frameElementsCount * elementWidth + (frameElementsCount - 1) * spacing + 2 * FRAME_PADDING;
     
     // Рассчитываем общую ширину (рамка + отступ + 2 молчащих)
@@ -757,19 +757,20 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
     const int centerY = schemaRect.top + (schemaRect.bottom - schemaRect.top - elementHeight) / 2;
     
     // Определяем позицию элемента в горизонтальной линии
-    // ПРАВИЛЬНЫЙ порядок: T3(0), T1(1), R1(2), R2(3), T2(4), T4(5), Silent R1(6), Silent R2(7)
+    // ПРАВИЛЬНЫЙ порядок: T3(0), T1(1), R1(2), R2(3), T2(4), T4(5), T5(6), Silent R1(7), Silent R2(8)
     int positionIndex = -1;
     int currentX = startX + FRAME_PADDING;  // Начинаем внутри рамки
     
     switch (type) {
         case ElementType::TRANSMITTER:
             {
-                // Передатчики в порядке: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5)
+                // Передатчики в порядке: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5), T5(pos 6)
                 switch (index) {
                     case 0: positionIndex = 1; break; // T1 -> позиция 1
                     case 1: positionIndex = 4; break; // T2 -> позиция 4
                     case 2: positionIndex = 0; break; // T3 -> позиция 0
                     case 3: positionIndex = 5; break; // T4 -> позиция 5
+                    case 4: positionIndex = 6; break; // T5 -> позиция 6
                 }
                 currentX += positionIndex * (elementWidth + spacing);
             }
@@ -785,8 +786,8 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
             
         case ElementType::SILENT_TX:
             {
-                // Молчащие передатчики вне рамки (позиции 6-7)
-                positionIndex = 6 + index;  // Silent R1=6, Silent R2=7
+                // Молчащие передатчики вне рамки (позиции 7-8)
+                positionIndex = 7 + index;  // Silent R1=7, Silent R2=8
                 // Начинаем после рамки
                 currentX = startX + frameWidth + frameToSilentSpacing + index * (elementWidth + spacing);
             }
@@ -815,16 +816,16 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     
     InitializeSchematicElements(schemaRect);
     
-    // Рассчитываем координаты рамки для основных элементов (T1-T4, R1-R2)
-    // Рамка должна охватывать элементы с позициями 0-5 (T3, T1, R1, R2, T2, T4)
+    // Рассчитываем координаты рамки для основных элементов (T1-T5, R1-R2)
+    // Рамка должна охватывать элементы с позициями 0-6 (T3, T1, R1, R2, T2, T4, T5)
     
-    if (schematicElements.size() >= 6) {
+    if (schematicElements.size() >= 7) {
         
-        // Находим минимальные и максимальные координаты для первых 6 элементов
+        // Находим минимальные и максимальные координаты для первых 7 элементов
         int minX = INT_MAX, minY = INT_MAX;
         int maxX = INT_MIN, maxY = INT_MIN;
         
-        for (size_t i = 0; i < 6; i++) {
+        for (size_t i = 0; i < 7; i++) {
             const RECT& rect = schematicElements[i].rect;
             
             minX = (minX < (int)rect.left) ? minX : (int)rect.left;
@@ -839,7 +840,7 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
         deviceFrameRect.right = maxX + FRAME_PADDING;
         deviceFrameRect.bottom = maxY + FRAME_PADDING;
     } else {
-        // Если элементов меньше 6, рамка не отрисовывается
+        // Если элементов меньше 7, рамка не отрисовывается
         deviceFrameRect = {0, 0, 0, 0};
     }
     
@@ -905,7 +906,7 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 
                 // ИСПРАВЛЕНИЕ: Сначала анализируем типы данных кривых для определения выбора
                 // Ключевое отличие между выбором приёмников и передатчиков:
-                // - Если выбран приёмник R1/R2: кривые для ВСЕХ 4 передатчиков (T1-T4)
+                // - Если выбран приёмник R1/R2: кривые для ВСЕХ 5 передатчиков (T1-T5)
                 // - Если выбраны передатчики: кривые только для ВЫБРАННЫХ передатчиков
                 
                 bool hasRX1Types = false, hasRX2Types = false;
@@ -918,10 +919,10 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 
                 for (const auto& curve : existingConfig.curves) {
                     // Анализируем тип данных
-                    if (curve.dataType == DataType::AMPLITUDE_RX1 || curve.dataType == DataType::PHASE_RX1) {
+                    if (curve.dataType == DataType::AMPLITUDE_RX1) {
                         hasRX1Types = true;
                     }
-                    if (curve.dataType == DataType::AMPLITUDE_RX2 || curve.dataType == DataType::PHASE_RX2) {
+                    if (curve.dataType == DataType::AMPLITUDE_RX2) {
                         hasRX2Types = true;
                     }
                     if (curve.dataType == DataType::AMPLITUDE_RATIO || curve.dataType == DataType::PHASE_DIFFERENCE) {
@@ -944,40 +945,40 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                     currentSelection.receivers[0] = true;
                     currentSelection.receivers[1] = true;
                 }
-                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
-                    // Выбран только приемник R1 (кривые для ВСЕХ 4 передатчиков с R1)
+                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                    // Выбран только приемник R1 (кривые для ВСЕХ 5 передатчиков с R1)
                     currentSelection.receivers[0] = true;
                 }
-                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
-                    // Выбран только приемник R2 (кривые для ВСЕХ 4 передатчиков с R2)
+                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                    // Выбран только приемник R2 (кривые для ВСЕХ 5 передатчиков с R2)
                     currentSelection.receivers[1] = true;
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < 4) {
-                    // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 4 передатчиков)
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < 5) {
+                    // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 5 передатчиков)
                     // Восстанавливаем передатчики из sourceElement
                     for (const auto& curve : existingConfig.curves) {
                         if (curve.sourceElement == ElementType::TRANSMITTER) {
-                            if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
+                            if (curve.elementIndex >= 0 && curve.elementIndex < 5) {
                                 currentSelection.transmitters[curve.elementIndex] = true;
                             }
                         }
                     }
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 4) {
-                    // Особый случай: есть кривые для всех 4 передатчиков с обоими приёмниками
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                    // Особый случай: есть кривые для всех 5 передатчиков с обоими приёмниками
                     // Это может быть либо выбор всех 4 передатчиков, либо какая-то другая комбинация
                     // Проверяем количество кривых: если их 16 (4 передатчика × 2 приёмника × 2 типа данных), 
                     // то скорее всего выбраны все передатчики
-                    if (existingConfig.curves.size() >= 16) {
+                    if (existingConfig.curves.size() >= 20) {
                         // Восстанавливаем все передатчики
-                        for (int i = 0; i < 4; i++) {
+                        for (int i = 0; i < 5; i++) {
                             currentSelection.transmitters[i] = true;
                         }
                     } else {
                         // Восстанавливаем только те передатчики, которые есть в кривых
                         for (const auto& curve : existingConfig.curves) {
                             if (curve.sourceElement == ElementType::TRANSMITTER) {
-                                if (curve.elementIndex >= 0 && curve.elementIndex < 4) {
+                                if (curve.elementIndex >= 0 && curve.elementIndex < 5) {
                                     currentSelection.transmitters[curve.elementIndex] = true;
                                 }
                             }
@@ -997,7 +998,7 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 }
                 
                 // ОТЛАДКА: Итоговое состояние выбора
-                for (int i = 0; i < 4; i++) {
+                for (int i = 0; i < 5; i++) {
                 }
                 for (int i = 0; i < 2; i++) {
                 }
@@ -1009,11 +1010,9 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 for (const auto& curve : existingConfig.curves) {
                     switch (curve.dataType) {
                         case DataType::AMPLITUDE_RX1:
-                        case DataType::PHASE_RX1:
                             currentSelection.receivers[0] = true; // R1
                             break;
                         case DataType::AMPLITUDE_RX2:
-                        case DataType::PHASE_RX2:
                             currentSelection.receivers[1] = true; // R2
                             break;
                         case DataType::AMPLITUDE_RATIO:
@@ -1192,7 +1191,7 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     // Включаем группировку в ListView
     ListView_EnableGroupView(hCurveList, TRUE);
     
-    // Группируем кривые по элементам (T1-T4, R1-R2)
+    // Группируем кривые по элементам (T1-T5, R1-R2)
     std::map<int, std::vector<size_t>> curvesByElement; // Ключ: elementIndex, Значение: индексы кривых
     std::vector<int> elementOrder; // Порядок элементов
     
@@ -1636,8 +1635,7 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
             case DataType::SILENT_AMPLITUDE_RX2:
                 hasSilentAmplitudes = true;
                 break;
-            case DataType::PHASE_RX1:
-            case DataType::PHASE_RX2:
+            case DataType::PHASE_SMT:
                 hasPhases = true;
                 break;
             case DataType::AMPLITUDE_RATIO:
@@ -1721,14 +1719,14 @@ void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
     // Поскольку все элементы теперь в одной линии, добавляем подписи под каждым элементом
     // Получаем позиции элементов для подписей
     int elementWidth = 70, spacing = 10;
-    int totalElements = 8;
+    int totalElements = 9;
     int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
     int startX = rect.left + (rect.right - rect.left - totalElementsWidth) / 2;
     int centerY = rect.top + (rect.bottom - rect.top) / 2;
     int labelY = centerY + 45 + 5; // Под элементами
     
     // Подписи типов элементов убраны для более чистого вида
-    // Пользователи ИАТК понимают обозначения T1-T4, R1-R2, Silent R1-R2 без дополнительных пояснений
+    // Пользователи ИАТК понимают обозначения T1-T5, R1-R2, Silent R1-R2 без дополнительных пояснений
     
     SelectObject(hdc, oldFont);
     DeleteObject(labelFont);

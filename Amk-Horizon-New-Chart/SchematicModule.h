@@ -13,7 +13,7 @@ class CurveSelectionModule;
 
 // Типы элементов схемы прибора
 enum class ElementType {
-    TRANSMITTER,    // Активный передатчик T1-T4
+    TRANSMITTER,    // Активный передатчик T1-T5
     RECEIVER,       // Приемник R1-R2
     SILENT_TX       // Молчащий передатчик
 };
@@ -36,7 +36,7 @@ struct CurveDefinition {
     
     // Параметры для вычисления данных
     ElementType sourceElement;   // Тип источника данных
-    int elementIndex;           // Индекс элемента (0-3 для T1-T4, 0-1 для R1-R2)
+    int elementIndex;           // Индекс элемента (0-4 для T1-T5, 0-1 для R1-R2)
     DataType dataType;          // Тип данных
     FrequencyBand frequency;    // Частотный диапазон
     
@@ -58,7 +58,7 @@ enum class DataTypeFilter {
 
 // Выбор элементов на схеме прибора
 struct SchematicSelection {
-    std::vector<bool> transmitters;  // T1-T4 [4 элемента]
+    std::vector<bool> transmitters;  // T1-T5 [5 элементов]
     std::vector<bool> receivers;     // R1-R2 [2 элемента]  
     std::vector<bool> silentTx;      // Молчащие передатчики [2 элемента] для R1 и R2
     FrequencyBand frequency;         // Выбранная частота

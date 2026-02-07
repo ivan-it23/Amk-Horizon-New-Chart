@@ -258,47 +258,28 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
     
     // Очищаем буферы перед запросом
     PurgeBuffers();
-    
-    // Отправляем команду CMD_WORK (0x67)
-    // Формат: [CMD:1] [length:1] [CRC:2] = 4 байта
-    uint8_t cmdData = 252;  // Ожидаемая длина ответа
-    if (!SendCommand(SerialCommands::CMD_WORK, &cmdData, 1)) {
+
+    // Новый протокол: CMD + uint16 length + payload + CRC16
+    // Запрос данных: CMD_DATA (0x11), payload пустой
+    if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
         return SerialResult::CONNECTION_FAILED;
     }
-    
-    // Ждём немного перед чтением
-    Sleep(100);
-    
-    // Читаем ответ
-    // Формат ответа: [CMD:1] [Reserved:12] [GP_TOOL_DATA:240] [CRC:2] = 255 байт
-    const size_t RESPONSE_SIZE = 255;
-    uint8_t buffer[RESPONSE_SIZE];
-    size_t bytesRead = 0;
-    
-    if (!ReceivePacket(buffer, RESPONSE_SIZE, bytesRead)) {
+
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
         return SerialResult::TIMEOUT;
     }
-    
-    if (bytesRead < RESPONSE_SIZE) {
+
+    if (cmd != SerialCommands::CMD_DATA) {
         return SerialResult::INVALID_RESPONSE;
     }
-    
-    // Проверяем CRC (CRC считается от CMD до конца данных, без самого CRC)
-    if (!ValidateCRC(buffer, RESPONSE_SIZE - 2)) {
-        return SerialResult::CRC_ERROR;
+
+    if (payload.size() != sizeof(GP_TOOL_DATA)) {
+        return SerialResult::INVALID_RESPONSE;
     }
-    
-    // Данные начинаются с 13-го байта (после CMD + 12 зарезервированных)
-    GP_TOOL_DATA* pData = reinterpret_cast<GP_TOOL_DATA*>(buffer + 13);
-    
-    // Проверяем сигнатуру
-    if (!ValidateSignature(pData->signature)) {
-        return SerialResult::INVALID_SIGNATURE;
-    }
-    
-    // Копируем данные
-    memcpy(&outData, pData, sizeof(GP_TOOL_DATA));
-    
+
+    memcpy(&outData, payload.data(), sizeof(GP_TOOL_DATA));
     return SerialResult::SUCCESS;
 }
 
@@ -306,73 +287,70 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
     if (!IsConnected()) {
         return SerialResult::NOT_CONNECTED;
     }
-    
-    // Пробуем несколько раз (эмулятор может не сразу ответить)
-    for (int attempt = 0; attempt < 3; attempt++) {
-        // Очищаем буферы перед запросом
-        PurgeBuffers();
-        
-        // Отправляем команду CMD_READ_EE (0x65)
-        // Эмулятор ожидает минимум 4 байта, поэтому добавляем 1 байт данных
-        uint8_t dummyData = 0;
-        if (!SendCommand(SerialCommands::CMD_READ_EE, &dummyData, 1)) {
-            Sleep(200);
-            continue;
-        }
-        
-        // Ждём ответа (увеличенный таймаут)
-        Sleep(300);
-        
-        // Читаем ответ
-        // Формат ответа: [CMD:1] [METROLOGY_DATA:240] [CRC:2] = 243 байта
 
-        const size_t RESPONSE_SIZE = 1 + sizeof(METROLOGY_DATA) + 2;  // 243 байта
-        uint8_t buffer[300];  // С запасом
-        size_t bytesRead = 0;
-        
-        if (!ReceivePacket(buffer, RESPONSE_SIZE, bytesRead)) {
-            Sleep(200);
-            continue;
-        }
-        
-        if (bytesRead < RESPONSE_SIZE) {
-            Sleep(200);
-            continue;
-        }
-        
-        // Проверяем CRC
-        if (!ValidateCRC(buffer, RESPONSE_SIZE - 2)) {
-            Sleep(200);
-            continue;
-        }
-        
-        // Данные начинаются с 1-го байта (после CMD)
-        METROLOGY_DATA* pData = reinterpret_cast<METROLOGY_DATA*>(buffer + 1);
-        
-        // Копируем данные
-        memcpy(&outData, pData, sizeof(METROLOGY_DATA));
-        
-        // Кэшируем метрологию
-        memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
-        hasMetrology = true;
-        
-        // v2.15.0: Проверяем, изменился ли прибор
-        std::wstring newDeviceId = GetDeviceId();
-        if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {
-            // Прибор изменился - закрываем старый файл, откроем новый при следующей записи
-            CloseRecordFile();
-        }
-        currentDeviceId = newDeviceId;
-        
-        if (onMetrologyReceived) {
-            onMetrologyReceived(outData);
-        }
-        
-        return SerialResult::SUCCESS;
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
+        return SerialResult::CONNECTION_FAILED;
     }
-    
-    // Все попытки неудачны
-    return SerialResult::TIMEOUT;
+
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        return SerialResult::TIMEOUT;
+    }
+
+    if (cmd != SerialCommands::CMD_GET_METROLOGY) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    if (payload.size() != sizeof(METROLOGY_DATA)) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    memcpy(&outData, payload.data(), sizeof(METROLOGY_DATA));
+
+    memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
+    hasMetrology = true;
+
+    std::wstring newDeviceId = GetDeviceId();
+    if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {
+        CloseRecordFile();
+    }
+    currentDeviceId = newDeviceId;
+
+    if (onMetrologyReceived) {
+        onMetrologyReceived(outData);
+    }
+
+    return SerialResult::SUCCESS;
+}
+
+SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
+    if (!IsConnected()) {
+        return SerialResult::NOT_CONNECTED;
+    }
+
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
+        return SerialResult::CONNECTION_FAILED;
+    }
+
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        return SerialResult::TIMEOUT;
+    }
+
+    if (cmd != SerialCommands::CMD_GET_SIGNATURE) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    if (payload.size() != sizeof(uint32_t)) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    memcpy(&outSignature, payload.data(), sizeof(uint32_t));
+    return SerialResult::SUCCESS;
 }
 
 // === Callbacks ===
@@ -447,60 +425,88 @@ std::wstring SerialModule::ResultToString(SerialResult result) {
 
 // === Низкоуровневые методы ===
 
-bool SerialModule::SendCommand(uint8_t cmd, const uint8_t* data, size_t dataLength) {
+bool SerialModule::SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLength) {
     if (hSerial == INVALID_HANDLE_VALUE) {
         return false;
     }
-    
-    // Формируем пакет: [CMD:1] [DATA:N] [CRC:2]
-    size_t packetSize = 1 + dataLength + 2;
-    std::vector<uint8_t> packet(packetSize);
-    
+
+    // Формат: [CMD:1][LEN:2][PAYLOAD:N][CRC:2], где LEN = N + 5
+    const uint16_t totalLen = static_cast<uint16_t>(dataLength + 5);
+    std::vector<uint8_t> packet(totalLen);
     packet[0] = cmd;
-    
+    memcpy(&packet[1], &totalLen, sizeof(uint16_t));
+
     if (data != nullptr && dataLength > 0) {
-        memcpy(&packet[1], data, dataLength);
+        memcpy(&packet[3], data, dataLength);
     }
-    
-    // Вычисляем CRC (от CMD до конца данных)
-    uint16_t crc = CalculateCRC16(packet.data(), 1 + dataLength);
-    packet[1 + dataLength] = static_cast<uint8_t>(crc & 0xFF);        // Младший байт
-    packet[1 + dataLength + 1] = static_cast<uint8_t>(crc >> 8);      // Старший байт
-    
-    // Отправляем
+
+    const uint16_t crc = CalculateCRC16(packet.data(), static_cast<size_t>(dataLength + 3));
+    packet[3 + dataLength] = static_cast<uint8_t>(crc & 0xFF);
+    packet[4 + dataLength] = static_cast<uint8_t>(crc >> 8);
+
     DWORD bytesWritten = 0;
-    if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packetSize), &bytesWritten, nullptr)) {
+    if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr)) {
         return false;
     }
-    
-    return bytesWritten == packetSize;
+
+    return bytesWritten == packet.size();
 }
 
-bool SerialModule::ReceivePacket(uint8_t* buffer, size_t bufferSize, size_t& bytesRead) {
-    if (hSerial == INVALID_HANDLE_VALUE || buffer == nullptr) {
+bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPayload) {
+    outPayload.clear();
+    outCmd = 0;
+
+    if (hSerial == INVALID_HANDLE_VALUE) {
         return false;
     }
-    
-    DWORD totalRead = 0;
-    DWORD read = 0;
-    
-    // Читаем данные порциями
-    while (totalRead < bufferSize) {
-        if (!ReadFile(hSerial, buffer + totalRead, 
-                     static_cast<DWORD>(bufferSize - totalRead), &read, nullptr)) {
-            break;
+
+    uint8_t header[3] = {0};
+    size_t headerRead = 0;
+    while (headerRead < sizeof(header)) {
+        DWORD chunk = 0;
+        if (!ReadFile(hSerial, header + headerRead, static_cast<DWORD>(sizeof(header) - headerRead), &chunk, nullptr)) {
+            return false;
         }
-        
-        if (read == 0) {
-            // Таймаут или конец данных
-            break;
+        if (chunk == 0) {
+            return false;
         }
-        
-        totalRead += read;
+        headerRead += chunk;
     }
-    
-    bytesRead = totalRead;
-    return totalRead > 0;
+
+    const uint16_t totalLen = static_cast<uint16_t>(header[1] | (static_cast<uint16_t>(header[2]) << 8));
+    if (totalLen < 5 || totalLen > 4096) {
+        return false;
+    }
+
+    std::vector<uint8_t> packet(totalLen);
+    packet[0] = header[0];
+    packet[1] = header[1];
+    packet[2] = header[2];
+
+    size_t remaining = totalLen - 3;
+    DWORD totalRead = 0;
+    while (totalRead < remaining) {
+        DWORD chunk = 0;
+        if (!ReadFile(hSerial, packet.data() + 3 + totalRead, static_cast<DWORD>(remaining - totalRead), &chunk, nullptr)) {
+            return false;
+        }
+        if (chunk == 0) {
+            return false;
+        }
+        totalRead += chunk;
+    }
+
+    if (!ValidateCRC(packet.data(), packet.size())) {
+        return false;
+    }
+
+    outCmd = packet[0];
+    const size_t payloadLen = packet.size() - 5;
+    outPayload.resize(payloadLen);
+    if (payloadLen > 0) {
+        memcpy(outPayload.data(), packet.data() + 3, payloadLen);
+    }
+    return true;
 }
 
 uint16_t SerialModule::CalculateCRC16(const uint8_t* data, size_t length) const {
@@ -514,23 +520,15 @@ uint16_t SerialModule::CalculateCRC16(const uint8_t* data, size_t length) const 
     return crc;
 }
 
-bool SerialModule::ValidateCRC(const uint8_t* packet, size_t dataLength) const {
-    if (packet == nullptr || dataLength < 1) {
+bool SerialModule::ValidateCRC(const uint8_t* packet, size_t packetSize) const {
+    if (packet == nullptr || packetSize < 5) {
         return false;
     }
-    
-    // Вычисляем CRC от данных
-    uint16_t calculatedCRC = CalculateCRC16(packet, dataLength);
-    
-    // Читаем CRC из пакета (2 байта после данных)
-    uint16_t receivedCRC = packet[dataLength] | (packet[dataLength + 1] << 8);
-    
-    return calculatedCRC == receivedCRC;
-}
 
-bool SerialModule::ValidateSignature(uint32_t signature) const {
-    return signature == DataSignatures::SIGNATURE_1D4S || 
-           signature == DataSignatures::SIGNATURE_1D4T;
+    const size_t dataLen = packetSize - 2;
+    const uint16_t calculatedCRC = CalculateCRC16(packet, dataLen);
+    const uint16_t receivedCRC = packet[dataLen] | (packet[dataLen + 1] << 8);
+    return calculatedCRC == receivedCRC;
 }
 
 void SerialModule::SetState(ConnectionState newState, const std::wstring& error) {

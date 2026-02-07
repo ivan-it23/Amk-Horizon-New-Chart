@@ -3,21 +3,23 @@
 #include <algorithm>
 #include <sstream>
 
-// Определение стандартных цветов для кривых T1-T4
-// Цвета для левой оси (приоритетные цвета для T1-T4)
-const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[4] = {
+// Определение стандартных цветов для кривых T1-T5
+// Цвета для левой оси (приоритетные цвета для T1-T5)
+const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[5] = {
     RGB(0, 128, 0),    // T1 - Зелёный (привычный цвет)
     RGB(139, 69, 19),  // T2 - Коричневый (отличная видимость и контраст)
     RGB(255, 0, 0),    // T3 - Красный (привычный цвет)
-    RGB(0, 0, 255)     // T4 - Синий (привычный цвет)
+    RGB(0, 0, 255),    // T4 - Синий (привычный цвет)
+    RGB(255, 20, 147)  // T5 - Розовый
 };
 
-// Цвета для правой оси (альтернативные цвета для T1-T4)
-const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[4] = {
+// Цвета для правой оси (альтернативные цвета для T1-T5)
+const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[5] = {
     RGB(0, 100, 100),  // T1 - Тёмно-бирюзовый
     RGB(139, 69, 19),  // T2 - Коричневый
     RGB(128, 0, 128),  // T3 - Фиолетовый
-    RGB(255, 20, 147)  // T4 - Розовый
+    RGB(255, 20, 147), // T4 - Розовый
+    RGB(255, 140, 0)   // T5 - Тёмно-оранжевый
 };
 
 // Специальные цвета для других типов данных
@@ -41,11 +43,12 @@ const COLORREF CurveSelectionModule::EXTENDED_PALETTE[12] = {
 };
 
 // Старый массив для обратной совместимости (теперь не используется)
-const COLORREF CurveSelectionModule::CURVE_COLORS[4] = {
+const COLORREF CurveSelectionModule::CURVE_COLORS[5] = {
     RGB(0, 128, 0),    // T1 - Зелёный
     RGB(139, 69, 19),  // T2 - Коричневый
     RGB(255, 0, 0),    // T3 - Красный
-    RGB(0, 0, 255)     // T4 - Синий
+    RGB(0, 0, 255),    // T4 - Синий
+    RGB(255, 20, 147)  // T5 - Розовый
 };
 
 // Реализация CurveSelectionModule
@@ -105,11 +108,11 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
         // ИСПРАВЛЕНО: Поддержка комбинаций элементов
         // Логика определения доступных кривых на основе выбора элементов
         if (selectedReceivers == 2) {
-            // Два приемника -> отношения амплитуд и разности фаз (4 кривые T1-T4)
+            // Два приемника -> отношения амплитуд и разности фаз (5 кривых T1-T5)
             AddTwoReceiversCurves(curves, selection);
         }
         else if (selectedReceivers == 1) {
-            // Один приемник -> амплитуды и фазы для T1-T4 (8 кривых)
+            // Один приемник -> амплитуды и фазы для T1-T5
             AddSingleReceiverCurves(curves, selection);
         }
         
@@ -286,11 +289,17 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                     CalculateAmplitudeData(curve.elementIndex, receiverIndex, curve.frequency, dataModule, curveData);
                 }
                 break;
-            case DataType::PHASE_RX1:
-            case DataType::PHASE_RX2:
+            case DataType::PHASE_SMT:
+                CalculatePhaseData(curve.elementIndex, 0, curve.frequency, dataModule, curveData);
+                break;
+            case DataType::RHO_SMT:
                 {
-                    int receiverIndex = (curve.dataType == DataType::PHASE_RX1) ? 0 : 1;
-                    CalculatePhaseData(curve.elementIndex, receiverIndex, curve.frequency, dataModule, curveData);
+                    const auto& data = dataModule->GetData();
+                    curveData.reserve(data.size());
+                    const int freqIdx = (curve.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+                    for (const auto& record : data) {
+                        curveData.push_back(record.rho_smt[freqIdx][curve.elementIndex]);
+                    }
                 }
                 break;
             case DataType::SILENT_AMPLITUDE_RX1:
@@ -384,11 +393,20 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                     dataModule->CalculateAmplitudeData(curve.elementIndex, receiverIndex, curve.frequency, curveData, minX, maxX);
                 }
                 break;
-            case DataType::PHASE_RX1:
-            case DataType::PHASE_RX2:
+            case DataType::PHASE_SMT:
+                dataModule->CalculatePhaseData(curve.elementIndex, 0, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::RHO_SMT:
                 {
-                    int receiverIndex = (curve.dataType == DataType::PHASE_RX1) ? 0 : 1;
-                    dataModule->CalculatePhaseData(curve.elementIndex, receiverIndex, curve.frequency, curveData, minX, maxX);
+                    const auto& data = dataModule->GetData();
+                    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
+
+                    curveData.reserve(endIndex - startIndex);
+                    const int freqIdx = (curve.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+                    for (size_t i = startIndex; i < endIndex; ++i) {
+                        curveData.push_back(data[i].rho_smt[freqIdx][curve.elementIndex]);
+                    }
                 }
                 break;
             case DataType::SILENT_AMPLITUDE_RX1:
@@ -436,8 +454,8 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
 void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& curves, 
                                                 const SchematicSelection& selection) const {
     // Когда выбраны оба приемника (R1 и R2), доступны:
-    // 1. Разности фаз R2-R1 для каждого передатчика T1-T4 (СНАЧАЛА - более важны)
-    // 2. Отношения амплитуд R2/R1 для каждого передатчика T1-T4 (ПОТОМ)
+    // 1. Разности фаз R2-R1 для каждого передатчика T1-T5 (СНАЧАЛА - более важны)
+    // 2. Отношения амплитуд R2/R1 для каждого передатчика T1-T5 (ПОТОМ)
     
     // Проверяем фильтр типов данных
     bool addRatios = (selection.dataFilter == DataTypeFilter::ALL || 
@@ -450,7 +468,7 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     bool isSingleType = (addRatios && !addDifferences) || (!addRatios && addDifferences);
     
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем разности фаз (более важны для анализа)
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         // Разность фаз (ЛЕВАЯ ось, единицы: миллиградусы)
         if (addDifferences) {
             CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
@@ -463,7 +481,7 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     }
     
     // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем отношения амплитуд
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         // Отношение амплитуд
         if (addRatios) {
             CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
@@ -500,8 +518,8 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     if (receiverIndex == -1) return;
     
     // Когда выбран один приемник, доступны:
-    // 1. Фазы для всех передатчиков T1-T4 (ЛЕВАЯ ось, миллиградусы) - СНАЧАЛА (более важны)
-    // 2. Амплитуды для всех передатчиков T1-T4 (ПРАВАЯ ось, милливольты) - ПОТОМ
+    // 1. Фазы для всех передатчиков T1-T5 (ЛЕВАЯ ось, миллиградусы) - СНАЧАЛА (более важны)
+    // 2. Амплитуды для всех передатчиков T1-T5 (ПРАВАЯ ось, милливольты) - ПОТОМ
     
     // Проверяем фильтр типов данных
     bool addAmplitudes = (selection.dataFilter == DataTypeFilter::ALL || 
@@ -514,7 +532,7 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     bool isSingleType = (addAmplitudes && !addPhases) || (!addAmplitudes && addPhases);
     
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем фазы (более важны для анализа)
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         // Фаза (ЛЕВАЯ ось)
         if (addPhases) {
             CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
@@ -527,7 +545,7 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     }
     
     // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем амплитуды
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 5; i++) {
         // Амплитуда
         if (addAmplitudes) {
             CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
@@ -549,24 +567,17 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
     // ИЗМЕНЕНО v2.6.5: Для каждого передатчика сначала все фазы, потом все амплитуды
     // ИЗМЕНЕНО v2.7.0: Фазы на ЛЕВОЙ оси, амплитуды на ПРАВОЙ оси
     
-    for (int txIndex = 0; txIndex < 4; txIndex++) {
+    for (int txIndex = 0; txIndex < 5; txIndex++) {
         if (!selection.transmitters[txIndex]) continue; // Пропускаем невыбранные передатчики
-        
-        // ИЗМЕНЕНО v2.6.5: Сначала добавляем все фазы для этого передатчика
-        for (int rxIndex = 0; rxIndex < 2; rxIndex++) {
-            // Фаза (ЛЕВАЯ ось)
-            CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, rxIndex, selection.frequency);
-            phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось
-            phaseCurve.enabled = true; // По умолчанию включена (как и амплитуды)
-            
-            // Обновляем отображаемое имя для ясности (локализовано)
-            phaseCurve.displayName = "T" + std::to_string(txIndex + 1) +
-                                    " Фаза R" + std::to_string(rxIndex + 1);
-            
-            // Умное назначение цвета с учетом уже созданных кривых
-            phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
-            curves.push_back(phaseCurve);
-        }
+
+        // Фаза (ЛЕВАЯ ось) - в новом формате PHASE_SMT не зависит от приемника,
+        // поэтому создаём ОДНУ фазовую кривую на передатчик.
+        CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, 0, selection.frequency);
+        phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось
+        phaseCurve.enabled = true;
+        phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + " Фаза";
+        phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
+        curves.push_back(phaseCurve);
         
         // ИЗМЕНЕНО v2.6.5: Потом добавляем все амплитуды для этого передатчика
         for (int rxIndex = 0; rxIndex < 2; rxIndex++) {
@@ -595,8 +606,7 @@ void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinitio
     // Проверяем, есть ли уже фазовые кривые
     bool hasPhases = false;
     for (const auto& curve : curves) {
-        if (curve.dataType == DataType::PHASE_RX1 || 
-            curve.dataType == DataType::PHASE_RX2 || 
+        if (curve.dataType == DataType::PHASE_SMT || 
             curve.dataType == DataType::PHASE_DIFFERENCE) {
             hasPhases = true;
             break;
@@ -669,9 +679,10 @@ CurveDefinition CurveSelectionModule::CreateAmplitudeCurve(int transmitterIndex,
 
 CurveDefinition CurveSelectionModule::CreatePhaseCurve(int transmitterIndex, int receiverIndex, 
                                                       FrequencyBand frequency) const {
-    DataType dataType = (receiverIndex == 0) ? DataType::PHASE_RX1 : DataType::PHASE_RX2;
-    std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency, receiverIndex);
-    std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType, receiverIndex);
+    (void)receiverIndex;
+    DataType dataType = DataType::PHASE_SMT;
+    std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
+    std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, dataType);
     
     CurveDefinition curve(id, name, "mdeg", ElementType::TRANSMITTER, transmitterIndex, dataType, frequency);
     curve.yAxisGroup = 0; // ИЗМЕНЕНО v2.7.0: Левая ось для фаз
@@ -701,12 +712,12 @@ COLORREF CurveSelectionModule::GetCurveColor(int transmitterIndex) const {
 }
 
 COLORREF CurveSelectionModule::GetCurveColorForAxis(int transmitterIndex, int yAxisGroup) const {
-    if (transmitterIndex >= 0 && transmitterIndex < 4) {
+    if (transmitterIndex >= 0 && transmitterIndex < 5) {
         if (yAxisGroup == 0) {
-            // Левая ось - приоритетные цвета для T1-T4
+            // Левая ось - приоритетные цвета для T1-T5
             return LEFT_AXIS_COLORS[transmitterIndex];
         } else {
-            // Правая ось - альтернативные цвета для T1-T4
+            // Правая ось - альтернативные цвета для T1-T5
             return RIGHT_AXIS_COLORS[transmitterIndex];
         }
     }
@@ -736,8 +747,8 @@ COLORREF CurveSelectionModule::AssignSmartColor(const std::vector<CurveDefinitio
         usedColors.push_back(curve.color);
     }
     
-    // Проверяем, можно ли использовать приоритетный цвет для T1-T4 на левой оси
-    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < 4) {
+    // Проверяем, можно ли использовать приоритетный цвет для T1-T5 на левой оси
+    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < 5) {
         COLORREF priorityColor = LEFT_AXIS_COLORS[transmitterIndex];
         
         // Проверяем, не используется ли уже этот цвет
@@ -786,8 +797,8 @@ int CurveSelectionModule::GetLineStyle(int yAxisGroup) const {
 ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR1Preset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые амплитуд для всех передатчиков T1-T4 на приемнике R1
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые амплитуд для всех передатчиков T1-T5 на приемнике R1
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreateAmplitudeCurve(i, 0, frequency); // 0 = R1
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -805,8 +816,8 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR1Preset(FrequencyBa
 ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые амплитуд для всех передатчиков T1-T4 на приемнике R2
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые амплитуд для всех передатчиков T1-T5 на приемнике R2
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreateAmplitudeCurve(i, 1, frequency); // 1 = R2
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -824,8 +835,8 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBa
 ChartConfiguration CurveSelectionModule::CreateAllPhasesR1Preset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые фаз для всех передатчиков T1-T4 на приемнике R1
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые фаз для всех передатчиков T1-T5 на приемнике R1
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreatePhaseCurve(i, 0, frequency); // 0 = R1
         curve.yAxisGroup = 0; // Левая ось (для фаз тоже можно использовать левую)
         curve.enabled = true;
@@ -843,8 +854,8 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR1Preset(FrequencyBand f
 ChartConfiguration CurveSelectionModule::CreateAllPhasesR2Preset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые фаз для всех передатчиков T1-T4 на приемнике R2
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые фаз для всех передатчиков T1-T5 на приемнике R2
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreatePhaseCurve(i, 1, frequency); // 1 = R2
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -862,8 +873,8 @@ ChartConfiguration CurveSelectionModule::CreateAllPhasesR2Preset(FrequencyBand f
 ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые отношений амплитуд для всех передатчиков T1-T4
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые отношений амплитуд для всех передатчиков T1-T5
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreateRatioCurve(i, frequency);
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -881,8 +892,8 @@ ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBa
 ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyBand frequency) const {
     ChartConfiguration config;
     
-    // Создаем кривые разностей фаз для всех передатчиков T1-T4
-    for (int i = 0; i < 4; i++) {
+    // Создаем кривые разностей фаз для всех передатчиков T1-T5
+    for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreateDifferenceCurve(i, frequency);
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -1030,18 +1041,22 @@ std::string CurveSelectionModule::GetDataTypeDisplayName(DataType dataType) cons
     switch (dataType) {
         case DataType::AMPLITUDE_RX1:
         case DataType::AMPLITUDE_RX2:
-        case DataType::SILENT_AMPLITUDE_RX1:
-        case DataType::SILENT_AMPLITUDE_RX2:
             return "Амплитуда";
-        case DataType::PHASE_RX1:
-        case DataType::PHASE_RX2:
+        case DataType::PHASE_SMT:
             return "Фаза";
         case DataType::AMPLITUDE_RATIO:
             return "Отношение амплитуд";
         case DataType::PHASE_DIFFERENCE:
             return "Разность фаз";
+        case DataType::RHO_SMT:
+            return "УЭС";
+        case DataType::SILENT_AMPLITUDE_RX1:
+        case DataType::SILENT_AMPLITUDE_RX2:
+            return "Амплитуда";
+        case DataType::TEMPERATURE:
+            return "Температура";
         default:
-            return "Unknown";
+            return "";
     }
 }
 
@@ -1063,12 +1078,15 @@ std::string CurveSelectionModule::GetUnitsForDataType(DataType dataType) const {
         case DataType::SILENT_AMPLITUDE_RX1:
         case DataType::SILENT_AMPLITUDE_RX2:
             return "V";
-        case DataType::PHASE_RX1:
-        case DataType::PHASE_RX2:
+        case DataType::PHASE_SMT:
         case DataType::PHASE_DIFFERENCE:
             return "deg";
         case DataType::AMPLITUDE_RATIO:
-            return "V/V";
+            return "";
+        case DataType::TEMPERATURE:
+            return "degC";
+        case DataType::RHO_SMT:
+            return "";
         default:
             return "";
     }
@@ -1177,13 +1195,15 @@ int CurveSelectionModule::GetDataTypePriority(DataType dataType) const {
         case DataType::AMPLITUDE_RATIO:
             return 1; // Амплитуды первыми
             
-        case DataType::PHASE_RX1:
-        case DataType::PHASE_RX2:
+        case DataType::PHASE_SMT:
         case DataType::PHASE_DIFFERENCE:
             return 2; // Фазы вторыми
+
+        case DataType::RHO_SMT:
+            return 3;
             
         case DataType::TEMPERATURE:
-            return 3; // Температура последней
+            return 4; // Температура последней
             
         default:
             return 999; // Неизвестные типы в конце

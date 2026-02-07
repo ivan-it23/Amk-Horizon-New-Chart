@@ -1920,8 +1920,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
 std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
     switch (dataType) {
         case DataType::PHASE_DIFFERENCE:
-        case DataType::PHASE_RX1:
-        case DataType::PHASE_RX2:
+        case DataType::PHASE_SMT:
             return L"mdeg";
         
         case DataType::AMPLITUDE_RX1:
