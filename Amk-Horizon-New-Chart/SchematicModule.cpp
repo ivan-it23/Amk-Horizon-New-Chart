@@ -27,7 +27,7 @@ const COLORREF SchematicModule::SELECTION_COLOR = RGB(255, 255, 0);      // Же
 // Константы для рамки основных элементов
 const COLORREF FRAME_BACKGROUND = RGB(245, 245, 245);  // Светло-серый фон
 const COLORREF FRAME_BORDER = RGB(100, 100, 100);      // Тёмно-серая граница (сделано темнее)
-const int FRAME_PADDING = 4;                           // Отступ внутри рамки (максимальная компактность: 15→10→6→4)
+const int FRAME_PADDING = 3;                           // Отступ внутри рамки (максимальная компактность: 15→10→6→4→3)
 const int FRAME_BORDER_WIDTH = 2;                      // Толщина границы (увеличено с 1 до 2)
 const int FRAME_CORNER_RADIUS = 5;                     // Радиус скругления углов (уменьшено с 8→6→5)
 
@@ -740,10 +740,10 @@ void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
 
 RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType type, int index) {
     RECT rect;
-    const int elementWidth = 60;   // Уменьшено с 70 до 60 (боковые отступы)
+    const int elementWidth = 58;   // Уменьшено с 70 до 58 (боковые отступы)
     const int elementHeight = 35;  // Уменьшено с 45 до 35 (отступы сверху/снизу)
-    const int spacing = 10;        // Уменьшено с 12 до 10
-    const int frameToSilentSpacing = 8;  // Уменьшено с 10 до 8 (максимальная компактность)
+    const int spacing = 8;        // Уменьшено с 12 до 8
+    const int frameToSilentSpacing = 6;  // Уменьшено с 10 до 6 (максимальная компактность)
     
     // Рассчитываем ширину рамки (7 элементов: T1-T5, R1-R2)
     const int frameElementsCount = 7;
@@ -757,20 +757,20 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
     const int centerY = schemaRect.top + (schemaRect.bottom - schemaRect.top - elementHeight) / 2;
     
     // Определяем позицию элемента в горизонтальной линии
-    // ПРАВИЛЬНЫЙ порядок: T3(0), T1(1), R1(2), R2(3), T2(4), T4(5), T5(6), Silent R1(7), Silent R2(8)
+    // ПРАВИЛЬНЫЙ порядок: T5(0), T3(1), T1(2), R1(3), R2(4), T2(5), T4(6), Silent R1(7), Silent R2(8)
     int positionIndex = -1;
     int currentX = startX + FRAME_PADDING;  // Начинаем внутри рамки
     
     switch (type) {
         case ElementType::TRANSMITTER:
             {
-                // Передатчики в порядке: T3(pos 0), T1(pos 1), T2(pos 4), T4(pos 5), T5(pos 6)
+                // Передатчики в порядке: T5(pos 0), T3(pos 1), T1(pos 2), T2(pos 5), T4(pos 6)
                 switch (index) {
-                    case 0: positionIndex = 1; break; // T1 -> позиция 1
-                    case 1: positionIndex = 4; break; // T2 -> позиция 4
-                    case 2: positionIndex = 0; break; // T3 -> позиция 0
-                    case 3: positionIndex = 5; break; // T4 -> позиция 5
-                    case 4: positionIndex = 6; break; // T5 -> позиция 6
+                    case 0: positionIndex = 2; break; // T1 -> позиция 2
+                    case 1: positionIndex = 5; break; // T2 -> позиция 5
+                    case 2: positionIndex = 1; break; // T3 -> позиция 1
+                    case 3: positionIndex = 6; break; // T4 -> позиция 6
+                    case 4: positionIndex = 0; break; // T5 -> позиция 0
                 }
                 currentX += positionIndex * (elementWidth + spacing);
             }
@@ -778,8 +778,8 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
             
         case ElementType::RECEIVER:
             {
-                // Приемники R1-R2 в центре (позиции 2-3)
-                positionIndex = 2 + index;  // R1=2, R2=3
+                // Приемники R1-R2 в центре (позиции 3-4)
+                positionIndex = 3 + index;  // R1=3, R2=4
                 currentX += positionIndex * (elementWidth + spacing);
             }
             break;
@@ -817,7 +817,7 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     InitializeSchematicElements(schemaRect);
     
     // Рассчитываем координаты рамки для основных элементов (T1-T5, R1-R2)
-    // Рамка должна охватывать элементы с позициями 0-6 (T3, T1, R1, R2, T2, T4, T5)
+    // Рамка должна охватывать элементы с позициями 0-6 (T5, T3, T1, R1, R2, T2, T4)
     
     if (schematicElements.size() >= 7) {
         
