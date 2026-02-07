@@ -529,9 +529,9 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем фазы (более важны для анализа)
     for (int i = 0; i < 5; i++) {
-        // Фаза (ЛЕВАЯ ось)
+        // Разность фаз (ЛЕВАЯ ось)
         if (addPhases) {
-            CurveDefinition phaseCurve = CreatePhaseCurve(i, receiverIndex, selection.frequency);
+            CurveDefinition phaseCurve = CreateDifferenceCurve(i, selection.frequency);
             phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось всегда для фаз
             phaseCurve.enabled = true; // Включена по умолчанию для пресетов
             // Умное назначение цвета с учетом уже созданных кривых
@@ -566,12 +566,11 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
     for (int txIndex = 0; txIndex < 5; txIndex++) {
         if (!selection.transmitters[txIndex]) continue; // Пропускаем невыбранные передатчики
 
-        // Фаза (ЛЕВАЯ ось) - в новом формате PHASE_SMT не зависит от приемника,
-        // поэтому создаём ОДНУ фазовую кривую на передатчик.
-        CurveDefinition phaseCurve = CreatePhaseCurve(txIndex, 0, selection.frequency);
+        // Разность фаз (ЛЕВАЯ ось) - разность фаз R1-R2, одна кривая на передатчик.
+        CurveDefinition phaseCurve = CreateDifferenceCurve(txIndex, selection.frequency);
         phaseCurve.yAxisGroup = 0; // ЛЕВАЯ ось
         phaseCurve.enabled = true;
-        phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + " Фаза";
+        phaseCurve.displayName = "T" + std::to_string(txIndex + 1) + " Разность фаз";
         phaseCurve.color = AssignSmartColor(curves, txIndex, phaseCurve.yAxisGroup);
         curves.push_back(phaseCurve);
         
