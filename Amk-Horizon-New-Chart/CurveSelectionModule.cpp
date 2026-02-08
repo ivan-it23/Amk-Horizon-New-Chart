@@ -227,8 +227,10 @@ std::string CurveSelectionModule::GetConfigurationError(const ChartConfiguration
     }
     
     // Проверяем максимальное количество кривых
-    if (enabledCurvesCount > 8) {
-        return "Too many curves for display (maximum 8)";
+    // В режиме выбора двух приёмников (R1+R2) список может включать 10 кривых (T1-T5)
+    // для разности фаз и отношения амплитуд.
+    if (enabledCurvesCount > 12) {
+        return "Too many curves for display (maximum 12)";
     }
     
     return ""; // Конфигурация корректна
