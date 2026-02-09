@@ -1,4 +1,4 @@
-﻿//{{NO_DEPENDENCIES}}
+//{{NO_DEPENDENCIES}}
 // Включаемый файл, созданный в Microsoft Visual C++.
 // Используется Amk-Horizon-New-Chart.rc
 
@@ -67,6 +67,10 @@
 
 // Пресет температуры (v2.9.7)
 #define IDC_PRESET_TEMPERATURE		1039
+
+// Пресеты УЭС и симметризованных фаз (v2.16.0)
+#define IDC_PRESET_RHO_SMT			1083
+#define IDC_PRESET_PHASE_SMT		1084
 
 // Выбор типа оси X (v2.10.0)
 #define IDC_XAXIS_TYPE_COMBO		1040

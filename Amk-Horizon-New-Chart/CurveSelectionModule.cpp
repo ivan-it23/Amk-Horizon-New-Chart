@@ -102,6 +102,26 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             tempCurve.frequency = selection.frequency;
             curves.push_back(tempCurve);
         }
+        else if (selection.dataFilter == DataTypeFilter::RHO_SMT_ONLY) {
+            // v2.16.0: УЭС -> 5 кривых T1-T5
+            for (int i = 0; i < 5; i++) {
+                CurveDefinition rhoCurve = CreateRhoSmtCurve(i, selection.frequency);
+                rhoCurve.yAxisGroup = 0; // Левая ось
+                rhoCurve.enabled = true;
+                rhoCurve.color = AssignSmartColor(curves, i, rhoCurve.yAxisGroup);
+                curves.push_back(rhoCurve);
+            }
+        }
+        else if (selection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY) {
+            // v2.16.0: Симметризованные фазы -> 5 кривых T1-T5
+            for (int i = 0; i < 5; i++) {
+                CurveDefinition phaseSmtCurve = CreatePhaseSmtCurve(i, selection.frequency);
+                phaseSmtCurve.yAxisGroup = 0; // Левая ось
+                phaseSmtCurve.enabled = true;
+                phaseSmtCurve.color = AssignSmartColor(curves, i, phaseSmtCurve.yAxisGroup);
+                curves.push_back(phaseSmtCurve);
+            }
+        }
     }
     // РЕЖИМ РУЧНОГО ВЫБОРА: Если dataFilter == ALL, используем выбранные элементы схемы
     else {
@@ -167,6 +187,10 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             return CreateAmplitudeRatiosPreset(frequency);
         case PresetType::PHASE_DIFFERENCES:
             return CreatePhaseDifferencesPreset(frequency);
+        case PresetType::RHO_SMT:
+            return CreateRhoSmtPreset(frequency);
+        case PresetType::PHASE_SMT:
+            return CreatePhaseSmtPreset(frequency);
         default:
             return ChartConfiguration();
     }
@@ -689,6 +713,38 @@ CurveDefinition CurveSelectionModule::CreatePhaseCurve(int transmitterIndex, int
     return curve;
 }
 
+// v2.16.0: Создание кривой УЭС (rho_smt)
+CurveDefinition CurveSelectionModule::CreateRhoSmtCurve(int transmitterIndex, FrequencyBand frequency) const {
+    std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, 
+                                    DataType::RHO_SMT, frequency);
+    std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
+                                          DataType::RHO_SMT);
+    
+    CurveDefinition curve(id, name, "Ohm*m", ElementType::TRANSMITTER, transmitterIndex, 
+                         DataType::RHO_SMT, frequency);
+    curve.yAxisGroup = 0; // Левая ось
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
+    curve.lineStyle = GetLineStyle(curve.yAxisGroup);
+    
+    return curve;
+}
+
+// v2.16.0: Создание кривой симметризованных фаз (phase_smt)
+CurveDefinition CurveSelectionModule::CreatePhaseSmtCurve(int transmitterIndex, FrequencyBand frequency) const {
+    std::string id = GenerateCurveId(ElementType::TRANSMITTER, transmitterIndex, 
+                                    DataType::PHASE_SMT, frequency);
+    std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
+                                          DataType::PHASE_SMT);
+    
+    CurveDefinition curve(id, name, "mdeg", ElementType::TRANSMITTER, transmitterIndex, 
+                         DataType::PHASE_SMT, frequency);
+    curve.yAxisGroup = 0; // Левая ось
+    curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
+    curve.lineStyle = GetLineStyle(curve.yAxisGroup);
+    
+    return curve;
+}
+
 CurveDefinition CurveSelectionModule::CreateSilentAmplitudeCurve(int receiverIndex, FrequencyBand frequency) const {
     DataType dataType = (receiverIndex == 0) ? DataType::SILENT_AMPLITUDE_RX1 : DataType::SILENT_AMPLITUDE_RX2;
     std::string id = GenerateCurveId(ElementType::SILENT_TX, receiverIndex, dataType, frequency);
@@ -863,6 +919,46 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
     config.hasDualAxis = false;
     config.activePreset = PresetType::PHASE_DIFFERENCES;
     config.presetDisplayName = L"Разность фаз";
+    
+    return config;
+}
+
+// v2.16.0: Пресет УЭС (rho_smt) для всех передатчиков T1-T5
+ChartConfiguration CurveSelectionModule::CreateRhoSmtPreset(FrequencyBand frequency) const {
+    ChartConfiguration config;
+    
+    // Создаем кривые УЭС для всех передатчиков T1-T5
+    for (int i = 0; i < 5; i++) {
+        CurveDefinition curve = CreateRhoSmtCurve(i, frequency);
+        curve.yAxisGroup = 0; // Левая ось
+        curve.enabled = true;
+        config.AddCurve(curve);
+    }
+    
+    config.leftAxisUnits = "Ohm*m";
+    config.hasDualAxis = false;
+    config.activePreset = PresetType::RHO_SMT;
+    config.presetDisplayName = L"УЭС";
+    
+    return config;
+}
+
+// v2.16.0: Пресет симметризованных фаз (phase_smt) для всех передатчиков T1-T5
+ChartConfiguration CurveSelectionModule::CreatePhaseSmtPreset(FrequencyBand frequency) const {
+    ChartConfiguration config;
+    
+    // Создаем кривые симметризованных фаз для всех передатчиков T1-T5
+    for (int i = 0; i < 5; i++) {
+        CurveDefinition curve = CreatePhaseSmtCurve(i, frequency);
+        curve.yAxisGroup = 0; // Левая ось
+        curve.enabled = true;
+        config.AddCurve(curve);
+    }
+    
+    config.leftAxisUnits = "mdeg";
+    config.hasDualAxis = false;
+    config.activePreset = PresetType::PHASE_SMT;
+    config.presetDisplayName = L"Симм. фазы";
     
     return config;
 }
@@ -1045,7 +1141,7 @@ std::string CurveSelectionModule::GetUnitsForDataType(DataType dataType) const {
         case DataType::TEMPERATURE:
             return "degC";
         case DataType::RHO_SMT:
-            return "";
+            return "Ohm*m";
         default:
             return "";
     }

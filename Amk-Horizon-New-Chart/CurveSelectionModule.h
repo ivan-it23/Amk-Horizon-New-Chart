@@ -83,6 +83,8 @@ private:
     CurveDefinition CreatePhaseCurve(int transmitterIndex, int receiverIndex, 
                                     FrequencyBand frequency) const;
     CurveDefinition CreateSilentAmplitudeCurve(int receiverIndex, FrequencyBand frequency) const;
+    CurveDefinition CreateRhoSmtCurve(int transmitterIndex, FrequencyBand frequency) const;     // v2.16.0
+    CurveDefinition CreatePhaseSmtCurve(int transmitterIndex, FrequencyBand frequency) const;   // v2.16.0
     
     // Методы для работы с цветами и стилями
     COLORREF GetCurveColor(int transmitterIndex) const;  // Старый метод для обратной совместимости
@@ -97,6 +99,8 @@ private:
     ChartConfiguration CreateAllAmplitudesR2Preset(FrequencyBand frequency) const;
     ChartConfiguration CreateAmplitudeRatiosPreset(FrequencyBand frequency) const;
     ChartConfiguration CreatePhaseDifferencesPreset(FrequencyBand frequency) const;
+    ChartConfiguration CreateRhoSmtPreset(FrequencyBand frequency) const;       // v2.16.0: УЭС
+    ChartConfiguration CreatePhaseSmtPreset(FrequencyBand frequency) const;     // v2.16.0: Симм. фазы
     
     // Вспомогательные методы для вычисления данных
     void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,

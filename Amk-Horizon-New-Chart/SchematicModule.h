@@ -53,7 +53,9 @@ enum class DataTypeFilter {
     PHASE_ONLY,             // Только фазы
     RATIO_ONLY,             // Только отношения амплитуд
     DIFFERENCE_ONLY,        // Только разности фаз
-    TEMPERATURE_ONLY        // Только температура (v2.9.7)
+    TEMPERATURE_ONLY,       // Только температура (v2.9.7)
+    RHO_SMT_ONLY,           // Только УЭС (v2.16.0)
+    PHASE_SMT_ONLY          // Только симметризованные фазы (v2.16.0)
 };
 
 // Выбор элементов на схеме прибора
@@ -81,6 +83,8 @@ enum class PresetType {
     AMPLITUDE_RATIOS,       // Отношения амплитуд R2/R1
     PHASE_DIFFERENCES,      // Разности фаз R2-R1
     TEMPERATURE,            // Температура
+    RHO_SMT,                // УЭС (v2.16.0)
+    PHASE_SMT,              // Симметризованные фазы (v2.16.0)
     CUSTOM                  // Пользовательская конфигурация (устаревшее, для совместимости)
 };
 

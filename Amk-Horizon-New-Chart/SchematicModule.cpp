@@ -1448,6 +1448,18 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             currentPreset = PresetType::TEMPERATURE;
             currentPresetDisplayName = L"Температура";
             break;
+        case IDC_PRESET_RHO_SMT:
+            // v2.16.0: УЭС - не требует выбора приёмников, 5 кривых T1-T5
+            currentSelection.dataFilter = DataTypeFilter::RHO_SMT_ONLY;
+            currentPreset = PresetType::RHO_SMT;
+            currentPresetDisplayName = L"УЭС";
+            break;
+        case IDC_PRESET_PHASE_SMT:
+            // v2.16.0: Симметризованные фазы - не требует выбора приёмников, 5 кривых T1-T5
+            currentSelection.dataFilter = DataTypeFilter::PHASE_SMT_ONLY;
+            currentPreset = PresetType::PHASE_SMT;
+            currentPresetDisplayName = L"Симм. фазы";
+            break;
     }
     
     // Для пресетов НЕ синхронизируем элементы схемы (они должны оставаться неактивными)
@@ -1611,6 +1623,9 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     bool hasRatios = false;
     bool hasDifferences = false;
     bool hasSilentAmplitudes = false;
+    bool hasRhoSmt = false;         // v2.16.0
+    bool hasPhaseSmt = false;       // v2.16.0
+    bool hasTemperature = false;
     
     for (const auto& curve : curves) {
         
@@ -1624,13 +1639,19 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
                 hasSilentAmplitudes = true;
                 break;
             case DataType::PHASE_SMT:
-                hasPhases = true;
+                hasPhaseSmt = true;
                 break;
             case DataType::AMPLITUDE_RATIO:
                 hasRatios = true;
                 break;
             case DataType::PHASE_DIFFERENCE:
                 hasDifferences = true;
+                break;
+            case DataType::RHO_SMT:
+                hasRhoSmt = true;
+                break;
+            case DataType::TEMPERATURE:
+                hasTemperature = true;
                 break;
             default:
                 break;
@@ -1642,21 +1663,33 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     
     DataTypeFilter result = DataTypeFilter::ALL;
     
+    // v2.16.0: Если есть только УЭС
+    if (hasRhoSmt && !hasPhaseSmt && !hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasTemperature) {
+        result = DataTypeFilter::RHO_SMT_ONLY;
+    }
+    // v2.16.0: Если есть только симметризованные фазы
+    else if (hasPhaseSmt && !hasRhoSmt && !hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasTemperature) {
+        result = DataTypeFilter::PHASE_SMT_ONLY;
+    }
     // Если есть только отношения амплитуд
-    if (hasRatios && !hasDifferences && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes) {
+    else if (hasRatios && !hasDifferences && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
         result = DataTypeFilter::RATIO_ONLY;
     }
     // Если есть только разности фаз
-    else if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes) {
+    else if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
         result = DataTypeFilter::DIFFERENCE_ONLY;
     }
     // Если есть только обычные амплитуды (без отношений и молчащих)
-    else if (hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences && !hasSilentAmplitudes) {
+    else if (hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
         result = DataTypeFilter::AMPLITUDE_ONLY;
     }
     // Если есть только фазы (без разностей)
-    else if (hasPhases && !hasAmplitudes && !hasRatios && !hasDifferences && !hasSilentAmplitudes) {
+    else if (hasPhases && !hasAmplitudes && !hasRatios && !hasDifferences && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
         result = DataTypeFilter::PHASE_ONLY;
+    }
+    // Если есть только температура
+    else if (hasTemperature && !hasAmplitudes && !hasPhases && !hasRatios && !hasDifferences && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt) {
+        result = DataTypeFilter::TEMPERATURE_ONLY;
     }
     // ИСПРАВЛЕНО: Если есть только молчащие передатчики или смешанные типы - ALL
     else {
@@ -2040,6 +2073,8 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_PRESET_RATIOS:
                     case IDC_PRESET_DIFFERENCES:
                     case IDC_PRESET_TEMPERATURE:
+                    case IDC_PRESET_RHO_SMT:
+                    case IDC_PRESET_PHASE_SMT:
                         if (pSchematic) {
                             pSchematic->HandlePresetButton(hDlg, wmId);
                         }
