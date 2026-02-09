@@ -170,7 +170,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         ShowWindow(g_hSerialDialog, SW_SHOW);
                     }
                 } else {
-                    // Диалог уже открыт - выводим на передний план
+                    // Диалог уже создан: показываем/восстанавливаем и выводим на передний план
+                    if (IsIconic(g_hSerialDialog)) {
+                        ShowWindow(g_hSerialDialog, SW_RESTORE);
+                    } else {
+                        ShowWindow(g_hSerialDialog, SW_SHOW);
+                    }
                     SetForegroundWindow(g_hSerialDialog);
                 }
                 break;
@@ -740,13 +745,18 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             return (INT_PTR)TRUE;
             
         case IDCANCEL:
-            // Закрытие диалога
-            DestroyWindow(hDlg);
-            g_hSerialDialog = nullptr;
+            // "Закрыть" (и Esc): скрываем окно вместо уничтожения,
+            // чтобы его можно было быстро открыть снова из меню "Прибор"
+            ShowWindow(hDlg, SW_HIDE);
             return (INT_PTR)TRUE;
         }
         break;
         
+    case WM_CLOSE:
+        // Крестик: скрываем вместо уничтожения (см. IDCANCEL выше)
+        ShowWindow(hDlg, SW_HIDE);
+        return (INT_PTR)TRUE;
+
     case WM_TIMER:
         // Обновляем статистику в диалоге
         if (g_chartManager) {
