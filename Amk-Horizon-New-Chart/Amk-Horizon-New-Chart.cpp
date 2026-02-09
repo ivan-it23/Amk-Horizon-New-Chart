@@ -1,4 +1,4 @@
-﻿// Amk-Horizon-New-Chart.cpp : Определяет точку входа для приложения.
+// Amk-Horizon-New-Chart.cpp : Определяет точку входа для приложения.
 //
 
 #include "framework.h"
@@ -632,10 +632,26 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             // v2.15.0: Сначала запрашиваем метрологию (до начала записи!)
                             // Это нужно для правильного именования файла записи
                             METROLOGY_DATA metro;
-                            if (serial->RequestMetrology(metro) == SerialResult::SUCCESS) {
+                            // NOTE: при открытии COM-порта Arduino часто перезагружается из-за DTR/RTS,
+                            // поэтому первый запрос метрологии может таймаутиться. Делаем несколько попыток.
+                            SerialResult metroRes = SerialResult::TIMEOUT;
+                            for (int attempt = 0; attempt < 4; ++attempt) {
+                                metroRes = serial->RequestMetrology(metro);
+                                if (metroRes == SerialResult::SUCCESS) {
+                                    break;
+                                }
+                                // Первая пауза под Arduino reset, последующие — короткие ретраи
+                                Sleep(attempt == 0 ? 1200 : 300);
+                            }
+
+                            if (metroRes == SerialResult::SUCCESS) {
                                 wchar_t info[128];
                                 swprintf_s(info, L"S/N: %u\nD: %u mm", metro.serial, metro.D_sonde_mm);
                                 SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
+                            } else {
+                                // Не блокируем работу: данные могут идти и без метрологии, но файл будет AMK_Unknown...
+                                std::wstring msg = L"Метрология не получена: " + SerialModule::ResultToString(metroRes);
+                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, msg.c_str());
                             }
                             
                             // v2.14.1: Очищаем данные перед началом опроса

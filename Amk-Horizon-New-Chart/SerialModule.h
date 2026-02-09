@@ -79,6 +79,7 @@ private:
     // Метрологические данные (кэшируются после первого запроса)
     METROLOGY_DATA metrology;
     bool hasMetrology;
+    uint32_t metrologyAutoRetryCount;   // v2.15.3: авто-попытки получить метрологию при опросе
     
     // Счётчики для статистики
     uint32_t packetsReceived;

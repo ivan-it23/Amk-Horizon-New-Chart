@@ -59,6 +59,7 @@ SerialModule::SerialModule()
     , pollInterval(2000)
     , callbackWindow(nullptr)
     , hasMetrology(false)
+    , metrologyAutoRetryCount(0)
     , packetsReceived(0)
     , packetsErrors(0)
     , lastFrameNumber(0)
@@ -183,6 +184,7 @@ void SerialModule::Disconnect() {
     }
     
     hasMetrology = false;
+    metrologyAutoRetryCount = 0;
     currentDeviceId.clear();  // v2.15.0: Сбрасываем ID прибора
     SetState(ConnectionState::DISCONNECTED);
 }
@@ -235,6 +237,14 @@ void SerialModule::OnTimer() {
         packetsReceived++;
         lastFrameNumber = data.frame;
         
+        // v2.15.3: Если метрология не была получена при подключении (например, Arduino reset из-за DTR/RTS),
+        // пробуем запросить её здесь ограниченное число раз, чтобы имя файла записи не оставалось AMK_Unknown_...
+        if (isRecordingEnabled && !hasMetrology && metrologyAutoRetryCount < 4) {
+            METROLOGY_DATA tmp = {};
+            (void)RequestMetrology(tmp); // результат не критичен: данные продолжают поступать
+            metrologyAutoRetryCount++;
+        }
+
         // v2.15.0: Записываем данные в файл
         if (isRecordingEnabled) {
             WriteDataToFile(data);
@@ -318,6 +328,60 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
     }
     currentDeviceId = newDeviceId;
 
+    // v2.15.3: Если запись уже началась до получения метрологии, файл мог быть создан как AMK_Unknown_*.bin.
+    // После получения метрологии переименовываем файл, чтобы имя содержало S/N и диаметр.
+    if (!recordFilePath.empty()) {
+        const std::wstring unknownPrefix = L"AMK_Unknown_";
+        size_t fileNamePos = recordFilePath.find_last_of(L"\\/");
+        std::wstring fileName = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(fileNamePos + 1) : recordFilePath;
+
+        if (fileName.rfind(unknownPrefix, 0) == 0) {
+            // Закрываем файл перед переименованием
+            const bool wasOpen = recordFile.is_open();
+            if (wasOpen) {
+                CloseRecordFile();
+            }
+
+            // Формируем новое имя, сохраняя дату/время из текущего
+            std::wstring tail = fileName.substr(unknownPrefix.size()); // например: 20260209_190815.bin
+            std::wstring newFileName = L"AMK_" + std::to_wstring(metrology.serial) + L"_" + std::to_wstring(metrology.D_sonde_mm) + L"_" + tail;
+
+            // Каталог берём из текущего пути записи (не из recordFolderPath, т.к. пользователь мог выбрать другой)
+            std::wstring dirPath = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(0, fileNamePos) : L"";
+            std::wstring newPath = dirPath.empty() ? newFileName : (dirPath + L"\\" + newFileName);
+
+            // Если файл с таким именем уже существует — подбираем суффикс
+            auto pathExists = [](const std::wstring& p) -> bool {
+                return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES;
+            };
+
+            if (pathExists(newPath)) {
+                size_t dot = newPath.find_last_of(L'.');
+                std::wstring base = (dot != std::wstring::npos) ? newPath.substr(0, dot) : newPath;
+                std::wstring ext = (dot != std::wstring::npos) ? newPath.substr(dot) : L"";
+
+                int suffix = 1;
+                std::wstring candidate;
+                do {
+                    candidate = base + L"_" + std::to_wstring(suffix) + ext;
+                    suffix++;
+                } while (pathExists(candidate) && suffix < 1000);
+                newPath = candidate;
+            }
+
+            // Переименовываем
+            if (MoveFileW(recordFilePath.c_str(), newPath.c_str()) != 0) {
+                recordFilePath = newPath;
+            }
+
+            // Открываем файл обратно (если он был открыт)
+            if (wasOpen) {
+                std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
+                recordFile.open(narrowPath, std::ios::binary | std::ios::app);
+            }
+        }
+    }
+
     if (onMetrologyReceived) {
         onMetrologyReceived(outData);
     }
@@ -373,6 +437,7 @@ void SerialModule::ResetStatistics() {
     packetsReceived = 0;
     packetsErrors = 0;
     lastFrameNumber = 0;
+    metrologyAutoRetryCount = 0;
 }
 
 // === Вспомогательные методы ===
