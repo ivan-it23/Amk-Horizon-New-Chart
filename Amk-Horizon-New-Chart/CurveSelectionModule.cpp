@@ -743,7 +743,8 @@ CurveDefinition CurveSelectionModule::CreateRatioCurve(int transmitterIndex, Fre
     std::string name = GenerateDisplayName(ElementType::TRANSMITTER, transmitterIndex, 
                                           DataType::AMPLITUDE_RATIO);
     
-    CurveDefinition curve(id, name, "mV", ElementType::TRANSMITTER, transmitterIndex, 
+    // Отношение амплитуд — безразмерная величина (V/V)
+    CurveDefinition curve(id, name, "V/V", ElementType::TRANSMITTER, transmitterIndex, 
                          DataType::AMPLITUDE_RATIO, frequency);
     curve.yAxisGroup = 1; // ИЗМЕНЕНО v2.7.0: Правая ось для амплитуд (отношений)
     curve.color = GetCurveColorForAxis(transmitterIndex, curve.yAxisGroup);
@@ -1243,7 +1244,7 @@ std::string CurveSelectionModule::GetUnitsForDataType(DataType dataType) const {
         case DataType::SILENT_PHASE_DIFFERENCE:
             return "deg";
         case DataType::AMPLITUDE_RATIO:
-            return "";
+            return "V/V";
         case DataType::TEMPERATURE:
             return "degC";
         case DataType::RHO_SMT:

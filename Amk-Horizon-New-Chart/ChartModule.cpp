@@ -1589,6 +1589,91 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         return;
     }
     
+    auto GetAxisFunctionLabel = [](const std::vector<const CurveDefinition*>& axisCurves) -> std::wstring {
+        if (axisCurves.empty()) return L"";
+
+        enum class Category {
+            Unknown,
+            PhaseDifference,
+            PhaseSmt,
+            Amplitude,
+            AmplitudeRatio,
+            RhoSmt,
+            Temperature,
+        };
+
+        auto GetCategory = [](DataType t) -> Category {
+            switch (t) {
+                case DataType::PHASE_DIFFERENCE:
+                case DataType::SILENT_PHASE_DIFFERENCE:
+                    return Category::PhaseDifference;
+                case DataType::PHASE_SMT:
+                    return Category::PhaseSmt;
+                case DataType::AMPLITUDE_RX1:
+                case DataType::AMPLITUDE_RX2:
+                case DataType::SILENT_AMPLITUDE_RX1:
+                case DataType::SILENT_AMPLITUDE_RX2:
+                    // ВАЖНО: AMPLITUDE_RX1 и AMPLITUDE_RX2 считаем одной категорией,
+                    // чтобы легенда была "Амплитуда T1 R1 T1 R2 ..." (как требует UX).
+                    return Category::Amplitude;
+                case DataType::AMPLITUDE_RATIO:
+                    return Category::AmplitudeRatio;
+                case DataType::RHO_SMT:
+                    return Category::RhoSmt;
+                case DataType::TEMPERATURE:
+                    return Category::Temperature;
+                default:
+                    return Category::Unknown;
+            }
+        };
+
+        Category firstCat = Category::Unknown;
+        for (const auto* c : axisCurves) {
+            if (!c) continue;
+            firstCat = GetCategory(c->dataType);
+            break;
+        }
+
+        if (firstCat == Category::Unknown) return L"";
+
+        for (const auto* c : axisCurves) {
+            if (!c) continue;
+            if (GetCategory(c->dataType) != firstCat) {
+                return L""; // смешанные категории — не упрощаем
+            }
+        }
+
+        switch (firstCat) {
+            case Category::PhaseDifference: return L"Разность фаз";
+            case Category::PhaseSmt:        return L"Фаза";
+            case Category::Amplitude:       return L"Амплитуда";
+            case Category::AmplitudeRatio:  return L"Отношение амплитуд";
+            case Category::RhoSmt:          return L"УЭС";
+            case Category::Temperature:     return L"Температура";
+            default:                        return L"";
+        }
+    };
+
+    auto GetCurveShortLabel = [](const CurveDefinition* c) -> std::wstring {
+        if (!c) return L"";
+        switch (c->sourceElement) {
+            case ElementType::TRANSMITTER: {
+                // Tn, плюс R1/R2 для амплитуд
+                std::wstring s = L"T" + std::to_wstring(c->elementIndex + 1);
+                if (c->dataType == DataType::AMPLITUDE_RX1) s += L" R1";
+                else if (c->dataType == DataType::AMPLITUDE_RX2) s += L" R2";
+                return s;
+            }
+            case ElementType::RECEIVER:
+                return L"R" + std::to_wstring(c->elementIndex + 1);
+            case ElementType::SILENT_TX:
+                if (c->dataType == DataType::SILENT_PHASE_DIFFERENCE) return L"R1-R2";
+                return L"R" + std::to_wstring(c->elementIndex + 1);
+            default:
+                return Utf8ToWide(c->displayName);
+        }
+    };
+
     // Получаем единицы измерения для каждой оси
     std::string leftUnits, rightUnits;
     if (!leftAxisCurves.empty()) {
@@ -1597,6 +1682,12 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     if (!rightAxisCurves.empty()) {
         rightUnits = rightAxisCurves[0]->units;
     }
+
+    // Проверяем, можно ли сократить подписи (единый тип данных на оси)
+    const std::wstring leftFn = GetAxisFunctionLabel(leftAxisCurves);
+    const std::wstring rightFn = GetAxisFunctionLabel(rightAxisCurves);
+    const bool leftCondensed = !leftFn.empty();
+    const bool rightCondensed = !rightFn.empty();
     
     // Вычисляем ширину каждого элемента легенды
     struct LegendElement {
@@ -1610,14 +1701,21 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int rightGroupWidth = 0;
     
     // Вычисляем ширину подписи левой оси
-    std::wstring leftAxisLabel = L"[Левая ось (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]";
+    std::wstring leftAxisLabel = L"[Левая ось (" + std::wstring(leftUnits.begin(), leftUnits.end()) + L")]: ";
     SIZE leftLabelSize;
     GetTextExtentPoint32(hdc, leftAxisLabel.c_str(), (int)leftAxisLabel.length(), &leftLabelSize);
     leftGroupWidth = leftLabelSize.cx + 10; // +10 для отступа после подписи
+
+    SIZE leftFnSize = {};
+    if (leftCondensed) {
+        std::wstring leftFnLabel = leftFn + L" ";
+        GetTextExtentPoint32(hdc, leftFnLabel.c_str(), (int)leftFnLabel.length(), &leftFnSize);
+        leftGroupWidth += leftFnSize.cx;
+    }
     
     // Добавляем элементы левой оси
     for (const auto* curve : leftAxisCurves) {
-        std::wstring name = Utf8ToWide(curve->displayName);
+        std::wstring name = leftCondensed ? GetCurveShortLabel(curve) : Utf8ToWide(curve->displayName);
         SIZE textSize;
         GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         
@@ -1630,14 +1728,21 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int separatorWidth = 20;
     
     // Вычисляем ширину подписи правой оси
-    std::wstring rightAxisLabel = L"[Правая ось (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
+    std::wstring rightAxisLabel = L"[Правая ось (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]: ";
     SIZE rightLabelSize;
     GetTextExtentPoint32(hdc, rightAxisLabel.c_str(), (int)rightAxisLabel.length(), &rightLabelSize);
     rightGroupWidth = rightLabelSize.cx + 10; // +10 для отступа после подписи
+
+    SIZE rightFnSize = {};
+    if (rightCondensed) {
+        std::wstring rightFnLabel = rightFn + L" ";
+        GetTextExtentPoint32(hdc, rightFnLabel.c_str(), (int)rightFnLabel.length(), &rightFnSize);
+        rightGroupWidth += rightFnSize.cx;
+    }
     
     // Добавляем элементы правой оси
     for (const auto* curve : rightAxisCurves) {
-        std::wstring name = Utf8ToWide(curve->displayName);
+        std::wstring name = rightCondensed ? GetCurveShortLabel(curve) : Utf8ToWide(curve->displayName);
         SIZE textSize;
         GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         
@@ -1664,6 +1769,12 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         SetTextColor(hdc, RGB(0, 0, 0));
         TextOut(hdc, currentX, legendY, leftAxisLabel.c_str(), (int)leftAxisLabel.length());
         currentX += leftLabelSize.cx + 10;
+
+        if (leftCondensed) {
+            std::wstring leftFnLabel = leftFn + L" ";
+            TextOut(hdc, currentX, legendY, leftFnLabel.c_str(), (int)leftFnLabel.length());
+            currentX += leftFnSize.cx;
+        }
         
         // Отрисовка элементов левой оси
         for (const auto& elem : elements) {
@@ -1684,7 +1795,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             currentX += lineLength + 5;
             
             // Название
-            std::wstring name = Utf8ToWide(curve->displayName);
+            std::wstring name = leftCondensed ? GetCurveShortLabel(curve) : Utf8ToWide(curve->displayName);
             TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
             
             SIZE textSize;
@@ -1707,6 +1818,12 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         SetTextColor(hdc, RGB(0, 0, 0));
         TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
         currentX += rightLabelSize.cx + 10;
+
+        if (rightCondensed) {
+            std::wstring rightFnLabel = rightFn + L" ";
+            TextOut(hdc, currentX, legendY, rightFnLabel.c_str(), (int)rightFnLabel.length());
+            currentX += rightFnSize.cx;
+        }
         
         // Отрисовка элементов правой оси
         for (const auto& elem : elements) {
@@ -1727,7 +1844,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             currentX += lineLength + 5;
             
             // Название (конвертируем UTF-8 в UTF-16)
-            std::wstring name = Utf8ToWide(curve->displayName);
+            std::wstring name = rightCondensed ? GetCurveShortLabel(curve) : Utf8ToWide(curve->displayName);
             TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
             
             SIZE textSize;
