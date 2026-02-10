@@ -1091,6 +1091,13 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
 void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     HWND hCurveList = GetDlgItem(hDlg, IDC_CURVE_LIST);
     if (!hCurveList) return;
+
+    // Сбрасываем сохранённые кривые и состояние кнопки "Применить" заранее,
+    // чтобы не оставлять "залипшее" состояние после ранних return.
+    currentAvailableCurves.clear();
+    if (HWND hApplyBtn = GetDlgItem(hDlg, IDC_APPLY_SETTINGS)) {
+        EnableWindow(hApplyBtn, FALSE);
+    }
     
     // Очищаем ListView (удаляем все элементы и колонки)
     ListView_DeleteAllItems(hCurveList);
@@ -1124,6 +1131,9 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         item.iSubItem = 0;
         item.pszText = const_cast<LPWSTR>(werror.c_str());
         ListView_InsertItem(hCurveList, &item);
+
+        // Обновляем заголовок окна (добавляем/оставляем признак ошибки)
+        ValidateCurrentCurveConfiguration(hDlg);
         return;
     }
     
@@ -1143,6 +1153,8 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         // "Модуль выбора кривых не инициализирован" в Unicode
         item.pszText = const_cast<LPWSTR>(L"\x041C\x043E\x0434\x0443\x043B\x044C \x0432\x044B\x0431\x043E\x0440\x0430 \x043A\x0440\x0438\x0432\x044B\x0445 \x043D\x0435 \x0438\x043D\x0438\x0446\x0438\x0430\x043B\x0438\x0437\x0438\x0440\x043E\x0432\x0430\x043D");
         ListView_InsertItem(hCurveList, &item);
+
+        ValidateCurrentCurveConfiguration(hDlg);
         return;
     }
     
@@ -1182,6 +1194,8 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
         item.iSubItem = 0;
         item.pszText = const_cast<LPWSTR>(L"\x041D\x0435\x0442 \x0434\x043E\x0441\x0442\x0443\x043F\x043D\x044B\x0445 \x043A\x0440\x0438\x0432\x044B\x0445 \x0434\x043B\x044F \x0442\x0435\x043A\x0443\x0449\x0435\x0433\x043E \x0432\x044B\x0431\x043E\x0440\x0430");
         ListView_InsertItem(hCurveList, &item);
+
+        ValidateCurrentCurveConfiguration(hDlg);
         return;
     }
     
@@ -1387,6 +1401,11 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     
     // Сохраняем доступные кривые для последующего использования
     currentAvailableCurves = availableCurves;
+
+    // ВАЖНО: после обновления списка кривых обязательно пересчитываем валидность конфигурации,
+    // иначе кнопка "Применить" может остаться выключенной после предыдущего невалидного выбора
+    // (например, после снятия молчащих передатчиков).
+    ValidateCurrentCurveConfiguration(hDlg);
 }
 
 void SchematicModule::HandleFrequencyChange(HWND hDlg) {
@@ -1569,17 +1588,13 @@ void SchematicModule::ValidateCurrentCurveConfiguration(HWND hDlg) {
         EnableWindow(hApplyBtn, error.empty() ? TRUE : FALSE);
     }
     
-    // Можно показать сообщение об ошибке в статусной строке
+    // Обновляем заголовок окна ВСЕГДА: иначе "[Configuration Error]" может "залипнуть",
+    // даже когда конфигурация снова стала валидной (типичный сценарий после снятия silent).
+    std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(targetChartNumber);
     if (!error.empty()) {
-        // TODO: Показать ошибку в статусной области диалога
-        // Пока что просто обновляем заголовок окна
-        // "Схема прибора - График N"
-        std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(targetChartNumber);
-        if (!error.empty()) {
-            title += L" [Configuration Error]";
-        }
-        SetWindowText(hDlg, title.c_str());
+        title += L" [Configuration Error]";
     }
+    SetWindowText(hDlg, title.c_str());
 }
 
 bool SchematicModule::ApplyCurrentCurveConfiguration() {
