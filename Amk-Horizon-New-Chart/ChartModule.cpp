@@ -587,7 +587,10 @@ RECT ChartModule::CalculatePlotRect(const RECT& chartRect) const {
 
 RECT ChartModule::CalculateDualAxisPlotRect(const RECT& chartRect) const {
     RECT plotRect = chartRect;
-    plotRect.left += 60;   // Отступ для левой Y-оси (для целых чисел мдег)
+    // ВАЖНО: этот отступ должен быть согласован с вычислениями plotRect в ChartManager
+    // (ConvertScreenToDataCoords / ConvertScreenToChartCoords / DrawCrosshair).
+    // Увеличено с 60 → 80 → 100, чтобы подписи левой оси (например, V/V) не обрезались слева.
+    plotRect.left += 100;   // Отступ для левой Y-оси
     plotRect.top += 45;    // Отступ для заголовка + горизонтальная легенда (10px заголовок + 25px легенда + 10px отступ)
     plotRect.right -= 140; // Увеличенный отступ для правой Y-оси (для мВ с 2 знаками + scrollbar)
     plotRect.bottom -= 50; // Увеличенный отступ для X-оси и скроллбара

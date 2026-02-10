@@ -113,13 +113,13 @@ float ConvertPhaseToMillidegrees(float radians) {
 
 ```cpp
 // Константы отступов (относительно chartRect)
-const int MARGIN_LEFT = 60;    // Отступ слева для левой оси Y
+const int MARGIN_LEFT = 100;   // Отступ слева для левой оси Y (увеличено, чтобы подписи не обрезались)
 const int MARGIN_RIGHT = 140;  // Отступ справа для правой оси Y + scrollbar
 const int MARGIN_TOP = 45;     // Отступ сверху для заголовка + легенды
 const int MARGIN_BOTTOM = 50;  // Отступ снизу для оси X + scrollbar
 
 // Вычисление plotRect
-plotRect.left = chartRect.left + 60;
+plotRect.left = chartRect.left + 100;
 plotRect.top = chartRect.top + 45;
 plotRect.right = chartRect.right - 140;
 plotRect.bottom = chartRect.bottom - 50;
@@ -915,12 +915,12 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     // 2. Вычисление plotRect с учётом отступов
     RECT plotRect;
     if (config.hasDualAxis) {
-        plotRect.left = chartRect->left + 80;
+        plotRect.left = chartRect->left + 100;
         plotRect.top = chartRect->top + 65;
         plotRect.right = chartRect->right - 120;
         plotRect.bottom = chartRect->bottom - 50;
     } else {
-        plotRect.left = chartRect->left + 80;
+        plotRect.left = chartRect->left + 100;
         plotRect.top = chartRect->top + 65;
         plotRect.right = chartRect->right - 30;
         plotRect.bottom = chartRect->bottom - 50;

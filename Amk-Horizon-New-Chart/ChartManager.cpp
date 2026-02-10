@@ -701,7 +701,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
     // вызывается для всех графиков (даже с одной осью) и использует CalculateDualAxisPlotRect
     RECT plotRect;
-    plotRect.left = chartRect->left + 60;
+    plotRect.left = chartRect->left + 100;
     plotRect.top = chartRect->top + 45;
     plotRect.right = chartRect->right - 140;
     plotRect.bottom = chartRect->bottom - 50;
@@ -1856,7 +1856,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         
         // Преобразуем экранные координаты в координаты данных
         // ВАЖНО: Используем те же отступы, что и в CalculateDualAxisPlotRect
-        const int MARGIN_LEFT = 60;
+        const int MARGIN_LEFT = 100;
         const int MARGIN_RIGHT = 140;
         const int MARGIN_TOP = 45;
         const int MARGIN_BOTTOM = 50;
@@ -1967,7 +1967,7 @@ void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber
     // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
     // вызывается для всех графиков и использует CalculateDualAxisPlotRect
     RECT plotRect;
-    plotRect.left = chartRect.left + 60;
+    plotRect.left = chartRect.left + 100;
     plotRect.top = chartRect.top + 45;
     plotRect.right = chartRect.right - 140;
     plotRect.bottom = chartRect.bottom - 50;
