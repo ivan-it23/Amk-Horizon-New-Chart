@@ -1913,6 +1913,7 @@ std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
     switch (dataType) {
         case DataType::PHASE_DIFFERENCE:
         case DataType::PHASE_SMT:
+        case DataType::SILENT_PHASE_DIFFERENCE:
             return L"mdeg";
         
         case DataType::AMPLITUDE_RX1:

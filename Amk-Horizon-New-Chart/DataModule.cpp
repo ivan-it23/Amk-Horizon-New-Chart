@@ -339,6 +339,25 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
         }
         break;
 
+    case DataType::SILENT_PHASE_DIFFERENCE:
+        {
+            // 1 канал: разность фаз молчащих передатчиков (R2−R1) по ZERO_dPH[freqIdx]
+            outData.resize(1);
+            outData[0].reserve(endIndex - startIndex);
+
+            for (size_t i = startIndex; i < endIndex; ++i) {
+                const GP_TOOL_DATA& record = data[i];
+                float diff = record.ZERO_dPH[freqIdx];
+                diff = NormalizePhase(diff);
+                float value = diff * 57295.7795f; // рад -> мдег
+
+                if (value >= minY && value <= maxY) {
+                    outData[0].push_back(value);
+                }
+            }
+        }
+        break;
+
     case DataType::TEMPERATURE:
         {
             // 1 канал для температуры
@@ -369,6 +388,7 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
     case DataType::RHO_SMT: return L"УЭС";
     case DataType::SILENT_AMPLITUDE_RX1: return L"Молчащий Амплитуда RX1";
     case DataType::SILENT_AMPLITUDE_RX2: return L"Молчащий Амплитуда RX2";
+    case DataType::SILENT_PHASE_DIFFERENCE: return L"Молчащий Разность фаз";
     case DataType::TEMPERATURE: return L"Temperature";
     default: return L"Unknown Type";
     }
@@ -495,6 +515,10 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
             
         case DataType::SILENT_AMPLITUDE_RX2:
             CalculateSilentAmplitudeData(1, curve.frequency, outData, minX, maxX);
+            break;
+
+        case DataType::SILENT_PHASE_DIFFERENCE:
+            CalculateSilentPhaseDifferenceData(curve.frequency, outData, minX, maxX);
             break;
             
         case DataType::TEMPERATURE:
@@ -648,6 +672,26 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
         const GP_TOOL_DATA& record = data[i];
         float amplitude = (receiverIndex == 0) ? record.ZERO_AM_RX_1[freqIdx] : record.ZERO_AM_RX_2[freqIdx];
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
+    }
+}
+
+void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
+                                                   std::vector<float>& outData,
+                                                   double minX, double maxX) const {
+    auto indexRange = GetDataIndexRange(minX, maxX);
+    size_t startIndex = indexRange.first;
+    size_t endIndex = indexRange.second;
+
+    const int freqIdx = GetSilentTransmitterIndex(frequency);
+    if (freqIdx == -1) return;
+
+    outData.reserve(endIndex - startIndex);
+
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        const GP_TOOL_DATA& record = data[i];
+        float diff = record.ZERO_dPH[freqIdx];
+        diff = NormalizePhase(diff);
+        outData.push_back(diff * 57295.7795f); // рад -> мдег
     }
 }
 

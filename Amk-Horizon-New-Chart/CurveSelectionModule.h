@@ -83,6 +83,7 @@ private:
     CurveDefinition CreatePhaseCurve(int transmitterIndex, int receiverIndex, 
                                     FrequencyBand frequency) const;
     CurveDefinition CreateSilentAmplitudeCurve(int receiverIndex, FrequencyBand frequency) const;
+    CurveDefinition CreateSilentPhaseDifferenceCurve(FrequencyBand frequency) const;
     CurveDefinition CreateRhoSmtCurve(int transmitterIndex, FrequencyBand frequency) const;     // v2.16.0
     CurveDefinition CreatePhaseSmtCurve(int transmitterIndex, FrequencyBand frequency) const;   // v2.16.0
     

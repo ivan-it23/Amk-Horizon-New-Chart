@@ -73,6 +73,13 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
     // РЕЖИМ ПРЕСЕТА: Если dataFilter != ALL, генерируем кривые на основе фильтра
     // Элементы схемы не используются (все false)
     if (selection.dataFilter != DataTypeFilter::ALL) {
+        // НОВОЕ: поддержка пресетов для молчащих передатчиков
+        // (selection.silentTx[] используется даже в режиме пресета)
+        if (selectedSilent > 0 && selectedReceivers == 0 && selectedTransmitters == 0) {
+            AddSilentTransmitterCurves(curves, selection);
+            return curves;
+        }
+
         // Определяем, какой метод вызвать на основе фильтра
         if (selection.dataFilter == DataTypeFilter::RATIO_ONLY || 
             selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY) {
@@ -187,6 +194,48 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             return CreateAmplitudeRatiosPreset(frequency);
         case PresetType::PHASE_DIFFERENCES:
             return CreatePhaseDifferencesPreset(frequency);
+        case PresetType::SILENT_AMPLITUDES:
+            {
+                ChartConfiguration config;
+                config.Clear();
+                config.activePreset = PresetType::SILENT_AMPLITUDES;
+                config.presetDisplayName = L"Ампл. молч. пер.";
+
+                // Две кривые: молчащий R1 и молчащий R2
+                CurveDefinition r1 = CreateSilentAmplitudeCurve(0, frequency);
+                r1.yAxisGroup = 0;
+                r1.enabled = true;
+                r1.color = AssignSmartColor(config.curves, 0, r1.yAxisGroup);
+                r1.displayName = "Молчащий R1 Амплитуда";
+                config.curves.push_back(r1);
+
+                CurveDefinition r2 = CreateSilentAmplitudeCurve(1, frequency);
+                r2.yAxisGroup = 0;
+                r2.enabled = true;
+                r2.color = AssignSmartColor(config.curves, 1, r2.yAxisGroup);
+                r2.displayName = "Молчащий R2 Амплитуда";
+                config.curves.push_back(r2);
+
+                config.UpdateAxisConfiguration();
+                return config;
+            }
+        case PresetType::SILENT_PHASE_DIFFERENCE:
+            {
+                ChartConfiguration config;
+                config.Clear();
+                config.activePreset = PresetType::SILENT_PHASE_DIFFERENCE;
+                config.presetDisplayName = L"Разн. фаз молч. пер.";
+
+                CurveDefinition dph = CreateSilentPhaseDifferenceCurve(frequency);
+                dph.yAxisGroup = 0;
+                dph.enabled = true;
+                dph.color = AssignSmartColor(config.curves, 0, dph.yAxisGroup);
+                dph.displayName = "Молчащие Разность фаз";
+                config.curves.push_back(dph);
+
+                config.UpdateAxisConfiguration();
+                return config;
+            }
         case PresetType::RHO_SMT:
             return CreateRhoSmtPreset(frequency);
         case PresetType::PHASE_SMT:
@@ -304,6 +353,13 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             case DataType::PHASE_DIFFERENCE:
                 CalculateDifferenceData(curve.elementIndex, curve.frequency, dataModule, curveData);
                 break;
+            case DataType::SILENT_PHASE_DIFFERENCE:
+                {
+                    // Разность фаз молчащих передатчиков (R2−R1) по ZERO_dPH
+                    dataModule->CalculateSilentPhaseDifferenceData(curve.frequency, curveData,
+                                                                  0.0, static_cast<double>(dataModule->GetDataSize() - 1));
+                }
+                break;
             case DataType::AMPLITUDE_RX1:
             case DataType::AMPLITUDE_RX2:
                 {
@@ -407,6 +463,9 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 break;
             case DataType::PHASE_DIFFERENCE:
                 dataModule->CalculateDifferenceData(curve.elementIndex, curve.frequency, curveData, minX, maxX);
+                break;
+            case DataType::SILENT_PHASE_DIFFERENCE:
+                dataModule->CalculateSilentPhaseDifferenceData(curve.frequency, curveData, minX, maxX);
                 break;
             case DataType::AMPLITUDE_RX1:
             case DataType::AMPLITUDE_RX2:
@@ -620,35 +679,59 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
 
 void CurveSelectionModule::AddSilentTransmitterCurves(std::vector<CurveDefinition>& curves, 
                                                      const SchematicSelection& selection) const {
-    // Молчащие передатчики предоставляют только амплитуды (для контроля качества)
-    // Каждый молчащий передатчик соответствует определенному приемнику
+    // Молчащие передатчики:
+    // - амплитуды: ZERO_AM_RX_1/2 (для R1/R2)
+    // - разность фаз (R2−R1): ZERO_dPH (требуются оба приёмника, поэтому показываем только если выбраны оба silent)
     // ИЗМЕНЕНО v2.7.0: Если есть фазы на графике, амплитуды идут на правую ось
+
+    // Учитываем фильтр типов данных (в т.ч. в режиме пресета)
+    bool addAmplitudes = (selection.dataFilter == DataTypeFilter::ALL ||
+                          selection.dataFilter == DataTypeFilter::AMPLITUDE_ONLY);
+    bool addDifferences = (selection.dataFilter == DataTypeFilter::ALL ||
+                           selection.dataFilter == DataTypeFilter::DIFFERENCE_ONLY ||
+                           selection.dataFilter == DataTypeFilter::PHASE_ONLY);
     
     // Проверяем, есть ли уже фазовые кривые
     bool hasPhases = false;
     for (const auto& curve : curves) {
         if (curve.dataType == DataType::PHASE_SMT || 
-            curve.dataType == DataType::PHASE_DIFFERENCE) {
+            curve.dataType == DataType::PHASE_DIFFERENCE ||
+            curve.dataType == DataType::SILENT_PHASE_DIFFERENCE) {
             hasPhases = true;
             break;
         }
     }
     
-    for (int i = 0; i < 2; i++) {
-        if (selection.silentTx[i]) {
-            CurveDefinition silentCurve = CreateSilentAmplitudeCurve(i, selection.frequency);
-            // ИЗМЕНЕНО v2.7.0: Правая ось если есть фазы, иначе левая
-            silentCurve.yAxisGroup = hasPhases ? 1 : 0;
-            silentCurve.enabled = true;
-            
-            // Используем умное назначение цвета вместо фиксированного фиолетового
-            // Передаём индекс элемента (i) для выбора цвета из палитры
-            silentCurve.color = AssignSmartColor(curves, i, silentCurve.yAxisGroup);
-            
-            // Обновляем отображаемое имя
-            silentCurve.displayName = "Молчащий R" + std::to_string(i + 1) + " Амплитуда";
-            
-            curves.push_back(silentCurve);
+    if (addDifferences && selection.silentTx.size() >= 2 && selection.silentTx[0] && selection.silentTx[1]) {
+        // Разность фаз молчащих передатчиков (R2−R1)
+        CurveDefinition silentDiff = CreateSilentPhaseDifferenceCurve(selection.frequency);
+        silentDiff.yAxisGroup = 0; // Левая ось для фаз
+        silentDiff.enabled = true;
+        silentDiff.color = AssignSmartColor(curves, 0, silentDiff.yAxisGroup);
+        silentDiff.displayName = "Молчащие Разность фаз";
+        curves.push_back(silentDiff);
+
+        // Важно: дальше амплитуды должны уйти на правую ось, чтобы не смешивать единицы (mdeg vs mV) на одной оси
+        hasPhases = true;
+    }
+
+    if (addAmplitudes) {
+        for (int i = 0; i < 2; i++) {
+            if (selection.silentTx[i]) {
+                CurveDefinition silentCurve = CreateSilentAmplitudeCurve(i, selection.frequency);
+                // ИЗМЕНЕНО v2.7.0: Правая ось если есть фазы, иначе левая
+                silentCurve.yAxisGroup = hasPhases ? 1 : 0;
+                silentCurve.enabled = true;
+                
+                // Используем умное назначение цвета вместо фиксированного фиолетового
+                // Передаём индекс элемента (i) для выбора цвета из палитры
+                silentCurve.color = AssignSmartColor(curves, i, silentCurve.yAxisGroup);
+                
+                // Обновляем отображаемое имя
+                silentCurve.displayName = "Молчащий R" + std::to_string(i + 1) + " Амплитуда";
+                
+                curves.push_back(silentCurve);
+            }
         }
     }
 }
@@ -758,6 +841,20 @@ CurveDefinition CurveSelectionModule::CreateSilentAmplitudeCurve(int receiverInd
     return curve;
 }
 
+CurveDefinition CurveSelectionModule::CreateSilentPhaseDifferenceCurve(FrequencyBand frequency) const {
+    // Для разности фаз молчащих передатчиков используем отдельный DataType.
+    // elementIndex фиксируем как 0 (не привязан к конкретному "silent R1/R2", т.к. это R2−R1).
+    const int elementIndex = 0;
+    std::string id = GenerateCurveId(ElementType::SILENT_TX, elementIndex, DataType::SILENT_PHASE_DIFFERENCE, frequency);
+    std::string name = GenerateDisplayName(ElementType::SILENT_TX, elementIndex, DataType::SILENT_PHASE_DIFFERENCE);
+
+    CurveDefinition curve(id, name, "mdeg", ElementType::SILENT_TX, elementIndex, DataType::SILENT_PHASE_DIFFERENCE, frequency);
+    curve.yAxisGroup = 0; // Левая ось
+    curve.color = GetSpecialDataColor(DataType::SILENT_PHASE_DIFFERENCE);
+    curve.lineStyle = GetLineStyle(curve.yAxisGroup);
+    return curve;
+}
+
 // Вспомогательные методы для работы с цветами
 COLORREF CurveSelectionModule::GetCurveColor(int transmitterIndex) const {
     // Старый метод для обратной совместимости - использует цвета левой оси
@@ -781,6 +878,7 @@ COLORREF CurveSelectionModule::GetSpecialDataColor(DataType dataType) const {
     switch (dataType) {
         case DataType::SILENT_AMPLITUDE_RX1:
         case DataType::SILENT_AMPLITUDE_RX2:
+        case DataType::SILENT_PHASE_DIFFERENCE:
             return SILENT_COLOR;  // Фиолетовый для молчащих передатчиков
         case DataType::TEMPERATURE:
             return TEMPERATURE_COLOR;  // Оранжевый для температуры
@@ -1079,7 +1177,12 @@ std::string CurveSelectionModule::GenerateDisplayName(ElementType element, int e
             oss << "R" << (elementIndex + 1) << " ";
             break;
         case ElementType::SILENT_TX:
-            oss << "Молчащий R" << (elementIndex + 1) << " ";
+            if (dataType == DataType::SILENT_PHASE_DIFFERENCE) {
+                // Разность фаз молчащих передатчиков относится к обоим приёмникам (R2−R1)
+                oss << "Молчащие ";
+            } else {
+                oss << "Молчащий R" << (elementIndex + 1) << " ";
+            }
             break;
     }
     
@@ -1102,6 +1205,8 @@ std::string CurveSelectionModule::GetDataTypeDisplayName(DataType dataType) cons
         case DataType::AMPLITUDE_RATIO:
             return "Отношение амплитуд";
         case DataType::PHASE_DIFFERENCE:
+            return "Разность фаз";
+        case DataType::SILENT_PHASE_DIFFERENCE:
             return "Разность фаз";
         case DataType::RHO_SMT:
             return "УЭС";
@@ -1135,6 +1240,7 @@ std::string CurveSelectionModule::GetUnitsForDataType(DataType dataType) const {
             return "V";
         case DataType::PHASE_SMT:
         case DataType::PHASE_DIFFERENCE:
+        case DataType::SILENT_PHASE_DIFFERENCE:
             return "deg";
         case DataType::AMPLITUDE_RATIO:
             return "";
@@ -1252,6 +1358,7 @@ int CurveSelectionModule::GetDataTypePriority(DataType dataType) const {
             
         case DataType::PHASE_SMT:
         case DataType::PHASE_DIFFERENCE:
+        case DataType::SILENT_PHASE_DIFFERENCE:
             return 2; // Фазы вторыми
 
         case DataType::RHO_SMT:

@@ -1460,6 +1460,22 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             currentPreset = PresetType::PHASE_SMT;
             currentPresetDisplayName = L"Симм. фазы";
             break;
+        case IDC_PRESET_SILENT_AMPL:
+            // Амплитуды молчащих передатчиков: две кривые (R1 и R2) из ZERO_AM_RX_1/2
+            currentSelection.silentTx[0] = true; // Молч. R1
+            currentSelection.silentTx[1] = true; // Молч. R2
+            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
+            currentPreset = PresetType::SILENT_AMPLITUDES;
+            currentPresetDisplayName = L"Ампл. молч. пер.";
+            break;
+        case IDC_PRESET_SILENT_DPH:
+            // Разность фаз молчащих передатчиков: одна кривая (R2−R1) из ZERO_dPH с нормализацией
+            currentSelection.silentTx[0] = true;
+            currentSelection.silentTx[1] = true;
+            currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
+            currentPreset = PresetType::SILENT_PHASE_DIFFERENCE;
+            currentPresetDisplayName = L"Разн. фаз молч. пер.";
+            break;
     }
     
     // Для пресетов НЕ синхронизируем элементы схемы (они должны оставаться неактивными)
@@ -1623,6 +1639,7 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     bool hasRatios = false;
     bool hasDifferences = false;
     bool hasSilentAmplitudes = false;
+    bool hasSilentDifferences = false;
     bool hasRhoSmt = false;         // v2.16.0
     bool hasPhaseSmt = false;       // v2.16.0
     bool hasTemperature = false;
@@ -1637,6 +1654,9 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
             case DataType::SILENT_AMPLITUDE_RX1:
             case DataType::SILENT_AMPLITUDE_RX2:
                 hasSilentAmplitudes = true;
+                break;
+            case DataType::SILENT_PHASE_DIFFERENCE:
+                hasSilentDifferences = true;
                 break;
             case DataType::PHASE_SMT:
                 hasPhaseSmt = true;
@@ -1677,6 +1697,10 @@ DataTypeFilter SchematicModule::DetermineDataFilterFromCurves(const std::vector<
     }
     // Если есть только разности фаз
     else if (hasDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
+        result = DataTypeFilter::DIFFERENCE_ONLY;
+    }
+    // Если есть только разность фаз молчащих передатчиков
+    else if (hasSilentDifferences && !hasRatios && !hasAmplitudes && !hasPhases && !hasSilentAmplitudes && !hasDifferences && !hasRhoSmt && !hasPhaseSmt && !hasTemperature) {
         result = DataTypeFilter::DIFFERENCE_ONLY;
     }
     // Если есть только обычные амплитуды (без отношений и молчащих)
@@ -2075,6 +2099,8 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_PRESET_TEMPERATURE:
                     case IDC_PRESET_RHO_SMT:
                     case IDC_PRESET_PHASE_SMT:
+                    case IDC_PRESET_SILENT_AMPL:
+                    case IDC_PRESET_SILENT_DPH:
                         if (pSchematic) {
                             pSchematic->HandlePresetButton(hDlg, wmId);
                         }

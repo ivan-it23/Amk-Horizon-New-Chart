@@ -1748,6 +1748,133 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         DrawDualAxisLegend(hdc, rect, curves);
         return;
     }
+
+    // --- Специальная легенда для пресетов молчащих передатчиков ---
+    // Причина: стандартная "компактная легенда пресета" извлекает короткое имя из displayName по байтам,
+    // что для UTF-8 (кириллица) даёт некорректные символы. Для silent-пресетов рисуем полностью заданный текст.
+    if (config.activePreset == PresetType::SILENT_PHASE_DIFFERENCE ||
+        config.activePreset == PresetType::SILENT_AMPLITUDES) {
+        const int lineLength = 15;
+        const int elementSpacing = 15;
+        const int lineHeight = 20;
+
+        HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+        SetBkMode(hdc, TRANSPARENT);
+
+        // Собираем включённые кривые (обычно только левая ось)
+        std::vector<const CurveDefinition*> leftAxisCurves;
+        for (const auto& curve : curves) {
+            if (!curve.enabled) continue;
+            if (curve.yAxisGroup == 0) {
+                leftAxisCurves.push_back(&curve);
+            }
+        }
+
+        if (leftAxisCurves.empty()) {
+            SelectObject(hdc, hOldFont);
+            return;
+        }
+
+        // Единицы оси (mV/mdeg)
+        const std::string leftUnits = leftAxisCurves[0]->units;
+        const std::wstring leftUnitsW(leftUnits.begin(), leftUnits.end());
+
+        // Требуемый формат:
+        // 1) "[Левая ось (mdeg)]: Разность фаз молчащих передатчиков: [цвет] R1-R2"
+        // 2) "[Левая ось (mV)]: Амплитуды молчащих передатчиков: [цвет] R1  [цвет] R2"
+        const std::wstring prefix = L"[Левая ось (" + leftUnitsW + L")]: ";
+        const std::wstring functionLabel =
+            (config.activePreset == PresetType::SILENT_PHASE_DIFFERENCE)
+                ? L"Разность фаз молчащих передатчиков: "
+                : L"Амплитуды молчащих передатчиков: ";
+
+        // Готовим "элементы" (цветная линия + подпись)
+        struct Item {
+            const CurveDefinition* curve;
+            std::wstring label;
+        };
+
+        std::vector<Item> items;
+        items.reserve(leftAxisCurves.size());
+
+        if (config.activePreset == PresetType::SILENT_PHASE_DIFFERENCE) {
+            // Ожидаем одну кривую разности фаз молчащих передатчиков
+            items.push_back({leftAxisCurves[0], L"R1-R2"});
+        } else {
+            // Амплитуды молчащих: две кривые (R1 и R2). Сортируем предсказуемо.
+            const CurveDefinition* r1 = nullptr;
+            const CurveDefinition* r2 = nullptr;
+            for (const auto* c : leftAxisCurves) {
+                if (c->dataType == DataType::SILENT_AMPLITUDE_RX1) r1 = c;
+                if (c->dataType == DataType::SILENT_AMPLITUDE_RX2) r2 = c;
+            }
+            if (r1) items.push_back({r1, L"R1"});
+            if (r2) items.push_back({r2, L"R2"});
+            // fallback: если по каким-то причинам типы не совпали, просто добавим как есть
+            if (items.empty()) {
+                for (const auto* c : leftAxisCurves) {
+                    items.push_back({c, Utf8ToWide(c->displayName)});
+                }
+            }
+        }
+
+        // Считаем ширину для центрирования
+        SIZE prefixSize = {};
+        SIZE labelSize = {};
+        GetTextExtentPoint32(hdc, prefix.c_str(), (int)prefix.length(), &prefixSize);
+        GetTextExtentPoint32(hdc, functionLabel.c_str(), (int)functionLabel.length(), &labelSize);
+
+        int totalWidth = prefixSize.cx + labelSize.cx;
+        for (const auto& it : items) {
+            SIZE itemText = {};
+            GetTextExtentPoint32(hdc, it.label.c_str(), (int)it.label.length(), &itemText);
+            totalWidth += lineLength + 5 + itemText.cx + elementSpacing;
+        }
+        if (!items.empty()) {
+            totalWidth -= elementSpacing; // убираем последний отступ
+        }
+
+        const int chartWidth = rect.right - rect.left;
+        int currentX = rect.left + (chartWidth - totalWidth) / 2;
+        const int legendY = rect.top + 35;
+
+        // Рисуем префикс + полное название функции
+        SetTextColor(hdc, RGB(0, 0, 0));
+        TextOut(hdc, currentX, legendY, prefix.c_str(), (int)prefix.length());
+        currentX += prefixSize.cx;
+
+        TextOut(hdc, currentX, legendY, functionLabel.c_str(), (int)functionLabel.length());
+        currentX += labelSize.cx;
+
+        // Рисуем элементы (цвет + подпись)
+        for (size_t i = 0; i < items.size(); ++i) {
+            const CurveDefinition* c = items[i].curve;
+            const std::wstring& text = items[i].label;
+
+            // Цветная линия
+            HPEN hPen = CreatePen(PS_SOLID, 2, c ? c->color : RGB(0, 0, 0));
+            HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+            MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
+            LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
+            SelectObject(hdc, hOldPen);
+            DeleteObject(hPen);
+
+            currentX += lineLength + 5;
+
+            TextOut(hdc, currentX, legendY, text.c_str(), (int)text.length());
+            SIZE tSize = {};
+            GetTextExtentPoint32(hdc, text.c_str(), (int)text.length(), &tSize);
+            currentX += tSize.cx;
+
+            if (i + 1 < items.size()) {
+                currentX += elementSpacing;
+            }
+        }
+
+        SelectObject(hdc, hOldFont);
+        return;
+    }
     
     // Параметры легенды для пресетов
     int lineLength = 15;

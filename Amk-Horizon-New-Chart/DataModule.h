@@ -38,6 +38,7 @@ enum class DataType {
     RHO_SMT,                 // Симметризованные УЭС (5 каналов)
     SILENT_AMPLITUDE_RX1,    // Амплитуды молчащих передатчиков RX1 (1 канал)
     SILENT_AMPLITUDE_RX2,    // Амплитуды молчащих передатчиков RX2 (1 канал)
+    SILENT_PHASE_DIFFERENCE, // Разность фаз молчащих передатчиков R2−R1 (источник: ZERO_dPH) (1 канал)
     TEMPERATURE             // Температура прибора (1 значение на запись)
 };
 
@@ -163,6 +164,11 @@ public:
     void CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                      std::vector<float>& outData,
                                      double minX, double maxX) const;
+
+    // Разность фаз молчащих передатчиков (R2−R1) по полю ZERO_dPH[freqIdx]
+    void CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
+                                           std::vector<float>& outData,
+                                           double minX, double maxX) const;
     
 private:
     

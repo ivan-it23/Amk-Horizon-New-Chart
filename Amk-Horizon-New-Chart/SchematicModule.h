@@ -82,6 +82,8 @@ enum class PresetType {
     ALL_AMPLITUDES_R2,      // Все амплитуды для R2
     AMPLITUDE_RATIOS,       // Отношения амплитуд R2/R1
     PHASE_DIFFERENCES,      // Разности фаз R2-R1
+    SILENT_AMPLITUDES,      // Амплитуды молчащих передатчиков (R1 + R2)
+    SILENT_PHASE_DIFFERENCE,// Разность фаз молчащих передатчиков (R2−R1)
     TEMPERATURE,            // Температура
     RHO_SMT,                // УЭС (v2.16.0)
     PHASE_SMT,              // Симметризованные фазы (v2.16.0)
