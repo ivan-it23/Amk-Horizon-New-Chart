@@ -93,7 +93,7 @@ private:
     COLORREF GetSpecialDataColor(DataType dataType) const;  // Цвета для специальных типов данных
     COLORREF AssignSmartColor(const std::vector<CurveDefinition>& existingCurves, 
                              int transmitterIndex, int yAxisGroup) const;  // Умное назначение цветов
-    int GetLineStyle(int yAxisGroup) const;  // PS_SOLID для левой оси, PS_DASH для правой
+    int GetLineStyle(int yAxisGroup) const;  // Всегда PS_SOLID (однородные линии)
     
     // Методы для создания пресетов
     ChartConfiguration CreateAllAmplitudesR1Preset(FrequencyBand frequency) const;

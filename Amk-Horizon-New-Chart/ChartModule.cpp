@@ -39,11 +39,12 @@ static std::wstring Utf8ToWide(const std::string& utf8str) {
 
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[5] = {
-    RGB(0, 255, 0),    // Зеленый - T1
-    RGB(139, 69, 19),  // Коричневый - T2
-    RGB(255, 0, 0),    // Красный - T3
-    RGB(0, 0, 255),    // Синий - T4
-    RGB(255, 20, 147)  // Розовый - T5
+    // Спокойная "офисная" палитра (без неоновых цветов), хорошо читается при 1px линиях.
+    RGB(0, 128, 0),      // T1 - тёмно-зелёный
+    RGB(139, 69, 19),    // T2 - коричневый
+    RGB(200, 50, 50),    // T3 - приглушённый красный
+    RGB(50, 90, 190),    // T4 - приглушённый синий
+    RGB(170, 80, 140)    // T5 - приглушённый пурпурный
 };
 
 const wchar_t* ChartModule::CHANNEL_NAMES[5] = {
@@ -54,6 +55,44 @@ ChartModule::ChartModule() {
 }
 
 ChartModule::~ChartModule() {
+}
+
+namespace {
+    // Ненавязчивый "корпоративный" стиль: лёгкий фон, мягкая сетка, читаемые подписи.
+    constexpr COLORREF kChartBg = RGB(248, 249, 251);     // общий фон области графика
+    constexpr COLORREF kPlotBg = RGB(255, 255, 255);      // фон plot-области
+    constexpr COLORREF kBorder = RGB(210, 214, 219);      // рамка графика
+    constexpr COLORREF kAxis = RGB(85, 85, 85);           // оси/засечки
+    constexpr COLORREF kText = RGB(45, 45, 45);           // подписи
+    constexpr COLORREF kGridMajor = RGB(226, 230, 235);   // основные линии сетки
+
+    // Толщина КРИВЫХ (сетка/оси остаются тонкими).
+    constexpr int kCurveWidthPx = 2;
+
+    static HPEN CreateCurvePen(int lineStyle, COLORREF color) {
+        if (lineStyle == PS_DASH) {
+            if (kCurveWidthPx <= 1) {
+                return CreatePen(PS_DASH, 1, color);
+            }
+
+            // Для толщины > 1px используем геометрический pen, иначе GDI часто "ломает" пунктир.
+            LOGBRUSH lb = {};
+            lb.lbStyle = BS_SOLID;
+            lb.lbColor = color;
+
+            // Ненавязчивый пунктир (в пикселях). При желании можно подстроить под толщину.
+            DWORD pattern[2] = { 6, 4 }; // dash, gap
+            return ExtCreatePen(
+                PS_GEOMETRIC | PS_USERSTYLE | PS_ENDCAP_ROUND | PS_JOIN_ROUND,
+                kCurveWidthPx,
+                &lb,
+                2,
+                pattern
+            );
+        }
+
+        return CreatePen(PS_SOLID, kCurveWidthPx, color);
+    }
 }
 
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
@@ -80,6 +119,13 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
     // Расчет области для графика
     RECT plotRect = CalculatePlotRect(rect);
 
+    // Фон plot-области (лёгкое визуальное разделение от "карточки" графика)
+    {
+        HBRUSH hPlotBrush = CreateSolidBrush(kPlotBg);
+        FillRect(hdc, &plotRect, hPlotBrush);
+        DeleteObject(hPlotBrush);
+    }
+
     // Отрисовка осей (только если не заменены скроллбарами)
     DrawChartAxes(hdc, plotRect, showAxes);
 
@@ -102,24 +148,37 @@ void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::ve
 }
 
 void ChartModule::DrawChartBackground(HDC hdc, const RECT& rect) const {
-    HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
+    HBRUSH hBrush = CreateSolidBrush(kChartBg);
     FillRect(hdc, &rect, hBrush);
     DeleteObject(hBrush);
 }
 
 void ChartModule::DrawChartBorder(HDC hdc, const RECT& rect) const {
+    HPEN hPen = CreatePen(PS_SOLID, 1, kBorder);
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
     Rectangle(hdc, rect.left, rect.top, rect.right, rect.bottom);
+
+    SelectObject(hdc, hOldBrush);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
 }
 
 void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& title) const {
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
     TextOut(hdc, rect.left + 10, rect.top + 10, title.c_str(), (int)title.length());
+    SelectObject(hdc, hOldFont);
 }
 
 
 void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect, bool showAxes) const {
     if (!showAxes) return; // Не рисуем оси, если они заменены скроллбарами
     
-    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0)); // Сплошная линия для осей
+    HPEN hPen = CreatePen(PS_SOLID, 1, kAxis); // Сплошная линия для осей
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
 
     // X-ось
@@ -145,7 +204,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         if (channel.empty())
             continue;
             
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
+        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -186,7 +245,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         if (channel.empty())
             continue;
             
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
+        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -240,6 +299,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, kText);
     
     // Вычисляем ширину каждого элемента легенды
     struct LegendElement {
@@ -291,7 +351,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
         currentX += checkboxSize + 5;
         
         // Отрисовка цветной линии
-        HPEN hPen = CreatePen(PS_SOLID, 2, color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
@@ -439,6 +499,8 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
     
     // Отрисовка горизонтальных линий сетки и меток Y-оси
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40); // Примерное количество шагов
@@ -450,7 +512,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
             
             // Проверяем, что линия сетки находится в пределах области графика
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
-                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+                HPEN hPen = CreatePen(PS_SOLID, 1, kGridMajor);
                 HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                 
                 // Рисуем горизонтальную линию сетки только в пределах plotRect
@@ -461,7 +523,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 DeleteObject(hPen);
                 
                 // Рисуем засечку (tick mark) влево от оси Y
-                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                 HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                 MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
                 LineTo(hdc, plotRect.left, screenY);
@@ -506,7 +568,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                 
                 // Проверяем, что линия сетки находится в пределах области графика
                 if (screenX >= plotRect.left && screenX <= plotRect.right) {
-                    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+                    HPEN hPen = CreatePen(PS_SOLID, 1, kGridMajor);
                     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                     
                     // Рисуем вертикальную линию сетки только в пределах plotRect
@@ -517,7 +579,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
                     DeleteObject(hPen);
                     
                     // Рисуем засечку (tick mark) вниз от оси X
-                    HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                    HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                     HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                     MoveToEx(hdc, screenX, plotRect.bottom, NULL);
                     LineTo(hdc, screenX, plotRect.bottom + TICK_LENGTH);
@@ -534,8 +596,8 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
             currentXVal += niceStepX;
         }
         
-        // Рисуем жирную ось X
-        HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+        // Рисуем ось X (не утолщаем: при плотных данных толстая ось визуально давит)
+        HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
         HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
         MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
         LineTo(hdc, plotRect.right, plotRect.bottom);
@@ -554,7 +616,7 @@ void ChartModule::DrawGridOnly(HDC hdc, const RECT& plotRect) const {
     
     if (plotWidth <= 0 || plotHeight <= 0) return;
     
-    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+    HPEN hPen = CreatePen(PS_SOLID, 1, kGridMajor);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
     // Горизонтальные линии сетки (10 линий)
@@ -1031,7 +1093,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
             long screenY = plotRect.bottom - (LONG)((currentYVal - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
-                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(230, 230, 230));
+                HPEN hPen = CreatePen(PS_SOLID, 1, kGridMajor);
                 HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                 
                 MoveToEx(hdc, plotRect.left, screenY, NULL);
@@ -1053,7 +1115,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
     double niceStepX = CalculateNiceStep(xRange, (plotRect.right - plotRect.left) / 60);
     double currentXVal = CalculateNiceMin(minXData, niceStepX);
     
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
     
     // Отслеживание уже отрисованных целых значений для предотвращения дубликатов
@@ -1068,7 +1130,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
             
             if (screenX >= plotRect.left && screenX <= plotRect.right) {
                 // Рисуем вертикальную линию сетки
-                HPEN hPen = CreatePen(PS_SOLID, 1, RGB(200, 200, 200));
+                HPEN hPen = CreatePen(PS_SOLID, 1, kGridMajor);
                 HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
                 
                 MoveToEx(hdc, screenX, plotRect.top, NULL);
@@ -1078,7 +1140,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
                 DeleteObject(hPen);
                 
                 // Рисуем засечку (tick mark) вниз от оси X
-                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                 HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                 MoveToEx(hdc, screenX, plotRect.bottom, NULL);
                 LineTo(hdc, screenX, plotRect.bottom + TICK_LENGTH);
@@ -1100,8 +1162,8 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
         currentXVal += niceStepX;
     }
     
-    // Рисуем жирную ось X
-    HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    // Рисуем ось X (без утолщения)
+    HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
     MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
     LineTo(hdc, plotRect.right, plotRect.bottom);
@@ -1133,8 +1195,11 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
         maxVal += padding;
     }
     
-    // Рисуем левую ось
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
+
+    // Рисуем левую ось (тонко и ненавязчиво)
+    HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
     MoveToEx(hdc, plotRect.left, plotRect.top, NULL);
@@ -1147,7 +1212,7 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
     
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
     
     // Константа для длины засечки
@@ -1159,7 +1224,7 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 // Рисуем засечку (tick mark) влево от оси
-                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                 HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                 MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
                 LineTo(hdc, plotRect.left, screenY);
@@ -1221,7 +1286,10 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     // Рисуем правую ось с отступом от края
     int rightAxisX = plotRect.right + 40; // Отступ 40 пикселей от области графика
     
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
+
+    HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
     MoveToEx(hdc, rightAxisX, plotRect.top, NULL);
@@ -1234,7 +1302,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
     
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
     
     // Константа для длины засечки
@@ -1246,7 +1314,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 // Рисуем засечку (tick mark) вправо от оси
-                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                 HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                 MoveToEx(hdc, rightAxisX, screenY, NULL);
                 LineTo(hdc, rightAxisX + TICK_LENGTH, screenY);
@@ -1338,7 +1406,7 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -1372,7 +1440,7 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -1464,7 +1532,7 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         // Отладка для кривой
@@ -1527,7 +1595,7 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -1769,7 +1837,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     
     // Отрисовка подписи левой оси
     if (!leftAxisCurves.empty()) {
-        SetTextColor(hdc, RGB(0, 0, 0));
+        SetTextColor(hdc, kText);
         TextOut(hdc, currentX, legendY, leftAxisLabel.c_str(), (int)leftAxisLabel.length());
         currentX += leftLabelSize.cx + 10;
 
@@ -1786,7 +1854,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             const CurveDefinition* curve = elem.curve;
             
             // Линия (сплошная для левой оси)
-            HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
+            HPEN hPen = CreateCurvePen(PS_SOLID, curve->color);
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
             
             MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
@@ -1811,14 +1879,14 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     
     // Отрисовка разделителя " | "
     if (!leftAxisCurves.empty() && !rightAxisCurves.empty()) {
-        SetTextColor(hdc, RGB(128, 128, 128)); // Серый цвет для разделителя
+        SetTextColor(hdc, RGB(130, 130, 130)); // спокойный серый для разделителя
         TextOut(hdc, currentX, legendY, L"|", 1);
         currentX += separatorWidth + separatorSpacing;
     }
     
     // Отрисовка подписи правой оси
     if (!rightAxisCurves.empty()) {
-        SetTextColor(hdc, RGB(0, 0, 0));
+        SetTextColor(hdc, kText);
         TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
         currentX += rightLabelSize.cx + 10;
 
@@ -1835,7 +1903,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             const CurveDefinition* curve = elem.curve;
             
             // Линия (пунктирная для правой оси)
-            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            HPEN hPen = CreateCurvePen(curve->lineStyle, curve->color);
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
             
             MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
@@ -1960,7 +2028,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         const int legendY = rect.top + 35;
 
         // Рисуем префикс + полное название функции
-        SetTextColor(hdc, RGB(0, 0, 0));
+        SetTextColor(hdc, kText);
         TextOut(hdc, currentX, legendY, prefix.c_str(), (int)prefix.length());
         currentX += prefixSize.cx;
 
@@ -1973,7 +2041,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             const std::wstring& text = items[i].label;
 
             // Цветная линия
-            HPEN hPen = CreatePen(PS_SOLID, 2, c ? c->color : RGB(0, 0, 0));
+            HPEN hPen = CreatePen(PS_SOLID, 1, c ? c->color : kAxis);
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
             MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
             LineTo(hdc, currentX + lineLength, legendY + lineHeight / 2);
@@ -2082,7 +2150,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int currentX = startX;
     
     // Отрисовка подписи левой оси
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     TextOut(hdc, currentX, legendY, leftAxisLabel.c_str(), (int)leftAxisLabel.length());
     currentX += leftLabelSize.cx + 10;
     
@@ -2093,7 +2161,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     // Отрисовка кривых с короткими именами
     for (const auto* curve : leftAxisCurves) {
         // Линия
-        HPEN hPen = CreatePen(PS_SOLID, 2, curve->color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, curve->color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
@@ -2128,13 +2196,13 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     // Если есть кривые на правой оси (для пресетов обычно нет, но на всякий случай)
     if (!rightAxisCurves.empty()) {
         // Разделитель
-        SetTextColor(hdc, RGB(128, 128, 128));
+        SetTextColor(hdc, RGB(130, 130, 130));
         TextOut(hdc, currentX, legendY, L"|", 1);
         currentX += 20;
         
         // Подпись правой оси
         std::wstring rightAxisLabel = L"[Правая ось (" + std::wstring(rightUnits.begin(), rightUnits.end()) + L")]";
-        SetTextColor(hdc, RGB(0, 0, 0));
+        SetTextColor(hdc, kText);
         TextOut(hdc, currentX, legendY, rightAxisLabel.c_str(), (int)rightAxisLabel.length());
         
         SIZE rightLabelSize;
@@ -2143,7 +2211,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         
         // Кривые правой оси
         for (const auto* curve : rightAxisCurves) {
-            HPEN hPen = CreatePen(PS_DASH, 2, curve->color);
+            HPEN hPen = CreateCurvePen(curve->lineStyle, curve->color);
             HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
             
             MoveToEx(hdc, currentX, legendY + lineHeight / 2, NULL);
@@ -2280,7 +2348,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         const auto& channel = chartData[channelIdx];
         if (channel.empty()) continue;
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, CHANNEL_COLORS[channelIdx % 5]);
+        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -2328,8 +2396,8 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     float minVal, maxVal;
     FindMinMaxValues(chartData, minVal, maxVal, minYData, maxYData);
     
-    // Рисуем сетку
-    HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+    // Рисуем сетку (мягкая, ненавязчивая)
+    HPEN hGridPen = CreatePen(PS_SOLID, 1, kGridMajor);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
     
     // Вертикальные линии сетки (по температуре)
@@ -2391,7 +2459,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     
     // v2.10.0: Добавляем подпись единиц измерения для оси X
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     
     // Подпись оси X (Temperature) - справа внизу, ниже числовых значений
     const wchar_t* xAxisLabel = L"\u00B0C"; // Unicode для символа градуса
@@ -2662,7 +2730,7 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -2697,7 +2765,7 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
         
-        HPEN hPen = CreatePen(curve.lineStyle, 2, curve.color);
+        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
@@ -2748,8 +2816,8 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
     
-    // Рисуем сетку
-    HPEN hGridPen = CreatePen(PS_DOT, 1, RGB(200, 200, 200));
+    // Рисуем сетку (мягкая, ненавязчивая)
+    HPEN hGridPen = CreatePen(PS_SOLID, 1, kGridMajor);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
     
     // Вертикальные линии сетки (по температуре)
@@ -2763,7 +2831,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
         
         // Рисуем засечку (tick mark) вниз от оси X
         SelectObject(hdc, hOldPen);
-        HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+        HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
         HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
         MoveToEx(hdc, x, plotRect.bottom, NULL);
         LineTo(hdc, x, plotRect.bottom + TICK_LENGTH);
@@ -2829,8 +2897,8 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     SelectObject(hdc, hOldPen);
     DeleteObject(hGridPen);
     
-    // Рисуем жирную ось X
-    HPEN hAxisPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    // Рисуем ось X (без утолщения)
+    HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
     MoveToEx(hdc, plotRect.left, plotRect.bottom, NULL);
     LineTo(hdc, plotRect.right, plotRect.bottom);
@@ -2848,8 +2916,11 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
     float minVal = static_cast<float>(minYData);
     float maxVal = static_cast<float>(maxYData);
     
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
+
     // Рисуем левую ось
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
     MoveToEx(hdc, plotRect.left, plotRect.top, NULL);
@@ -2862,7 +2933,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40);
     double currentYVal = CalculateNiceMin(minVal, niceStepY);
     
-    SetTextColor(hdc, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
     
     // Константа для длины засечки
@@ -2874,7 +2945,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
             
             if (screenY >= plotRect.top && screenY <= plotRect.bottom) {
                 // Рисуем засечку (tick mark) влево от оси
-                HPEN hTickPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+                HPEN hTickPen = CreatePen(PS_SOLID, 1, kAxis);
                 HPEN hOldTickPen = (HPEN)SelectObject(hdc, hTickPen);
                 MoveToEx(hdc, plotRect.left - TICK_LENGTH, screenY, NULL);
                 LineTo(hdc, plotRect.left, screenY);
@@ -2920,7 +2991,10 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
     // Рисуем правую ось с отступом от края
     int rightAxisX = plotRect.right + 40;
     
-    HPEN hPen = CreatePen(PS_SOLID, 2, RGB(0, 0, 0));
+    SetTextColor(hdc, kText);
+    SetBkMode(hdc, TRANSPARENT);
+
+    HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
     
     MoveToEx(hdc, rightAxisX, plotRect.top, NULL);
@@ -3080,7 +3154,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_SOLID, 2, curve.color);
+        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         // Отладка для первой кривой
@@ -3141,7 +3215,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             continue;
         }
         
-        HPEN hPen = CreatePen(PS_DASH, 2, curve.color);
+        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
         
         bool firstPoint = true;
