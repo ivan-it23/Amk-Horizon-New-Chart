@@ -298,6 +298,14 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     CreateTooltip(hWnd, hXRange2ApplyBtn, L"Apply X Range");
     CreateTooltip(hWnd, hXRange2ResetBtn, L"Reset X Range");
     CreateTooltip(hWnd, hResetZoom2Btn, L"Reset Zoom to Full View");
+
+    // Tooltip для иконки перекрестия (клик сбрасывает перекрестие на графике)
+    CreateTooltip(hWnd, hCursor1Icon, L"Clear crosshair");
+    CreateTooltip(hWnd, hCursor2Icon, L"Clear crosshair");
+
+    // Инициализируем "пустое" состояние координат
+    ClearClickCoordinates(1);
+    ClearClickCoordinates(2);
 }
 
 void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
@@ -745,15 +753,18 @@ void UIModule::ResizeStatusBar() {
 void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y1, const std::wstring& y1Unit,
                                       double y2, const std::wstring& y2Unit, bool hasDualAxis) {
     HWND hXEdit, hY1Edit, hY2Edit;
+    HWND hIcon = nullptr;
     
     if (chartNumber == 1) {
         hXEdit = hCursor1XEdit;
         hY1Edit = hCursor1Y1Edit;
         hY2Edit = hCursor1Y2Edit;
+        hIcon = hCursor1Icon;
     } else if (chartNumber == 2) {
         hXEdit = hCursor2XEdit;
         hY1Edit = hCursor2Y1Edit;
         hY2Edit = hCursor2Y2Edit;
+        hIcon = hCursor2Icon;
     } else {
         return;
     }
@@ -797,6 +808,11 @@ void UIModule::UpdateClickCoordinates(int chartNumber, double x, double y1, cons
         }
         SetWindowText(hY2Edit, y2Text);
     }
+
+    // Перерисовываем иконку "перекрестие" (активное состояние)
+    if (hIcon) {
+        InvalidateRect(hIcon, NULL, TRUE);
+    }
 }
 
 // Показать/скрыть элементы для второй оси Y
@@ -814,25 +830,35 @@ void UIModule::ShowDualAxisControls(int chartNumber, bool show) {
 
 void UIModule::ClearClickCoordinates(int chartNumber) {
     HWND hXEdit, hY1Edit, hY2Edit;
+    HWND hIcon = nullptr;
     
     if (chartNumber == 1) {
         hXEdit = hCursor1XEdit;
         hY1Edit = hCursor1Y1Edit;
         hY2Edit = hCursor1Y2Edit;
+        hIcon = hCursor1Icon;
     } else if (chartNumber == 2) {
         hXEdit = hCursor2XEdit;
         hY1Edit = hCursor2Y1Edit;
         hY2Edit = hCursor2Y2Edit;
+        hIcon = hCursor2Icon;
     } else {
         return;
     }
     
-    if (hXEdit) SetWindowText(hXEdit, L"");
-    if (hY1Edit) SetWindowText(hY1Edit, L"");
-    if (hY2Edit) SetWindowText(hY2Edit, L"");
+    // Показываем явное "пустое" состояние вместо пустых строк
+    const wchar_t* kEmptyValue = L"\u2014"; // —
+    if (hXEdit) SetWindowText(hXEdit, kEmptyValue);
+    if (hY1Edit) SetWindowText(hY1Edit, kEmptyValue);
+    if (hY2Edit) SetWindowText(hY2Edit, kEmptyValue);
     
     // Скрываем элементы второй оси
     ShowDualAxisControls(chartNumber, false);
+
+    // Перерисовываем иконку "перекрестие" (неактивное состояние)
+    if (hIcon) {
+        InvalidateRect(hIcon, NULL, TRUE);
+    }
 }
 
 // Позиционирование элементов координат к правому краю окна (v2.15.1)
@@ -1106,46 +1132,78 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
     
     // Специальная обработка для иконки маркера курсора
     if (ctrlId == IDC_CURSOR1_ICON || ctrlId == IDC_CURSOR2_ICON) {
-        // Заливка фона (прозрачный/системный)
-        HBRUSH hBgBrush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+        // Иконка перекрестия: нейтральный "офисный" вид, активная/неактивная индикация.
+        const COLORREF bg = GetSysColor(COLOR_WINDOW);
+        const COLORREF border = RGB(210, 214, 219);
+        const COLORREF active = RGB(200, 50, 50);
+        const COLORREF inactive = RGB(150, 150, 150);
+
+        auto isActive = [&]() -> bool {
+            HWND hX = (ctrlId == IDC_CURSOR1_ICON) ? hCursor1XEdit : hCursor2XEdit;
+            if (!hX) return false;
+            wchar_t buf[32] = {};
+            GetWindowText(hX, buf, 32);
+            // Активно, если поле X не пустое и не "—"
+            return (buf[0] != L'\0' && wcscmp(buf, L"\u2014") != 0);
+        };
+
+        const COLORREF stroke = isActive() ? active : inactive;
+
+        // Фон
+        HBRUSH hBgBrush = CreateSolidBrush(bg);
         FillRect(hdc, &rc, hBgBrush);
         DeleteObject(hBgBrush);
-        
-        // Рисуем красный маркер (круг с точкой внизу)
-        int centerX = (rc.left + rc.right) / 2;
-        int centerY = (rc.top + rc.bottom) / 2 - 2;
-        int radius = 6;
-        
-        // Красный круг
-        HBRUSH hRedBrush = CreateSolidBrush(RGB(220, 50, 50));
-        HPEN hRedPen = CreatePen(PS_SOLID, 1, RGB(180, 30, 30));
-        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hRedBrush);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hRedPen);
-        
-        Ellipse(hdc, centerX - radius, centerY - radius, centerX + radius, centerY + radius);
-        
-        // Белая точка внутри
-        HBRUSH hWhiteBrush = CreateSolidBrush(RGB(255, 255, 255));
-        SelectObject(hdc, hWhiteBrush);
-        int dotRadius = 2;
-        Ellipse(hdc, centerX - dotRadius, centerY - dotRadius, centerX + dotRadius, centerY + dotRadius);
-        
-        // Треугольник внизу (указатель)
-        POINT triangle[3] = {
-            { centerX - 3, centerY + radius - 2 },
-            { centerX + 3, centerY + radius - 2 },
-            { centerX, centerY + radius + 5 }
-        };
-        SelectObject(hdc, hRedBrush);
-        Polygon(hdc, triangle, 3);
-        
-        // Восстанавливаем объекты
+
+        // Небольшая "кнопка" под иконкой (скругленный прямоугольник)
+        RECT r = rc;
+        InflateRect(&r, -1, -1);
+
+        HBRUSH hFill = CreateSolidBrush(RGB(255, 255, 255));
+        HPEN hBorderPen = CreatePen(PS_SOLID, 1, border);
+        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hFill);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hBorderPen);
+        RoundRect(hdc, r.left, r.top, r.right, r.bottom, 6, 6);
         SelectObject(hdc, hOldBrush);
         SelectObject(hdc, hOldPen);
-        DeleteObject(hRedBrush);
-        DeleteObject(hRedPen);
-        DeleteObject(hWhiteBrush);
-        
+        DeleteObject(hFill);
+        DeleteObject(hBorderPen);
+
+        // Перекрестие внутри
+        const int w = (r.right - r.left);
+        const int h = (r.bottom - r.top);
+        const int cx = (r.left + r.right) / 2;
+        const int cy = (r.top + r.bottom) / 2;
+        int radius = (w < h ? w : h) / 2 - 4;
+        if (radius < 2) radius = 2;
+
+        HPEN hPen = CreatePen(PS_SOLID, 1, stroke);
+        HPEN hOld = (HPEN)SelectObject(hdc, hPen);
+        HBRUSH hNoBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+        // Кольцо
+        Ellipse(hdc, cx - radius, cy - radius, cx + radius + 1, cy + radius + 1);
+        // Линии перекрестия
+        MoveToEx(hdc, cx - radius, cy, NULL);
+        LineTo(hdc, cx + radius + 1, cy);
+        MoveToEx(hdc, cx, cy - radius, NULL);
+        LineTo(hdc, cx, cy + radius + 1);
+
+        // Центр-точка (маленькая)
+        HBRUSH hDotBrush = CreateSolidBrush(stroke);
+        HBRUSH hOldDotBrush = (HBRUSH)SelectObject(hdc, hDotBrush);
+        HPEN hOldDotPen = (HPEN)SelectObject(hdc, GetStockObject(NULL_PEN));
+        const int dotR = 2;
+        Ellipse(hdc, cx - dotR, cy - dotR, cx + dotR + 1, cy + dotR + 1);
+
+        // Cleanup
+        SelectObject(hdc, hOldDotPen);
+        SelectObject(hdc, hOldDotBrush);
+        DeleteObject(hDotBrush);
+
+        SelectObject(hdc, hNoBrush);
+        SelectObject(hdc, hOld);
+        DeleteObject(hPen);
+
         return;
     }
     
