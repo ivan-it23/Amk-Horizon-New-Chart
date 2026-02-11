@@ -75,6 +75,95 @@ ChartManager::ChartManager()
 }
 
 ChartManager::~ChartManager() {
+    EndSelectionOverlay();
+}
+
+void ChartManager::BeginSelectionOverlay(HWND hWnd, const RECT& chartRect) {
+    EndSelectionOverlay();
+
+    if (!hWnd)
+        return;
+
+    HDC hdc = GetDC(hWnd);
+    if (!hdc)
+        return;
+
+    const int w = chartRect.right - chartRect.left;
+    const int h = chartRect.bottom - chartRect.top;
+    if (w <= 0 || h <= 0) {
+        ReleaseDC(hWnd, hdc);
+        return;
+    }
+
+    selectionBaseDC = CreateCompatibleDC(hdc);
+    if (!selectionBaseDC) {
+        ReleaseDC(hWnd, hdc);
+        return;
+    }
+
+    selectionBaseBmp = CreateCompatibleBitmap(hdc, w, h);
+    if (!selectionBaseBmp) {
+        DeleteDC(selectionBaseDC);
+        selectionBaseDC = nullptr;
+        ReleaseDC(hWnd, hdc);
+        return;
+    }
+
+    SelectObject(selectionBaseDC, selectionBaseBmp);
+    BitBlt(selectionBaseDC, 0, 0, w, h, hdc, chartRect.left, chartRect.top, SRCCOPY);
+
+    selectionBaseRect = chartRect;
+    hasSelectionBase = true;
+    hasLastSelectionDrawRect = false;
+
+    ReleaseDC(hWnd, hdc);
+}
+
+void ChartManager::EndSelectionOverlay() {
+    if (selectionBaseBmp) {
+        DeleteObject(selectionBaseBmp);
+        selectionBaseBmp = nullptr;
+    }
+    if (selectionBaseDC) {
+        DeleteDC(selectionBaseDC);
+        selectionBaseDC = nullptr;
+    }
+    hasSelectionBase = false;
+    hasLastSelectionDrawRect = false;
+    selectionBaseRect = { 0, 0, 0, 0 };
+    lastSelectionDrawRect = { 0, 0, 0, 0 };
+}
+
+void ChartManager::RestoreSelectionBackground(HDC hdc, const RECT& screenRect) {
+    if (!hasSelectionBase || !selectionBaseDC || !selectionBaseBmp || !hdc)
+        return;
+
+    RECT r = screenRect;
+    IntersectRect(&r, &r, &selectionBaseRect);
+    if (r.right <= r.left || r.bottom <= r.top)
+        return;
+
+    const int w = r.right - r.left;
+    const int h = r.bottom - r.top;
+    const int srcX = r.left - selectionBaseRect.left;
+    const int srcY = r.top - selectionBaseRect.top;
+
+    BitBlt(hdc, r.left, r.top, w, h, selectionBaseDC, srcX, srcY, SRCCOPY);
+}
+
+void ChartManager::DrawSelectionOverlay(HDC hdc, const RECT& screenRect) {
+    if (!hdc)
+        return;
+
+    RECT r = screenRect;
+    RECT chartRect = (activeChart == 2) ? layoutModule->GetChart2Rect() : layoutModule->GetChart1Rect();
+    IntersectRect(&r, &r, &chartRect);
+    if (r.right <= r.left || r.bottom <= r.top)
+        return;
+
+    chartModule->DrawZoomRectangle(hdc, r);
+    lastSelectionDrawRect = r;
+    hasLastSelectionDrawRect = true;
 }
 
 void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
@@ -428,17 +517,24 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     int clickedChart = GetChartAtPoint(x, y);
 
-    if (clickedChart != 0) {
-        activeChart = clickedChart;
-        // v2.14.2: Координаты и перекрестие обновляются в HandleMouseUp,
-        // только если это был клик, а не drag (выделение области для zoom)
+    // Начинаем выделение только если клик был по графику
+    if (clickedChart == 0) {
+        return;
     }
+
+    activeChart = clickedChart;
+    // v2.14.2: Координаты и перекрестие обновляются в HandleMouseUp,
+    // только если это был клик, а не drag (выделение области для zoom)
 
     isSelecting = true;
     selectionStart.x = x;
     selectionStart.y = y;
     selectionEnd.x = x;
     selectionEnd.y = y;
+
+    // Готовим быстрый оверлей выделения (снимок области графика)
+    RECT chartRect = (activeChart == 2) ? layoutModule->GetChart2Rect() : layoutModule->GetChart1Rect();
+    BeginSelectionOverlay(hWnd, chartRect);
 
     SetCapture(hWnd);
 }
@@ -447,36 +543,33 @@ void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
 {
     if (!isSelecting)
         return;
-    
-    // Получаем контекст устройства для прямой отрисовки
+
+    // Быстрая отрисовка выделения поверх уже нарисованного графика (без полного WM_PAINT)
     HDC hdc = GetDC(hWnd);
     if (!hdc)
         return;
-    
-    // Стираем предыдущий прямоугольник выделения (используем R2_NOT для стирания)
-    if (selectionEnd.x != selectionStart.x || selectionEnd.y != selectionStart.y) {
-        RECT oldZoomRect;
-        oldZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
-        oldZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
-        oldZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
-        oldZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
-        
-        chartModule->DrawZoomRectangle(hdc, oldZoomRect);
-    }
-    
+
     // Обновляем конечную точку выделения
     selectionEnd.x = x;
     selectionEnd.y = y;
-    
-    // Рисуем новый прямоугольник выделения
-    RECT newZoomRect;
-    newZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
-    newZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
-    newZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
-    newZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
-    
-    chartModule->DrawZoomRectangle(hdc, newZoomRect);
-    
+
+    RECT newRect;
+    newRect.left = (std::min)(selectionStart.x, selectionEnd.x);
+    newRect.top = (std::min)(selectionStart.y, selectionEnd.y);
+    newRect.right = (std::max)(selectionStart.x, selectionEnd.x);
+    newRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
+
+    // Область обновления = union(предыдущего нарисованного rect, нового rect)
+    RECT updateRect = newRect;
+    if (hasLastSelectionDrawRect) {
+        UnionRect(&updateRect, &lastSelectionDrawRect, &newRect);
+    }
+    InflateRect(&updateRect, 2, 2);
+
+    // Восстанавливаем фон по "снимку" и рисуем новый оверлей
+    RestoreSelectionBackground(hdc, updateRect);
+    DrawSelectionOverlay(hdc, newRect);
+
     ReleaseDC(hWnd, hdc);
 }
 
@@ -484,25 +577,23 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
 {
     if (!isSelecting)
         return;
-    
-    // Стираем последний прямоугольник выделения перед завершением
-    HDC hdc = GetDC(hWnd);
-    if (hdc) {
-        RECT lastZoomRect;
-        lastZoomRect.left = (std::min)(selectionStart.x, selectionEnd.x);
-        lastZoomRect.top = (std::min)(selectionStart.y, selectionEnd.y);
-        lastZoomRect.right = (std::max)(selectionStart.x, selectionEnd.x);
-        lastZoomRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
-        
-        chartModule->DrawZoomRectangle(hdc, lastZoomRect);
-        ReleaseDC(hWnd, hdc);
-    }
-    
+
     isSelecting = false;
     ReleaseCapture();
     
     selectionEnd.x = x;
     selectionEnd.y = y;
+
+    // Убираем оверлей: восстанавливаем фон и освобождаем ресурсы
+    if (hasSelectionBase) {
+        HDC hdc = GetDC(hWnd);
+        if (hdc) {
+            RECT restoreRect = selectionBaseRect;
+            RestoreSelectionBackground(hdc, restoreRect);
+            ReleaseDC(hWnd, hdc);
+        }
+    }
+    EndSelectionOverlay();
     
     // Проверяем, что выделена достаточно большая область
     int deltaX = abs(selectionEnd.x - selectionStart.x);

@@ -45,6 +45,16 @@ private:
     POINT selectionStart;
     POINT selectionEnd;
     int activeChart; // 1 или 2, указывает на активный график для зума
+
+    // Быстрая отрисовка выделения (без полного WM_PAINT на каждом mouse move):
+    // при начале drag сохраняем "снимок" области графика, затем на каждом move
+    // восстанавливаем подложку и рисуем оверлей выделения поверх.
+    HDC selectionBaseDC = nullptr;
+    HBITMAP selectionBaseBmp = nullptr;
+    RECT selectionBaseRect = { 0, 0, 0, 0 };   // rect графика (в координатах окна), для которого сделан снимок
+    bool hasSelectionBase = false;
+    RECT lastSelectionDrawRect = { 0, 0, 0, 0 }; // последний нарисованный rect выделения (клипнутый)
+    bool hasLastSelectionDrawRect = false;
     
     // Независимые диапазоны масштабирования для каждого графика
     ZoomRange chart1Zoom;
@@ -197,4 +207,10 @@ private:
     
     // Метод для отрисовки перекрестия
     void DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber) const;
+
+    // Вспомогательные методы для быстрого выделения области zoom
+    void BeginSelectionOverlay(HWND hWnd, const RECT& chartRect);
+    void EndSelectionOverlay();
+    void RestoreSelectionBackground(HDC hdc, const RECT& screenRect);
+    void DrawSelectionOverlay(HDC hdc, const RECT& screenRect);
 };

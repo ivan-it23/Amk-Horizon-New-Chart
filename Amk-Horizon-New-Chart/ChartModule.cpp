@@ -11,6 +11,9 @@
  #include <cstdarg>
  #include <cstdio>
 
+// Для AlphaBlend (полупрозрачное выделение области)
+#pragma comment(lib, "Msimg32.lib")
+
  static void AppendDebugLog(const wchar_t* fmt, ...) {
      wchar_t buffer[2048];
      va_list args;
@@ -736,30 +739,60 @@ double ChartModule::CalculateNiceMin(double minVal, double step) const {
 }
 
 void ChartModule::DrawZoomRectangle(HDC hdc, const RECT& zoomRect) const {
-    // Сохраняем текущий режим отрисовки
-    int oldROP = SetROP2(hdc, R2_NOTXORPEN);
-    
-    // Создаем яркое оранжевое перо с пунктирной линией для рамки
-    LOGBRUSH lb;
-    lb.lbStyle = BS_SOLID;
-    lb.lbColor = RGB(255, 140, 0); // Яркий оранжевый
-    lb.lbHatch = 0;
-    
-    // Создаем расширенное перо с пунктирным стилем для рамки
-    DWORD penStyle[2] = {8, 4}; // 8 пикселей линия, 4 пикселя пробел
-    HPEN hPen = ExtCreatePen(PS_GEOMETRIC | PS_USERSTYLE, 2, &lb, 2, penStyle);
+    if (!hdc)
+        return;
+
+    if (zoomRect.right <= zoomRect.left || zoomRect.bottom <= zoomRect.top)
+        return;
+
+    // Новый дизайн: выделение области системным серым цветом (без XOR и без оранжевого пунктира).
+    // Цвет берём из системной темы Windows.
+    const int w = zoomRect.right - zoomRect.left;
+    const int h = zoomRect.bottom - zoomRect.top;
+
+    // Полупрозрачный оверлей, чтобы данные под ним оставались видимыми
+    bool blended = false;
+    HDC memDC = CreateCompatibleDC(hdc);
+    if (memDC) {
+        HBITMAP bmp = CreateCompatibleBitmap(hdc, w, h);
+        if (bmp) {
+            HGDIOBJ oldBmp = SelectObject(memDC, bmp);
+
+            RECT local = { 0, 0, w, h };
+            HBRUSH brush = CreateSolidBrush(GetSysColor(COLOR_BTNFACE));
+            if (brush) {
+                FillRect(memDC, &local, brush);
+                DeleteObject(brush);
+            }
+
+            BLENDFUNCTION bf = {};
+            bf.BlendOp = AC_SRC_OVER;
+            bf.SourceConstantAlpha = 96; // ~38% непрозрачности
+            bf.AlphaFormat = 0;
+
+            blended = (AlphaBlend(hdc, zoomRect.left, zoomRect.top, w, h,
+                                  memDC, 0, 0, w, h, bf) != FALSE);
+
+            SelectObject(memDC, oldBmp);
+            DeleteObject(bmp);
+        }
+        DeleteDC(memDC);
+    }
+
+    // Fallback если AlphaBlend недоступен/не сработал
+    if (!blended) {
+        FillRect(hdc, &zoomRect, GetSysColorBrush(COLOR_BTNFACE));
+    }
+
+    // Лёгкая рамка системным цветом, чтобы область была читаемой на белом фоне.
+    HPEN hPen = CreatePen(PS_SOLID, 1, GetSysColor(COLOR_3DSHADOW));
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-    
-    // Устанавливаем прозрачную кисть (без заливки)
-    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-    
-    // Рисуем прямоугольник рамки
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(HOLLOW_BRUSH));
+
     Rectangle(hdc, zoomRect.left, zoomRect.top, zoomRect.right, zoomRect.bottom);
-    
-    // Восстанавливаем исходные настройки
+
     SelectObject(hdc, hOldBrush);
     SelectObject(hdc, hOldPen);
-    SetROP2(hdc, oldROP);
     DeleteObject(hPen);
 }
 
