@@ -410,107 +410,130 @@ void SchematicModule::RenderSchematic(HDC hdc, const RECT& rect) {
 
 void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType type, 
                                  int index, bool selected, bool hovered, const std::wstring& label) {
-    // Определяем цвета градиента и рамки в зависимости от типа и состояния
-    COLORREF gradientStart, gradientEnd, borderColor;
-    int borderWidth = 2;
-    
-    // Выбираем цвета в зависимости от типа элемента и его состояния
+    // === Корпоративный стиль: полная заливка цветом категории ===
+    // Плоская заливка (без градиента/3D), аккуратный hover/selected, читаемый текст.
+
+    auto Blend = [](COLORREF a, COLORREF b, double t) -> COLORREF {
+        // a*(1-t) + b*t
+        int ar = GetRValue(a), ag = GetGValue(a), ab = GetBValue(a);
+        int br = GetRValue(b), bg = GetGValue(b), bb = GetBValue(b);
+        int r = (int)std::lround(ar + (br - ar) * t);
+        int g = (int)std::lround(ag + (bg - ag) * t);
+        int bl = (int)std::lround(ab + (bb - ab) * t);
+        r = (r < 0) ? 0 : (r > 255 ? 255 : r);
+        g = (g < 0) ? 0 : (g > 255 ? 255 : g);
+        bl = (bl < 0) ? 0 : (bl > 255 ? 255 : bl);
+        return RGB(r, g, bl);
+    };
+
+    const COLORREF kWhite = RGB(255, 255, 255);
+    const COLORREF kText = RGB(25, 25, 25);
+
+    COLORREF marker = RGB(120, 120, 120);
     switch (type) {
-        case ElementType::TRANSMITTER:
-            if (selected) {
-                gradientStart = TX_ACTIVE_GRADIENT_START;
-                gradientEnd = TX_ACTIVE_GRADIENT_END;
-                borderColor = RGB(180, 60, 60);
-                borderWidth = 3;
-            } else if (hovered) {
-                gradientStart = TX_HOVER_GRADIENT_START;
-                gradientEnd = TX_HOVER_GRADIENT_END;
-                borderColor = RGB(160, 70, 70);
-            } else {
-                gradientStart = TX_GRADIENT_START;
-                gradientEnd = TX_GRADIENT_END;
-                borderColor = RGB(140, 80, 80);
-            }
-            break;
-            
-        case ElementType::RECEIVER:
-            if (selected) {
-                gradientStart = RX_ACTIVE_GRADIENT_START;
-                gradientEnd = RX_ACTIVE_GRADIENT_END;
-                borderColor = RGB(60, 180, 60);
-                borderWidth = 3;
-            } else if (hovered) {
-                gradientStart = RX_HOVER_GRADIENT_START;
-                gradientEnd = RX_HOVER_GRADIENT_END;
-                borderColor = RGB(70, 160, 70);
-            } else {
-                gradientStart = RX_GRADIENT_START;
-                gradientEnd = RX_GRADIENT_END;
-                borderColor = RGB(80, 140, 80);
-            }
-            break;
-            
-        case ElementType::SILENT_TX:
-            if (selected) {
-                gradientStart = SILENT_ACTIVE_GRADIENT_START;
-                gradientEnd = SILENT_ACTIVE_GRADIENT_END;
-                borderColor = RGB(80, 80, 80);
-                borderWidth = 3;
-            } else if (hovered) {
-                gradientStart = SILENT_HOVER_GRADIENT_START;
-                gradientEnd = SILENT_HOVER_GRADIENT_END;
-                borderColor = RGB(90, 90, 90);
-            } else {
-                gradientStart = SILENT_GRADIENT_START;
-                gradientEnd = SILENT_GRADIENT_END;
-                borderColor = RGB(100, 100, 100);
-            }
-            break;
-            
-        default:
-            gradientStart = RGB(200, 200, 200);
-            gradientEnd = RGB(180, 180, 180);
-            borderColor = RGB(100, 100, 100);
+        case ElementType::TRANSMITTER: marker = TRANSMITTER_COLOR; break;
+        case ElementType::RECEIVER:    marker = RECEIVER_COLOR; break;
+        case ElementType::SILENT_TX:   marker = SILENT_TX_COLOR; break;
+        default:                       marker = RGB(120, 120, 120); break;
     }
-    
-    // Рисуем тень элемента
-    DrawElementShadow(hdc, elementRect);
-    
-    // Рисуем градиентную заливку
-    DrawGradientRect(hdc, elementRect, gradientStart, gradientEnd);
-    
-    // Рисуем рамку поверх градиента
-    HPEN borderPen = CreatePen(PS_SOLID, borderWidth, borderColor);
-    HPEN oldPen = (HPEN)SelectObject(hdc, borderPen);
-    HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
-    
-    // Рисуем скругленный прямоугольник для рамки
-    int cornerRadius = 8;
-    RoundRect(hdc, elementRect.left, elementRect.top, elementRect.right, elementRect.bottom,
-              cornerRadius, cornerRadius);
-    
-    // Восстанавливаем объекты GDI
-    SelectObject(hdc, oldBrush);
-    SelectObject(hdc, oldPen);
-    DeleteObject(borderPen);
-    
-    // Настраиваем текст
+
+    // Полная заливка: базово цвет категории, hover — чуть светлее, selected — чуть темнее.
+    COLORREF bg = marker;
+    if (hovered) {
+        bg = Blend(bg, kWhite, 0.14);     // подсветка
+    }
+    if (selected) {
+        bg = Blend(bg, RGB(0, 0, 0), 0.12); // усиление выбранного
+    }
+
+    // Рамка: темнее заливки, в selected — толще и контрастнее.
+    COLORREF borderColor = Blend(marker, RGB(0, 0, 0), selected ? 0.38 : 0.28);
+    int borderWidth = selected ? 2 : 1;
+
+    // Скругление: минимальное, "системное".
+    const int cornerRadius = 6;
+
+    // 1) Полная заливка + рамка одним проходом (без SelectClipRgn — чтобы не было "полос")
+    {
+        HBRUSH fillBrush = CreateSolidBrush(bg);
+        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, fillBrush);
+
+        HPEN pen = CreatePen(PS_SOLID, borderWidth, borderColor);
+        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+
+        RoundRect(hdc,
+                  elementRect.left, elementRect.top,
+                  elementRect.right, elementRect.bottom,
+                  cornerRadius, cornerRadius);
+
+        SelectObject(hdc, oldPen);
+        SelectObject(hdc, oldBrush);
+        DeleteObject(pen);
+        DeleteObject(fillBrush);
+    }
+
+    // 3) Дополнительная внутренняя рамка для selected (более "премиально" и читаемо)
+    if (selected) {
+        RECT inner = elementRect;
+        InflateRect(&inner, -2, -2);
+        COLORREF innerBorder = Blend(kWhite, marker, 0.30);
+
+        HPEN pen = CreatePen(PS_SOLID, 1, innerBorder);
+        HPEN oldPen = (HPEN)SelectObject(hdc, pen);
+        HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, GetStockObject(NULL_BRUSH));
+
+        RoundRect(hdc, inner.left, inner.top, inner.right, inner.bottom, cornerRadius - 1, cornerRadius - 1);
+
+        SelectObject(hdc, oldBrush);
+        SelectObject(hdc, oldPen);
+        DeleteObject(pen);
+    }
+
+    // 4) Текст (системный шрифт).
+    // Важно: для наших "приглушённых" фирменных цветов чёрный читается лучше и стабильнее.
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, RGB(40, 40, 40)); // Темно-серый текст
-    
-    // Создаем шрифт для подписей элементов
-    HFONT elementFont = CreateFont(12, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                                  DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                  DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
-    HFONT oldFont = (HFONT)SelectObject(hdc, elementFont);
-    
-    // Рисуем подпись по центру элемента
+    SetTextColor(hdc, kText);
+
+    // Жирный системный шрифт (чтобы метки T1–T5/R1–R2 выделялись).
+    static HFONT s_boldGuiFont = nullptr;
+    if (!s_boldGuiFont) {
+        LOGFONT lf = {};
+        HFONT base = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        if (base && GetObject(base, sizeof(lf), &lf) == sizeof(lf)) {
+            lf.lfWeight = FW_BOLD;
+            s_boldGuiFont = CreateFontIndirect(&lf);
+        }
+        // Fallback: если не смогли получить LOGFONT — используем обычный GUI font
+        if (!s_boldGuiFont) {
+            s_boldGuiFont = base;
+        }
+    }
+
+    HFONT oldFont = (HFONT)SelectObject(hdc, s_boldGuiFont);
+
     RECT textRect = elementRect;
-    DrawText(hdc, label.c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
-    
-    // Восстанавливаем шрифт
+    // Небольшой padding, чтобы текст не упирался в рамку
+    textRect.left += 4;
+    textRect.right -= 4;
+    textRect.top += 2;
+    textRect.bottom -= 2;
+
+    if (type == ElementType::SILENT_TX) {
+        // Для "Молч." используем 2 строки и центрируем блок текста по вертикали вручную.
+        RECT calc = textRect;
+        DrawText(hdc, label.c_str(), -1, &calc, DT_CENTER | DT_WORDBREAK | DT_CALCRECT);
+        int textH = calc.bottom - calc.top;
+        int rectH = textRect.bottom - textRect.top;
+        if (rectH > textH) {
+            int dy = (rectH - textH) / 2;
+            textRect.top += dy;
+        }
+        DrawText(hdc, label.c_str(), -1, &textRect, DT_CENTER | DT_WORDBREAK);
+    } else {
+        DrawText(hdc, label.c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+    }
+
     SelectObject(hdc, oldFont);
-    DeleteObject(elementFont);
 }
 
 bool SchematicModule::HandleElementClick(int x, int y) {
@@ -673,8 +696,9 @@ std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const
         case ElementType::RECEIVER:
             return L"R" + std::to_wstring(index + 1);
         case ElementType::SILENT_TX:
-            // "Молч. R" в Unicode
-            return L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
+            // Двухстрочная подпись, чтобы "R1/R2" не терялись даже на компактных кнопках.
+            // "Молч." в Unicode + перенос строки + "R1/R2"
+            return L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
         default:
             return L"Unknown";
     }
@@ -707,8 +731,8 @@ void SchematicModule::DrawReceiver(HDC hdc, const RECT& rect, int index, bool se
 }
 
 void SchematicModule::DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
-    // "Молч. R" в Unicode
-    std::wstring label = L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
+    // Двухстрочная подпись: "Молч." / "R1"
+    std::wstring label = L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
     DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, false, label);
 }
 
