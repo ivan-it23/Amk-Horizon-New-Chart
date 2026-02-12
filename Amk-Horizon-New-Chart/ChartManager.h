@@ -36,8 +36,9 @@ private:
     struct ZoomRange {
         double minX, maxX, minY, maxY;
         bool isZoomed;
+        bool isYCustom; // true если пользователь вручную задал диапазон Y (важно для Surf)
         
-        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false) {}
+        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isYCustom(false) {}
     };
     
     // Переменные для масштабирования

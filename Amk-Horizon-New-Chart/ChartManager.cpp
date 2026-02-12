@@ -178,29 +178,27 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
         
         // v2.14.0: Обновляем диапазон для режима Surf
         if (dataModule->HasData()) {
-            size_t dataSize = dataModule->GetDataSize();
-            double maxX = static_cast<double>(dataSize - 1);
-            
-            // Обработка Surf для Chart 1
+            // ВАЖНО: при поступлении новых точек в режиме реального времени
+            // НЕ сбрасываем пользовательский zoom/кастомный X-range.
+            //
+            // Surf (auto-follow) по-прежнему обновляет диапазон на последние N точек.
             if (uiModule->IsSurfEnabled(1)) {
-                // Используем UpdateSurfRange для корректного вычисления Y диапазона
                 UpdateSurfRange(1);
-            } else {
-                uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
             }
-            
-            // Обработка Surf для Chart 2 (если Dual Mode)
-            if (uiModule->IsDualMode()) {
-                if (uiModule->IsSurfEnabled(2)) {
-                    // Используем UpdateSurfRange для корректного вычисления Y диапазона
-                    UpdateSurfRange(2);
-                } else {
-                    uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
-                }
+
+            if (uiModule->IsDualMode() && uiModule->IsSurfEnabled(2)) {
+                UpdateSurfRange(2);
             }
-            
+
+            // Обновляем X Range controls из текущего состояния zoom
+            // (или полного диапазона, если zoom не активен).
+            UpdateXRangeUI(hWnd);
+
             // Обновляем статусную строку с информацией о Surf
             UpdateSurfStatusBar();
+
+            // Обновляем скроллбары (total range меняется при росте данных)
+            UpdateScrollBars(hWnd);
         }
         
         // Перерисовываем графики
@@ -331,6 +329,8 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
+    chart1Zoom.isYCustom = false;
+    chart2Zoom.isYCustom = false;
     
     // v2.12.5: Очищаем историю zoom при загрузке нового файла
     chart1ZoomHistory.clear();
@@ -599,7 +599,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     int deltaX = abs(selectionEnd.x - selectionStart.x);
     int deltaY = abs(selectionEnd.y - selectionStart.y);
     
-    if (deltaX > 10 && deltaY > 10) {
+    const bool surfEnabled = (activeChart != 0) ? uiModule->IsSurfEnabled(activeChart) : false;
+    const bool isZoomGesture = surfEnabled ? (deltaY > 10) : (deltaX > 10 && deltaY > 10);
+    
+    if (isZoomGesture) {
         // Это zoom — скрываем перекрестие
         if (activeChart == 1) {
             chart1Crosshair.isVisible = false;
@@ -620,63 +623,75 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             (std::min)(selectionStart.y, selectionEnd.y), 
             maxDataX, maxDataY);
         
-        // Проверяем минимальный диапазон для X: подписи должны быть целыми и отличаться минимум на 10
         const double MIN_X_RANGE = 10.0;
-        double xRange = maxDataX - minDataX;
+        const double MIN_Y_RANGE = 10.0;
         
-        if (xRange < MIN_X_RANGE) {
-            // Диапазон X слишком мал
-            MessageBox(hWnd, 
-                L"Cannot zoom further: X-axis labels must be integers with minimum spacing of 1.\nMinimum range is 10 points.",
-                L"Zoom Limit Reached", 
-                MB_OK | MB_ICONINFORMATION);
-        } else {
-            // v2.14.0: Ограничиваем zoom областью Surf, если режим Surf активен
-            if (uiModule->IsSurfEnabled(activeChart)) {
-                size_t dataSize = dataModule->GetDataSize();
-                int surfWindow = uiModule->GetSurfWindowSize(activeChart);
-                double surfMinX = (dataSize > static_cast<size_t>(surfWindow)) 
-                    ? static_cast<double>(dataSize - surfWindow) : 0.0;
-                double surfMaxX = static_cast<double>(dataSize - 1);
-                
-                // Ограничиваем zoom областью Surf
-                minDataX = (std::max)(minDataX, surfMinX);
-                maxDataX = (std::min)(maxDataX, surfMaxX);
-                
-                // Проверяем, что диапазон всё ещё достаточен
-                if (maxDataX - minDataX < MIN_X_RANGE) {
-                    MessageBox(hWnd, 
-                        L"Cannot zoom further within Surf area.\nMinimum range is 10 points.",
-                        L"Zoom Limit Reached", 
-                        MB_OK | MB_ICONINFORMATION);
-                    return;
-                }
+        // Surf ON: zoom только по оси Y, X всегда фиксирован на окне Surf (последние N точек).
+        if (surfEnabled) {
+            // Фиксируем X диапазон на окно Surf (последние N точек)
+            size_t dataSize = dataModule->GetDataSize();
+            int surfWindow = uiModule->GetSurfWindowSize(activeChart);
+            double surfMinX = (dataSize > static_cast<size_t>(surfWindow))
+                ? static_cast<double>(dataSize - surfWindow) : 0.0;
+            double surfMaxX = (dataSize > 0) ? static_cast<double>(dataSize - 1) : 0.0;
+            
+            // Проверяем минимальный диапазон для Y (чтобы не уходить в "бесконечный" zoom)
+            double yRange = maxDataY - minDataY;
+            if (yRange < MIN_Y_RANGE) {
+                MessageBox(hWnd,
+                    L"Cannot zoom further: Y-axis range must be at least 10 units.\nMinimum range is 10 units.",
+                    L"Zoom Limit Reached",
+                    MB_OK | MB_ICONINFORMATION);
+                return;
             }
             
-            // Используем Y диапазон из выделенной области мышью
-            // Это позволяет пользователю точно выбрать интересующий участок по Y
-            // и затем использовать вертикальный scrollbar для навигации
-            
-            // v2.12.5: Сохраняем текущее состояние в историю перед применением нового zoom
-            // Устанавливаем новый видимый диапазон для соответствующего графика
             if (activeChart == 1) {
-                // Сохраняем текущее состояние в историю
                 chart1ZoomHistory.push_back(chart1Zoom);
-                
+                chart1Zoom.minX = surfMinX;
+                chart1Zoom.maxX = surfMaxX;
+                chart1Zoom.minY = minDataY;
+                chart1Zoom.maxY = maxDataY;
+                chart1Zoom.isZoomed = true;
+                chart1Zoom.isYCustom = true;
+            } else if (activeChart == 2) {
+                chart2ZoomHistory.push_back(chart2Zoom);
+                chart2Zoom.minX = surfMinX;
+                chart2Zoom.maxX = surfMaxX;
+                chart2Zoom.minY = minDataY;
+                chart2Zoom.maxY = maxDataY;
+                chart2Zoom.isZoomed = true;
+                chart2Zoom.isYCustom = true;
+            }
+        } else {
+            // Обычный режим: zoom по X и Y
+            double xRange = maxDataX - minDataX;
+            if (xRange < MIN_X_RANGE) {
+                MessageBox(hWnd,
+                    L"Cannot zoom further: X-axis labels must be integers with minimum spacing of 1.\nMinimum range is 10 points.",
+                    L"Zoom Limit Reached",
+                    MB_OK | MB_ICONINFORMATION);
+                return;
+            }
+            
+            // v2.14.0: Ограничиваем zoom областью Surf, если режим Surf активен (на всякий случай)
+            // (в этой ветке surfEnabled == false, но оставляем логику будущей совместимости)
+            
+            if (activeChart == 1) {
+                chart1ZoomHistory.push_back(chart1Zoom);
                 chart1Zoom.minX = minDataX;
                 chart1Zoom.maxX = maxDataX;
                 chart1Zoom.minY = minDataY;
                 chart1Zoom.maxY = maxDataY;
                 chart1Zoom.isZoomed = true;
+                chart1Zoom.isYCustom = true;
             } else if (activeChart == 2) {
-                // Сохраняем текущее состояние в историю
                 chart2ZoomHistory.push_back(chart2Zoom);
-                
                 chart2Zoom.minX = minDataX;
                 chart2Zoom.maxX = maxDataX;
                 chart2Zoom.minY = minDataY;
                 chart2Zoom.maxY = maxDataY;
                 chart2Zoom.isZoomed = true;
+                chart2Zoom.isYCustom = true;
             }
         }
     } else {
@@ -731,6 +746,25 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
         } else {
             // История пуста — полный сброс zoom
             chart1Zoom.isZoomed = false;
+            chart1Zoom.isYCustom = false;
+        }
+
+        // Surf ON: X фиксирован на последние N точек (откат применяется только к Y)
+        if (uiModule->IsSurfEnabled(1)) {
+            if (dataModule && dataModule->HasData()) {
+                if (!chart1Zoom.isYCustom) {
+                    // Вернуть авто-Y и актуальное Surf-окно
+                    UpdateSurfRange(1);
+                } else {
+                    // Только обновляем X-окно Surf, не трогая Y
+                    size_t dataSize = dataModule->GetDataSize();
+                    int surfWindow = uiModule->GetSurfWindowSize(1);
+                    chart1Zoom.minX = (dataSize > static_cast<size_t>(surfWindow))
+                        ? static_cast<double>(dataSize - surfWindow) : 0.0;
+                    chart1Zoom.maxX = static_cast<double>(dataSize - 1);
+                    chart1Zoom.isZoomed = true;
+                }
+            }
         }
     } else if (chartAtPoint == 2) {
         chart2Crosshair.isVisible = false;
@@ -742,6 +776,23 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
         } else {
             // История пуста — полный сброс zoom
             chart2Zoom.isZoomed = false;
+            chart2Zoom.isYCustom = false;
+        }
+
+        // Surf ON: X фиксирован на последние N точек (откат применяется только к Y)
+        if (uiModule->IsSurfEnabled(2)) {
+            if (dataModule && dataModule->HasData()) {
+                if (!chart2Zoom.isYCustom) {
+                    UpdateSurfRange(2);
+                } else {
+                    size_t dataSize = dataModule->GetDataSize();
+                    int surfWindow = uiModule->GetSurfWindowSize(2);
+                    chart2Zoom.minX = (dataSize > static_cast<size_t>(surfWindow))
+                        ? static_cast<double>(dataSize - surfWindow) : 0.0;
+                    chart2Zoom.maxX = static_cast<double>(dataSize - 1);
+                    chart2Zoom.isZoomed = true;
+                }
+            }
         }
     }
     
@@ -898,6 +949,11 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     } else {
         return; // Неизвестный скроллбар
     }
+
+    // Surf ON: X-скролл отключён (X всегда авто-следит за последними N точками).
+    if (!isVertical && uiModule->IsSurfEnabled(chartNumber)) {
+        return;
+    }
     
     // Получаем текущую информацию о скроллбаре
     SCROLLINFO si = {};
@@ -942,6 +998,9 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             // Если график не в режиме zoom, вертикальный скроллинг не работает
             return;
         }
+
+        // Пользователь взаимодействует с Y: фиксируем, что Y-zoom пользовательский (чтобы Surf не перезатирал)
+        zoom->isYCustom = true;
         
         // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
         // Это позволяет скроллить в пределах данных текущего видимого X диапазона
@@ -1023,19 +1082,26 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
     if (chart1Zoom.isZoomed) {
         uiModule->ShowScrollBars(1, true);
         uiModule->UpdateScrollBarPositions(1, layoutModule->GetChart1Rect());
-        
-        // Настраиваем диапазон горизонтального скроллбара (ось X)
-        double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
-        double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
-        
-        // Вычисляем page size и максимальную позицию скроллбара
-        int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
-        int maxScrollPos = 100 - pageSize + 1;
-        
-        // Вычисляем позицию скроллбара пропорционально
-        double scrollableRange = totalDataRange - viewRangeX;
-        int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart1Zoom.minX / scrollableRange) * maxScrollPos) : 0;
-        uiModule->SetScrollBarRange(1, 0, 100, pageSize, hScrollPos);
+
+        // Surf ON: прячем горизонтальный скроллбар и не настраиваем X-скролл
+        if (uiModule->IsSurfEnabled(1)) {
+            if (HWND hH = uiModule->GetHScrollBar(1)) {
+                ShowWindow(hH, SW_HIDE);
+            }
+        } else {
+            // Настраиваем диапазон горизонтального скроллбара (ось X)
+            double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
+            double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
+            
+            // Вычисляем page size и максимальную позицию скроллбара
+            int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
+            int maxScrollPos = 100 - pageSize + 1;
+            
+            // Вычисляем позицию скроллбара пропорционально
+            double scrollableRange = totalDataRange - viewRangeX;
+            int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart1Zoom.minX / scrollableRange) * maxScrollPos) : 0;
+            uiModule->SetScrollBarRange(1, 0, 100, pageSize, hScrollPos);
+        }
         
         // Настраиваем диапазон вертикального скроллбара (ось Y)
         // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
@@ -1083,19 +1149,26 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         if (chart2Zoom.isZoomed) {
             uiModule->ShowScrollBars(2, true);
             uiModule->UpdateScrollBarPositions(2, layoutModule->GetChart2Rect());
-            
-            // Настраиваем диапазон горизонтального скроллбара (ось X)
-            double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
-            double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
-            
-            // Вычисляем page size и максимальную позицию скроллбара
-            int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
-            int maxScrollPos = 100 - pageSize + 1;
-            
-            // Вычисляем позицию скроллбара пропорционально
-            double scrollableRange = totalDataRange - viewRangeX;
-            int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart2Zoom.minX / scrollableRange) * maxScrollPos) : 0;
-            uiModule->SetScrollBarRange(2, 0, 100, pageSize, hScrollPos);
+
+            // Surf ON: прячем горизонтальный скроллбар и не настраиваем X-скролл
+            if (uiModule->IsSurfEnabled(2)) {
+                if (HWND hH = uiModule->GetHScrollBar(2)) {
+                    ShowWindow(hH, SW_HIDE);
+                }
+            } else {
+                // Настраиваем диапазон горизонтального скроллбара (ось X)
+                double totalDataRange = static_cast<double>(dataModule->GetDataSize() - 1);
+                double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
+                
+                // Вычисляем page size и максимальную позицию скроллбара
+                int pageSize = static_cast<int>((viewRangeX / totalDataRange) * 100);
+                int maxScrollPos = 100 - pageSize + 1;
+                
+                // Вычисляем позицию скроллбара пропорционально
+                double scrollableRange = totalDataRange - viewRangeX;
+                int hScrollPos = (scrollableRange > 0) ? static_cast<int>((chart2Zoom.minX / scrollableRange) * maxScrollPos) : 0;
+                uiModule->SetScrollBarRange(2, 0, 100, pageSize, hScrollPos);
+            }
             
             // Настраиваем диапазон вертикального скроллбара (ось Y)
             // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
@@ -1596,6 +1669,15 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         MessageBox(hWnd, message, L"X Range", MB_OK | MB_ICONWARNING);
         return;
     }
+
+    // Surf ON: X диапазон фиксирован на последние N точек
+    if (uiModule->IsSurfEnabled(chartNumber)) {
+        MessageBox(hWnd,
+            L"X Range is locked in Surf mode.\nDisable Surf to change X range.",
+            L"X Range",
+            MB_OK | MB_ICONINFORMATION);
+        return;
+    }
     
     // Получаем максимальное значение данных
     double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
@@ -1666,6 +1748,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     zoom->maxY = maxYData + padding;
     
     zoom->isZoomed = true;
+    zoom->isYCustom = false; // Y подобран автоматически под выбранный X диапазон
     
     // Обновляем скроллбары
     UpdateScrollBars(hWnd);
@@ -1678,9 +1761,18 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
 }
 
 void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
-    // Сбрасываем масштабирование для указанного графика
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
-    zoom->isZoomed = false;
+    
+    // Surf ON: Reset трактуем как "сбросить пользовательский Y-zoom" и вернуть авто-Y,
+    // при этом X остаётся фиксированным на окне Surf.
+    if (uiModule->IsSurfEnabled(chartNumber)) {
+        zoom->isYCustom = false;
+        UpdateSurfRange(chartNumber);
+    } else {
+        // Сбрасываем масштабирование для указанного графика
+        zoom->isZoomed = false;
+        zoom->isYCustom = false;
+    }
     
     // Обновляем скроллбары
     UpdateScrollBars(hWnd);
@@ -1695,7 +1787,16 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
 void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
     // Сбрасываем zoom для указанного графика (полный сброс, не пошаговый)
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
-    zoom->isZoomed = false;
+    
+    // Surf ON: Reset Zoom сбрасывает только пользовательский Y-zoom,
+    // но не выключает Surf-окно по X.
+    if (uiModule->IsSurfEnabled(chartNumber)) {
+        zoom->isYCustom = false;
+        UpdateSurfRange(chartNumber);
+    } else {
+        zoom->isZoomed = false;
+        zoom->isYCustom = false;
+    }
     
     // v2.12.5: Очищаем историю zoom при полном сбросе через кнопку
     if (chartNumber == 1) {
@@ -2164,6 +2265,8 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
     // Сбрасываем zoom
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
+    chart1Zoom.isYCustom = false;
+    chart2Zoom.isYCustom = false;
     chart1ZoomHistory.clear();
     chart2ZoomHistory.clear();
     
@@ -2216,11 +2319,15 @@ void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
     
     if (surfEnabled) {
         // Surf включён - устанавливаем диапазон на последние N точек
+        // и сбрасываем пользовательский Y-zoom (Surf начинает с авто-масштаба по Y)
+        ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+        zoom->isYCustom = false;
         UpdateSurfRange(chartNumber);
     } else {
         // Surf выключён - сбрасываем zoom к полному диапазону
         ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
         zoom->isZoomed = false;
+        zoom->isYCustom = false;
         
         // Обновляем X Range controls на полный диапазон
         double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
@@ -2255,31 +2362,30 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     zoom->minX = surfMinX;
     zoom->maxX = surfMaxX;
-    
-    // Вычисляем диапазон Y для данных в окне Surf
-    // Получаем конфигурацию кривых и вычисляем данные (без zoom, чтобы получить все данные)
-    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
-    std::vector<std::vector<float>> leftAxisData, rightAxisData;
-    std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-    
-    // Используем версию с zoom для получения данных только в диапазоне Surf
-    // Передаём большой диапазон Y, чтобы не фильтровать по Y
-    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                            leftAxisData, rightAxisData,
-                                            leftAxisCurves, rightAxisCurves,
-                                            surfMinX, surfMaxX, -1e30, 1e30);
-    
-    // Получаем диапазоны Y из данных
-    double minX, maxX, minYData, maxYData, minY2, maxY2;
-    chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYData, maxYData, minY2, maxY2);
-    
-    // Устанавливаем Y диапазон с небольшим padding
-    double yRange = maxYData - minYData;
-    double padding = yRange * 0.05;
-    zoom->minY = minYData - padding;
-    zoom->maxY = maxYData + padding;
-    
     zoom->isZoomed = true;
+    
+    // Surf ON + пользовательский Y-zoom:
+    // X окно двигается, но Y диапазон не перезатираем при приходе новых точек.
+    if (!zoom->isYCustom) {
+        // Вычисляем диапазон Y для данных в окне Surf (авто-масштаб)
+        ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        
+        // Передаём большой диапазон Y, чтобы не фильтровать по Y
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                                leftAxisData, rightAxisData,
+                                                leftAxisCurves, rightAxisCurves,
+                                                surfMinX, surfMaxX, -1e30, 1e30);
+        
+        double minX, maxX, minYData, maxYData, minY2, maxY2;
+        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYData, maxYData, minY2, maxY2);
+        
+        double yRange = maxYData - minYData;
+        double padding = yRange * 0.05;
+        zoom->minY = minYData - padding;
+        zoom->maxY = maxYData + padding;
+    }
     
     // Обновляем X Range controls
     uiModule->UpdateXRangeControls(chartNumber, surfMinX, surfMaxX, true);
