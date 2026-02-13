@@ -10,6 +10,52 @@
  #include <cstdarg>
  #include <cstdio>
 
+// === Заметки: диалог просмотра/удаления (v2.16.x) ===
+namespace {
+    struct NoteViewDialogContext {
+        std::wstring text;
+        std::string noteId;
+        bool deleteRequested = false;
+    };
+
+    static INT_PTR CALLBACK NoteViewDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+        switch (message) {
+            case WM_INITDIALOG: {
+                SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+                NoteViewDialogContext* ctx = reinterpret_cast<NoteViewDialogContext*>(lParam);
+                if (ctx) {
+                    SetDlgItemText(hDlg, IDC_NOTE_VIEW_TEXT_EDIT, ctx->text.c_str());
+                    return (INT_PTR)TRUE;
+                }
+                return (INT_PTR)TRUE;
+            }
+            case WM_COMMAND: {
+                int id = LOWORD(wParam);
+                if (id == IDC_NOTE_DELETE_BTN) {
+                    int res = MessageBox(hDlg,
+                                         L"Удалить эту заметку?\nДействие нельзя отменить.",
+                                         L"Удаление заметки",
+                                         MB_YESNO | MB_ICONWARNING);
+                    if (res == IDYES) {
+                        NoteViewDialogContext* ctx = reinterpret_cast<NoteViewDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                        if (ctx) ctx->deleteRequested = true;
+                        EndDialog(hDlg, IDC_NOTE_DELETE_BTN);
+                        return (INT_PTR)TRUE;
+                    }
+                    return (INT_PTR)TRUE;
+                }
+
+                if (id == IDOK || id == IDCANCEL) {
+                    EndDialog(hDlg, id);
+                    return (INT_PTR)TRUE;
+                }
+                break;
+            }
+        }
+        return (INT_PTR)FALSE;
+    }
+}
+
  static void AppendDebugLog(const wchar_t* fmt, ...) {
      wchar_t buffer[2048];
      va_list args;
@@ -36,6 +82,7 @@ ChartManager::ChartManager()
     , schematicModule(std::make_unique<SchematicModule>())
     , curveSelectionModule(std::make_unique<CurveSelectionModule>())
     , serialModule(std::make_unique<SerialModule>())  // v2.13.0
+    , notesModule(std::make_unique<NotesModule>())    // v2.16.x
     , isSelecting(false)
     , activeChart(0)
 {
@@ -76,6 +123,94 @@ ChartManager::ChartManager()
 
 ChartManager::~ChartManager() {
     EndSelectionOverlay();
+}
+
+void ChartManager::EnsureNotesLoadedForPath(const std::wstring& notesPath) {
+    if (!notesModule) return;
+    if (currentNotesPath == notesPath && notesModule->IsLoaded()) return;
+    currentNotesPath = notesPath;
+    notesModule->SetNotesPath(notesPath);
+    notesModule->LoadFromDisk();
+}
+
+bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text) {
+    if (!notesModule || !dataModule || !dataModule->HasData()) {
+        MessageBox(hWnd, L"Нет данных для создания заметки.", L"Заметки", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    CrosshairPosition* crosshair = nullptr;
+    if (chartNumber == 1) crosshair = &chart1Crosshair;
+    else if (chartNumber == 2) crosshair = &chart2Crosshair;
+
+    if (!crosshair || !crosshair->isVisible || crosshair->chartNumber != chartNumber) {
+        MessageBox(hWnd, L"Сначала выберите точку на графике (клик по области графика).", L"Заметки", MB_OK | MB_ICONINFORMATION);
+        return false;
+    }
+
+    // Определяем путь для заметок: либо открыт файл, либо активна запись COM
+    std::wstring notesPath;
+    if (!currentDataFilePath.empty()) {
+        notesPath = currentDataFilePath + L".notes.jsonl";
+    } else if (serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
+        std::wstring recordPath = serialModule->GetRecordFilePath();
+        if (!recordPath.empty()) notesPath = recordPath + L".notes.jsonl";
+    }
+
+    if (notesPath.empty()) {
+        MessageBox(hWnd,
+                   L"Не найден файл данных для привязки заметок.\n"
+                   L"Откройте файл данных или включите запись при работе через COM.",
+                   L"Заметки",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    EnsureNotesLoadedForPath(notesPath);
+
+    ChartConfiguration config = GetChartConfiguration(chartNumber);
+    uint64_t cfgKey = NotesModule::ComputeConfigKey(config);
+    std::string cfgSnapshot = NotesModule::BuildConfigSnapshot(config);
+
+    // Координаты (X всегда сохраняем как индекс кадра)
+    double xIdxD = 0.0;
+    double yUnused = 0.0;
+    ConvertScreenToDataCoords(chartNumber, crosshair->screenX, crosshair->screenY, xIdxD, yUnused);
+    int xIndex = static_cast<int>(llround(xIdxD));
+    if (xIndex < 0) xIndex = 0;
+    if (dataModule->HasData()) {
+        int maxIdx = static_cast<int>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
+        if (xIndex > maxIdx) xIndex = maxIdx;
+    }
+
+    double dataX = 0.0, y1 = 0.0, y2 = 0.0;
+    std::wstring y1Unit, y2Unit;
+    bool hasDualAxis = false;
+    if (!ConvertScreenToChartCoords(chartNumber, crosshair->screenX, crosshair->screenY, dataX, y1, y2, y1Unit, y2Unit, hasDualAxis)) {
+        MessageBox(hWnd, L"Не удалось получить координаты выбранной точки.", L"Заметки", MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    ChartNote n;
+    n.noteId = NotesModule::GenerateNoteId();
+    n.createdUtcMs = NotesModule::NowUtcMs();
+    n.configKey = cfgKey;
+    n.configSnapshot = cfgSnapshot;
+    n.presetName = config.presetDisplayName;
+    n.xAxisType = config.xAxisType;
+    n.xIndex = xIndex;
+    n.yLeft = y1;
+    n.yRight = y2;
+    n.hasYRight = hasDualAxis;
+    n.text = text;
+
+    if (!notesModule->AppendNote(n)) {
+        MessageBox(hWnd, L"Не удалось сохранить заметку на диск.", L"Заметки", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    InvalidateRect(hWnd, NULL, FALSE);
+    return true;
 }
 
 void ChartManager::BeginSelectionOverlay(HWND hWnd, const RECT& chartRect) {
@@ -173,6 +308,14 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     // v2.13.0: Устанавливаем callback для получения данных с прибора
     // Элементы управления COM-портом теперь в меню "Прибор" и диалоге IDD_SERIAL_STATUS
     serialModule->SetDataCallback([this, hWnd](const GP_TOOL_DATA& data) {
+        // v2.16.x: если идёт запись в файл, привязываем заметки к текущему recordFilePath
+        if (notesModule && serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
+            std::wstring recordPath = serialModule->GetRecordFilePath();
+            if (!recordPath.empty()) {
+                EnsureNotesLoadedForPath(recordPath + L".notes.jsonl");
+            }
+        }
+
         // Добавляем данные в DataModule
         dataModule->AddData(data);
         
@@ -275,6 +418,9 @@ void ChartManager::RefreshChart2()
 
 void ChartManager::DrawChart1(HDC hdc)
 {
+    // v2.16.x: начинаем новый набор маркеров заметок на кадр отрисовки
+    noteFrameMarkers.clear();
+
     const RECT& chart1Rect = layoutModule->GetChart1Rect();
     
     // Проверяем, есть ли конфигурация кривых для первого графика
@@ -285,9 +431,17 @@ void ChartManager::DrawChart1(HDC hdc)
         // Используем старую систему (для обратной совместимости)
         DrawChartLegacy(hdc, chart1Rect, 1);
     }
-    
+
+    // v2.16.x: Отрисовываем точки заметок поверх графика
+    DrawNoteMarkers(hdc, chart1Rect, 1);
+
     // Отрисовываем перекрестие поверх графика
     DrawCrosshair(hdc, chart1Rect, 1);
+
+    // Если второй график не рисуется - фиксируем маркеры для hit-test
+    if (!uiModule->IsDualMode() && notesModule) {
+        notesModule->SetRenderedMarkers(std::move(noteFrameMarkers));
+    }
 }
 
 void ChartManager::DrawChart2(HDC hdc)
@@ -305,9 +459,17 @@ void ChartManager::DrawChart2(HDC hdc)
         // Используем старую систему (для обратной совместимости)
         DrawChartLegacy(hdc, chart2Rect, 2);
     }
-    
+
+    // v2.16.x: Отрисовываем точки заметок поверх графика
+    DrawNoteMarkers(hdc, chart2Rect, 2);
+
     // Отрисовываем перекрестие поверх графика
     DrawCrosshair(hdc, chart2Rect, 2);
+
+    // В dual-mode после отрисовки обоих графиков фиксируем маркеры для hit-test
+    if (notesModule) {
+        notesModule->SetRenderedMarkers(std::move(noteFrameMarkers));
+    }
 }
 
 void ChartManager::LoadDataFromFile(const std::wstring& filename)
@@ -322,6 +484,10 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     }
     
     dataModule->LoadDataFromFile(filename);
+    currentDataFilePath = filename;
+    if (notesModule) {
+        EnsureNotesLoadedForPath(filename + L".notes.jsonl");
+    }
     
     // Обновляем информацию о файле в статусной строке
     UpdateStatusBarFileInfo();
@@ -520,6 +686,27 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     // Начинаем выделение только если клик был по графику
     if (clickedChart == 0) {
         return;
+    }
+
+    // v2.16.x: если кликнули по маркеру заметки — открываем заметку (с возможностью удаления)
+    // и не начинаем zoom/selection
+    if (notesModule) {
+        const ChartNote* note = notesModule->HitTestRenderedMarkers(clickedChart, x, y, 6);
+        if (note) {
+            NoteViewDialogContext ctx;
+            ctx.text = note->text;
+            ctx.noteId = note->noteId;
+            ctx.deleteRequested = false;
+
+            HINSTANCE hInst = GetModuleHandle(nullptr);
+            DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_VIEW_DIALOG), hWnd, NoteViewDialogProc, (LPARAM)&ctx);
+
+            if (ctx.deleteRequested) {
+                (void)notesModule->DeleteNoteById(ctx.noteId);
+                InvalidateRect(hWnd, NULL, FALSE);
+            }
+            return;
+        }
     }
 
     activeChart = clickedChart;
@@ -859,22 +1046,28 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
         // В режиме кроссплота экранная X координата соответствует температуре
         // Но zoom всё равно работает с индексами кадров
         
-        // Получаем температурные данные
+        // Получаем температурные данные.
+        // ВАЖНО: ChartModule ожидает xAxisData как массив по всем индексам (0..N-1),
+        // и использует minXData/maxXData как индексы. Поэтому здесь всегда берём полный массив.
         std::vector<float> temperatureData;
-        if (zoom->isZoomed) {
-            dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
-        } else {
-            dataModule->GetTemperatureData(temperatureData);
-        }
+        dataModule->GetTemperatureData(temperatureData);
         
         if (!temperatureData.empty()) {
-            // Находим диапазон температур
-            size_t startIdx = zoom->isZoomed ? static_cast<size_t>(zoom->minX) : 0;
-            size_t endIdx = zoom->isZoomed ? static_cast<size_t>(zoom->maxX + 1) : temperatureData.size();
+            // Находим диапазон температур (по видимому диапазону индексов)
+            size_t startIdx = 0;
+            size_t endIdx = temperatureData.size();
+            if (zoom->isZoomed) {
+                startIdx = static_cast<size_t>((std::max)(0.0, zoom->minX));
+                endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoom->maxX + 1));
+                if (endIdx < startIdx) std::swap(startIdx, endIdx);
+            }
             
             if (startIdx < endIdx && endIdx <= temperatureData.size()) {
                 float minTemp = *std::min_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
                 float maxTemp = *std::max_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
+                if (maxTemp <= minTemp) {
+                    maxTemp = minTemp + 1.0f; // избегаем деления на ноль
+                }
                 
                 // Температура, на которую кликнули
                 float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
@@ -2201,6 +2394,147 @@ void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
     InvalidateRect(hWnd, NULL, TRUE);
 }
 
+void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumber) {
+    if (!hdc || !notesModule || !notesModule->IsLoaded() || !dataModule || !dataModule->HasData() || !curveSelectionModule || !chartModule) {
+        return;
+    }
+
+    ChartConfiguration config = GetChartConfiguration(chartNumber);
+    if (config.curves.empty()) return;
+
+    const uint64_t cfgKey = NotesModule::ComputeConfigKey(config);
+    std::vector<size_t> noteIdx = notesModule->GetNotesForConfig(cfgKey);
+    if (noteIdx.empty()) return;
+
+    // Plot rect (должен совпадать с CalculateDualAxisPlotRect/ConvertScreenToChartCoords)
+    RECT plotRect;
+    plotRect.left = chartRect.left + 100;
+    plotRect.top = chartRect.top + 45;
+    plotRect.right = chartRect.right - 140;
+    plotRect.bottom = chartRect.bottom - 50;
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top) return;
+
+    const int plotW = plotRect.right - plotRect.left;
+    const int plotH = plotRect.bottom - plotRect.top;
+
+    // Zoom & X range
+    ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
+    const double minXData = zoom.isZoomed ? zoom.minX : 0.0;
+    const double maxXData = zoom.isZoomed ? zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0);
+    const double xRange = (maxXData - minXData);
+    if (!(xRange > 0.0)) return;
+
+    // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
+    std::vector<std::vector<float>> leftAxisData;
+    std::vector<std::vector<float>> rightAxisData;
+    std::vector<CurveDefinition> leftAxisCurves;
+    std::vector<CurveDefinition> rightAxisCurves;
+
+    if (zoom.isZoomed) {
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                                leftAxisData, rightAxisData,
+                                                leftAxisCurves, rightAxisCurves,
+                                                zoom.minX, zoom.maxX, -1e10, 1e10);
+    } else {
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                                leftAxisData, rightAxisData,
+                                                leftAxisCurves, rightAxisCurves);
+    }
+
+    double minXFull = 0.0, maxXFull = 0.0, minY1Full = 0.0, maxY1Full = 0.0, minY2Full = 0.0, maxY2Full = 0.0;
+    chartModule->GetDataRanges(leftAxisData, rightAxisData, minXFull, maxXFull, minY1Full, maxY1Full, minY2Full, maxY2Full);
+
+    double minY1 = zoom.isZoomed ? zoom.minY : minY1Full;
+    double maxY1 = zoom.isZoomed ? zoom.maxY : maxY1Full;
+
+    // v2.15.x: при zoom добавляем padding как в DrawChartWithCurves
+    if (zoom.isZoomed) {
+        double range = maxY1 - minY1;
+        if (!(range > 0.0)) range = 1.0;
+        double pad = range * 0.05;
+        minY1 -= pad;
+        maxY1 += pad;
+    }
+
+    const double yRange = (maxY1 - minY1);
+    if (!(yRange > 0.0)) return;
+
+    // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
+    float minTemp = 0.0f, maxTemp = 0.0f;
+    bool hasTempRange = false;
+    const auto& allData = dataModule->GetData();
+    if (config.xAxisType == XAxisType::TEMPERATURE && !allData.empty()) {
+        int startIdx = static_cast<int>(floor(minXData));
+        int endIdx = static_cast<int>(ceil(maxXData));
+        if (startIdx < 0) startIdx = 0;
+        if (endIdx < 0) endIdx = 0;
+        int maxIdx = static_cast<int>(allData.size() - 1);
+        if (startIdx > maxIdx) startIdx = maxIdx;
+        if (endIdx > maxIdx) endIdx = maxIdx;
+        if (endIdx < startIdx) std::swap(startIdx, endIdx);
+
+        minTemp = FLT_MAX;
+        maxTemp = -FLT_MAX;
+        for (int i = startIdx; i <= endIdx; i++) {
+            float t = allData[(size_t)i].temperature;
+            if (t < minTemp) minTemp = t;
+            if (t > maxTemp) maxTemp = t;
+        }
+        if (maxTemp <= minTemp) {
+            maxTemp = minTemp + 1.0f;
+        }
+        hasTempRange = true;
+    }
+
+    // Черная точка
+    HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
+    HBRUSH hBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
+    HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+    HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hBrush);
+
+    const int r = 3;
+    for (size_t idx : noteIdx) {
+        const auto& n = notesModule->GetAllNotes()[idx];
+
+        // Отсекаем по X диапазону (индекс кадра)
+        if (n.xIndex < 0) continue;
+        if (n.xIndex < (int)floor(minXData) - 1) continue;
+        if (n.xIndex > (int)ceil(maxXData) + 1) continue;
+
+        double xRatio = 0.0;
+        if (config.xAxisType == XAxisType::TEMPERATURE) {
+            if (!hasTempRange) continue;
+            if ((size_t)n.xIndex >= allData.size()) continue;
+            float t = allData[(size_t)n.xIndex].temperature;
+            xRatio = (double)((t - minTemp) / (maxTemp - minTemp));
+        } else {
+            xRatio = (static_cast<double>(n.xIndex) - minXData) / xRange;
+        }
+
+        double yRatio = (maxY1 - n.yLeft) / yRange;
+
+        int x = plotRect.left + (int)lround(xRatio * plotW);
+        int y = plotRect.top + (int)lround(yRatio * plotH);
+
+        if (x < plotRect.left || x > plotRect.right || y < plotRect.top || y > plotRect.bottom) {
+            continue;
+        }
+
+        Ellipse(hdc, x - r, y - r, x + r + 1, y + r + 1);
+
+        NotesModule::RenderedMarker m;
+        m.noteIndex = idx;
+        m.chartNumber = chartNumber;
+        m.screenX = x;
+        m.screenY = y;
+        noteFrameMarkers.push_back(m);
+    }
+
+    SelectObject(hdc, hOldBrush);
+    SelectObject(hdc, hOldPen);
+    DeleteObject(hPen);
+}
+
 
 // === Методы для работы с COM-портом (v2.13.0) ===
 
@@ -2256,6 +2590,9 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
     
     // Очищаем данные
     dataModule->ClearData();
+
+    // v2.16.x: при переходе к COM-режиму не должны писать заметки в sidecar последнего открытого файла
+    currentDataFilePath.clear();
     
     // Сбрасываем статистику
     if (serialModule) {

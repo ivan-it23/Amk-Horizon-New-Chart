@@ -132,6 +132,13 @@
 #define IDC_SERIAL_BROWSE_BTN		1079
 #define IDC_SERIAL_OPEN_FOLDER_BTN	1080
 
+// === Заметки на графике (v2.16.x) ===
+#define IDD_NOTE_DIALOG				1087
+#define IDC_NOTE_TEXT_EDIT			1088
+#define IDD_NOTE_VIEW_DIALOG		1089
+#define IDC_NOTE_VIEW_TEXT_EDIT		1090
+#define IDC_NOTE_DELETE_BTN			1091
+
 // === Меню записи (v2.15.0) ===
 #define IDM_DEVICE_RECORD_FOLDER	112
 #define IDM_DEVICE_OPEN_FOLDER		113

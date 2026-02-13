@@ -371,6 +371,34 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
 
             // Переименовываем
             if (MoveFileW(recordFilePath.c_str(), newPath.c_str()) != 0) {
+                // v2.16.x: Переименовываем sidecar заметок, если он существует
+                // Формат: <datafile>.notes.jsonl
+                std::wstring oldNotesPath = recordFilePath + L".notes.jsonl";
+                std::wstring newNotesPath = newPath + L".notes.jsonl";
+                if (GetFileAttributesW(oldNotesPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+                    // Если newNotesPath существует — подбираем суффикс
+                    auto pathExists = [](const std::wstring& p) -> bool {
+                        return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES;
+                    };
+
+                    std::wstring targetNotes = newNotesPath;
+                    if (pathExists(targetNotes)) {
+                        size_t dot = targetNotes.find_last_of(L'.');
+                        std::wstring base = (dot != std::wstring::npos) ? targetNotes.substr(0, dot) : targetNotes;
+                        std::wstring ext = (dot != std::wstring::npos) ? targetNotes.substr(dot) : L"";
+
+                        int suffix = 1;
+                        std::wstring candidate;
+                        do {
+                            candidate = base + L"_" + std::to_wstring(suffix) + ext;
+                            suffix++;
+                        } while (pathExists(candidate) && suffix < 1000);
+                        targetNotes = candidate;
+                    }
+
+                    (void)MoveFileW(oldNotesPath.c_str(), targetNotes.c_str());
+                }
+
                 recordFilePath = newPath;
             }
 

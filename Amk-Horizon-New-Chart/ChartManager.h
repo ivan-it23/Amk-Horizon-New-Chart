@@ -7,6 +7,7 @@
 #include "UIModule.h"
 #include "LayoutModule.h"
 #include "SerialModule.h"
+#include "NotesModule.h"
 #include <commdlg.h>
 #include <memory>
 #include <vector>
@@ -31,6 +32,11 @@ private:
     std::unique_ptr<SchematicModule> schematicModule;
     std::unique_ptr<CurveSelectionModule> curveSelectionModule;
     std::unique_ptr<SerialModule> serialModule;  // v2.13.0: Модуль работы с COM-портом
+    std::unique_ptr<NotesModule> notesModule;    // v2.16.x: Заметки на графике
+
+    // Текущий источник данных для привязки заметок
+    std::wstring currentDataFilePath;            // полный путь к открытому файлу (если режим файла)
+    std::wstring currentNotesPath;               // текущий путь sidecar заметок (чтобы не перечитывать без нужды)
     
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
@@ -78,6 +84,9 @@ private:
     // Перекрестие для каждого графика
     CrosshairPosition chart1Crosshair;
     CrosshairPosition chart2Crosshair;
+
+    // v2.16.x: кеш отрисованных маркеров заметок (для hit-test)
+    std::vector<NotesModule::RenderedMarker> noteFrameMarkers;
     
 public:
     ChartManager();
@@ -95,6 +104,9 @@ public:
     void UpdateStatusBarFileInfo(); // Обновление информации о файле в статусной строке
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const;
+
+    // === Заметки на графике (v2.16.x) ===
+    bool AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text);
     
     // Методы для обработки событий мыши
     void HandleMouseDown(HWND hWnd, int x, int y);
@@ -198,6 +210,7 @@ private:
     
     int GetChartAtPoint(int x, int y) const;
     void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
+    void EnsureNotesLoadedForPath(const std::wstring& notesPath);
     
     // Методы для работы с координатами курсора
     bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY, 
@@ -208,6 +221,9 @@ private:
     
     // Метод для отрисовки перекрестия
     void DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber) const;
+
+    // v2.16.x: Отрисовка точек-заметок
+    void DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumber);
 
     // Вспомогательные методы для быстрого выделения области zoom
     void BeginSelectionOverlay(HWND hWnd, const RECT& chartRect);

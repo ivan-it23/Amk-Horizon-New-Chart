@@ -166,6 +166,7 @@
     <ClInclude Include="DataModule.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LayoutModule.h" />
+    <ClInclude Include="NotesModule.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SchematicModule.h" />
     <ClInclude Include="SerialModule.h" />
@@ -179,6 +180,7 @@
     <ClCompile Include="CurveSelectionModule.cpp" />
     <ClCompile Include="DataModule.cpp" />
     <ClCompile Include="LayoutModule.cpp" />
+    <ClCompile Include="NotesModule.cpp" />
     <ClCompile Include="SchematicModule.cpp" />
     <ClCompile Include="SerialModule.cpp" />
     <ClCompile Include="UIModule.cpp" />

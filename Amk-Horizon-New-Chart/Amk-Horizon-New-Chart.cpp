@@ -21,6 +21,48 @@ WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса глав�
 ChartManager* g_chartManager = nullptr;         // Менеджер графиков
 HWND g_hSerialDialog = nullptr;                 // v2.13.0: Handle диалога COM-порта
 
+// === Заметки на графике (v2.16.x) ===
+struct NoteDialogContext {
+    std::wstring text;
+    bool ok = false;
+};
+
+static INT_PTR CALLBACK NoteDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_INITDIALOG: {
+            SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+            NoteDialogContext* ctx = reinterpret_cast<NoteDialogContext*>(lParam);
+            if (ctx) {
+                SetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, ctx->text.c_str());
+                SendMessage(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT), EM_SETSEL, 0, -1);
+                SetFocus(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT));
+                return (INT_PTR)FALSE; // focus set manually
+            }
+            return (INT_PTR)TRUE;
+        }
+        case WM_COMMAND: {
+            int id = LOWORD(wParam);
+            if (id == IDOK) {
+                NoteDialogContext* ctx = reinterpret_cast<NoteDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                if (ctx) {
+                    wchar_t buf[4096];
+                    GetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, buf, _countof(buf));
+                    ctx->text = buf;
+                    ctx->ok = true;
+                }
+                EndDialog(hDlg, IDOK);
+                return (INT_PTR)TRUE;
+            }
+            if (id == IDCANCEL) {
+                EndDialog(hDlg, IDCANCEL);
+                return (INT_PTR)TRUE;
+            }
+            break;
+        }
+    }
+    return (INT_PTR)FALSE;
+}
+
 // Отправить объявления функций, включенных в этот модуль кода:
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
@@ -372,6 +414,27 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             int x = LOWORD(lParam);
             int y = HIWORD(lParam);
             g_chartManager->HandleRightClick(hWnd, x, y);
+        }
+        break;
+    case WM_CONTEXTMENU:
+        // v2.16.x: ПКМ по иконке 📍 открывает окно заметки
+        if (g_chartManager) {
+            HWND hTarget = (HWND)wParam;
+            int ctrlId = hTarget ? GetDlgCtrlID(hTarget) : 0;
+            int chartNumber = 0;
+            if (ctrlId == IDC_CURSOR1_ICON) chartNumber = 1;
+            else if (ctrlId == IDC_CURSOR2_ICON) chartNumber = 2;
+
+            if (chartNumber != 0) {
+                NoteDialogContext ctx;
+                ctx.text = L"";
+                ctx.ok = false;
+                DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_DIALOG), hWnd, NoteDialogProc, (LPARAM)&ctx);
+                if (ctx.ok) {
+                    g_chartManager->AddNoteAtCrosshair(hWnd, chartNumber, ctx.text);
+                }
+                return 0;
+            }
         }
         break;
     case WM_HSCROLL:
