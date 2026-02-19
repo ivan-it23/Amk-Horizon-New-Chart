@@ -265,6 +265,8 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
     if (!IsConnected()) {
         return SerialResult::NOT_CONNECTED;
     }
+
+    std::lock_guard<std::mutex> lock(ioMutex);
     
     // Очищаем буферы перед запросом
     PurgeBuffers();
@@ -298,6 +300,7 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         return SerialResult::NOT_CONNECTED;
     }
 
+    std::lock_guard<std::mutex> lock(ioMutex);
     PurgeBuffers();
     if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
         return SerialResult::CONNECTION_FAILED;
@@ -321,97 +324,84 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
 
     memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
     hasMetrology = true;
-
-    std::wstring newDeviceId = GetDeviceId();
-    if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {
-        CloseRecordFile();
-    }
-    currentDeviceId = newDeviceId;
-
-    // v2.15.3: Если запись уже началась до получения метрологии, файл мог быть создан как AMK_Unknown_*.bin.
-    // После получения метрологии переименовываем файл, чтобы имя содержало S/N и диаметр.
-    if (!recordFilePath.empty()) {
-        const std::wstring unknownPrefix = L"AMK_Unknown_";
-        size_t fileNamePos = recordFilePath.find_last_of(L"\\/");
-        std::wstring fileName = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(fileNamePos + 1) : recordFilePath;
-
-        if (fileName.rfind(unknownPrefix, 0) == 0) {
-            // Закрываем файл перед переименованием
-            const bool wasOpen = recordFile.is_open();
-            if (wasOpen) {
-                CloseRecordFile();
-            }
-
-            // Формируем новое имя, сохраняя дату/время из текущего
-            std::wstring tail = fileName.substr(unknownPrefix.size()); // например: 20260209_190815.bin
-            std::wstring newFileName = L"AMK_" + std::to_wstring(metrology.serial) + L"_" + std::to_wstring(metrology.D_sonde_mm) + L"_" + tail;
-
-            // Каталог берём из текущего пути записи (не из recordFolderPath, т.к. пользователь мог выбрать другой)
-            std::wstring dirPath = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(0, fileNamePos) : L"";
-            std::wstring newPath = dirPath.empty() ? newFileName : (dirPath + L"\\" + newFileName);
-
-            // Если файл с таким именем уже существует — подбираем суффикс
-            auto pathExists = [](const std::wstring& p) -> bool {
-                return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES;
-            };
-
-            if (pathExists(newPath)) {
-                size_t dot = newPath.find_last_of(L'.');
-                std::wstring base = (dot != std::wstring::npos) ? newPath.substr(0, dot) : newPath;
-                std::wstring ext = (dot != std::wstring::npos) ? newPath.substr(dot) : L"";
-
-                int suffix = 1;
-                std::wstring candidate;
-                do {
-                    candidate = base + L"_" + std::to_wstring(suffix) + ext;
-                    suffix++;
-                } while (pathExists(candidate) && suffix < 1000);
-                newPath = candidate;
-            }
-
-            // Переименовываем
-            if (MoveFileW(recordFilePath.c_str(), newPath.c_str()) != 0) {
-                // v2.16.x: Переименовываем sidecar заметок, если он существует
-                // Формат: <datafile>.notes.jsonl
-                std::wstring oldNotesPath = recordFilePath + L".notes.jsonl";
-                std::wstring newNotesPath = newPath + L".notes.jsonl";
-                if (GetFileAttributesW(oldNotesPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
-                    // Если newNotesPath существует — подбираем суффикс
-                    auto pathExists = [](const std::wstring& p) -> bool {
-                        return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES;
-                    };
-
-                    std::wstring targetNotes = newNotesPath;
-                    if (pathExists(targetNotes)) {
-                        size_t dot = targetNotes.find_last_of(L'.');
-                        std::wstring base = (dot != std::wstring::npos) ? targetNotes.substr(0, dot) : targetNotes;
-                        std::wstring ext = (dot != std::wstring::npos) ? targetNotes.substr(dot) : L"";
-
-                        int suffix = 1;
-                        std::wstring candidate;
-                        do {
-                            candidate = base + L"_" + std::to_wstring(suffix) + ext;
-                            suffix++;
-                        } while (pathExists(candidate) && suffix < 1000);
-                        targetNotes = candidate;
-                    }
-
-                    (void)MoveFileW(oldNotesPath.c_str(), targetNotes.c_str());
-                }
-
-                recordFilePath = newPath;
-            }
-
-            // Открываем файл обратно (если он был открыт)
-            if (wasOpen) {
-                std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
-                recordFile.open(narrowPath, std::ios::binary | std::ios::app);
-            }
-        }
-    }
+    HandleMetrologyUpdated();
 
     if (onMetrologyReceived) {
         onMetrologyReceived(outData);
+    }
+
+    return SerialResult::SUCCESS;
+}
+
+SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
+    if (!IsConnected()) {
+        return SerialResult::NOT_CONNECTED;
+    }
+
+    std::lock_guard<std::mutex> lock(ioMutex);
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
+                    reinterpret_cast<const uint8_t*>(&inData),
+                    static_cast<uint16_t>(sizeof(METROLOGY_DATA)))) {
+        return SerialResult::CONNECTION_FAILED;
+    }
+
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        return SerialResult::TIMEOUT;
+    }
+
+    if (cmd != SerialCommands::CMD_SET_METROLOGY) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    // ACK payload can be empty; some firmwares may echo the written struct.
+    METROLOGY_DATA applied = inData;
+    if (!payload.empty()) {
+        if (payload.size() == sizeof(METROLOGY_DATA)) {
+            memcpy(&applied, payload.data(), sizeof(METROLOGY_DATA));
+        } else if (payload.size() != 1) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+    }
+
+    memcpy(&metrology, &applied, sizeof(METROLOGY_DATA));
+    hasMetrology = true;
+    HandleMetrologyUpdated();
+
+    if (onMetrologyReceived) {
+        onMetrologyReceived(metrology);
+    }
+    return SerialResult::SUCCESS;
+}
+
+SerialResult SerialModule::SetSelectedKey(uint32_t key) {
+    if (!IsConnected()) {
+        return SerialResult::NOT_CONNECTED;
+    }
+
+    std::lock_guard<std::mutex> lock(ioMutex);
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_SET_SELECTED_KEY,
+                    reinterpret_cast<const uint8_t*>(&key),
+                    static_cast<uint16_t>(sizeof(uint32_t)))) {
+        return SerialResult::CONNECTION_FAILED;
+    }
+
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        return SerialResult::TIMEOUT;
+    }
+
+    if (cmd != SerialCommands::CMD_SET_SELECTED_KEY) {
+        return SerialResult::INVALID_RESPONSE;
+    }
+
+    // ACK payload can be empty or a single status byte
+    if (!payload.empty() && payload.size() != 1) {
+        return SerialResult::INVALID_RESPONSE;
     }
 
     return SerialResult::SUCCESS;
@@ -422,6 +412,7 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
         return SerialResult::NOT_CONNECTED;
     }
 
+    std::lock_guard<std::mutex> lock(ioMutex);
     PurgeBuffers();
     if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
         return SerialResult::CONNECTION_FAILED;
@@ -443,6 +434,83 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
 
     memcpy(&outSignature, payload.data(), sizeof(uint32_t));
     return SerialResult::SUCCESS;
+}
+
+void SerialModule::HandleMetrologyUpdated() {
+    std::wstring newDeviceId = GetDeviceId();
+    if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {
+        CloseRecordFile();
+    }
+    currentDeviceId = newDeviceId;
+
+    // v2.15.3: If recording started before metrology, file could be AMK_Unknown_*.bin.
+    // Rename after metrology update to include S/N and diameter.
+    if (recordFilePath.empty()) return;
+
+    const std::wstring unknownPrefix = L"AMK_Unknown_";
+    size_t fileNamePos = recordFilePath.find_last_of(L"\\/");
+    std::wstring fileName = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(fileNamePos + 1) : recordFilePath;
+
+    if (fileName.rfind(unknownPrefix, 0) != 0) return;
+
+    const bool wasOpen = recordFile.is_open();
+    if (wasOpen) {
+        CloseRecordFile();
+    }
+
+    std::wstring tail = fileName.substr(unknownPrefix.size()); // e.g. 20260209_190815.bin
+    std::wstring newFileName = L"AMK_" + std::to_wstring(metrology.serial) + L"_" + std::to_wstring(metrology.D_sonde_mm) + L"_" + tail;
+
+    std::wstring dirPath = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(0, fileNamePos) : L"";
+    std::wstring newPath = dirPath.empty() ? newFileName : (dirPath + L"\\" + newFileName);
+
+    auto pathExists = [](const std::wstring& p) -> bool {
+        return GetFileAttributesW(p.c_str()) != INVALID_FILE_ATTRIBUTES;
+    };
+
+    if (pathExists(newPath)) {
+        size_t dot = newPath.find_last_of(L'.');
+        std::wstring base = (dot != std::wstring::npos) ? newPath.substr(0, dot) : newPath;
+        std::wstring ext = (dot != std::wstring::npos) ? newPath.substr(dot) : L"";
+
+        int suffix = 1;
+        std::wstring candidate;
+        do {
+            candidate = base + L"_" + std::to_wstring(suffix) + ext;
+            suffix++;
+        } while (pathExists(candidate) && suffix < 1000);
+        newPath = candidate;
+    }
+
+    if (MoveFileW(recordFilePath.c_str(), newPath.c_str()) != 0) {
+        // v2.16.x: also rename notes sidecar, if exists
+        std::wstring oldNotesPath = recordFilePath + L".notes.jsonl";
+        std::wstring newNotesPath = newPath + L".notes.jsonl";
+        if (GetFileAttributesW(oldNotesPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
+            std::wstring targetNotes = newNotesPath;
+            if (pathExists(targetNotes)) {
+                size_t dot = targetNotes.find_last_of(L'.');
+                std::wstring base = (dot != std::wstring::npos) ? targetNotes.substr(0, dot) : targetNotes;
+                std::wstring ext = (dot != std::wstring::npos) ? targetNotes.substr(dot) : L"";
+
+                int suffix = 1;
+                std::wstring candidate;
+                do {
+                    candidate = base + L"_" + std::to_wstring(suffix) + ext;
+                    suffix++;
+                } while (pathExists(candidate) && suffix < 1000);
+                targetNotes = candidate;
+            }
+            (void)MoveFileW(oldNotesPath.c_str(), targetNotes.c_str());
+        }
+
+        recordFilePath = newPath;
+    }
+
+    if (wasOpen) {
+        std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
+        recordFile.open(narrowPath, std::ios::binary | std::ios::app);
+    }
 }
 
 // === Callbacks ===

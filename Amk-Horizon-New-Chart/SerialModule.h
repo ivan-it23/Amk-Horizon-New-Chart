@@ -7,6 +7,7 @@
 #include <vector>
 #include <cstdint>
 #include <fstream>
+#include <mutex>
 
 // Команды протокола обмена с прибором
 namespace SerialCommands {
@@ -101,6 +102,9 @@ private:
     bool isRecordingEnabled;            // Включена ли запись
     uint32_t recordedFrames;            // Количество записанных кадров
     std::wstring currentDeviceId;       // ID текущего прибора (SN_Diameter)
+
+    // Защита от конфликтов: polling (таймер) vs метрология/команды
+    std::mutex ioMutex;
     
 public:
     SerialModule();
@@ -145,6 +149,12 @@ public:
     // Запрос метрологии (CMD_GET_METROLOGY = 0x13)
     SerialResult RequestMetrology(METROLOGY_DATA& outData);
     
+    // Запись метрологии (CMD_SET_METROLOGY = 0x12)
+    SerialResult WriteMetrology(const METROLOGY_DATA& inData);
+
+    // Запись selected_key (CMD_SET_SELECTED_KEY = 0x17)
+    SerialResult SetSelectedKey(uint32_t key);
+
     // Запрос сигнатуры (CMD_GET_SIGNATURE = 0x16)
     SerialResult RequestSignature(uint32_t& outSignature);
     
@@ -219,6 +229,9 @@ private:
     
     // Очистка буферов COM-порта
     void PurgeBuffers();
+
+    // Пост-обработка после обновления metrology (deviceId, rename Unknown record file, callbacks)
+    void HandleMetrologyUpdated();
     
     // === Методы записи в файл (v2.15.0) ===
     

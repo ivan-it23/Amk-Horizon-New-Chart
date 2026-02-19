@@ -166,6 +166,7 @@
     <ClInclude Include="DataModule.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LayoutModule.h" />
+    <ClInclude Include="MetrologyModule.h" />
     <ClInclude Include="NotesModule.h" />
     <ClInclude Include="Resource.h" />
     <ClInclude Include="SchematicModule.h" />
@@ -184,6 +185,7 @@
     <ClCompile Include="SchematicModule.cpp" />
     <ClCompile Include="SerialModule.cpp" />
     <ClCompile Include="UIModule.cpp" />
+    <ClCompile Include="MetrologyModule.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="Amk-Horizon-New-Chart.rc" />

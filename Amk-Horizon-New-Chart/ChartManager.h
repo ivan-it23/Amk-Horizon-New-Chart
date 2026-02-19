@@ -7,6 +7,7 @@
 #include "UIModule.h"
 #include "LayoutModule.h"
 #include "SerialModule.h"
+#include "MetrologyModule.h"
 #include "NotesModule.h"
 #include <commdlg.h>
 #include <memory>
@@ -32,6 +33,7 @@ private:
     std::unique_ptr<SchematicModule> schematicModule;
     std::unique_ptr<CurveSelectionModule> curveSelectionModule;
     std::unique_ptr<SerialModule> serialModule;  // v2.13.0: Модуль работы с COM-портом
+    std::unique_ptr<MetrologyModule> metrologyModule; // Метрология (файл/COM)
     std::unique_ptr<NotesModule> notesModule;    // v2.16.x: Заметки на графике
 
     // Текущий источник данных для привязки заметок
@@ -185,6 +187,7 @@ public:
     
     // Получение модулей для внешнего доступа (например, из WndProc)
     SerialModule* GetSerialModule() { return serialModule.get(); }
+    MetrologyModule* GetMetrologyModule() { return metrologyModule.get(); }
     UIModule* GetUIModule() { return uiModule.get(); }
     
     // === Методы для режима Surf (v2.14.0) ===

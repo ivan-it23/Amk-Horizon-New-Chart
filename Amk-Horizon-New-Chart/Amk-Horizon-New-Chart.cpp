@@ -4,6 +4,7 @@
 #include "framework.h"
 #include "Amk-Horizon-New-Chart.h"
 #include "SerialModule.h"  // v2.13.0: Для IDT_SERIAL_POLL
+#include "MetrologyModule.h"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -11,6 +12,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <commdlg.h>
 
 #define MAX_LOADSTRING 100
 
@@ -20,6 +22,344 @@ WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки за�
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 ChartManager* g_chartManager = nullptr;         // Менеджер графиков
 HWND g_hSerialDialog = nullptr;                 // v2.13.0: Handle диалога COM-порта
+
+// === Метрология (AUTONOM 5Tx) ===
+struct MetrologyDialogContext {
+    MetrologyModule* metro = nullptr;
+    SerialModule* serial = nullptr;
+    HWND hMainWnd = nullptr;
+};
+
+static void Metro_SetLFReadOnly(HWND hDlg, bool readOnly) {
+    const int ids[] = {
+        IDC_METRO_L1_T1, IDC_METRO_L1_T2, IDC_METRO_L1_T3, IDC_METRO_L1_T4, IDC_METRO_L1_T5,
+        IDC_METRO_L2_T1, IDC_METRO_L2_T2, IDC_METRO_L2_T3, IDC_METRO_L2_T4, IDC_METRO_L2_T5,
+        IDC_METRO_F1, IDC_METRO_F2
+    };
+    for (int id : ids) {
+        HWND h = GetDlgItem(hDlg, id);
+        if (h) SendMessage(h, EM_SETREADONLY, (WPARAM)(readOnly ? TRUE : FALSE), 0);
+    }
+}
+
+static void Metro_SetEditUInt(HWND hDlg, int id, uint32_t v) {
+    wchar_t buf[64];
+    swprintf_s(buf, L"%u", v);
+    SetDlgItemText(hDlg, id, buf);
+}
+
+static void Metro_SetEditInt(HWND hDlg, int id, int32_t v) {
+    wchar_t buf[64];
+    swprintf_s(buf, L"%d", v);
+    SetDlgItemText(hDlg, id, buf);
+}
+
+static bool Metro_GetEditInt(HWND hDlg, int id, int& out) {
+    wchar_t buf[128];
+    GetDlgItemText(hDlg, id, buf, _countof(buf));
+    if (wcslen(buf) == 0) { out = 0; return true; }
+    wchar_t* end = nullptr;
+    long v = wcstol(buf, &end, 10);
+    if (end == buf) return false;
+    out = (int)v;
+    return true;
+}
+
+static void Metro_FillSelectedKeyCheckboxes(HWND hDlg, uint32_t key) {
+    for (int bit = 0; bit <= 25; ++bit) {
+        int id = IDC_METRO_KEY_0 + bit;
+        SendMessage(GetDlgItem(hDlg, id), BM_SETCHECK, (key & (1u << bit)) ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+}
+
+static uint32_t Metro_ReadSelectedKeyCheckboxes(HWND hDlg) {
+    uint32_t key = 0;
+    for (int bit = 0; bit <= 25; ++bit) {
+        int id = IDC_METRO_KEY_0 + bit;
+        if (SendMessage(GetDlgItem(hDlg, id), BM_GETCHECK, 0, 0) == BST_CHECKED) {
+            key |= (1u << bit);
+        }
+    }
+    return key;
+}
+
+static void Metro_UpdateSignaturePanel(HWND hDlg, const METROLOGY_DATA& metro) {
+    SetDlgItemText(hDlg, IDC_METRO_SIGNATURE32_EDIT, MetrologyModule::SignatureToBinaryString(metro.signature).c_str());
+    auto info = MetrologyModule::DecodeSignature(metro.signature);
+    Metro_SetEditUInt(hDlg, IDC_METRO_SIGNATUREPAL_EDIT, info.signatureForPalette);
+    Metro_SetEditUInt(hDlg, IDC_METRO_SERIAL_EDIT, metro.serial);
+    Metro_SetEditUInt(hDlg, IDC_METRO_DIAMETER_EDIT, metro.D_sonde_mm);
+}
+
+static void Metro_FillFormFromStruct(HWND hDlg, const METROLOGY_DATA& m) {
+    const int l1Ids[] = { IDC_METRO_L1_T1, IDC_METRO_L1_T2, IDC_METRO_L1_T3, IDC_METRO_L1_T4, IDC_METRO_L1_T5 };
+    const int l2Ids[] = { IDC_METRO_L2_T1, IDC_METRO_L2_T2, IDC_METRO_L2_T3, IDC_METRO_L2_T4, IDC_METRO_L2_T5 };
+    for (int i = 0; i < 5; ++i) {
+        Metro_SetEditUInt(hDlg, l1Ids[i], m.L1[i]);
+        Metro_SetEditUInt(hDlg, l2Ids[i], m.L2[i]);
+    }
+
+    Metro_SetEditUInt(hDlg, IDC_METRO_F1, m.F[0]);
+    Metro_SetEditUInt(hDlg, IDC_METRO_F2, m.F[1]);
+
+    const int airIds[] = {
+        IDC_METRO_AIR_1, IDC_METRO_AIR_2, IDC_METRO_AIR_3, IDC_METRO_AIR_4, IDC_METRO_AIR_5,
+        IDC_METRO_AIR_6, IDC_METRO_AIR_7, IDC_METRO_AIR_8, IDC_METRO_AIR_9, IDC_METRO_AIR_10
+    };
+    const int minIds[] = {
+        IDC_METRO_MIN_1, IDC_METRO_MIN_2, IDC_METRO_MIN_3, IDC_METRO_MIN_4, IDC_METRO_MIN_5,
+        IDC_METRO_MIN_6, IDC_METRO_MIN_7, IDC_METRO_MIN_8, IDC_METRO_MIN_9, IDC_METRO_MIN_10
+    };
+    for (int i = 0; i < 10; ++i) {
+        Metro_SetEditInt(hDlg, airIds[i], m.Air_zz[i]);
+        Metro_SetEditInt(hDlg, minIds[i], m.Air_zz_amt[i]);
+    }
+
+    Metro_UpdateSignaturePanel(hDlg, m);
+}
+
+static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstring& outError) {
+    outError.clear();
+
+    const int l1Ids[] = { IDC_METRO_L1_T1, IDC_METRO_L1_T2, IDC_METRO_L1_T3, IDC_METRO_L1_T4, IDC_METRO_L1_T5 };
+    const int l2Ids[] = { IDC_METRO_L2_T1, IDC_METRO_L2_T2, IDC_METRO_L2_T3, IDC_METRO_L2_T4, IDC_METRO_L2_T5 };
+
+    for (int i = 0; i < 5; ++i) {
+        int v = 0;
+        if (!Metro_GetEditInt(hDlg, l1Ids[i], v) || v < 0 || v > 65535) { outError = L"Некорректное значение L1."; return false; }
+        out.L1[i] = (uint16_t)v;
+        if (!Metro_GetEditInt(hDlg, l2Ids[i], v) || v < 0 || v > 65535) { outError = L"Некорректное значение L2."; return false; }
+        out.L2[i] = (uint16_t)v;
+    }
+
+    int f1 = 0, f2 = 0;
+    if (!Metro_GetEditInt(hDlg, IDC_METRO_F1, f1) || f1 < 0 || f1 > 65535) { outError = L"Некорректное значение F1."; return false; }
+    if (!Metro_GetEditInt(hDlg, IDC_METRO_F2, f2) || f2 < 0 || f2 > 65535) { outError = L"Некорректное значение F2."; return false; }
+    out.F[0] = (uint16_t)f1;
+    out.F[1] = (uint16_t)f2;
+
+    const int airIds[] = {
+        IDC_METRO_AIR_1, IDC_METRO_AIR_2, IDC_METRO_AIR_3, IDC_METRO_AIR_4, IDC_METRO_AIR_5,
+        IDC_METRO_AIR_6, IDC_METRO_AIR_7, IDC_METRO_AIR_8, IDC_METRO_AIR_9, IDC_METRO_AIR_10
+    };
+    const int minIds[] = {
+        IDC_METRO_MIN_1, IDC_METRO_MIN_2, IDC_METRO_MIN_3, IDC_METRO_MIN_4, IDC_METRO_MIN_5,
+        IDC_METRO_MIN_6, IDC_METRO_MIN_7, IDC_METRO_MIN_8, IDC_METRO_MIN_9, IDC_METRO_MIN_10
+    };
+    for (int i = 0; i < 10; ++i) {
+        int v = 0;
+        if (!Metro_GetEditInt(hDlg, airIds[i], v) || v < -32768 || v > 32767) { outError = L"Некорректное значение AIR."; return false; }
+        out.Air_zz[i] = (int16_t)v;
+        if (!Metro_GetEditInt(hDlg, minIds[i], v) || v < -32768 || v > 32767) { outError = L"Некорректное значение MIN."; return false; }
+        out.Air_zz_amt[i] = (int16_t)v;
+    }
+
+    int serial = 0, dmm = 0;
+    if (!Metro_GetEditInt(hDlg, IDC_METRO_SERIAL_EDIT, serial) || serial < 0) { outError = L"Некорректный serial."; return false; }
+    if (!Metro_GetEditInt(hDlg, IDC_METRO_DIAMETER_EDIT, dmm) || dmm < 0) { outError = L"Некорректный диаметр."; return false; }
+    out.serial = (uint32_t)serial;
+    out.D_sonde_mm = (uint32_t)dmm;
+
+    // signature: we build only AUTONOM 5Tx (151) by UI mod+number, preserving high 12 bits.
+    int modSel = (int)SendMessage(GetDlgItem(hDlg, IDC_METRO_MOD_COMBO), CB_GETCURSEL, 0, 0);
+    int mod = (modSel == CB_ERR) ? 1 : (modSel + 1);
+    int number = 0;
+    if (!Metro_GetEditInt(hDlg, IDC_METRO_NUMBER_EDIT, number)) number = 0;
+    out.signature = MetrologyModule::BuildSignature(151u, mod, number, out.signature);
+    return true;
+}
+
+static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_INITDIALOG: {
+            SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+            MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(lParam);
+
+            // Init combos (kept mostly informational; we support AUTONOM 5Tx only)
+            HWND hType = GetDlgItem(hDlg, IDC_METRO_TYPE_COMBO);
+            if (hType) {
+                SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"АВТОНОМ");
+                SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"LWD");
+                SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"КАРТОГРАФ");
+                SendMessage(hType, CB_SETCURSEL, 0, 0);
+            }
+            HWND hNtx = GetDlgItem(hDlg, IDC_METRO_NTX_COMBO);
+            if (hNtx) {
+                SendMessage(hNtx, CB_ADDSTRING, 0, (LPARAM)L"3");
+                SendMessage(hNtx, CB_ADDSTRING, 0, (LPARAM)L"4");
+                SendMessage(hNtx, CB_ADDSTRING, 0, (LPARAM)L"5");
+                SendMessage(hNtx, CB_SETCURSEL, 2, 0);
+            }
+            HWND hMod = GetDlgItem(hDlg, IDC_METRO_MOD_COMBO);
+            if (hMod) {
+                for (int i = 1; i <= 9; ++i) {
+                    wchar_t b[8];
+                    swprintf_s(b, L"%d", i);
+                    SendMessage(hMod, CB_ADDSTRING, 0, (LPARAM)b);
+                }
+                SendMessage(hMod, CB_SETCURSEL, 0, 0);
+            }
+
+            CheckDlgButton(hDlg, IDC_METRO_READONLY_CHECK, BST_CHECKED);
+            Metro_SetLFReadOnly(hDlg, true);
+
+            if (ctx && ctx->metro && ctx->metro->HasData()) {
+                Metro_FillFormFromStruct(hDlg, ctx->metro->Get());
+                Metro_FillSelectedKeyCheckboxes(hDlg, ctx->metro->GetSelectedKey());
+            } else if (ctx && ctx->metro) {
+                METROLOGY_DATA blank{};
+                ctx->metro->Set(blank, false);
+                Metro_FillFormFromStruct(hDlg, blank);
+                Metro_FillSelectedKeyCheckboxes(hDlg, 0);
+            }
+
+            return (INT_PTR)TRUE;
+        }
+
+        case WM_COMMAND: {
+            const int id = LOWORD(wParam);
+            MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+            if (!ctx || !ctx->metro) {
+                if (id == IDOK || id == IDCANCEL) {
+                    EndDialog(hDlg, id);
+                    return (INT_PTR)TRUE;
+                }
+                return (INT_PTR)FALSE;
+            }
+
+            if (id == IDC_METRO_READONLY_CHECK) {
+                bool checked = (IsDlgButtonChecked(hDlg, IDC_METRO_READONLY_CHECK) == BST_CHECKED);
+                Metro_SetLFReadOnly(hDlg, checked);
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_OPEN_FILE) {
+                wchar_t fileName[MAX_PATH] = {0};
+                OPENFILENAME ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hDlg;
+                ofn.lpstrFilter = L"Metrology (*.bin)\0*.bin\0All Files\0*.*\0";
+                ofn.lpstrFile = fileName;
+                ofn.nMaxFile = _countof(fileName);
+                ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+                ofn.lpstrDefExt = L"bin";
+                if (GetOpenFileName(&ofn)) {
+                    std::wstring err;
+                    if (ctx->metro->LoadFromFile(fileName, err)) {
+                        Metro_FillFormFromStruct(hDlg, ctx->metro->Get());
+                        MessageBox(hDlg, L"Метрология загружена из файла.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                    } else {
+                        MessageBox(hDlg, err.c_str(), L"Ошибка", MB_OK | MB_ICONERROR);
+                    }
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_SAVE_FILE) {
+                METROLOGY_DATA tmp = ctx->metro->Get();
+                std::wstring err;
+                if (!Metro_FillStructFromForm(hDlg, tmp, err)) {
+                    MessageBox(hDlg, err.c_str(), L"Ошибка", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+
+                wchar_t fileName[MAX_PATH] = {0};
+                OPENFILENAME ofn = {};
+                ofn.lStructSize = sizeof(ofn);
+                ofn.hwndOwner = hDlg;
+                ofn.lpstrFilter = L"Metrology (*.bin)\0*.bin\0All Files\0*.*\0";
+                ofn.lpstrFile = fileName;
+                ofn.nMaxFile = _countof(fileName);
+                ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST;
+                ofn.lpstrDefExt = L"bin";
+                if (GetSaveFileName(&ofn)) {
+                    ctx->metro->Set(tmp, false);
+                    std::wstring saveErr;
+                    if (ctx->metro->SaveToFile(fileName, saveErr)) {
+                        ctx->metro->SetCurrentFilePath(fileName);
+                        MessageBox(hDlg, L"Метрология сохранена в файл.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                    } else {
+                        MessageBox(hDlg, saveErr.c_str(), L"Ошибка", MB_OK | MB_ICONERROR);
+                    }
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_READ_SONDE) {
+                if (!ctx->serial || !ctx->serial->IsConnected()) {
+                    MessageBox(hDlg, L"Нет подключения к прибору.", L"METROLOGY", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+                METROLOGY_DATA m{};
+                SerialResult r = ctx->serial->RequestMetrology(m);
+                if (r == SerialResult::SUCCESS) {
+                    ctx->metro->Set(m, false);
+                    Metro_FillFormFromStruct(hDlg, m);
+                    MessageBox(hDlg, L"Метрология считана из зонда.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                } else {
+                    std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(r);
+                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_WRITE_SONDE) {
+                if (!ctx->serial || !ctx->serial->IsConnected()) {
+                    MessageBox(hDlg, L"Нет подключения к прибору.", L"METROLOGY", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+                int res = MessageBox(hDlg,
+                                     L"Записать метрологию в зонд?\nПо умолчанию Cancel.",
+                                     L"Подтверждение",
+                                     MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2);
+                if (res != IDOK) return (INT_PTR)TRUE;
+
+                METROLOGY_DATA tmp = ctx->metro->Get();
+                std::wstring err;
+                if (!Metro_FillStructFromForm(hDlg, tmp, err)) {
+                    MessageBox(hDlg, err.c_str(), L"Ошибка", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+
+                // Will be implemented in SerialModule (CMD 0x12)
+                SerialResult wr = ctx->serial->WriteMetrology(tmp);
+                if (wr == SerialResult::SUCCESS) {
+                    ctx->metro->Set(tmp, false);
+                    MessageBox(hDlg, L"Метрология записана в зонд.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                } else {
+                    std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(wr);
+                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_WRITE_CMD) {
+                if (!ctx->serial || !ctx->serial->IsConnected()) {
+                    MessageBox(hDlg, L"Нет подключения к прибору.", L"METROLOGY", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+                uint32_t key = Metro_ReadSelectedKeyCheckboxes(hDlg);
+                ctx->metro->SetSelectedKey(key);
+
+                SerialResult rr = ctx->serial->SetSelectedKey(key);
+                if (rr == SerialResult::SUCCESS) {
+                    MessageBox(hDlg, L"Команда (selected_key) отправлена.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                } else {
+                    std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(rr);
+                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDOK || id == IDCANCEL) {
+                EndDialog(hDlg, id);
+                return (INT_PTR)TRUE;
+            }
+            break;
+        }
+    }
+    return (INT_PTR)FALSE;
+}
 
 // === Заметки на графике (v2.16.x) ===
 struct NoteDialogContext {
@@ -243,6 +583,16 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_DEVICE_CLEAR:
                 if (g_chartManager) {
                     g_chartManager->HandleSerialClear(hWnd);
+                }
+                break;
+
+            case IDM_DEVICE_METROLOGY:
+                if (g_chartManager) {
+                    MetrologyDialogContext ctx;
+                    ctx.metro = g_chartManager->GetMetrologyModule();
+                    ctx.serial = g_chartManager->GetSerialModule();
+                    ctx.hMainWnd = hWnd;
+                    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_METROLOGY_DIALOG), hWnd, MetrologyDialogProc, (LPARAM)&ctx);
                 }
                 break;
             

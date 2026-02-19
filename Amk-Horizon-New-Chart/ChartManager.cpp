@@ -82,6 +82,7 @@ ChartManager::ChartManager()
     , schematicModule(std::make_unique<SchematicModule>())
     , curveSelectionModule(std::make_unique<CurveSelectionModule>())
     , serialModule(std::make_unique<SerialModule>())  // v2.13.0
+    , metrologyModule(std::make_unique<MetrologyModule>())
     , notesModule(std::make_unique<NotesModule>())    // v2.16.x
     , isSelecting(false)
     , activeChart(0)
