@@ -115,10 +115,20 @@ uint32_t MetrologyModule::BuildSignature(uint32_t sondeType151or152, int mod1to9
     if (mod1to9 < 1) mod1to9 = 1;
     if (mod1to9 > 9) mod1to9 = 9;
     if (number0to99 < 0) number0to99 = 0;
-    if (number0to99 > 99) number0to99 = 99;
+    if (number0to99 > 999) number0to99 = 999;
 
     uint32_t high12 = existingSignature & 0xFFF00000u;
-    uint32_t low20 = sondeType151or152 * 1000u + static_cast<uint32_t>(mod1to9 * 100 + number0to99);
+
+    // Совместимо со старым приложением:
+    // low20 = tool_type*100000 + tool_N_Tx*10000 + tool_mod*1000 + tool_number
+    // Для AUTONOM 5Tx: tool_type=1, tool_N_Tx=5 => база 150000.
+    const uint32_t toolType = 1u;
+    const uint32_t ntx = 5u;
+    uint32_t low20 = toolType * 100000u + ntx * 10000u + static_cast<uint32_t>(mod1to9 * 1000 + number0to99);
+
+    // Для SDR варианта сохраняем совместимость по старой схеме как AUTONOM 5Tx.
+    (void)sondeType151or152;
+
     low20 &= 0x000FFFFFu;
     return high12 | low20;
 }

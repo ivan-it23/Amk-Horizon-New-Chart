@@ -69,6 +69,27 @@ static bool Metro_GetEditInt(HWND hDlg, int id, int& out) {
     return true;
 }
 
+static bool Metro_GetEditIntOptional(HWND hDlg, int id, int& out, bool& hasValue) {
+    wchar_t buf[128];
+    GetDlgItemText(hDlg, id, buf, _countof(buf));
+
+    if (wcslen(buf) == 0) {
+        hasValue = false;
+        return true;
+    }
+
+    wchar_t* end = nullptr;
+    long v = wcstol(buf, &end, 10);
+    if (end == buf) {
+        hasValue = false;
+        return false;
+    }
+
+    hasValue = true;
+    out = (int)v;
+    return true;
+}
+
 static void Metro_FillSelectedKeyCheckboxes(HWND hDlg, uint32_t key) {
     for (int bit = 0; bit <= 25; ++bit) {
         int id = IDC_METRO_KEY_0 + bit;
@@ -145,17 +166,33 @@ static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstrin
 
     for (int i = 0; i < 5; ++i) {
         int v = 0;
-        if (!Metro_GetEditInt(hDlg, l1Ids[i], v) || v < 0 || v > 65535) { outError = L"Некорректное значение L1."; return false; }
-        out.L1[i] = (uint16_t)v;
-        if (!Metro_GetEditInt(hDlg, l2Ids[i], v) || v < 0 || v > 65535) { outError = L"Некорректное значение L2."; return false; }
-        out.L2[i] = (uint16_t)v;
+        bool hasValue = false;
+
+        if (!Metro_GetEditIntOptional(hDlg, l1Ids[i], v, hasValue) || (hasValue && (v < 0 || v > 65535))) {
+            outError = L"Некорректное значение L1.";
+            return false;
+        }
+        if (hasValue) out.L1[i] = (uint16_t)v;
+
+        if (!Metro_GetEditIntOptional(hDlg, l2Ids[i], v, hasValue) || (hasValue && (v < 0 || v > 65535))) {
+            outError = L"Некорректное значение L2.";
+            return false;
+        }
+        if (hasValue) out.L2[i] = (uint16_t)v;
     }
 
     int f1 = 0, f2 = 0;
-    if (!Metro_GetEditInt(hDlg, IDC_METRO_F1, f1) || f1 < 0 || f1 > 65535) { outError = L"Некорректное значение F1."; return false; }
-    if (!Metro_GetEditInt(hDlg, IDC_METRO_F2, f2) || f2 < 0 || f2 > 65535) { outError = L"Некорректное значение F2."; return false; }
-    out.F[0] = (uint16_t)f1;
-    out.F[1] = (uint16_t)f2;
+    bool hasF1 = false, hasF2 = false;
+    if (!Metro_GetEditIntOptional(hDlg, IDC_METRO_F1, f1, hasF1) || (hasF1 && (f1 < 0 || f1 > 65535))) {
+        outError = L"Некорректное значение F1.";
+        return false;
+    }
+    if (!Metro_GetEditIntOptional(hDlg, IDC_METRO_F2, f2, hasF2) || (hasF2 && (f2 < 0 || f2 > 65535))) {
+        outError = L"Некорректное значение F2.";
+        return false;
+    }
+    if (hasF1) out.F[0] = (uint16_t)f1;
+    if (hasF2) out.F[1] = (uint16_t)f2;
 
     const int airIds[] = {
         IDC_METRO_AIR_1, IDC_METRO_AIR_2, IDC_METRO_AIR_3, IDC_METRO_AIR_4, IDC_METRO_AIR_5,
@@ -167,15 +204,28 @@ static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstrin
     };
     for (int i = 0; i < 10; ++i) {
         int v = 0;
-        if (!Metro_GetEditInt(hDlg, airIds[i], v) || v < -32768 || v > 32767) { outError = L"Некорректное значение AIR."; return false; }
-        out.Air_zz[i] = (int16_t)v;
-        if (!Metro_GetEditInt(hDlg, minIds[i], v) || v < -32768 || v > 32767) { outError = L"Некорректное значение MIN."; return false; }
-        out.Air_zz_amt[i] = (int16_t)v;
+        bool hasValue = false;
+
+        if (!Metro_GetEditIntOptional(hDlg, airIds[i], v, hasValue) || (hasValue && (v < -32768 || v > 32767))) {
+            outError = L"Некорректное значение AIR.";
+            return false;
+        }
+        if (hasValue) out.Air_zz[i] = (int16_t)v;
+
+        if (!Metro_GetEditIntOptional(hDlg, minIds[i], v, hasValue) || (hasValue && (v < -32768 || v > 32767))) {
+            outError = L"Некорректное значение MIN.";
+            return false;
+        }
+        if (hasValue) out.Air_zz_amt[i] = (int16_t)v;
     }
 
     int serial = 0;
-    if (!Metro_GetEditInt(hDlg, IDC_METRO_SERIAL_EDIT, serial) || serial < 0) { outError = L"Некорректный serial."; return false; }
-    out.serial = (uint32_t)serial;
+    bool hasSerial = false;
+    if (!Metro_GetEditIntOptional(hDlg, IDC_METRO_SERIAL_EDIT, serial, hasSerial) || (hasSerial && serial < 0)) {
+        outError = L"Некорректный serial.";
+        return false;
+    }
+    if (hasSerial) out.serial = (uint32_t)serial;
 
     // signature: we build only AUTONOM 5Tx (151) by UI mod+number, preserving high 12 bits.
     int modSel = (int)SendMessage(GetDlgItem(hDlg, IDC_METRO_MOD_COMBO), CB_GETCURSEL, 0, 0);

@@ -38,9 +38,10 @@ public:
     static SignatureInfo DecodeSignature(uint32_t signature);
     static bool IsSupportedAutonom5TxSignature(uint32_t signature);
 
-    // Builds signature in the same "low20 = sondeType*1000 + suffix" style.
-    // For this project we only support AUTONOM 5Tx types (151 or 152).
-    static uint32_t BuildSignature(uint32_t sondeType151or152, int mod1to9, int number0to99, uint32_t existingSignature);
+    // Builds signature in legacy-compatible style:
+    // low20 = tool_type*100000 + N_Tx*10000 + mod*1000 + number.
+    // For this project we keep AUTONOM 5Tx semantics (type=1, N_Tx=5), preserving high 12 bits.
+    static uint32_t BuildSignature(uint32_t sondeType151or152, int mod1to9, int number0to999, uint32_t existingSignature);
 
     static std::wstring SignatureToBinaryString(uint32_t signature);
 
