@@ -16,12 +16,16 @@
 
 #define MAX_LOADSTRING 100
 
+struct MetrologyDialogContext;
+
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
 WCHAR szWindowClass[MAX_LOADSTRING];            // имя класса главного окна
 ChartManager* g_chartManager = nullptr;         // Менеджер графиков
 HWND g_hSerialDialog = nullptr;                 // v2.13.0: Handle диалога COM-порта
+HWND g_hMetrologyDialog = nullptr;              // Handle диалога метрологии (немодальный)
+MetrologyDialogContext* g_metrologyDialogCtx = nullptr; // Контекст диалога метрологии (живёт пока жив диалог)
 
 // === Метрология (AUTONOM 5Tx) ===
 struct MetrologyDialogContext {
@@ -87,8 +91,23 @@ static void Metro_UpdateSignaturePanel(HWND hDlg, const METROLOGY_DATA& metro) {
     SetDlgItemText(hDlg, IDC_METRO_SIGNATURE32_EDIT, MetrologyModule::SignatureToBinaryString(metro.signature).c_str());
     auto info = MetrologyModule::DecodeSignature(metro.signature);
     Metro_SetEditUInt(hDlg, IDC_METRO_SIGNATUREPAL_EDIT, info.signatureForPalette);
+
+    // Формат старого/рабочего приложения (актуален для AUTONOM 5Tx):
+    // buff=low20, mod=(buff%10000)/1000, number=buff%1000
+    int mod = static_cast<int>((info.low20 % 10000u) / 1000u);
+    int number = static_cast<int>(info.low20 % 1000u);
+
+    HWND hMod = GetDlgItem(hDlg, IDC_METRO_MOD_COMBO);
+    if (hMod) {
+        if (mod >= 1 && mod <= 9) {
+            SendMessage(hMod, CB_SETCURSEL, mod - 1, 0);
+        } else {
+            SendMessage(hMod, CB_SETCURSEL, 0, 0);
+        }
+    }
+    Metro_SetEditInt(hDlg, IDC_METRO_NUMBER_EDIT, number);
+
     Metro_SetEditUInt(hDlg, IDC_METRO_SERIAL_EDIT, metro.serial);
-    Metro_SetEditUInt(hDlg, IDC_METRO_DIAMETER_EDIT, metro.D_sonde_mm);
 }
 
 static void Metro_FillFormFromStruct(HWND hDlg, const METROLOGY_DATA& m) {
@@ -154,11 +173,9 @@ static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstrin
         out.Air_zz_amt[i] = (int16_t)v;
     }
 
-    int serial = 0, dmm = 0;
+    int serial = 0;
     if (!Metro_GetEditInt(hDlg, IDC_METRO_SERIAL_EDIT, serial) || serial < 0) { outError = L"Некорректный serial."; return false; }
-    if (!Metro_GetEditInt(hDlg, IDC_METRO_DIAMETER_EDIT, dmm) || dmm < 0) { outError = L"Некорректный диаметр."; return false; }
     out.serial = (uint32_t)serial;
-    out.D_sonde_mm = (uint32_t)dmm;
 
     // signature: we build only AUTONOM 5Tx (151) by UI mod+number, preserving high 12 bits.
     int modSel = (int)SendMessage(GetDlgItem(hDlg, IDC_METRO_MOD_COMBO), CB_GETCURSEL, 0, 0);
@@ -221,7 +238,7 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
             MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
             if (!ctx || !ctx->metro) {
                 if (id == IDOK || id == IDCANCEL) {
-                    EndDialog(hDlg, id);
+                    ShowWindow(hDlg, SW_HIDE);
                     return (INT_PTR)TRUE;
                 }
                 return (INT_PTR)FALSE;
@@ -352,11 +369,27 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
             }
 
             if (id == IDOK || id == IDCANCEL) {
-                EndDialog(hDlg, id);
+                ShowWindow(hDlg, SW_HIDE);
                 return (INT_PTR)TRUE;
             }
             break;
         }
+
+        case WM_CLOSE:
+            ShowWindow(hDlg, SW_HIDE);
+            return (INT_PTR)TRUE;
+
+        case WM_DESTROY:
+            {
+                MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                if (ctx) {
+                    SetWindowLongPtr(hDlg, GWLP_USERDATA, 0);
+                    delete ctx;
+                }
+                g_metrologyDialogCtx = nullptr;
+            }
+            g_hMetrologyDialog = nullptr;
+            return (INT_PTR)TRUE;
     }
     return (INT_PTR)FALSE;
 }
@@ -588,11 +621,33 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
             case IDM_DEVICE_METROLOGY:
                 if (g_chartManager) {
-                    MetrologyDialogContext ctx;
-                    ctx.metro = g_chartManager->GetMetrologyModule();
-                    ctx.serial = g_chartManager->GetSerialModule();
-                    ctx.hMainWnd = hWnd;
-                    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_METROLOGY_DIALOG), hWnd, MetrologyDialogProc, (LPARAM)&ctx);
+                    if (!g_hMetrologyDialog || !IsWindow(g_hMetrologyDialog)) {
+                        if (g_metrologyDialogCtx) {
+                            delete g_metrologyDialogCtx;
+                            g_metrologyDialogCtx = nullptr;
+                        }
+
+                        g_metrologyDialogCtx = new MetrologyDialogContext();
+                        g_metrologyDialogCtx->metro = g_chartManager->GetMetrologyModule();
+                        g_metrologyDialogCtx->serial = g_chartManager->GetSerialModule();
+                        g_metrologyDialogCtx->hMainWnd = hWnd;
+
+                        g_hMetrologyDialog = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_METROLOGY_DIALOG),
+                                                              hWnd, MetrologyDialogProc, (LPARAM)g_metrologyDialogCtx);
+                        if (g_hMetrologyDialog) {
+                            ShowWindow(g_hMetrologyDialog, SW_SHOW);
+                        } else {
+                            delete g_metrologyDialogCtx;
+                            g_metrologyDialogCtx = nullptr;
+                        }
+                    } else {
+                        if (IsIconic(g_hMetrologyDialog)) {
+                            ShowWindow(g_hMetrologyDialog, SW_RESTORE);
+                        } else {
+                            ShowWindow(g_hMetrologyDialog, SW_SHOW);
+                        }
+                        SetForegroundWindow(g_hMetrologyDialog);
+                    }
                 }
                 break;
             
@@ -897,6 +952,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
+        g_hMetrologyDialog = nullptr;
         if (g_chartManager)
         {
             delete g_chartManager;
