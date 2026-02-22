@@ -18,6 +18,48 @@
 
 struct MetrologyDialogContext;
 
+static bool IsEmphasizedDeviceMenuItem(UINT id) {
+    return id == IDM_DEVICE_CONNECT || id == IDM_DEVICE_METROLOGY;
+}
+
+static void EnableEmphasizedDeviceMenuItems(HWND hWnd) {
+    HMENU hMenu = GetMenu(hWnd);
+    if (!hMenu) return;
+
+    HMENU hDeviceMenu = GetSubMenu(hMenu, 1); // "Прибор"
+    if (!hDeviceMenu) return;
+
+    const UINT ids[] = { IDM_DEVICE_CONNECT, IDM_DEVICE_METROLOGY };
+    for (UINT id : ids) {
+        MENUITEMINFO mii{};
+        mii.cbSize = sizeof(mii);
+        mii.fMask = MIIM_FTYPE;
+        if (GetMenuItemInfo(hDeviceMenu, id, FALSE, &mii)) {
+            mii.fType |= MFT_OWNERDRAW;
+            SetMenuItemInfo(hDeviceMenu, id, FALSE, &mii);
+        }
+    }
+}
+
+static HFONT CreateBoldMenuFont() {
+    NONCLIENTMETRICS ncm{};
+    ncm.cbSize = sizeof(ncm);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0)) {
+        LOGFONT lf = ncm.lfMenuFont;
+        lf.lfWeight = FW_BOLD;
+        return CreateFontIndirect(&lf);
+    }
+
+    LOGFONT lf{};
+    HDC hScreenDC = GetDC(nullptr);
+    int dpiY = hScreenDC ? GetDeviceCaps(hScreenDC, LOGPIXELSY) : 96;
+    if (hScreenDC) ReleaseDC(nullptr, hScreenDC);
+    lf.lfHeight = -MulDiv(9, dpiY, 72);
+    lf.lfWeight = FW_BOLD;
+    wcscpy_s(lf.lfFaceName, L"Segoe UI");
+    return CreateFontIndirect(&lf);
+}
+
 // Глобальные переменные:
 HINSTANCE hInst;                                // текущий экземпляр
 WCHAR szTitle[MAX_LOADSTRING];                  // Текст строки заголовка
@@ -607,6 +649,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
       return FALSE;
    }
 
+   EnableEmphasizedDeviceMenuItems(hWnd);
+
    // Создаем менеджер графиков
    g_chartManager = new ChartManager();
    g_chartManager->CreateControls(hWnd, hInstance);
@@ -962,10 +1006,72 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             }
         }
         break;
+    case WM_MEASUREITEM:
+        {
+            LPMEASUREITEMSTRUCT lpMeasure = (LPMEASUREITEMSTRUCT)lParam;
+            if (lpMeasure && lpMeasure->CtlType == ODT_MENU && IsEmphasizedDeviceMenuItem((UINT)lpMeasure->itemID)) {
+                HMENU hMenu = GetMenu(hWnd);
+                HMENU hDeviceMenu = hMenu ? GetSubMenu(hMenu, 1) : nullptr;
+                wchar_t text[128] = {0};
+                if (hDeviceMenu) {
+                    GetMenuString(hDeviceMenu, lpMeasure->itemID, text, _countof(text), MF_BYCOMMAND);
+                }
+
+                HDC hdc = GetDC(hWnd);
+                HFONT hBoldFont = CreateBoldMenuFont();
+                HFONT hOldFont = hBoldFont ? (HFONT)SelectObject(hdc, hBoldFont) : nullptr;
+
+                SIZE sz{};
+                GetTextExtentPoint32(hdc, text, (int)wcslen(text), &sz);
+                lpMeasure->itemWidth = sz.cx + 24;
+                lpMeasure->itemHeight = sz.cy + 6;
+
+                if (hOldFont) SelectObject(hdc, hOldFont);
+                if (hBoldFont) DeleteObject(hBoldFont);
+                ReleaseDC(hWnd, hdc);
+                return TRUE;
+            }
+        }
+        break;
     case WM_DRAWITEM:
         // Обработка Owner-Draw кнопок с цветными иконками
         {
             LPDRAWITEMSTRUCT lpDrawItem = (LPDRAWITEMSTRUCT)lParam;
+
+            if (lpDrawItem && lpDrawItem->CtlType == ODT_MENU && IsEmphasizedDeviceMenuItem((UINT)lpDrawItem->itemID)) {
+                wchar_t text[128] = {0};
+                HMENU hMenu = GetMenu(hWnd);
+                HMENU hDeviceMenu = hMenu ? GetSubMenu(hMenu, 1) : nullptr;
+                if (hDeviceMenu) {
+                    GetMenuString(hDeviceMenu, lpDrawItem->itemID, text, _countof(text), MF_BYCOMMAND);
+                }
+
+                COLORREF bgColor = (lpDrawItem->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHT) : GetSysColor(COLOR_MENU);
+                COLORREF textColor = (lpDrawItem->itemState & ODS_SELECTED) ? GetSysColor(COLOR_HIGHLIGHTTEXT) : GetSysColor(COLOR_MENUTEXT);
+
+                HBRUSH bgBrush = CreateSolidBrush(bgColor);
+                FillRect(lpDrawItem->hDC, &lpDrawItem->rcItem, bgBrush);
+                DeleteObject(bgBrush);
+
+                SetBkMode(lpDrawItem->hDC, TRANSPARENT);
+                SetTextColor(lpDrawItem->hDC, textColor);
+
+                HFONT hBoldFont = CreateBoldMenuFont();
+                HFONT hOldFont = hBoldFont ? (HFONT)SelectObject(lpDrawItem->hDC, hBoldFont) : nullptr;
+
+                RECT rcText = lpDrawItem->rcItem;
+                rcText.left += 12;
+                DrawText(lpDrawItem->hDC, text, -1, &rcText, DT_SINGLELINE | DT_VCENTER | DT_LEFT | DT_HIDEPREFIX);
+
+                if (lpDrawItem->itemState & ODS_FOCUS) {
+                    DrawFocusRect(lpDrawItem->hDC, &lpDrawItem->rcItem);
+                }
+
+                if (hOldFont) SelectObject(lpDrawItem->hDC, hOldFont);
+                if (hBoldFont) DeleteObject(hBoldFont);
+                return TRUE;
+            }
+
             if (lpDrawItem && g_chartManager) {
                 UIModule* uiModule = g_chartManager->GetUIModule();
                 if (uiModule && uiModule->IsIconButton(lpDrawItem->CtlID)) {
