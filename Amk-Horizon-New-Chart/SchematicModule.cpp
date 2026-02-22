@@ -1946,13 +1946,24 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                 // "Схема прибора - График N" в Unicode
                 std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(pSchematic->targetChartNumber);
                 SetWindowText(hDlg, title.c_str());
+
+                // Наследуем иконки от главного окна приложения.
+                HWND hParent = GetParent(hDlg);
+                if (hParent) {
+                    HICON hIconBig = (HICON)SendMessage(hParent, WM_GETICON, ICON_BIG, 0);
+                    if (!hIconBig) hIconBig = (HICON)GetClassLongPtr(hParent, GCLP_HICON);
+                    if (hIconBig) SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+
+                    HICON hIconSmall = (HICON)SendMessage(hParent, WM_GETICON, ICON_SMALL, 0);
+                    if (!hIconSmall) hIconSmall = (HICON)GetClassLongPtr(hParent, GCLP_HICONSM);
+                    if (hIconSmall) SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+                }
                 
                 // Инициализируем элементы управления
                 pSchematic->InitializeDialogControls(hDlg);
                 
                 // Центрируем окно
                 RECT parentRect, dialogRect;
-                HWND hParent = GetParent(hDlg);
                 GetWindowRect(hParent, &parentRect);
                 GetWindowRect(hDlg, &dialogRect);
                 

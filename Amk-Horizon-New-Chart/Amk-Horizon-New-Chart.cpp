@@ -242,6 +242,25 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
             SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
             MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(lParam);
 
+            // Показываем окно как отдельную кнопку в панели задач (в т.ч. при сворачивании).
+            LONG_PTR exStyle = GetWindowLongPtr(hDlg, GWL_EXSTYLE);
+            exStyle |= WS_EX_APPWINDOW;
+            exStyle &= ~WS_EX_TOOLWINDOW;
+            SetWindowLongPtr(hDlg, GWL_EXSTYLE, exStyle);
+            SetWindowPos(hDlg, nullptr, 0, 0, 0, 0,
+                         SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED);
+
+            // Наследуем иконки от главного окна, чтобы кнопка в taskbar была узнаваемой.
+            if (ctx && ctx->hMainWnd) {
+                HICON hIconBig = (HICON)SendMessage(ctx->hMainWnd, WM_GETICON, ICON_BIG, 0);
+                if (!hIconBig) hIconBig = (HICON)GetClassLongPtr(ctx->hMainWnd, GCLP_HICON);
+                if (hIconBig) SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+
+                HICON hIconSmall = (HICON)SendMessage(ctx->hMainWnd, WM_GETICON, ICON_SMALL, 0);
+                if (!hIconSmall) hIconSmall = (HICON)GetClassLongPtr(ctx->hMainWnd, GCLP_HICONSM);
+                if (hIconSmall) SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+            }
+
             // Init combos (kept mostly informational; we support AUTONOM 5Tx only)
             HWND hType = GetDlgItem(hDlg, IDC_METRO_TYPE_COMBO);
             if (hType) {
@@ -683,7 +702,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         g_metrologyDialogCtx->hMainWnd = hWnd;
 
                         g_hMetrologyDialog = CreateDialogParam(hInst, MAKEINTRESOURCE(IDD_METROLOGY_DIALOG),
-                                                              hWnd, MetrologyDialogProc, (LPARAM)g_metrologyDialogCtx);
+                                                              nullptr, MetrologyDialogProc, (LPARAM)g_metrologyDialogCtx);
                         if (g_hMetrologyDialog) {
                             ShowWindow(g_hMetrologyDialog, SW_SHOW);
                         } else {
