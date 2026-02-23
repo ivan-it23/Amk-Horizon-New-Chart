@@ -173,23 +173,89 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     uint64_t cfgKey = NotesModule::ComputeConfigKey(config);
     std::string cfgSnapshot = NotesModule::BuildConfigSnapshot(config);
 
-    // Координаты (X всегда сохраняем как индекс кадра)
-    double xIdxD = 0.0;
-    double yUnused = 0.0;
-    ConvertScreenToDataCoords(chartNumber, crosshair->screenX, crosshair->screenY, xIdxD, yUnused);
-    int xIndex = static_cast<int>(llround(xIdxD));
+    // Координаты заметки: X берём из перекрестия, Y привязываем к ближайшей кривой.
+    // Привязка к кривой (snap-to-curve) гарантирует, что заметка всегда отображается
+    // точно на кривой независимо от уровня zoom, полностью исключая любые
+    // расхождения в цепочке screen→data→screen преобразований координат.
+    int xIndex = static_cast<int>(llround(crosshair->dataX));
     if (xIndex < 0) xIndex = 0;
     if (dataModule->HasData()) {
         int maxIdx = static_cast<int>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
         if (xIndex > maxIdx) xIndex = maxIdx;
     }
 
-    double dataX = 0.0, y1 = 0.0, y2 = 0.0;
+    double y1 = crosshair->dataY;
+    double y2 = 0.0;
     std::wstring y1Unit, y2Unit;
     bool hasDualAxis = false;
-    if (!ConvertScreenToChartCoords(chartNumber, crosshair->screenX, crosshair->screenY, dataX, y1, y2, y1Unit, y2Unit, hasDualAxis)) {
-        MessageBox(hWnd, L"Не удалось получить координаты выбранной точки.", L"Заметки", MB_OK | MB_ICONWARNING);
-        return false;
+
+    // Snap-to-curve: вычисляем данные кривых (полный диапазон, без zoom) и находим
+    // ближайшее к crosshair->dataY значение кривой в кадре xIndex.
+    // Это значение и сохраняем как yLeft — оно совпадает с тем, что рисует
+    // DrawDualAxisDataWithZoom, поэтому маркер всегда будет на кривой.
+    if (curveSelectionModule) {
+        std::vector<std::vector<float>> leftAxisData, rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
+        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+                                                 leftAxisData, rightAxisData,
+                                                 leftAxisCurves, rightAxisCurves);
+
+        // Левая ось: находим ближайшую кривую к crosshair->dataY
+        {
+            double bestDist = 1e30;
+            double bestVal = y1;
+            for (const auto& channel : leftAxisData) {
+                if (xIndex >= 0 && static_cast<size_t>(xIndex) < channel.size()) {
+                    double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
+                    double d = fabs(v - crosshair->dataY);
+                    if (d < bestDist) {
+                        bestDist = d;
+                        bestVal = v;
+                    }
+                }
+            }
+            y1 = bestVal;
+        }
+
+        // Правая ось
+        hasDualAxis = !rightAxisData.empty();
+        if (hasDualAxis) {
+            // Для правой оси получаем координату из ConvertScreenToChartCoords
+            // и тоже привязываем к ближайшей кривой правой оси.
+            double dataXTmp = 0.0, dataY1Tmp = 0.0, dataY2Tmp = 0.0;
+            bool hasDualAxisTmp = false;
+            if (ConvertScreenToChartCoords(chartNumber, crosshair->screenX, crosshair->screenY,
+                                           dataXTmp, dataY1Tmp, dataY2Tmp, y1Unit, y2Unit, hasDualAxisTmp)) {
+                double bestDist = 1e30;
+                double bestVal = dataY2Tmp;
+                for (const auto& channel : rightAxisData) {
+                    if (xIndex >= 0 && static_cast<size_t>(xIndex) < channel.size()) {
+                        double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
+                        double d = fabs(v - dataY2Tmp);
+                        if (d < bestDist) {
+                            bestDist = d;
+                            bestVal = v;
+                        }
+                    }
+                }
+                y2 = bestVal;
+            }
+        }
+
+        // Единицы измерения
+        if (!config.curves.empty()) {
+            std::string units1 = config.curves[0].units;
+            y1Unit = std::wstring(units1.begin(), units1.end());
+        }
+        if (hasDualAxis) {
+            for (const auto& curve : config.curves) {
+                if (curve.yAxisGroup == 1) {
+                    std::string units2 = curve.units;
+                    y2Unit = std::wstring(units2.begin(), units2.end());
+                    break;
+                }
+            }
+        }
     }
 
     ChartNote n;
@@ -1038,9 +1104,27 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 
     double plotWidth = static_cast<double>(plotRect.right - plotRect.left);
     double plotHeight = static_cast<double>(plotRect.bottom - plotRect.top);
+    if (!(plotWidth > 0.0) || !(plotHeight > 0.0)) {
+        dataX = 0.0;
+        dataY = 0.0;
+        return;
+    }
+
+    // ВАЖНО: синхронизируем Y-геометрию с реальной отрисовкой в DrawDualAxisDataWithZoom,
+    // где данные рисуются не по всему plotRect, а по dataRect с вертикальными margin.
+    RECT dataRect = plotRect;
+    int yMargin = static_cast<int>(plotHeight * 3.0 / 100.0);
+    yMargin = (std::max)(8, (std::min)(24, yMargin));
+    dataRect.top += yMargin;
+    dataRect.bottom -= yMargin;
+    double dataHeight = static_cast<double>(dataRect.bottom - dataRect.top);
+    if (!(dataHeight > 0.0)) {
+        dataX = 0.0;
+        dataY = 0.0;
+        return;
+    }
 
     double xRatio = static_cast<double>(screenX - plotRect.left) / plotWidth;
-    double yRatio = static_cast<double>(plotRect.bottom - screenY) / plotHeight; // Y-axis is inverted in screen coords
 
     // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
     if (config.xAxisType == XAxisType::TEMPERATURE) {
@@ -1110,12 +1194,38 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     
     double minYFull, maxYFull, minXFull, maxXFull, minY2, maxY2;
     chartModule->GetDataRanges(leftAxisData, rightAxisData, minXFull, maxXFull, minYFull, maxYFull, minY2, maxY2);
-    
+
+    double displayMinY = minYFull;
+    double displayMaxY = maxYFull;
     if (zoom->isZoomed) {
-        dataY = zoom->minY + yRatio * (zoom->maxY - zoom->minY);
-    } else {
-        dataY = minYFull + yRatio * (maxYFull - minYFull);
+        displayMinY = zoom->minY;
+        displayMaxY = zoom->maxY;
+
+        // В zoom-режиме DrawChartWithCurves добавляет display padding +/-5%.
+        double range = displayMaxY - displayMinY;
+        if (!(range > 0.0)) range = 1.0;
+        double pad = range * 0.05;
+        displayMinY -= pad;
+        displayMaxY += pad;
     }
+
+    // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
+    double displayRangeY = displayMaxY - displayMinY;
+    if (!(displayRangeY > 0.0)) {
+        dataY = displayMinY;
+        return;
+    }
+    double drawMinY = displayMinY - displayRangeY * 0.02;
+    double drawMaxY = displayMaxY;
+    double drawRangeY = drawMaxY - drawMinY;
+    if (!(drawRangeY > 0.0)) {
+        dataY = drawMinY;
+        return;
+    }
+
+    double clampedScreenY = static_cast<double>((std::max)(dataRect.top, (std::min)(dataRect.bottom, static_cast<LONG>(screenY))));
+    double yRatio = (static_cast<double>(dataRect.bottom) - clampedScreenY) / dataHeight;
+    dataY = drawMinY + yRatio * drawRangeY;
 }
 
 
@@ -2217,6 +2327,16 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         // Текущие диапазоны для отображения (могут быть изменены zoom по Y)
         double minY1 = minY1Full, maxY1 = maxY1Full;
         double minY2 = minY2Full, maxY2 = maxY2Full;
+
+        auto ApplyYDisplayPadding = [](double& minY, double& maxY) {
+            double range = maxY - minY;
+            if (!(range > 0.0)) {
+                range = 1.0;
+            }
+            double padding = range * 0.05;
+            minY -= padding;
+            maxY += padding;
+        };
         
         // Применяем zoom по Y если есть (zoom по X уже применён при получении данных)
         if (zoom.isZoomed) {
@@ -2224,6 +2344,10 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             maxX = zoom.maxX;
             minY1 = zoom.minY;
             maxY1 = zoom.maxY;
+
+            // ВАЖНО: синхронизация с фактической отрисовкой (DrawChartWithCurves),
+            // где при zoom добавляется display padding +/-5%.
+            ApplyYDisplayPadding(minY1, maxY1);
             
             // Вычисляем пропорциональный zoom для правой оси (как в ChartModule)
             double leftFullRange = maxY1Full - minY1Full;
@@ -2249,20 +2373,52 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         
         int plotWidth = chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT;
         int plotHeight = chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM;
+        if (plotWidth <= 0 || plotHeight <= 0) {
+            return false;
+        }
+
+        // ВАЖНО: как в DrawDualAxisDataWithZoom — данные рисуются внутри dataRect,
+        // а не по всей высоте plotRect.
+        RECT dataRect;
+        dataRect.left = chartRect.left + MARGIN_LEFT;
+        dataRect.top = chartRect.top + MARGIN_TOP;
+        dataRect.right = chartRect.right - MARGIN_RIGHT;
+        dataRect.bottom = chartRect.bottom - MARGIN_BOTTOM;
+
+        int yMargin = plotHeight * 3 / 100;
+        yMargin = (std::max)(8, (std::min)(24, yMargin));
+        dataRect.top += yMargin;
+        dataRect.bottom -= yMargin;
+        int dataHeight = dataRect.bottom - dataRect.top;
+        if (dataHeight <= 0) {
+            return false;
+        }
         
         int relX = screenX - chartRect.left - MARGIN_LEFT;
-        int relY = screenY - chartRect.top - MARGIN_TOP;
         
         // X координата
         dataX = minX + (double)relX / plotWidth * (maxX - minX);
+
+        int clampedY = static_cast<int>((std::max)(dataRect.top, (std::min)(dataRect.bottom, static_cast<LONG>(screenY))));
+        double yRatio = (double)(dataRect.bottom - clampedY) / dataHeight;
+
+        double leftRange = maxY1 - minY1;
+        if (!(leftRange > 0.0)) leftRange = 1.0;
+        double leftDrawMin = minY1 - leftRange * 0.02;
+        double leftDrawMax = maxY1;
         
         // Y координаты
         hasDualAxis = !rightAxisData.empty();
         
         if (hasDualAxis) {
             // Двойные оси
-            dataY1 = maxY1 - (double)relY / plotHeight * (maxY1 - minY1); // Левая ось
-            dataY2 = maxY2 - (double)relY / plotHeight * (maxY2 - minY2); // Правая ось (с учётом пропорционального zoom)
+            dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin); // Левая ось
+
+            double rightRange = maxY2 - minY2;
+            if (!(rightRange > 0.0)) rightRange = 1.0;
+            double rightDrawMin = minY2 - rightRange * 0.02;
+            double rightDrawMax = maxY2;
+            dataY2 = rightDrawMin + yRatio * (rightDrawMax - rightDrawMin); // Правая ось
             
             // Определяем единицы измерения из первых кривых каждой оси
             // Преобразуем std::string в std::wstring
@@ -2278,7 +2434,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             }
         } else {
             // Одна ось
-            dataY1 = maxY1 - (double)relY / plotHeight * (maxY1 - minY1);
+            dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin);
             std::string units1 = config.curves[0].units;
             y1Unit = std::wstring(units1.begin(), units1.end());
             y2Unit = L"";
@@ -2418,6 +2574,14 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     const int plotW = plotRect.right - plotRect.left;
     const int plotH = plotRect.bottom - plotRect.top;
 
+    RECT dataRect = plotRect;
+    int yMargin = plotH * 3 / 100;
+    yMargin = (std::max)(8, (std::min)(24, yMargin));
+    dataRect.top += yMargin;
+    dataRect.bottom -= yMargin;
+    if (dataRect.bottom <= dataRect.top) return;
+    const int dataH = dataRect.bottom - dataRect.top;
+
     // Zoom & X range
     ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
     const double minXData = zoom.isZoomed ? zoom.minX : 0.0;
@@ -2457,7 +2621,14 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         maxY1 += pad;
     }
 
-    const double yRange = (maxY1 - minY1);
+    // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
+    double drawMinY1 = minY1;
+    double drawMaxY1 = maxY1;
+    double displayRangeY = drawMaxY1 - drawMinY1;
+    if (!(displayRangeY > 0.0)) return;
+    drawMinY1 -= displayRangeY * 0.02;
+
+    const double yRange = (drawMaxY1 - drawMinY1);
     if (!(yRange > 0.0)) return;
 
     // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
@@ -2512,12 +2683,12 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
             xRatio = (static_cast<double>(n.xIndex) - minXData) / xRange;
         }
 
-        double yRatio = (maxY1 - n.yLeft) / yRange;
+        double yRatio = (drawMaxY1 - n.yLeft) / yRange;
 
         int x = plotRect.left + (int)lround(xRatio * plotW);
-        int y = plotRect.top + (int)lround(yRatio * plotH);
+        int y = dataRect.top + (int)lround(yRatio * dataH);
 
-        if (x < plotRect.left || x > plotRect.right || y < plotRect.top || y > plotRect.bottom) {
+        if (x < plotRect.left || x > plotRect.right || y < dataRect.top || y > dataRect.bottom) {
             continue;
         }
 
