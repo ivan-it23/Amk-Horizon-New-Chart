@@ -198,6 +198,17 @@ static INT_PTR CALLBACK NotesJournalDialogProc(HWND hDlg, UINT message, WPARAM w
             NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(lParam);
             if (!ctx) return (INT_PTR)FALSE;
 
+            // Наследуем иконки от главного окна приложения.
+            if (ctx->hMainWnd) {
+                HICON hIconBig = (HICON)SendMessage(ctx->hMainWnd, WM_GETICON, ICON_BIG, 0);
+                if (!hIconBig) hIconBig = (HICON)GetClassLongPtr(ctx->hMainWnd, GCLP_HICON);
+                if (hIconBig) SendMessage(hDlg, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+
+                HICON hIconSmall = (HICON)SendMessage(ctx->hMainWnd, WM_GETICON, ICON_SMALL, 0);
+                if (!hIconSmall) hIconSmall = (HICON)GetClassLongPtr(ctx->hMainWnd, GCLP_HICONSM);
+                if (hIconSmall) SendMessage(hDlg, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+            }
+
             HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
             if (hList) {
                 ListView_SetExtendedListViewStyle(hList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
