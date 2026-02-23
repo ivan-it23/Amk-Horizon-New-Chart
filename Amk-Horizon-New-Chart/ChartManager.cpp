@@ -7,8 +7,8 @@
 #include <sstream>
 #include <cfloat>
 #include <cmath>
- #include <cstdarg>
- #include <cstdio>
+#include <cstdarg>
+#include <cstdio>
 
 // === Заметки: диалог просмотра/удаления (v2.16.x) ===
 namespace {
@@ -134,6 +134,129 @@ void ChartManager::EnsureNotesLoadedForPath(const std::wstring& notesPath) {
     notesModule->LoadFromDisk();
 }
 
+std::wstring ChartManager::ResolveCurrentNotesPath() const {
+    if (!currentDataFilePath.empty()) {
+        return currentDataFilePath + L".notes.jsonl";
+    }
+
+    if (serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
+        std::wstring recordPath = serialModule->GetRecordFilePath();
+        if (!recordPath.empty()) {
+            return recordPath + L".notes.jsonl";
+        }
+    }
+
+    return L"";
+}
+
+bool ChartManager::GetNotesForCurrentSource(std::vector<ChartNote>& outNotes, std::wstring& outNotesPath) {
+    outNotes.clear();
+    outNotesPath.clear();
+
+    if (!notesModule) return false;
+
+    const std::wstring notesPath = ResolveCurrentNotesPath();
+    if (notesPath.empty()) {
+        return false;
+    }
+
+    EnsureNotesLoadedForPath(notesPath);
+    outNotesPath = notesPath;
+    outNotes = notesModule->GetAllNotes();
+    return true;
+}
+
+int ChartManager::GetActiveChartNumber() const {
+    return (activeChart == 2) ? 2 : 1;
+}
+
+bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int chartNumber) {
+    if (!curveSelectionModule || !hWnd) return false;
+    if (chartNumber != 1 && chartNumber != 2) return false;
+
+    XAxisType parsedXAxis = XAxisType::FRAME_NUMBER;
+    PresetType parsedPreset = PresetType::NONE;
+    std::vector<NotesModule::SnapshotCurveItem> parsedCurves;
+    if (!NotesModule::ParseConfigSnapshot(note.configSnapshot, parsedXAxis, parsedPreset, parsedCurves)) {
+        MessageBox(hWnd,
+                   L"Не удалось прочитать конфигурацию кривых из заметки.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    ChartConfiguration config = GetChartConfiguration(chartNumber);
+
+    if (parsedPreset != PresetType::NONE && parsedPreset != PresetType::CUSTOM) {
+        FrequencyBand targetFrequency = FrequencyBand::FREQ_400_KHZ;
+        if (!config.curves.empty()) {
+            targetFrequency = config.curves[0].frequency;
+        }
+        for (const auto& c : parsedCurves) {
+            if (c.curveId.find("_2000") != std::string::npos) {
+                targetFrequency = FrequencyBand::FREQ_2000_KHZ;
+                break;
+            }
+            if (c.curveId.find("_400") != std::string::npos) {
+                targetFrequency = FrequencyBand::FREQ_400_KHZ;
+                break;
+            }
+        }
+        config = curveSelectionModule->CreatePresetConfiguration(parsedPreset, targetFrequency);
+    }
+
+    if (config.curves.empty()) {
+        MessageBox(hWnd,
+                   L"В текущем состоянии графика нельзя восстановить конфигурацию заметки.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    for (auto& c : config.curves) {
+        c.enabled = false;
+    }
+
+    int enabledCount = 0;
+    for (const auto& parsed : parsedCurves) {
+        auto it = std::find_if(config.curves.begin(), config.curves.end(), [&](const CurveDefinition& c) {
+            return c.id == parsed.curveId;
+        });
+        if (it != config.curves.end()) {
+            it->enabled = true;
+            it->yAxisGroup = parsed.yAxisGroup;
+            enabledCount++;
+        }
+    }
+
+    if (enabledCount <= 0) {
+        MessageBox(hWnd,
+                   L"Не найдено ни одной совместимой кривой для применения заметки.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    config.xAxisType = parsedXAxis;
+    config.activePreset = parsedPreset;
+    if (!note.presetName.empty()) {
+        config.presetDisplayName = note.presetName;
+    }
+    config.UpdateAxisConfiguration();
+
+    if (!ValidateChartConfiguration(config)) {
+        MessageBox(hWnd,
+                   L"Конфигурация из заметки не прошла проверку валидности.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    ApplyCurveConfiguration(chartNumber, config);
+    UpdateChartAfterConfigurationChange(hWnd, chartNumber);
+    return true;
+}
+
 bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text) {
     if (!notesModule || !dataModule || !dataModule->HasData()) {
         MessageBox(hWnd, L"Нет данных для создания заметки.", L"Заметки", MB_OK | MB_ICONWARNING);
@@ -150,13 +273,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     }
 
     // Определяем путь для заметок: либо открыт файл, либо активна запись COM
-    std::wstring notesPath;
-    if (!currentDataFilePath.empty()) {
-        notesPath = currentDataFilePath + L".notes.jsonl";
-    } else if (serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
-        std::wstring recordPath = serialModule->GetRecordFilePath();
-        if (!recordPath.empty()) notesPath = recordPath + L".notes.jsonl";
-    }
+    std::wstring notesPath = ResolveCurrentNotesPath();
 
     if (notesPath.empty()) {
         MessageBox(hWnd,

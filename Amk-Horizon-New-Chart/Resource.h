@@ -107,6 +107,7 @@
 #define IDM_DEVICE_STOP				110
 #define IDM_DEVICE_CLEAR			111
 #define IDM_DEVICE_METROLOGY        114
+#define IDM_NOTES_JOURNAL			115
 #define IDD_SERIAL_STATUS			1055
 
 // Элементы диалога статуса COM-порта
@@ -139,6 +140,11 @@
 #define IDD_NOTE_VIEW_DIALOG		1089
 #define IDC_NOTE_VIEW_TEXT_EDIT		1090
 #define IDC_NOTE_DELETE_BTN			1091
+#define IDD_NOTES_JOURNAL_DIALOG    1093
+#define IDC_NOTES_JOURNAL_LIST      1094
+#define IDC_NOTES_APPLY_BTN         1095
+#define IDC_NOTES_REFRESH_BTN       1096
+#define IDC_NOTES_INFO_LABEL        1097
 
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092

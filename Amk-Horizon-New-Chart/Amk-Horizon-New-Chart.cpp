@@ -13,13 +13,244 @@
 #include <vector>
 #include <string>
 #include <commdlg.h>
+#include <commctrl.h>
+#include <ctime>
 
 #define MAX_LOADSTRING 100
 
 struct MetrologyDialogContext;
 
+struct NotesJournalDialogContext {
+    ChartManager* manager = nullptr;
+    HWND hMainWnd = nullptr;
+    std::wstring notesPath;
+    std::vector<ChartNote> notes;
+    int targetChartNumber = 1;
+};
+
+extern HWND g_hNotesJournalDialog;
+extern NotesJournalDialogContext* g_notesJournalCtx;
+
 static bool IsEmphasizedDeviceMenuItem(UINT id) {
     return id == IDM_DEVICE_CONNECT || id == IDM_DEVICE_METROLOGY;
+}
+
+static std::wstring FormatNoteTimestamp(uint64_t utcMs) {
+    if (utcMs == 0) return L"-";
+    time_t sec = static_cast<time_t>(utcMs / 1000ULL);
+    tm localTm{};
+    if (localtime_s(&localTm, &sec) != 0) {
+        return L"-";
+    }
+
+    wchar_t buf[64];
+    if (wcsftime(buf, _countof(buf), L"%d.%m.%Y %H:%M:%S", &localTm) == 0) {
+        return L"-";
+    }
+    return std::wstring(buf);
+}
+
+static std::wstring BuildSnapshotSummary(const ChartNote& note) {
+    XAxisType xAxisType = XAxisType::FRAME_NUMBER;
+    PresetType preset = PresetType::NONE;
+    std::vector<NotesModule::SnapshotCurveItem> curves;
+
+    if (!NotesModule::ParseConfigSnapshot(note.configSnapshot, xAxisType, preset, curves)) {
+        return L"(ошибка чтения snapshot)";
+    }
+
+    std::wstringstream ss;
+    ss << L"X=" << (xAxisType == XAxisType::TEMPERATURE ? L"Температура" : L"Кадр");
+    ss << L"; Кривых=" << curves.size();
+    return ss.str();
+}
+
+static std::wstring BuildNotePreview(const std::wstring& text) {
+    std::wstring out = text;
+    for (wchar_t& ch : out) {
+        if (ch == L'\r' || ch == L'\n') ch = L' ';
+    }
+    if (out.size() > 80) {
+        out = out.substr(0, 80);
+        out += L"...";
+    }
+    return out;
+}
+
+static void NotesJournal_InitListColumns(HWND hList) {
+    if (!hList) return;
+
+    LVCOLUMN col{};
+    col.mask = LVCF_TEXT | LVCF_WIDTH | LVCF_SUBITEM;
+
+    col.pszText = const_cast<LPWSTR>(L"Дата");
+    col.cx = 130;
+    col.iSubItem = 0;
+    ListView_InsertColumn(hList, 0, &col);
+
+    col.pszText = const_cast<LPWSTR>(L"Пресет");
+    col.cx = 140;
+    col.iSubItem = 1;
+    ListView_InsertColumn(hList, 1, &col);
+
+    col.pszText = const_cast<LPWSTR>(L"Конфигурация");
+    col.cx = 150;
+    col.iSubItem = 2;
+    ListView_InsertColumn(hList, 2, &col);
+
+    col.pszText = const_cast<LPWSTR>(L"Заметка");
+    col.cx = 250;
+    col.iSubItem = 3;
+    ListView_InsertColumn(hList, 3, &col);
+}
+
+static bool NotesJournal_Refresh(HWND hDlg) {
+    NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+    if (!ctx || !ctx->manager) return false;
+
+    std::vector<ChartNote> notes;
+    std::wstring notesPath;
+    if (!ctx->manager->GetNotesForCurrentSource(notes, notesPath)) {
+        ctx->notes.clear();
+        ctx->notesPath.clear();
+
+        HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+        if (hList) {
+            ListView_DeleteAllItems(hList);
+        }
+
+        SetDlgItemText(hDlg,
+                       IDC_NOTES_INFO_LABEL,
+                       L"Нет активного файла/записи для журнала заметок.");
+        return false;
+    }
+
+    ctx->notes = std::move(notes);
+    ctx->notesPath = std::move(notesPath);
+    ctx->targetChartNumber = ctx->manager->GetActiveChartNumber();
+
+    HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+    if (!hList) return false;
+
+    ListView_DeleteAllItems(hList);
+
+    for (size_t i = 0; i < ctx->notes.size(); ++i) {
+        const ChartNote& note = ctx->notes[i];
+        std::wstring ts = FormatNoteTimestamp(note.createdUtcMs);
+        std::wstring preset = note.presetName.empty() ? L"(без пресета)" : note.presetName;
+        std::wstring cfg = BuildSnapshotSummary(note);
+        std::wstring preview = BuildNotePreview(note.text);
+
+        LVITEM item{};
+        item.mask = LVIF_TEXT;
+        item.iItem = static_cast<int>(i);
+        item.iSubItem = 0;
+        item.pszText = const_cast<LPWSTR>(ts.c_str());
+        int row = ListView_InsertItem(hList, &item);
+        if (row >= 0) {
+            ListView_SetItemText(hList, row, 1, const_cast<LPWSTR>(preset.c_str()));
+            ListView_SetItemText(hList, row, 2, const_cast<LPWSTR>(cfg.c_str()));
+            ListView_SetItemText(hList, row, 3, const_cast<LPWSTR>(preview.c_str()));
+        }
+    }
+
+    wchar_t info[768];
+    swprintf_s(info,
+               L"Источник: %s | Заметок: %zu | График применения: %d",
+               ctx->notesPath.c_str(),
+               ctx->notes.size(),
+               ctx->targetChartNumber);
+    SetDlgItemText(hDlg, IDC_NOTES_INFO_LABEL, info);
+    return true;
+}
+
+static bool NotesJournal_ApplySelected(HWND hDlg) {
+    NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+    if (!ctx || !ctx->manager || !ctx->hMainWnd) return false;
+
+    HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+    if (!hList) return false;
+
+    int sel = ListView_GetNextItem(hList, -1, LVNI_SELECTED);
+    if (sel < 0 || static_cast<size_t>(sel) >= ctx->notes.size()) {
+        MessageBox(hDlg,
+                   L"Выберите заметку в списке.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONINFORMATION);
+        return false;
+    }
+
+    ctx->targetChartNumber = ctx->manager->GetActiveChartNumber();
+    bool ok = ctx->manager->ApplyNoteConfiguration(ctx->hMainWnd,
+                                                   ctx->notes[static_cast<size_t>(sel)],
+                                                   ctx->targetChartNumber);
+    if (ok) {
+        InvalidateRect(ctx->hMainWnd, nullptr, FALSE);
+    }
+    return ok;
+}
+
+static INT_PTR CALLBACK NotesJournalDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_INITDIALOG: {
+            SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+
+            NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(lParam);
+            if (!ctx) return (INT_PTR)FALSE;
+
+            HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+            if (hList) {
+                ListView_SetExtendedListViewStyle(hList, LVS_EX_FULLROWSELECT | LVS_EX_GRIDLINES);
+                NotesJournal_InitListColumns(hList);
+            }
+
+            NotesJournal_Refresh(hDlg);
+            return (INT_PTR)TRUE;
+        }
+
+        case WM_COMMAND: {
+            int id = LOWORD(wParam);
+            if (id == IDC_NOTES_REFRESH_BTN) {
+                NotesJournal_Refresh(hDlg);
+                return (INT_PTR)TRUE;
+            }
+            if (id == IDC_NOTES_APPLY_BTN) {
+                NotesJournal_ApplySelected(hDlg);
+                return (INT_PTR)TRUE;
+            }
+            if (id == IDOK || id == IDCANCEL) {
+                ShowWindow(hDlg, SW_HIDE);
+                return (INT_PTR)TRUE;
+            }
+            break;
+        }
+
+        case WM_NOTIFY: {
+            LPNMHDR hdr = reinterpret_cast<LPNMHDR>(lParam);
+            if (hdr && hdr->idFrom == IDC_NOTES_JOURNAL_LIST && hdr->code == NM_DBLCLK) {
+                NotesJournal_ApplySelected(hDlg);
+                return (INT_PTR)TRUE;
+            }
+            break;
+        }
+
+        case WM_CLOSE:
+            ShowWindow(hDlg, SW_HIDE);
+            return (INT_PTR)TRUE;
+
+        case WM_DESTROY:
+            {
+                NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                if (ctx) {
+                    SetWindowLongPtr(hDlg, GWLP_USERDATA, 0);
+                    delete ctx;
+                }
+                g_notesJournalCtx = nullptr;
+            }
+            g_hNotesJournalDialog = nullptr;
+            return (INT_PTR)TRUE;
+    }
+    return (INT_PTR)FALSE;
 }
 
 static void EnableEmphasizedDeviceMenuItems(HWND hWnd) {
@@ -68,6 +299,9 @@ ChartManager* g_chartManager = nullptr;         // Менеджер график
 HWND g_hSerialDialog = nullptr;                 // v2.13.0: Handle диалога COM-порта
 HWND g_hMetrologyDialog = nullptr;              // Handle диалога метрологии (немодальный)
 MetrologyDialogContext* g_metrologyDialogCtx = nullptr; // Контекст диалога метрологии (живёт пока жив диалог)
+HWND g_hNotesJournalDialog = nullptr;           // Handle окна журнала заметок (немодальный)
+
+NotesJournalDialogContext* g_notesJournalCtx = nullptr;
 
 // === Метрология (AUTONOM 5Tx) ===
 struct MetrologyDialogContext {
@@ -782,6 +1016,41 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     SerialModule* serial = g_chartManager->GetSerialModule();
                     if (serial) {
                         serial->OpenRecordFolder();
+                    }
+                }
+                break;
+
+            case IDM_NOTES_JOURNAL:
+                if (g_chartManager) {
+                    if (!g_hNotesJournalDialog || !IsWindow(g_hNotesJournalDialog)) {
+                        if (g_notesJournalCtx) {
+                            delete g_notesJournalCtx;
+                            g_notesJournalCtx = nullptr;
+                        }
+
+                        g_notesJournalCtx = new NotesJournalDialogContext();
+                        g_notesJournalCtx->manager = g_chartManager;
+                        g_notesJournalCtx->hMainWnd = hWnd;
+
+                        g_hNotesJournalDialog = CreateDialogParam(hInst,
+                                                                  MAKEINTRESOURCE(IDD_NOTES_JOURNAL_DIALOG),
+                                                                  nullptr,
+                                                                  NotesJournalDialogProc,
+                                                                  (LPARAM)g_notesJournalCtx);
+                        if (g_hNotesJournalDialog) {
+                            ShowWindow(g_hNotesJournalDialog, SW_SHOW);
+                        } else {
+                            delete g_notesJournalCtx;
+                            g_notesJournalCtx = nullptr;
+                        }
+                    } else {
+                        SendMessage(g_hNotesJournalDialog, WM_COMMAND, MAKEWPARAM(IDC_NOTES_REFRESH_BTN, BN_CLICKED), 0);
+                        if (IsIconic(g_hNotesJournalDialog)) {
+                            ShowWindow(g_hNotesJournalDialog, SW_RESTORE);
+                        } else {
+                            ShowWindow(g_hNotesJournalDialog, SW_SHOW);
+                        }
+                        SetForegroundWindow(g_hNotesJournalDialog);
                     }
                 }
                 break;

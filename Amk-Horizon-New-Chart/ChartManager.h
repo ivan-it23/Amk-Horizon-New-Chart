@@ -109,6 +109,9 @@ public:
 
     // === Заметки на графике (v2.16.x) ===
     bool AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text);
+    bool GetNotesForCurrentSource(std::vector<ChartNote>& outNotes, std::wstring& outNotesPath);
+    bool ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int chartNumber);
+    int GetActiveChartNumber() const;
     
     // Методы для обработки событий мыши
     void HandleMouseDown(HWND hWnd, int x, int y);
@@ -214,6 +217,7 @@ private:
     int GetChartAtPoint(int x, int y) const;
     void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
     void EnsureNotesLoadedForPath(const std::wstring& notesPath);
+    std::wstring ResolveCurrentNotesPath() const;
     
     // Методы для работы с координатами курсора
     bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY, 

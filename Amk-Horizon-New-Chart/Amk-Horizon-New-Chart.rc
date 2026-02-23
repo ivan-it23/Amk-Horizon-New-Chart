@@ -60,6 +60,11 @@ BEGIN
         MENUITEM "Открыть папку записи",      IDM_DEVICE_OPEN_FOLDER
     END
 
+    POPUP "&Заметки"
+    BEGIN
+        MENUITEM "&Журнал заметок текущего файла...", IDM_NOTES_JOURNAL
+    END
+
     POPUP "&Справка"
     BEGIN
         MENUITEM "&О программе...",           IDM_ABOUT
@@ -327,6 +332,18 @@ BEGIN
     EDITTEXT        IDC_NOTE_VIEW_TEXT_EDIT,7,18,226,75,ES_MULTILINE | ES_AUTOVSCROLL | ES_READONLY | WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "Удалить заметку",IDC_NOTE_DELETE_BTN,7,102,80,14
     DEFPUSHBUTTON   "Закрыть",IDOK,188,102,45,14,WS_GROUP
+END
+
+IDD_NOTES_JOURNAL_DIALOG DIALOGEX 0, 0, 520, 250
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
+CAPTION "Журнал заметок"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "",IDC_NOTES_INFO_LABEL,7,7,506,12
+    CONTROL         "",IDC_NOTES_JOURNAL_LIST,"SysListView32",LVS_REPORT | LVS_SINGLESEL | LVS_SHOWSELALWAYS | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,23,506,188
+    PUSHBUTTON      "Обновить",IDC_NOTES_REFRESH_BTN,7,220,60,14
+    PUSHBUTTON      "Применить",IDC_NOTES_APPLY_BTN,385,220,60,14
+    DEFPUSHBUTTON   "Закрыть",IDOK,468,220,45,14,WS_GROUP
 END
 
 /////////////////////////////////////////////////////////////////////////////

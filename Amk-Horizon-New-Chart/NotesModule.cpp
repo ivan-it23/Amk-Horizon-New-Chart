@@ -341,6 +341,76 @@ std::string NotesModule::BuildConfigSnapshot(const ChartConfiguration& config) {
     return ss.str();
 }
 
+bool NotesModule::ParseConfigSnapshot(const std::string& snapshot,
+                                      XAxisType& outXAxisType,
+                                      PresetType& outPreset,
+                                      std::vector<SnapshotCurveItem>& outCurves) {
+    outXAxisType = XAxisType::FRAME_NUMBER;
+    outPreset = PresetType::NONE;
+    outCurves.clear();
+
+    if (snapshot.empty()) return false;
+
+    size_t xAxisPos = snapshot.find("xAxisType=");
+    if (xAxisPos == std::string::npos) return false;
+    size_t xAxisValueStart = xAxisPos + strlen("xAxisType=");
+    size_t xAxisValueEnd = snapshot.find(';', xAxisValueStart);
+    std::string xAxisValue = snapshot.substr(xAxisValueStart, xAxisValueEnd - xAxisValueStart);
+    if (xAxisValue == "TEMPERATURE") outXAxisType = XAxisType::TEMPERATURE;
+    else outXAxisType = XAxisType::FRAME_NUMBER;
+
+    size_t presetPos = snapshot.find("activePreset=");
+    if (presetPos != std::string::npos) {
+        size_t presetStart = presetPos + strlen("activePreset=");
+        size_t presetEnd = snapshot.find(';', presetStart);
+        std::string presetValue = snapshot.substr(presetStart, presetEnd - presetStart);
+
+        char* end = nullptr;
+        long presetInt = strtol(presetValue.c_str(), &end, 10);
+        if (end != presetValue.c_str()) {
+            if (presetInt >= static_cast<long>(PresetType::NONE) &&
+                presetInt <= static_cast<long>(PresetType::CUSTOM)) {
+                outPreset = static_cast<PresetType>(presetInt);
+            }
+        }
+    }
+
+    size_t curvesPos = snapshot.find("curves=");
+    if (curvesPos == std::string::npos) return true;
+
+    size_t curvesStart = curvesPos + strlen("curves=");
+    std::string curvesChunk = snapshot.substr(curvesStart);
+    if (curvesChunk.empty()) return true;
+
+    size_t tokenStart = 0;
+    while (tokenStart <= curvesChunk.size()) {
+        size_t tokenEnd = curvesChunk.find(',', tokenStart);
+        std::string token = (tokenEnd == std::string::npos)
+            ? curvesChunk.substr(tokenStart)
+            : curvesChunk.substr(tokenStart, tokenEnd - tokenStart);
+
+        if (!token.empty()) {
+            size_t atPos = token.rfind('@');
+            if (atPos != std::string::npos && atPos > 0 && (atPos + 1) < token.size()) {
+                SnapshotCurveItem item;
+                item.curveId = token.substr(0, atPos);
+
+                char* end = nullptr;
+                long axisGroup = strtol(token.c_str() + atPos + 1, &end, 10);
+                if (end != (token.c_str() + atPos + 1)) {
+                    item.yAxisGroup = (axisGroup == 1) ? 1 : 0;
+                    outCurves.push_back(std::move(item));
+                }
+            }
+        }
+
+        if (tokenEnd == std::string::npos) break;
+        tokenStart = tokenEnd + 1;
+    }
+
+    return true;
+}
+
 std::string NotesModule::NarrowUtf8(const std::wstring& w) {
     if (w.empty()) return {};
     int len = WideCharToMultiByte(CP_UTF8, 0, w.c_str(), (int)w.size(), nullptr, 0, nullptr, nullptr);

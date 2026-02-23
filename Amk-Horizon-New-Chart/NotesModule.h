@@ -27,6 +27,11 @@ struct ChartNote {
 
 class NotesModule {
 public:
+    struct SnapshotCurveItem {
+        std::string curveId;
+        int yAxisGroup = 0;
+    };
+
     struct RenderedMarker {
         size_t noteIndex = 0;        // индекс в notes
         int chartNumber = 0;         // 1 или 2
@@ -52,6 +57,10 @@ public:
 
     static uint64_t ComputeConfigKey(const ChartConfiguration& config);
     static std::string BuildConfigSnapshot(const ChartConfiguration& config);
+    static bool ParseConfigSnapshot(const std::string& snapshot,
+                                    XAxisType& outXAxisType,
+                                    PresetType& outPreset,
+                                    std::vector<SnapshotCurveItem>& outCurves);
     static std::string NarrowUtf8(const std::wstring& w);
     static std::wstring WidenUtf8(const std::string& s);
 
