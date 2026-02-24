@@ -8,13 +8,60 @@
 #include <sstream> // Для std::wstringstream
 #include <iomanip> // Для std::fixed и std::setprecision
 #include <set>     // Для std::set (отслеживание уникальных значений)
- #include <cstdarg>
- #include <cstdio>
+
+// GDI+ Flat C API: прямые forward-declarations вместо gdiplus.h,
+// чтобы обойти несовместимость Windows 8.1 SDK + VS 2026.
+extern "C" {
+    typedef int GpStatus;
+    enum { GpOk = 0 };
+
+    struct GdiplusStartupInput {
+        UINT32 GdiplusVersion;
+        void*  DebugEventCallback;
+        BOOL   SuppressBackgroundThread;
+        BOOL   SuppressExternalCodecs;
+    };
+
+    GpStatus WINAPI GdiplusStartup(ULONG_PTR* token, const GdiplusStartupInput* input, void* output);
+    void     WINAPI GdiplusShutdown(ULONG_PTR token);
+
+    // Graphics
+    GpStatus WINAPI GdipCreateFromHDC(HDC hdc, void** graphics);
+    GpStatus WINAPI GdipDeleteGraphics(void* graphics);
+    GpStatus WINAPI GdipSetSmoothingMode(void* graphics, int smoothingMode);
+    GpStatus WINAPI GdipSetPixelOffsetMode(void* graphics, int pixelOffsetMode);
+
+    // Pen
+    GpStatus WINAPI GdipCreatePen1(UINT32 color, float width, int unit, void** pen);
+    GpStatus WINAPI GdipDeletePen(void* pen);
+    GpStatus WINAPI GdipSetPenLineJoin(void* pen, int lineJoin);
+    GpStatus WINAPI GdipSetPenStartCap(void* pen, int startCap);
+    GpStatus WINAPI GdipSetPenEndCap(void* pen, int endCap);
+    GpStatus WINAPI GdipSetPenDashStyle(void* pen, int dashStyle);
+
+    // Draw
+    GpStatus WINAPI GdipDrawLinesI(void* graphics, void* pen, const POINT* points, int count);
+}
+
+// GDI+ enum constants
+namespace GpConst {
+    enum {
+        SmoothingModeAntiAlias = 4,
+        PixelOffsetModeHalf    = 4,
+        UnitPixel              = 2,
+        LineJoinRound          = 2,
+        LineCapRound           = 2,
+        DashStyleDash          = 1,
+    };
+}
+#include <cstdarg>
+#include <cstdio>
 
 // Для AlphaBlend (полупрозрачное выделение области)
 #pragma comment(lib, "Msimg32.lib")
+#pragma comment(lib, "gdiplus.lib")
 
- static void AppendDebugLog(const wchar_t* fmt, ...) {
+static void AppendDebugLog(const wchar_t* fmt, ...) {
      wchar_t buffer[2048];
      va_list args;
      va_start(args, fmt);
@@ -72,6 +119,27 @@ namespace {
     // Толщина КРИВЫХ (сетка/оси остаются тонкими).
     constexpr int kCurveWidthPx = 2;
 
+    struct GdiPlusScope {
+        ULONG_PTR token = 0;
+        bool initialized = false;
+
+        GdiPlusScope() {
+            GdiplusStartupInput input = { 1, nullptr, FALSE, FALSE };
+            initialized = (GdiplusStartup(&token, &input, nullptr) == GpOk);
+        }
+
+        ~GdiPlusScope() {
+            if (initialized) {
+                GdiplusShutdown(token);
+            }
+        }
+    };
+
+    static bool IsGdiPlusReady() {
+        static GdiPlusScope scope;
+        return scope.initialized;
+    }
+
     static HPEN CreateCurvePen(int lineStyle, COLORREF color) {
         if (lineStyle == PS_DASH) {
             if (kCurveWidthPx <= 1) {
@@ -95,6 +163,44 @@ namespace {
         }
 
         return CreatePen(PS_SOLID, kCurveWidthPx, color);
+    }
+
+    static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle) {
+        if (points.size() < 2) {
+            return;
+        }
+
+        if (IsGdiPlusReady()) {
+            void* pGraphics = nullptr;
+            if (GdipCreateFromHDC(hdc, &pGraphics) == GpOk && pGraphics) {
+                GdipSetSmoothingMode(pGraphics, GpConst::SmoothingModeAntiAlias);
+                GdipSetPixelOffsetMode(pGraphics, GpConst::PixelOffsetModeHalf);
+
+                // ARGB: 0xAARRGGBB
+                UINT32 argb = (0xFFu << 24) | (GetRValue(color) << 16) | (GetGValue(color) << 8) | GetBValue(color);
+                void* pPen = nullptr;
+                if (GdipCreatePen1(argb, static_cast<float>(kCurveWidthPx), GpConst::UnitPixel, &pPen) == GpOk && pPen) {
+                    GdipSetPenLineJoin(pPen, GpConst::LineJoinRound);
+                    GdipSetPenStartCap(pPen, GpConst::LineCapRound);
+                    GdipSetPenEndCap(pPen, GpConst::LineCapRound);
+                    if (lineStyle == PS_DASH) {
+                        GdipSetPenDashStyle(pPen, GpConst::DashStyleDash);
+                    }
+
+                    GdipDrawLinesI(pGraphics, pPen, points.data(), static_cast<int>(points.size()));
+                    GdipDeletePen(pPen);
+                }
+                GdipDeleteGraphics(pGraphics);
+            }
+            return;
+        }
+
+        // Fallback на GDI (если GDI+ недоступен)
+        HPEN hPen = CreateCurvePen(lineStyle, color);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        Polyline(hdc, points.data(), static_cast<int>(points.size()));
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hPen);
     }
 }
 
@@ -206,25 +312,17 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         const auto& channel = chartData[channelIdx];
         if (channel.empty())
             continue;
-            
-        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
+        const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t i = 0; i < channel.size(); i++) {
-            int x = plotRect.left + (int)((double)i / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int x = plotRect.left + (int)((double)i / xDenominator * (plotRect.right - plotRect.left));
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
     }
 }
 
@@ -247,11 +345,9 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         const auto& channel = chartData[channelIdx];
         if (channel.empty())
             continue;
-            
-        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
         for (size_t i = 0; i < channel.size(); i++) {
             // Реальная X координата в данных (индекс i соответствует реальной позиции в данных)
             double realX = static_cast<double>(i);
@@ -264,17 +360,11 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
             // Вычисляем экранные координаты относительно видимого диапазона
             int x = plotRect.left + (int)((realX - minXData) / (maxXData - minXData) * (plotRect.right - plotRect.left));
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
     }
 }
 
@@ -1438,26 +1528,18 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             leftIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
+        const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t j = 0; j < channel.size(); j++) {
-            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int x = plotRect.left + (int)((double)j / xDenominator * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
         leftIndex++;
     }
     
@@ -1472,26 +1554,18 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             rightIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
+        const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t j = 0; j < channel.size(); j++) {
-            int x = plotRect.left + (int)((double)j / (channel.size() - 1) * (plotRect.right - plotRect.left));
+            int x = plotRect.left + (int)((double)j / xDenominator * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
         rightIndex++;
     }
     
@@ -1564,9 +1638,9 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             leftIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
         
         // Отладка для кривой
         float minChannelVal = *std::min_element(channel.begin(), channel.end());
@@ -1574,7 +1648,6 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         swprintf_s(debugMsg, L"Left Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
         AppendDebugLog(L"%ls", debugMsg);
         
-        bool firstPoint = true;
         int minY = INT_MAX, maxY = INT_MIN;
         int clampedToMin = 0;
         int clampedToMax = 0;
@@ -1594,13 +1667,8 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             // Отслеживаем min/max Y координаты
             minY = (std::min)(minY, y);
             maxY = (std::max)(maxY, y);
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
         
         // Отладка: выводим диапазон Y координат
@@ -1610,8 +1678,7 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
 
         AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, channel.size());
         
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
         leftIndex++;
     }
     
@@ -1627,28 +1694,20 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             rightIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve(channel.size());
         for (size_t j = 0; j < channel.size(); j++) {
             // Вычисляем реальный индекс данных и преобразуем в экранную координату
             double dataX = minXData + (double)j;
             int x = plotRect.left + (int)((dataX - minXData) / xRangeForRightAxis * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = dataRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (dataRect.bottom - dataRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
         rightIndex++;
     }
     
@@ -2380,11 +2439,9 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
     for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
         const auto& channel = chartData[channelIdx];
         if (channel.empty()) continue;
-        
-        HPEN hPen = CreateCurvePen(PS_SOLID, CHANNEL_COLORS[channelIdx % 5]);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t i = startIdx; i < endIdx && i < channel.size() && i < xAxisData.size(); i++) {
             // X координата основана на температуре
             float temp = xAxisData[i];
@@ -2393,16 +2450,10 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
             // Y координата основана на значении данных
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
     }
 }
 
@@ -2762,27 +2813,19 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             leftIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
         leftIndex++;
     }
     
@@ -2797,27 +2840,19 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             rightIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
             float temp = xAxisData[j];
             int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
         rightIndex++;
     }
 }
@@ -3186,9 +3221,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             leftIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(PS_SOLID, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
+        std::vector<POINT> points;
+        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         
         // Отладка для первой кривой
         float minChannelVal = *std::min_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
@@ -3196,7 +3231,6 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         swprintf_s(debugMsg, L"Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
         AppendDebugLog(L"%ls", debugMsg);
         
-        bool firstPoint = true;
         int minY = INT_MAX, maxY = INT_MIN;
         int clampedToMin = 0;
         int clampedToMax = 0;
@@ -3215,13 +3249,8 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             // Отслеживаем min/max Y координаты
             minY = (std::min)(minY, y);
             maxY = (std::max)(maxY, y);
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
         
         // Отладка: выводим диапазон Y координат
@@ -3231,8 +3260,7 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
 
         AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, (size_t)(endIdx - startIdx));
         
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
         leftIndex++;
     }
     
@@ -3247,11 +3275,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             rightIndex++;
             continue;
         }
-        
-        HPEN hPen = CreateCurvePen(curve.lineStyle, curve.color);
-        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        
-        bool firstPoint = true;
+
+        std::vector<POINT> points;
+        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
             // X координата по температуре
             float temp = xAxisData[j];
@@ -3260,17 +3286,11 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             // Y координата с учетом zoom
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = dataRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (dataRect.bottom - dataRect.top));
-            
-            if (firstPoint) {
-                MoveToEx(hdc, x, y, NULL);
-                firstPoint = false;
-            } else {
-                LineTo(hdc, x, y);
-            }
+
+            points.push_back({ x, y });
         }
-        
-        SelectObject(hdc, hOldPen);
-        DeleteObject(hPen);
+
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
         rightIndex++;
     }
     
