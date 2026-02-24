@@ -64,12 +64,6 @@ namespace {
      va_end(args);
 
      OutputDebugStringW(buffer);
-
-     FILE* f = nullptr;
-     if (_wfopen_s(&f, L"\u0432\u044b\u0432\u043e\u0434.txt", L"a+, ccs=UTF-8") == 0 && f) {
-         fputws(buffer, f);
-         fclose(f);
-     }
  }
 
 // Реализация класса ChartManager с модульной архитектурой

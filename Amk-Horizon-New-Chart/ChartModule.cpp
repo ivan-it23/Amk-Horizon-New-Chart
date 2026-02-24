@@ -69,12 +69,6 @@ static void AppendDebugLog(const wchar_t* fmt, ...) {
      va_end(args);
 
      OutputDebugStringW(buffer);
-
-     FILE* f = nullptr;
-     if (_wfopen_s(&f, L"\u0432\u044b\u0432\u043e\u0434.txt", L"a+, ccs=UTF-8") == 0 && f) {
-         fputws(buffer, f);
-         fclose(f);
-     }
  }
 
 // Вспомогательная функция для конвертации UTF-8 в UTF-16 (локальная для этого файла)
