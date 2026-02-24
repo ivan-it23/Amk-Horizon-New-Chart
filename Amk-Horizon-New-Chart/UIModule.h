@@ -17,6 +17,10 @@ private:
     HWND hChart2HScrollBar;  // Горизонтальный скроллбар для второго графика
     HWND hChart1VScrollBar;  // Вертикальный скроллбар для первого графика
     HWND hChart2VScrollBar;  // Вертикальный скроллбар для второго графика
+    HWND hChart1HUndoBtn;    // Кнопка '-' для undo по оси X (Chart 1)
+    HWND hChart1VUndoBtn;    // Кнопка '-' для undo по оси Y (Chart 1)
+    HWND hChart2HUndoBtn;    // Кнопка '-' для undo по оси X (Chart 2)
+    HWND hChart2VUndoBtn;    // Кнопка '-' для undo по оси Y (Chart 2)
 
     // Элементы управления X Range для Chart 1 (в панели инструментов)
     HWND hXRangeFromLabel;   // Метка "X Range:"
@@ -42,8 +46,8 @@ private:
     HWND hResetZoom2Btn;     // Кнопка "Reset Zoom" для Chart 2
 
     // Элементы отображения координат курсора (Chart 1) - компактный дизайн v2.15.1
-    // Формат: 📍 [X] : [Y1] | [Y2]
-    HWND hCursor1Icon;       // Иконка 📍
+    // Формат: [X] : [Y1] | [Y2]
+    HWND hCursor1Icon;       // Иконка 
     HWND hCursor1XEdit;      // Поле координаты X (только чтение)
     HWND hCursor1Separator;  // Разделитель ":"
     HWND hCursor1Y1Edit;     // Поле координаты Y1 с единицами (только чтение)
@@ -51,7 +55,7 @@ private:
     HWND hCursor1Y2Edit;     // Поле координаты Y2 с единицами (только чтение, для двойных осей)
 
     // Элементы отображения координат курсора (Chart 2) - компактный дизайн v2.15.1
-    HWND hCursor2Icon;       // Иконка 📍
+    HWND hCursor2Icon;       // Иконка 
     HWND hCursor2XEdit;      // Поле координаты X (только чтение)
     HWND hCursor2Separator;  // Разделитель ":"
     HWND hCursor2Y1Edit;     // Поле координаты Y1 с единицами (только чтение)
@@ -113,6 +117,7 @@ public:
     void SetVScrollBarRange(int chartNumber, int min, int max, int page, int pos);
     HWND GetHScrollBar(int chartNumber) const;
     HWND GetVScrollBar(int chartNumber) const;
+    void ShowAxisUndoButtons(int chartNumber, bool showX, bool showY);
 
     // Управление X Range (chartNumber: 1 или 2)
     void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);

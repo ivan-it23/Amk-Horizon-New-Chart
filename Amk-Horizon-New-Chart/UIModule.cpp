@@ -9,6 +9,10 @@ UIModule::UIModule()
     , hChart2HScrollBar(nullptr)
     , hChart1VScrollBar(nullptr)
     , hChart2VScrollBar(nullptr)
+    , hChart1HUndoBtn(nullptr)
+    , hChart1VUndoBtn(nullptr)
+    , hChart2HUndoBtn(nullptr)
+    , hChart2VUndoBtn(nullptr)
     , hXRangeFromLabel(nullptr)
     , hXRangeFromEdit(nullptr)
     , hXRangeToLabel(nullptr)
@@ -83,6 +87,23 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2VScrollBar = CreateWindow(L"SCROLLBAR", NULL,
         WS_CHILD | SBS_VERT,
         0, 0, 20, 100, hWnd, (HMENU)IDC_CHART2_VSCROLL, hInst, NULL);
+
+    // Кнопки осевого undo ('-') у скроллбаров (изначально скрыты)
+    hChart1HUndoBtn = CreateWindow(L"BUTTON", L"-",
+        WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 16, 16, hWnd, (HMENU)IDC_CHART1_HUNDO_BTN, hInst, NULL);
+
+    hChart1VUndoBtn = CreateWindow(L"BUTTON", L"-",
+        WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 16, 16, hWnd, (HMENU)IDC_CHART1_VUNDO_BTN, hInst, NULL);
+
+    hChart2HUndoBtn = CreateWindow(L"BUTTON", L"-",
+        WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 16, 16, hWnd, (HMENU)IDC_CHART2_HUNDO_BTN, hInst, NULL);
+
+    hChart2VUndoBtn = CreateWindow(L"BUTTON", L"-",
+        WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 16, 16, hWnd, (HMENU)IDC_CHART2_VUNDO_BTN, hInst, NULL);
 
     // Создание элементов управления X Range в панели инструментов
     // Размещаем их справа от кнопки "Схема прибора"
@@ -299,6 +320,12 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     CreateTooltip(hWnd, hXRange2ResetBtn, L"Reset X Range");
     CreateTooltip(hWnd, hResetZoom2Btn, L"Reset Zoom to Full View");
 
+    // Tooltips для осевого undo
+    CreateTooltip(hWnd, hChart1HUndoBtn, L"Undo X zoom step");
+    CreateTooltip(hWnd, hChart1VUndoBtn, L"Undo Y zoom step");
+    CreateTooltip(hWnd, hChart2HUndoBtn, L"Undo X zoom step");
+    CreateTooltip(hWnd, hChart2VUndoBtn, L"Undo Y zoom step");
+
     // Tooltip для иконки перекрестия (клик сбрасывает перекрестие на графике)
     CreateTooltip(hWnd, hCursor1Icon, L"Clear crosshair");
     CreateTooltip(hWnd, hCursor2Icon, L"Clear crosshair");
@@ -321,6 +348,13 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hXRange2ApplyBtn, showFlag);
     ShowWindow(hXRange2ResetBtn, showFlag);
     ShowWindow(hResetZoom2Btn, showFlag);
+
+    // Кнопки undo осей для Chart 2 управляются отдельно ChartManager,
+    // но в single-mode должны быть скрыты.
+    if (!showChart2Controls) {
+        ShowWindow(hChart2HUndoBtn, SW_HIDE);
+        ShowWindow(hChart2VUndoBtn, SW_HIDE);
+    }
     
     // Показываем/скрываем элементы координат курсора для Chart 2
     ShowWindow(hCursor2Icon, showFlag);
@@ -440,14 +474,23 @@ void UIModule::ShowScrollBars(int chartNumber, bool show) {
     if (chartNumber == 1) {
         ShowWindow(hChart1HScrollBar, showFlag);
         ShowWindow(hChart1VScrollBar, showFlag);
+        if (!show) {
+            ShowWindow(hChart1HUndoBtn, SW_HIDE);
+            ShowWindow(hChart1VUndoBtn, SW_HIDE);
+        }
     } else if (chartNumber == 2) {
         ShowWindow(hChart2HScrollBar, showFlag);
         ShowWindow(hChart2VScrollBar, showFlag);
+        if (!show) {
+            ShowWindow(hChart2HUndoBtn, SW_HIDE);
+            ShowWindow(hChart2VUndoBtn, SW_HIDE);
+        }
     }
 }
 
 void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) {
     const int SCROLLBAR_SIZE = 15; // Уменьшенный размер скроллбара
+    const int UNDO_BUTTON_SIZE = 16;
     const int MARGIN_LEFT = 50;    // Отступ слева (для Y-оси)
     const int MARGIN_RIGHT = 20;   // Отступ справа
     const int MARGIN_BOTTOM = 5;   // Отступ снизу от края графика
@@ -461,6 +504,13 @@ void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) 
                      chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT - SCROLLBAR_SIZE, 
                      SCROLLBAR_SIZE,
                      SWP_NOZORDER);
+
+        SetWindowPos(hChart1HUndoBtn, HWND_TOP,
+                     chartRect.left + MARGIN_LEFT - UNDO_BUTTON_SIZE - 2,
+                     chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
+                     UNDO_BUTTON_SIZE,
+                     UNDO_BUTTON_SIZE,
+                     SWP_NOZORDER);
         
         // Вертикальный скроллбар располагается справа от графика
         SetWindowPos(hChart1VScrollBar, HWND_TOP,
@@ -468,6 +518,13 @@ void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) 
                      chartRect.top + MARGIN_TOP,
                      SCROLLBAR_SIZE,
                      chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,
+                     SWP_NOZORDER);
+
+        SetWindowPos(hChart1VUndoBtn, HWND_TOP,
+                     chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,
+                     chartRect.top + MARGIN_TOP - UNDO_BUTTON_SIZE - 2,
+                     UNDO_BUTTON_SIZE,
+                     UNDO_BUTTON_SIZE,
                      SWP_NOZORDER);
     } else if (chartNumber == 2) {
         // Горизонтальный скроллбар для второго графика
@@ -477,6 +534,13 @@ void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) 
                      chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT - SCROLLBAR_SIZE, 
                      SCROLLBAR_SIZE,
                      SWP_NOZORDER);
+
+        SetWindowPos(hChart2HUndoBtn, HWND_TOP,
+                     chartRect.left + MARGIN_LEFT - UNDO_BUTTON_SIZE - 2,
+                     chartRect.bottom - SCROLLBAR_SIZE - MARGIN_BOTTOM,
+                     UNDO_BUTTON_SIZE,
+                     UNDO_BUTTON_SIZE,
+                     SWP_NOZORDER);
         
         // Вертикальный скроллбар для второго графика
         SetWindowPos(hChart2VScrollBar, HWND_TOP,
@@ -485,6 +549,23 @@ void UIModule::UpdateScrollBarPositions(int chartNumber, const RECT& chartRect) 
                      SCROLLBAR_SIZE,
                      chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,
                      SWP_NOZORDER);
+
+        SetWindowPos(hChart2VUndoBtn, HWND_TOP,
+                     chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,
+                     chartRect.top + MARGIN_TOP - UNDO_BUTTON_SIZE - 2,
+                     UNDO_BUTTON_SIZE,
+                     UNDO_BUTTON_SIZE,
+                     SWP_NOZORDER);
+    }
+}
+
+void UIModule::ShowAxisUndoButtons(int chartNumber, bool showX, bool showY) {
+    if (chartNumber == 1) {
+        ShowWindow(hChart1HUndoBtn, showX ? SW_SHOW : SW_HIDE);
+        ShowWindow(hChart1VUndoBtn, showY ? SW_SHOW : SW_HIDE);
+    } else if (chartNumber == 2) {
+        ShowWindow(hChart2HUndoBtn, showX ? SW_SHOW : SW_HIDE);
+        ShowWindow(hChart2VUndoBtn, showY ? SW_SHOW : SW_HIDE);
     }
 }
 

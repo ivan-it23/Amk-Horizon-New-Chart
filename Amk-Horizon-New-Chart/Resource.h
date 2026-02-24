@@ -83,6 +83,12 @@
 #define IDC_RESET_ZOOM1_BTN			1043
 #define IDC_RESET_ZOOM2_BTN			1044
 
+// Кнопки осевого undo ('-') у скроллбаров
+#define IDC_CHART1_HUNDO_BTN       1098
+#define IDC_CHART1_VUNDO_BTN       1099
+#define IDC_CHART2_HUNDO_BTN       1100
+#define IDC_CHART2_VUNDO_BTN       1101
+
 // Элементы отображения координат курсора (Chart 1) - новый компактный дизайн v2.15.1
 // Формат: 📍 [X] : [Y1] | [Y2] (Y2 только для двойных осей)
 #define IDC_CURSOR1_ICON			1045

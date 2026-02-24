@@ -44,9 +44,20 @@ private:
     struct ZoomRange {
         double minX, maxX, minY, maxY;
         bool isZoomed;
+        bool isXCustom; // true если пользователь вручную задал диапазон X
         bool isYCustom; // true если пользователь вручную задал диапазон Y (важно для Surf)
         
-        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isYCustom(false) {}
+        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isXCustom(false), isYCustom(false) {}
+    };
+
+    struct AxisZoomRange {
+        double min;
+        double max;
+        bool isCustom;
+
+        AxisZoomRange() : min(0.0), max(0.0), isCustom(false) {}
+        AxisZoomRange(double minValue, double maxValue, bool custom)
+            : min(minValue), max(maxValue), isCustom(custom) {}
     };
     
     // Переменные для масштабирования
@@ -64,7 +75,7 @@ private:
     bool hasSelectionBase = false;
     RECT lastSelectionDrawRect = { 0, 0, 0, 0 }; // последний нарисованный rect выделения (клипнутый)
     bool hasLastSelectionDrawRect = false;
-    
+
     // Независимые диапазоны масштабирования для каждого графика
     ZoomRange chart1Zoom;
     ZoomRange chart2Zoom;
@@ -72,6 +83,12 @@ private:
     // v2.12.5: История zoom для пошагового отката (стек состояний)
     std::vector<ZoomRange> chart1ZoomHistory;
     std::vector<ZoomRange> chart2ZoomHistory;
+
+    // v2.17.x: Независимая история по осям для осевого undo через скроллбары
+    std::vector<AxisZoomRange> chart1XZoomHistory;
+    std::vector<AxisZoomRange> chart1YZoomHistory;
+    std::vector<AxisZoomRange> chart2XZoomHistory;
+    std::vector<AxisZoomRange> chart2YZoomHistory;
     
     // Структура для хранения позиции перекрестия (crosshair)
     struct CrosshairPosition {
@@ -237,4 +254,12 @@ private:
     void EndSelectionOverlay();
     void RestoreSelectionBackground(HDC hdc, const RECT& screenRect);
     void DrawSelectionOverlay(HDC hdc, const RECT& screenRect);
+
+    // Вспомогательные методы для независимого управления zoom по осям
+    void PushAxisHistory(int chartNumber);
+    bool PopAxisHistoryX(int chartNumber, AxisZoomRange& outState);
+    bool PopAxisHistoryY(int chartNumber, AxisZoomRange& outState);
+    void ClearAxisHistory(int chartNumber);
+    void UpdateZoomActiveState(int chartNumber);
+    void AutoFitYForCurrentX(int chartNumber);
 };
