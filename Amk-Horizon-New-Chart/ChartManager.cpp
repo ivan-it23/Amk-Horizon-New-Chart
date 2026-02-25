@@ -3092,6 +3092,72 @@ void ChartManager::HandleSerialStop(HWND hWnd) {
     }
 }
 
+bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload) {
+    if (!dataModule) {
+        return false;
+    }
+
+    if (!showFullFile) {
+        HandleSerialClear(hWnd);
+        return true;
+    }
+
+    if (filePathForPreload.empty()) {
+        return false;
+    }
+
+    if (!dataModule->LoadDataFromFile(filePathForPreload)) {
+        return false;
+    }
+
+    currentDataFilePath = filePathForPreload;
+    if (notesModule) {
+        EnsureNotesLoadedForPath(filePathForPreload + L".notes.jsonl");
+    }
+
+    // Сбрасываем статистику COM перед новой сессией
+    if (serialModule) {
+        serialModule->ResetStatistics();
+    }
+
+    // Сбрасываем zoom и историю
+    chart1Zoom.isZoomed = false;
+    chart2Zoom.isZoomed = false;
+    chart1Zoom.isXCustom = false;
+    chart2Zoom.isXCustom = false;
+    chart1Zoom.isYCustom = false;
+    chart2Zoom.isYCustom = false;
+    chart1ZoomHistory.clear();
+    chart2ZoomHistory.clear();
+    ClearAxisHistory(1);
+    ClearAxisHistory(2);
+
+    // Обновляем X диапазоны и Surf-статус
+    if (dataModule->HasData() && uiModule) {
+        double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
+
+        if (uiModule->IsSurfEnabled(1)) {
+            UpdateSurfRange(1);
+        } else {
+            uiModule->UpdateXRangeControls(1, 0.0, maxX, false);
+        }
+
+        if (uiModule->IsSurfEnabled(2)) {
+            UpdateSurfRange(2);
+        } else {
+            uiModule->UpdateXRangeControls(2, 0.0, maxX, false);
+        }
+
+        UpdateSurfStatusBar();
+    }
+
+    UpdateStatusBarFileInfo();
+    UpdateScrollBars(hWnd);
+    InvalidateRect(hWnd, nullptr, TRUE);
+
+    return true;
+}
+
 void ChartManager::HandleSerialClear(HWND hWnd) {
     if (!dataModule) return;
     

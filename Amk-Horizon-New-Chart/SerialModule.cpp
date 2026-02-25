@@ -4,6 +4,7 @@
 #include <devguid.h>
 #include <commdlg.h>    // Для GetSaveFileName
 #include <algorithm>
+#include <cwctype>
 #include <ctime>
 #include <iomanip>
 #include <sstream>
@@ -63,11 +64,72 @@ SerialModule::SerialModule()
     , packetsReceived(0)
     , packetsErrors(0)
     , lastFrameNumber(0)
+    , existingRecordFilePath(L"")
     , isRecordingEnabled(true)  // v2.15.0: Запись включена по умолчанию
+    , appendToExistingFile(false)
     , recordedFrames(0)
 {
     ZeroMemory(&metrology, sizeof(metrology));
     InitDefaultRecordFolder();  // v2.15.0: Инициализация папки по умолчанию
+}
+
+bool SerialModule::ValidateExistingRecordFile(const std::wstring& filePath, std::wstring& outError) const {
+    outError.clear();
+
+    if (filePath.empty()) {
+        outError = L"Не выбран файл для дозаписи";
+        return false;
+    }
+
+    DWORD attrs = GetFileAttributesW(filePath.c_str());
+    if (attrs == INVALID_FILE_ATTRIBUTES || (attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+        outError = L"Выбранный файл не существует";
+        return false;
+    }
+
+    size_t dotPos = filePath.find_last_of(L'.');
+    if (dotPos == std::wstring::npos) {
+        outError = L"Файл должен иметь расширение .bin или .biv";
+        return false;
+    }
+
+    std::wstring ext = filePath.substr(dotPos);
+    std::transform(ext.begin(), ext.end(), ext.begin(), towlower);
+    if (ext != L".bin" && ext != L".biv") {
+        outError = L"Поддерживаются только файлы .bin и .biv";
+        return false;
+    }
+
+    HANDLE hFile = CreateFileW(
+        filePath.c_str(),
+        GENERIC_READ,
+        FILE_SHARE_READ | FILE_SHARE_WRITE,
+        nullptr,
+        OPEN_EXISTING,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr
+    );
+
+    if (hFile == INVALID_HANDLE_VALUE) {
+        outError = L"Не удалось открыть файл для проверки";
+        return false;
+    }
+
+    LARGE_INTEGER fileSize = {};
+    BOOL sizeOk = GetFileSizeEx(hFile, &fileSize);
+    CloseHandle(hFile);
+
+    if (!sizeOk || fileSize.QuadPart < 0) {
+        outError = L"Не удалось определить размер файла";
+        return false;
+    }
+
+    if ((fileSize.QuadPart % static_cast<LONGLONG>(sizeof(GP_TOOL_DATA))) != 0) {
+        outError = L"Размер файла не кратен размеру кадра GP_TOOL_DATA (240 байт)";
+        return false;
+    }
+
+    return true;
 }
 
 SerialModule::~SerialModule() {
@@ -247,7 +309,12 @@ void SerialModule::OnTimer() {
 
         // v2.15.0: Записываем данные в файл
         if (isRecordingEnabled) {
-            WriteDataToFile(data);
+            std::wstring settingsError;
+            if (!ValidateRecordingSettings(settingsError)) {
+                lastError = settingsError;
+            } else {
+                WriteDataToFile(data);
+            }
         }
         
         if (onDataReceived) {
@@ -442,6 +509,10 @@ void SerialModule::HandleMetrologyUpdated() {
         CloseRecordFile();
     }
     currentDeviceId = newDeviceId;
+
+    if (appendToExistingFile) {
+        return;
+    }
 
     // v2.15.3: If recording started before metrology, file could be AMK_Unknown_*.bin.
     // Rename after metrology update to include S/N and diameter.
@@ -729,6 +800,56 @@ void SerialModule::SetRecordFolder(const std::wstring& folderPath) {
     EnsureFolderExists(recordFolderPath);
 }
 
+void SerialModule::SetAppendToExistingEnabled(bool enabled) {
+    if (appendToExistingFile == enabled) {
+        return;
+    }
+
+    appendToExistingFile = enabled;
+
+    if (recordFile.is_open()) {
+        CloseRecordFile();
+    }
+
+    if (!appendToExistingFile) {
+        existingRecordFilePath.clear();
+    }
+}
+
+bool SerialModule::SetExistingRecordFilePath(const std::wstring& filePath, std::wstring& outError) {
+    outError.clear();
+
+    if (!ValidateExistingRecordFile(filePath, outError)) {
+        return false;
+    }
+
+    if (recordFile.is_open()) {
+        CloseRecordFile();
+    }
+
+    existingRecordFilePath = filePath;
+    return true;
+}
+
+bool SerialModule::ValidateRecordingSettings(std::wstring& outError) const {
+    outError.clear();
+
+    if (!isRecordingEnabled) {
+        return true;
+    }
+
+    if (appendToExistingFile) {
+        return ValidateExistingRecordFile(existingRecordFilePath, outError);
+    }
+
+    if (recordFolderPath.empty()) {
+        outError = L"Не указана папка для записи";
+        return false;
+    }
+
+    return true;
+}
+
 void SerialModule::InitDefaultRecordFolder() {
     // Получаем путь к рабочему столу через переменную окружения
     wchar_t desktopPath[MAX_PATH] = { 0 };
@@ -814,11 +935,21 @@ bool SerialModule::OpenRecordFile() {
         return true;  // Файл уже открыт
     }
     
-    // Убеждаемся, что папка существует
-    EnsureFolderExists(recordFolderPath);
-    
-    // Генерируем имя файла
-    recordFilePath = GenerateRecordFileName();
+    if (appendToExistingFile) {
+        std::wstring validateError;
+        if (!ValidateExistingRecordFile(existingRecordFilePath, validateError)) {
+            lastError = validateError;
+            return false;
+        }
+
+        recordFilePath = existingRecordFilePath;
+    } else {
+        // Убеждаемся, что папка существует
+        EnsureFolderExists(recordFolderPath);
+
+        // Генерируем имя файла
+        recordFilePath = GenerateRecordFileName();
+    }
     
     // Открываем файл для бинарной записи
     std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
@@ -856,35 +987,59 @@ void SerialModule::WriteDataToFile(const GP_TOOL_DATA& data) {
 }
 
 std::wstring SerialModule::BrowseForFolder(HWND hWnd) {
+    wchar_t selectedPath[MAX_PATH] = L"folder.select";
 
-    
-    wchar_t folderPath[MAX_PATH] = { 0 };
-    
-    // Получаем текущую папку записи как начальную
     OPENFILENAMEW ofn = { 0 };
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = hWnd;
-    ofn.lpstrFile = folderPath;
+    ofn.lpstrFile = selectedPath;
     ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = L"Выберите папку (создайте файл placeholder.txt)";
+    ofn.lpstrTitle = L"Выберите папку для записи";
     ofn.lpstrFilter = L"Все файлы\0*.*\0";
-    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
-    
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+
     if (GetSaveFileNameW(&ofn)) {
-        // Извлекаем путь к папке из полного пути
-        std::wstring fullPath = folderPath;
+        std::wstring fullPath = selectedPath;
         size_t lastSlash = fullPath.find_last_of(L"\\/");
         if (lastSlash != std::wstring::npos) {
             return fullPath.substr(0, lastSlash);
         }
     }
-    
+
+    return L"";
+}
+
+std::wstring SerialModule::BrowseForExistingRecordFile(HWND hWnd) {
+    wchar_t filePath[MAX_PATH] = { 0 };
+
+    OPENFILENAMEW ofn = { 0 };
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = filePath;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = L"Выберите существующий файл для дозаписи";
+    ofn.lpstrFilter = L"Данные AMK (*.bin;*.biv)\0*.bin;*.biv\0BIN (*.bin)\0*.bin\0BIV (*.biv)\0*.biv\0Все файлы\0*.*\0";
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR;
+
+    if (GetOpenFileNameW(&ofn)) {
+        return filePath;
+    }
+
     return L"";
 }
 
 void SerialModule::OpenRecordFolder() const {
-    if (!recordFolderPath.empty()) {
+    std::wstring folderToOpen = recordFolderPath;
+
+    if (appendToExistingFile && !existingRecordFilePath.empty()) {
+        size_t lastSlash = existingRecordFilePath.find_last_of(L"\\/");
+        if (lastSlash != std::wstring::npos) {
+            folderToOpen = existingRecordFilePath.substr(0, lastSlash);
+        }
+    }
+
+    if (!folderToOpen.empty()) {
         // ShellExecute доступен через windows.h
-        ShellExecuteW(nullptr, L"explore", recordFolderPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+        ShellExecuteW(nullptr, L"explore", folderToOpen.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     }
 }

@@ -99,7 +99,9 @@ private:
     std::ofstream recordFile;           // Файл для записи данных
     std::wstring recordFilePath;        // Полный путь к файлу записи
     std::wstring recordFolderPath;      // Папка для сохранения файлов
+    std::wstring existingRecordFilePath; // Полный путь к существующему файлу (режим дозаписи)
     bool isRecordingEnabled;            // Включена ли запись
+    bool appendToExistingFile;          // Режим дозаписи в существующий файл
     uint32_t recordedFrames;            // Количество записанных кадров
     std::wstring currentDeviceId;       // ID текущего прибора (SN_Diameter)
 
@@ -197,6 +199,13 @@ public:
     // Установка папки для сохранения (по умолчанию - рабочий стол)
     void SetRecordFolder(const std::wstring& folderPath);
     std::wstring GetRecordFolder() const { return recordFolderPath; }
+
+    // Режим дозаписи в существующий файл
+    void SetAppendToExistingEnabled(bool enabled);
+    bool IsAppendToExistingEnabled() const { return appendToExistingFile; }
+    bool SetExistingRecordFilePath(const std::wstring& filePath, std::wstring& outError);
+    std::wstring GetExistingRecordFilePath() const { return existingRecordFilePath; }
+    bool ValidateRecordingSettings(std::wstring& outError) const;
     
     // Получение информации о записи
     std::wstring GetRecordFilePath() const { return recordFilePath; }
@@ -205,6 +214,9 @@ public:
     
     // Выбор папки через диалог
     static std::wstring BrowseForFolder(HWND hWnd);
+
+    // Выбор существующего файла для дозаписи
+    static std::wstring BrowseForExistingRecordFile(HWND hWnd);
     
     // Открытие папки в Explorer
     void OpenRecordFolder() const;
@@ -252,6 +264,9 @@ private:
     
     // Инициализация папки по умолчанию (рабочий стол)
     void InitDefaultRecordFolder();
+
+    // Проверка, что файл подходит для дозаписи кадрами GP_TOOL_DATA
+    bool ValidateExistingRecordFile(const std::wstring& filePath, std::wstring& outError) const;
     
     // Создание папки если не существует
     static bool EnsureFolderExists(const std::wstring& folderPath);

@@ -1460,9 +1460,12 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
     static HWND hFrameLabel = nullptr;
     static HWND hPacketsLabel = nullptr;
     static HWND hConnectBtn = nullptr;
+    static HWND hBrowseBtn = nullptr;
     static HWND hStartBtn = nullptr;
     static HWND hStopBtn = nullptr;
     static HWND hRecordCheck = nullptr;
+    static HWND hAppendCheck = nullptr;
+    static HWND hAppendShowFullCheck = nullptr;
     static HWND hRecordStatus = nullptr;
     static HWND hRecordFrames = nullptr;
     
@@ -1476,9 +1479,12 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             hFrameLabel = GetDlgItem(hDlg, IDC_SERIAL_FRAME_LABEL);
             hPacketsLabel = GetDlgItem(hDlg, IDC_SERIAL_PACKETS_LABEL);
             hConnectBtn = GetDlgItem(hDlg, IDC_SERIAL_CONNECT_BTN);
+            hBrowseBtn = GetDlgItem(hDlg, IDC_SERIAL_BROWSE_BTN);
             hStartBtn = GetDlgItem(hDlg, IDC_SERIAL_START_BTN);
             hStopBtn = GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN);
             hRecordCheck = GetDlgItem(hDlg, IDC_SERIAL_RECORD_CHECK);
+            hAppendCheck = GetDlgItem(hDlg, IDC_SERIAL_APPEND_CHECK);
+            hAppendShowFullCheck = GetDlgItem(hDlg, IDC_SERIAL_APPEND_SHOW_FULL_CHECK);
             hRecordStatus = GetDlgItem(hDlg, IDC_SERIAL_RECORD_STATUS);
             hRecordFrames = GetDlgItem(hDlg, IDC_SERIAL_RECORD_FRAMES);
             
@@ -1500,6 +1506,29 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 if (serial) {
                     SendMessage(hRecordCheck, BM_SETCHECK, 
                                serial->IsRecordingEnabled() ? BST_CHECKED : BST_UNCHECKED, 0);
+                    if (hAppendCheck) {
+                        SendMessage(hAppendCheck, BM_SETCHECK,
+                                   serial->IsAppendToExistingEnabled() ? BST_CHECKED : BST_UNCHECKED, 0);
+                    }
+                    if (hAppendShowFullCheck) {
+                        SendMessage(hAppendShowFullCheck, BM_SETCHECK, BST_UNCHECKED, 0);
+                        EnableWindow(hAppendShowFullCheck, serial->IsAppendToExistingEnabled());
+                    }
+                    if (hRecordStatus) {
+                        const bool appendMode = serial->IsAppendToExistingEnabled();
+                        if (appendMode && serial->GetExistingRecordFilePath().empty()) {
+                            SetWindowText(hRecordStatus, L"Выберите файл для дозаписи");
+                        } else if (appendMode) {
+                            std::wstring filePath = serial->GetExistingRecordFilePath();
+                            size_t lastSlash = filePath.find_last_of(L"\\/");
+                            std::wstring fileName = (lastSlash != std::wstring::npos)
+                                ? filePath.substr(lastSlash + 1) : filePath;
+                            SetWindowText(hRecordStatus, fileName.c_str());
+                        }
+                    }
+                    if (hBrowseBtn) {
+                        SetWindowText(hBrowseBtn, serial->IsAppendToExistingEnabled() ? L"Файл..." : L"Папка...");
+                    }
                 }
             }
             
@@ -1551,6 +1580,12 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                     // Подключаемся
                     SerialModule* serial = g_chartManager->GetSerialModule();
                     if (serial) {
+                        std::wstring settingsError;
+                        if (!serial->ValidateRecordingSettings(settingsError)) {
+                            MessageBox(hDlg, settingsError.c_str(), L"Параметры записи", MB_OK | MB_ICONWARNING);
+                            return (INT_PTR)TRUE;
+                        }
+
                         SerialResult result = serial->Connect(portName);
                         
                         if (result == SerialResult::SUCCESS) {
@@ -1583,10 +1618,31 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, msg.c_str());
                             }
                             
-                            // v2.14.1: Очищаем данные перед началом опроса
-                            // Режимы работы с файлом и COM-портом взаимоисключающие
                             HWND hMainWnd = GetParent(hDlg);
-                            g_chartManager->HandleSerialClear(hMainWnd);
+                            bool showFullFile = false;
+                            if (serial->IsAppendToExistingEnabled() && hAppendShowFullCheck) {
+                                showFullFile = (SendMessage(hAppendShowFullCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                            }
+
+                            if (showFullFile) {
+                                bool loaded = g_chartManager->PrepareSerialDisplayData(
+                                    hMainWnd,
+                                    true,
+                                    serial->GetExistingRecordFilePath()
+                                );
+                                if (!loaded) {
+                                    MessageBox(
+                                        hDlg,
+                                        L"Не удалось загрузить существующий файл. Будут показаны только текущие данные COM-сессии.",
+                                        L"Дозапись",
+                                        MB_OK | MB_ICONWARNING
+                                    );
+                                    g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
+                                }
+                            } else {
+                                g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
+                            }
+
                             SetWindowText(hFrameLabel, L"0");
                             SetWindowText(hPacketsLabel, L"0 / 0");
                             
@@ -1644,15 +1700,59 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 }
             }
             return (INT_PTR)TRUE;
-            
-        case IDC_SERIAL_BROWSE_BTN:
-            // Кнопка выбора папки
+
+        case IDC_SERIAL_APPEND_CHECK:
             if (g_chartManager) {
                 SerialModule* serial = g_chartManager->GetSerialModule();
                 if (serial) {
-                    std::wstring folder = SerialModule::BrowseForFolder(hDlg);
-                    if (!folder.empty()) {
-                        serial->SetRecordFolder(folder);
+                    bool checked = (SendMessage(hAppendCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                    serial->SetAppendToExistingEnabled(checked);
+
+                    if (hAppendShowFullCheck) {
+                        if (!checked) {
+                            SendMessage(hAppendShowFullCheck, BM_SETCHECK, BST_UNCHECKED, 0);
+                        }
+                        EnableWindow(hAppendShowFullCheck, checked);
+                    }
+
+                    if (hBrowseBtn) {
+                        SetWindowText(hBrowseBtn, checked ? L"Файл..." : L"Папка...");
+                    }
+
+                    if (hRecordStatus) {
+                        if (checked && serial->GetExistingRecordFilePath().empty()) {
+                            SetWindowText(hRecordStatus, L"Выберите файл для дозаписи");
+                        } else if (!checked) {
+                            SetWindowText(hRecordStatus, L"Ожидание данных...");
+                        }
+                    }
+                }
+            }
+            return (INT_PTR)TRUE;
+            
+        case IDC_SERIAL_BROWSE_BTN:
+            // Кнопка выбора папки или файла дозаписи
+            if (g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    if (serial->IsAppendToExistingEnabled()) {
+                        std::wstring filePath = SerialModule::BrowseForExistingRecordFile(hDlg);
+                        if (!filePath.empty()) {
+                            std::wstring error;
+                            if (serial->SetExistingRecordFilePath(filePath, error)) {
+                                size_t lastSlash = filePath.find_last_of(L"\\/");
+                                std::wstring fileName = (lastSlash != std::wstring::npos)
+                                    ? filePath.substr(lastSlash + 1) : filePath;
+                                SetWindowText(hRecordStatus, fileName.c_str());
+                            } else {
+                                MessageBox(hDlg, error.c_str(), L"Ошибка выбора файла", MB_OK | MB_ICONWARNING);
+                            }
+                        }
+                    } else {
+                        std::wstring folder = SerialModule::BrowseForFolder(hDlg);
+                        if (!folder.empty()) {
+                            serial->SetRecordFolder(folder);
+                        }
                     }
                 }
             }
@@ -1710,7 +1810,11 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         SetWindowText(hRecordStatus, L"Запись отключена");
                         SetWindowText(hRecordFrames, L"0 кадров");
                     } else {
-                        SetWindowText(hRecordStatus, L"Ожидание данных...");
+                        if (serial->IsAppendToExistingEnabled() && serial->GetExistingRecordFilePath().empty()) {
+                            SetWindowText(hRecordStatus, L"Выберите файл для дозаписи");
+                        } else {
+                            SetWindowText(hRecordStatus, L"Ожидание данных...");
+                        }
                     }
                 }
             }

@@ -193,6 +193,7 @@ public:
     void HandleSerialStart(HWND hWnd);
     void HandleSerialStop(HWND hWnd);
     void HandleSerialClear(HWND hWnd);
+    bool PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload);
     
     // Обработчик таймера опроса прибора
     void HandleSerialTimer(HWND hWnd);
