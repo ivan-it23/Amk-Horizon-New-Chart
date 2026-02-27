@@ -703,6 +703,22 @@ void UIModule::SetXRangeValues(int chartNumber, double fromX, double toX) {
     SetWindowText(hToEdit, toText);
 }
 
+void UIModule::SetXRangeResetEnabled(int chartNumber, bool enabled) {
+    HWND hResetBtn = nullptr;
+
+    if (chartNumber == 1) {
+        hResetBtn = hXRangeResetBtn;
+    } else if (chartNumber == 2) {
+        hResetBtn = hXRange2ResetBtn;
+    } else {
+        return;
+    }
+
+    if (!hResetBtn) return;
+
+    EnableWindow(hResetBtn, enabled ? TRUE : FALSE);
+}
+
 void UIModule::ResetXRangeControls(int chartNumber) {
     HWND hFromEdit, hToEdit, hResetBtn;
     

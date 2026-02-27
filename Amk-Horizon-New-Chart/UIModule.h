@@ -123,6 +123,7 @@ public:
     void UpdateXRangeControls(int chartNumber, double minX, double maxX, bool isCustomRange);
     void GetXRangeValues(int chartNumber, double& fromX, double& toX) const;
     void SetXRangeValues(int chartNumber, double fromX, double toX);
+    void SetXRangeResetEnabled(int chartNumber, bool enabled);
     void ResetXRangeControls(int chartNumber);
     bool IsXRangeToEmpty(int chartNumber) const;  // Проверка, пустое ли поле "To"
 

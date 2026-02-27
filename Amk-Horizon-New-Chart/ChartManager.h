@@ -45,9 +45,10 @@ private:
         double minX, maxX, minY, maxY;
         bool isZoomed;
         bool isXCustom; // true если пользователь вручную задал диапазон X
+        bool isXToLatest; // true если пользователь задал только "From", а "To" должен следовать за последним кадром
         bool isYCustom; // true если пользователь вручную задал диапазон Y (важно для Surf)
         
-        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isXCustom(false), isYCustom(false) {}
+        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isXCustom(false), isXToLatest(false), isYCustom(false) {}
     };
 
     struct AxisZoomRange {
