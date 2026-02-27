@@ -879,10 +879,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
    hInst = hInstance; // Сохранить маркер экземпляра в глобальной переменной
 
-   // Инициализация Common Controls для статусной строки
+   // Инициализация Common Controls для статусной строки и tooltip
    INITCOMMONCONTROLSEX icex;
    icex.dwSize = sizeof(INITCOMMONCONTROLSEX);
-   icex.dwICC = ICC_BAR_CLASSES; // Включаем статусную строку
+   icex.dwICC = ICC_BAR_CLASSES | ICC_WIN95_CLASSES; // StatusBar + Tooltip/Button classes
    InitCommonControlsEx(&icex);
 
    // v2.14.2: Увеличен начальный размер окна (800x600 → 1000x600) для корректного отображения всех элементов

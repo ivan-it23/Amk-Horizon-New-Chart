@@ -310,15 +310,15 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"No file loaded");
     
     // Создание tooltips для кнопок с иконками (Chart 1)
-    CreateTooltip(hWnd, hXRangeApplyBtn, L"Apply X Range");
-    CreateTooltip(hWnd, hXRangeResetBtn, L"Reset X Range");
-    CreateTooltip(hWnd, hSaveRange1Btn, L"Save Range to File");
-    CreateTooltip(hWnd, hResetZoom1Btn, L"Reset Zoom to Full View");
+    CreateTooltip(hWnd, hXRangeApplyBtn, L"Применить");
+    CreateTooltip(hWnd, hXRangeResetBtn, L"Сбросить");
+    CreateTooltip(hWnd, hSaveRange1Btn, L"Загрузить");
+    CreateTooltip(hWnd, hResetZoom1Btn, L"Сбросить Zoom");
     
     // Создание tooltips для кнопок с иконками (Chart 2)
-    CreateTooltip(hWnd, hXRange2ApplyBtn, L"Apply X Range");
-    CreateTooltip(hWnd, hXRange2ResetBtn, L"Reset X Range");
-    CreateTooltip(hWnd, hResetZoom2Btn, L"Reset Zoom to Full View");
+    CreateTooltip(hWnd, hXRange2ApplyBtn, L"Применить");
+    CreateTooltip(hWnd, hXRange2ResetBtn, L"Сбросить");
+    CreateTooltip(hWnd, hResetZoom2Btn, L"Сбросить Zoom");
 
     // Tooltips для осевого undo
     CreateTooltip(hWnd, hChart1HUndoBtn, L"Undo X zoom step");
@@ -1183,17 +1183,26 @@ void UIModule::CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text) {
         // Устанавливаем tooltip поверх всех окон
         SetWindowPos(hTooltip, HWND_TOPMOST, 0, 0, 0, 0, 
                      SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+        // Явно активируем tooltip и разрешаем перенос длинного текста
+        SendMessage(hTooltip, TTM_ACTIVATE, TRUE, 0);
+        SendMessage(hTooltip, TTM_SETMAXTIPWIDTH, 0, 400);
     }
     
     // Добавляем инструмент (элемент управления) к tooltip
-    TOOLINFO ti = { 0 };
-    ti.cbSize = sizeof(TOOLINFO);
-    ti.uFlags = TTF_SUBCLASS | TTF_IDISHWND;
-    ti.hwnd = hWnd;
-    ti.uId = (UINT_PTR)hControl;
-    ti.lpszText = const_cast<wchar_t*>(text);
-    
-    SendMessage(hTooltip, TTM_ADDTOOL, 0, (LPARAM)&ti);
+    TOOLINFOW ti = { 0 };
+#ifdef TTTOOLINFOW_V2_SIZE
+    ti.cbSize = TTTOOLINFOW_V2_SIZE;
+#else
+    ti.cbSize = sizeof(TOOLINFOW);
+#endif
+    ti.uFlags = TTF_SUBCLASS;
+    ti.hwnd = hControl;
+    ti.uId = 1;
+    GetClientRect(hControl, &ti.rect);
+    ti.lpszText = const_cast<LPWSTR>(text);
+
+    SendMessageW(hTooltip, TTM_ADDTOOLW, 0, (LPARAM)&ti);
 }
 
 // Проверка, является ли элемент Owner-Draw иконкой
