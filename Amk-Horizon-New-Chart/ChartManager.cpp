@@ -3180,6 +3180,62 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         hasTempRange = true;
     }
 
+    struct NoteLabelCandidate {
+        int anchorX = 0;
+        int anchorY = 0;
+        std::wstring text;
+    };
+
+    auto BuildNotePreviewText = [](const std::wstring& source) -> std::wstring {
+        constexpr size_t kMaxWords = 6;
+        constexpr size_t kMaxChars = 32;
+
+        std::wstring normalized = source;
+        for (auto& ch : normalized) {
+            if (ch == L'\r' || ch == L'\n' || ch == L'\t') {
+                ch = L' ';
+            }
+        }
+
+        std::wistringstream wss(normalized);
+        std::wstring token;
+        std::wstring result;
+        size_t words = 0;
+
+        while (wss >> token) {
+            if (words >= kMaxWords) {
+                break;
+            }
+            if (!result.empty()) {
+                result += L" ";
+            }
+            result += token;
+            ++words;
+        }
+
+        std::wstring trailing;
+        if (wss >> trailing) {
+            result += L"...";
+        }
+
+        if (result.empty()) {
+            return L"(пусто)";
+        }
+
+        if (result.length() > kMaxChars) {
+            if (kMaxChars > 3) {
+                result = result.substr(0, kMaxChars - 3) + L"...";
+            } else {
+                result = result.substr(0, kMaxChars);
+            }
+        }
+
+        return result;
+    };
+
+    std::vector<NoteLabelCandidate> labelCandidates;
+    labelCandidates.reserve(8);
+
     // Черная точка
     HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
     HBRUSH hBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
@@ -3222,11 +3278,133 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         m.screenX = x;
         m.screenY = y;
         noteFrameMarkers.push_back(m);
+
+        if (labelCandidates.size() < 8) {
+            NoteLabelCandidate candidate;
+            candidate.anchorX = x;
+            candidate.anchorY = y;
+            candidate.text = BuildNotePreviewText(n.text);
+            labelCandidates.push_back(candidate);
+        }
     }
 
     SelectObject(hdc, hOldBrush);
     SelectObject(hdc, hOldPen);
     DeleteObject(hPen);
+
+    if (labelCandidates.empty()) {
+        return;
+    }
+
+    // Компактные текстовые плашки возле точек заметок (только первые 8).
+    constexpr int kLabelWidth = 130;
+    constexpr int kLabelHeight = 18;
+    constexpr int kOffsetX = 7;
+    constexpr int kOffsetY = 8;
+    constexpr int kInnerPadX = 5;
+
+    HFONT hLabelFont = CreateFont(
+        -11, 0, 0, 0,
+        FW_NORMAL,
+        FALSE, FALSE, FALSE,
+        DEFAULT_CHARSET,
+        OUT_DEFAULT_PRECIS,
+        CLIP_DEFAULT_PRECIS,
+        CLEARTYPE_QUALITY,
+        DEFAULT_PITCH | FF_DONTCARE,
+        L"Segoe UI"
+    );
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hLabelFont);
+
+    SetBkMode(hdc, TRANSPARENT);
+    SetTextColor(hdc, RGB(30, 30, 30));
+
+    HPEN hLabelPen = CreatePen(PS_SOLID, 1, RGB(145, 145, 145));
+    HBRUSH hLabelBrush = CreateSolidBrush(RGB(255, 255, 240));
+    HPEN hOldLabelPen = (HPEN)SelectObject(hdc, hLabelPen);
+    HBRUSH hOldLabelBrush = (HBRUSH)SelectObject(hdc, hLabelBrush);
+
+    std::vector<RECT> drawnLabelRects;
+    drawnLabelRects.reserve(labelCandidates.size());
+
+    for (const auto& candidate : labelCandidates) {
+        RECT labelRect;
+        labelRect.left = candidate.anchorX + kOffsetX;
+        labelRect.right = labelRect.left + kLabelWidth;
+        labelRect.bottom = candidate.anchorY - kOffsetY;
+        labelRect.top = labelRect.bottom - kLabelHeight;
+
+        // Если не помещается сверху — переносим вниз от маркера.
+        if (labelRect.top < dataRect.top) {
+            labelRect.top = candidate.anchorY + kOffsetY;
+            labelRect.bottom = labelRect.top + kLabelHeight;
+        }
+
+        // Ограничиваем прямоугольник областью данных, чтобы не перекрывать оси/легенду.
+        if (labelRect.right > dataRect.right) {
+            int dx = labelRect.right - dataRect.right;
+            labelRect.left -= dx;
+            labelRect.right -= dx;
+        }
+        if (labelRect.left < dataRect.left) {
+            int dx = dataRect.left - labelRect.left;
+            labelRect.left += dx;
+            labelRect.right += dx;
+        }
+        if (labelRect.bottom > dataRect.bottom) {
+            int dy = labelRect.bottom - dataRect.bottom;
+            labelRect.top -= dy;
+            labelRect.bottom -= dy;
+        }
+
+        // Простейшая защита от наложения: сдвигаем вниз по шагу, иначе пропускаем.
+        bool placed = false;
+        for (int attempt = 0; attempt < 4 && !placed; ++attempt) {
+            RECT testRect = labelRect;
+            if (attempt > 0) {
+                const int shift = attempt * (kLabelHeight + 2);
+                testRect.top += shift;
+                testRect.bottom += shift;
+                if (testRect.bottom > dataRect.bottom) {
+                    continue;
+                }
+            }
+
+            bool overlaps = false;
+            for (const auto& existing : drawnLabelRects) {
+                RECT inter;
+                if (IntersectRect(&inter, &testRect, &existing)) {
+                    overlaps = true;
+                    break;
+                }
+            }
+
+            if (!overlaps) {
+                labelRect = testRect;
+                placed = true;
+            }
+        }
+
+        if (!placed) {
+            continue;
+        }
+
+        Rectangle(hdc, labelRect.left, labelRect.top, labelRect.right, labelRect.bottom);
+
+        RECT textRect = labelRect;
+        textRect.left += kInnerPadX;
+        textRect.right -= kInnerPadX;
+        DrawText(hdc, candidate.text.c_str(), -1, &textRect, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
+
+        drawnLabelRects.push_back(labelRect);
+    }
+
+    SelectObject(hdc, hOldLabelBrush);
+    SelectObject(hdc, hOldLabelPen);
+    SelectObject(hdc, hOldFont);
+    DeleteObject(hLabelBrush);
+    DeleteObject(hLabelPen);
+    DeleteObject(hLabelFont);
 }
 
 
