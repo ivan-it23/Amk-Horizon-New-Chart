@@ -86,6 +86,7 @@ ChartManager::ChartManager()
     
     // Устанавливаем связь между модулями
     schematicModule->SetCurveSelectionModule(curveSelectionModule.get());
+    curveSelectionModule->SetMetrologyModule(metrologyModule.get());
     
     // Устанавливаем callback для обновления графика после применения настроек (v2.9.4)
     schematicModule->SetOnConfigurationAppliedCallback([this](int chartNumber) {

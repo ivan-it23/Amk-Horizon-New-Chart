@@ -2,6 +2,91 @@
 #include "CurveSelectionModule.h"
 #include <algorithm>
 #include <sstream>
+#include <cmath>
+#include <complex>
+
+namespace {
+constexpr float kMdegPerRad = 57295.7795f;
+
+float NormalizePhaseLocal(float phaseRadians) {
+    const float pi = 3.14159265358979323846f;
+    while (phaseRadians > pi) {
+        phaseRadians -= 2.0f * pi;
+    }
+    while (phaseRadians <= -pi) {
+        phaseRadians += 2.0f * pi;
+    }
+    return phaseRadians;
+}
+
+void ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx, float outPhase[5]) {
+    const float d1 = record.DELTA_PH[freqIdx][0];
+    const float d2 = record.DELTA_PH[freqIdx][1];
+    const float d3 = record.DELTA_PH[freqIdx][2];
+    const float d4 = record.DELTA_PH[freqIdx][3];
+
+    // baseline коэффициенты из legacy-документа (simmetry_5)
+    outPhase[0] = 1.150f * d1 + 0.500f * d2 - 0.650f * d3 + 0.000f * d4;
+    outPhase[1] = 0.675f * d1 + 0.500f * d2 - 0.175f * d3 + 0.000f * d4;
+    outPhase[2] = 0.200f * d1 + 0.500f * d2 + 0.300f * d3 + 0.000f * d4;
+    outPhase[3] = 0.000f * d1 + 0.225f * d2 + 0.500f * d3 + 0.275f * d4;
+    outPhase[4] = 0.000f * d1 - 0.250f * d2 + 0.500f * d3 + 0.750f * d4;
+}
+
+float SignalPhase(const METROLOGY_DATA& metrology, int txIndex, int freqIdx, float rhoValue) {
+    if (rhoValue <= 0.0f) {
+        rhoValue = 0.01f;
+    }
+
+    const float L1 = static_cast<float>(metrology.L1[txIndex]) / 1000.0f;
+    const float L2 = static_cast<float>(metrology.L2[txIndex]) / 1000.0f;
+    const float omegaMu0Sigma = (0.0078957f * static_cast<float>(metrology.F[freqIdx])) / rhoValue;
+
+    const std::complex<float> iUnit(0.0f, 1.0f);
+    const std::complex<float> ik = iUnit * std::sqrt(iUnit * omegaMu0Sigma);
+    const std::complex<float> sgn = std::exp(ik * (L2 - L1)) * ((1.0f - ik * L2) / (1.0f - ik * L1));
+    return std::arg(sgn);
+}
+
+float InvertPhaseToRho(const METROLOGY_DATA& metrology, float targetPhase, int txIndex, int freqIdx) {
+    constexpr float epsilonArg = 0.0000005f;
+    constexpr float epsilonInf = 0.000000005f;
+    float left = 0.01f;
+    float right = 7000.0f;
+    bool stopArg = false;
+    bool stopInf = false;
+
+    for (int i = 0; i < 256; ++i) {
+        const float x1 = left + 0.382f * (right - left);
+        const float x2 = right - 0.382f * (right - left);
+        const float a = targetPhase - SignalPhase(metrology, txIndex, freqIdx, x1);
+        const float b = targetPhase - SignalPhase(metrology, txIndex, freqIdx, x2);
+
+        if (std::fabs(a) > std::fabs(b)) {
+            left = x1;
+        } else {
+            right = x2;
+        }
+
+        if (std::fabs(a) < epsilonArg || std::fabs(b) < epsilonArg) {
+            stopArg = true;
+            break;
+        }
+        if (std::fabs(a - b) < epsilonInf) {
+            stopInf = true;
+            break;
+        }
+    }
+
+    if (stopArg) {
+        return 0.5f * (left + right);
+    }
+    if (stopInf) {
+        return 7200.0f;
+    }
+    return 0.5f * (left + right);
+}
+}
 
 // Определение стандартных цветов для кривых T1-T5
 // Цвета для левой оси (приоритетные цвета для T1-T5)
@@ -115,6 +200,7 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             // v2.16.0: УЭС -> 5 кривых T1-T5
             for (int i = 0; i < 5; i++) {
                 CurveDefinition rhoCurve = CreateRhoSmtCurve(i, selection.frequency);
+                rhoCurve.smtMode = selection.rhoSmtMode;
                 rhoCurve.yAxisGroup = 0; // Левая ось
                 rhoCurve.enabled = true;
                 rhoCurve.color = AssignSmartColor(curves, i, rhoCurve.yAxisGroup);
@@ -125,6 +211,7 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             // v2.16.0: Симметризованные фазы -> 5 кривых T1-T5
             for (int i = 0; i < 5; i++) {
                 CurveDefinition phaseSmtCurve = CreatePhaseSmtCurve(i, selection.frequency);
+                phaseSmtCurve.smtMode = selection.phaseSmtMode;
                 phaseSmtCurve.yAxisGroup = 0; // Левая ось
                 phaseSmtCurve.enabled = true;
                 phaseSmtCurve.color = AssignSmartColor(curves, i, phaseSmtCurve.yAxisGroup);
@@ -377,17 +464,22 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 }
                 break;
             case DataType::PHASE_SMT:
-                CalculatePhaseData(curve.elementIndex, 0, curve.frequency, dataModule, curveData);
+                CalculatePhaseSmtData(curve.elementIndex,
+                                      curve.frequency,
+                                      curve.smtMode,
+                                      dataModule,
+                                      curveData,
+                                      0.0,
+                                      static_cast<double>(dataModule->GetDataSize() - 1));
                 break;
             case DataType::RHO_SMT:
-                {
-                    const auto& data = dataModule->GetData();
-                    curveData.reserve(data.size());
-                    const int freqIdx = (curve.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-                    for (const auto& record : data) {
-                        curveData.push_back(record.rho_smt[freqIdx][curve.elementIndex]);
-                    }
-                }
+                CalculateRhoSmtData(curve.elementIndex,
+                                    curve.frequency,
+                                    curve.smtMode,
+                                    dataModule,
+                                    curveData,
+                                    0.0,
+                                    static_cast<double>(dataModule->GetDataSize() - 1));
                 break;
             case DataType::SILENT_AMPLITUDE_RX1:
                 CalculateSilentAmplitudeData(0, curve.frequency, dataModule, curveData);
@@ -484,20 +576,22 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 }
                 break;
             case DataType::PHASE_SMT:
-                dataModule->CalculatePhaseData(curve.elementIndex, 0, curve.frequency, curveData, minX, maxX);
+                CalculatePhaseSmtData(curve.elementIndex,
+                                      curve.frequency,
+                                      curve.smtMode,
+                                      dataModule,
+                                      curveData,
+                                      minX,
+                                      maxX);
                 break;
             case DataType::RHO_SMT:
-                {
-                    const auto& data = dataModule->GetData();
-                    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
-
-                    curveData.reserve(endIndex - startIndex);
-                    const int freqIdx = (curve.frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-                    for (size_t i = startIndex; i < endIndex; ++i) {
-                        curveData.push_back(data[i].rho_smt[freqIdx][curve.elementIndex]);
-                    }
-                }
+                CalculateRhoSmtData(curve.elementIndex,
+                                    curve.frequency,
+                                    curve.smtMode,
+                                    dataModule,
+                                    curveData,
+                                    minX,
+                                    maxX);
                 break;
             case DataType::SILENT_AMPLITUDE_RX1:
                 dataModule->CalculateSilentAmplitudeData(0, curve.frequency, curveData, minX, maxX);
@@ -1039,6 +1133,7 @@ ChartConfiguration CurveSelectionModule::CreateRhoSmtPreset(FrequencyBand freque
     // Создаем кривые УЭС для всех передатчиков T1-T5
     for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreateRhoSmtCurve(i, frequency);
+        curve.smtMode = SmtComputationMode::FROM_SONDE;
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
         config.AddCurve(curve);
@@ -1059,6 +1154,7 @@ ChartConfiguration CurveSelectionModule::CreatePhaseSmtPreset(FrequencyBand freq
     // Создаем кривые симметризованных фаз для всех передатчиков T1-T5
     for (int i = 0; i < 5; i++) {
         CurveDefinition curve = CreatePhaseSmtCurve(i, frequency);
+        curve.smtMode = SmtComputationMode::FROM_SONDE;
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
         config.AddCurve(curve);
@@ -1146,6 +1242,89 @@ void CurveSelectionModule::CalculateSilentAmplitudeData(int receiverIndex, Frequ
     
     // Вызываем метод DataModule для вычисления амплитуд молчащих передатчиков
     dataModule->CalculateSilentAmplitudeData(receiverIndex, frequency, outData, minX, maxX);
+}
+
+void CurveSelectionModule::CalculatePhaseSmtData(int transmitterIndex, FrequencyBand frequency,
+                                                 SmtComputationMode mode,
+                                                 const DataModule* dataModule,
+                                                 std::vector<float>& outData,
+                                                 double minX, double maxX) const {
+    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+
+    const auto& records = dataModule->GetData();
+    const size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(records.size()), maxX + 1));
+    if (startIndex >= endIndex) {
+        return;
+    }
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    outData.reserve(endIndex - startIndex);
+
+    const bool canCompute =
+        mode == SmtComputationMode::FROM_COMPUTER &&
+        metrologyModule && metrologyModule->HasData();
+    const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
+
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        const auto& record = records[i];
+        float phase = 0.0f;
+
+        if (metro && record.signature == metro->signature) {
+            float phaseComputed[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            ComputePhaseSmtFromComputer(record, freqIdx, phaseComputed);
+            phase = phaseComputed[transmitterIndex];
+        } else {
+            phase = record.phase_smt[freqIdx][transmitterIndex];
+        }
+
+        phase = NormalizePhaseLocal(phase);
+        outData.push_back(phase * kMdegPerRad);
+    }
+}
+
+void CurveSelectionModule::CalculateRhoSmtData(int transmitterIndex, FrequencyBand frequency,
+                                               SmtComputationMode mode,
+                                               const DataModule* dataModule,
+                                               std::vector<float>& outData,
+                                               double minX, double maxX) const {
+    outData.clear();
+    if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+
+    const auto& records = dataModule->GetData();
+    const size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(records.size()), maxX + 1));
+    if (startIndex >= endIndex) {
+        return;
+    }
+
+    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    outData.reserve(endIndex - startIndex);
+
+    const bool canCompute =
+        mode == SmtComputationMode::FROM_COMPUTER &&
+        metrologyModule && metrologyModule->HasData();
+    const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
+
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        const auto& record = records[i];
+        float rho = 0.0f;
+
+        if (metro && record.signature == metro->signature) {
+            float phaseComputed[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            ComputePhaseSmtFromComputer(record, freqIdx, phaseComputed);
+            rho = InvertPhaseToRho(*metro, phaseComputed[transmitterIndex], transmitterIndex, freqIdx);
+        } else {
+            rho = record.rho_smt[freqIdx][transmitterIndex];
+        }
+
+        outData.push_back(rho);
+    }
 }
 
 // Генерация идентификаторов и имен

@@ -24,6 +24,12 @@ enum class XAxisType {
     TEMPERATURE     // Температура
 };
 
+// Режим источника данных для УЭС/Симметризованных фаз
+enum class SmtComputationMode {
+    FROM_SONDE,     // значения, рассчитанные в приборе (из структуры)
+    FROM_COMPUTER   // значения, рассчитанные в приложении
+};
+
 // Определение кривой для отображения
 struct CurveDefinition {
     std::string id;              // Уникальный идентификатор "T1_R1_AMP_400"
@@ -39,6 +45,7 @@ struct CurveDefinition {
     int elementIndex;           // Индекс элемента (0-4 для T1-T5, 0-1 для R1-R2)
     DataType dataType;          // Тип данных
     FrequencyBand frequency;    // Частотный диапазон
+    SmtComputationMode smtMode; // Источник для PHASE_SMT/RHO_SMT (для остальных игнорируется)
     
     CurveDefinition();
     CurveDefinition(const std::string& id, const std::string& name, 
@@ -65,6 +72,8 @@ struct SchematicSelection {
     std::vector<bool> silentTx;      // Молчащие передатчики [2 элемента] для R1 и R2
     FrequencyBand frequency;         // Выбранная частота
     DataTypeFilter dataFilter;       // Фильтр типов данных для пресетов
+    SmtComputationMode rhoSmtMode;   // Режим пресета УЭС
+    SmtComputationMode phaseSmtMode; // Режим пресета Симм. фаз
     
     SchematicSelection();
     void Clear();
@@ -205,6 +214,8 @@ public:
     void HandleFrequencyChange(HWND hDlg);
     void HandleXAxisTypeChange(HWND hDlg);  // v2.10.0: Обработка изменения типа оси X
     void HandlePresetButton(HWND hDlg, int presetId);
+    void InitializeSmtModeCheckboxes(HWND hDlg);
+    void HandleSmtModeCheckbox(HWND hDlg, int checkboxId);
     void HandleMouseHover(HWND hDlg, int x, int y);
     void HandleCurveCheckboxChange(HWND hDlg, int itemIndex);
     void ValidateCurrentCurveConfiguration(HWND hDlg);

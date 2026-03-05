@@ -18,6 +18,11 @@ static std::wstring Utf8ToWide(const std::string& utf8str) {
     return wstrTo;
 }
 
+static std::wstring BuildSmtPresetDisplayName(const wchar_t* baseName, SmtComputationMode mode) {
+    return std::wstring(baseName) +
+           (mode == SmtComputationMode::FROM_COMPUTER ? L" (на компьютере)" : L" (на приборе)");
+}
+
 // Определение цветов для элементов схемы
 const COLORREF SchematicModule::TRANSMITTER_COLOR = RGB(180, 100, 100);  // Приглушенный красный
 const COLORREF SchematicModule::RECEIVER_COLOR = RGB(100, 180, 100);     // Приглушенный зеленый  
@@ -65,7 +70,8 @@ const COLORREF SHADOW_COLOR = RGB(200, 200, 200);  // Светло-серая т
 CurveDefinition::CurveDefinition() 
     : yAxisGroup(0), enabled(false), color(RGB(0, 0, 0)), lineStyle(PS_SOLID),
       sourceElement(ElementType::TRANSMITTER), elementIndex(0), 
-      dataType(DataType::AMPLITUDE_RX1), frequency(FrequencyBand::FREQ_400_KHZ) {
+      dataType(DataType::AMPLITUDE_RX1), frequency(FrequencyBand::FREQ_400_KHZ),
+      smtMode(SmtComputationMode::FROM_SONDE) {
 }
 
 CurveDefinition::CurveDefinition(const std::string& id, const std::string& name, 
@@ -73,11 +79,16 @@ CurveDefinition::CurveDefinition(const std::string& id, const std::string& name,
                                int index, DataType type, FrequencyBand freq)
     : id(id), displayName(name), units(units), yAxisGroup(0), enabled(true),
       color(RGB(0, 0, 255)), lineStyle(PS_SOLID), sourceElement(element),
-      elementIndex(index), dataType(type), frequency(freq) {
+      elementIndex(index), dataType(type), frequency(freq),
+      smtMode(SmtComputationMode::FROM_SONDE) {
 }
 
 // Реализация SchematicSelection
-SchematicSelection::SchematicSelection() : frequency(FrequencyBand::FREQ_400_KHZ), dataFilter(DataTypeFilter::ALL) {
+SchematicSelection::SchematicSelection()
+    : frequency(FrequencyBand::FREQ_400_KHZ)
+    , dataFilter(DataTypeFilter::ALL)
+    , rhoSmtMode(SmtComputationMode::FROM_SONDE)
+    , phaseSmtMode(SmtComputationMode::FROM_SONDE) {
     transmitters.resize(5, false);  // T1-T5
     receivers.resize(2, false);     // R1-R2
     silentTx.resize(2, false);      // Молчащие для R1 и R2
@@ -89,6 +100,8 @@ void SchematicSelection::Clear() {
     std::fill(silentTx.begin(), silentTx.end(), false);
     frequency = FrequencyBand::FREQ_400_KHZ;
     dataFilter = DataTypeFilter::ALL;
+    rhoSmtMode = SmtComputationMode::FROM_SONDE;
+    phaseSmtMode = SmtComputationMode::FROM_SONDE;
 }
 
 bool SchematicSelection::IsValid() const {
@@ -920,6 +933,14 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
             
             // Определяем фильтр типов данных по существующим кривым
             currentSelection.dataFilter = DetermineDataFilterFromCurves(existingConfig.curves);
+
+            for (const auto& curve : existingConfig.curves) {
+                if (curve.dataType == DataType::RHO_SMT) {
+                    currentSelection.rhoSmtMode = curve.smtMode;
+                } else if (curve.dataType == DataType::PHASE_SMT) {
+                    currentSelection.phaseSmtMode = curve.smtMode;
+                }
+            }
             
             // ВАЖНО: Восстанавливаем элементы схемы ТОЛЬКО для режима ручного выбора (dataFilter == ALL)
             // Для пресетов (dataFilter != ALL) элементы схемы должны оставаться неактивными
@@ -1056,6 +1077,8 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         }
     }
     
+    InitializeSmtModeCheckboxes(hDlg);
+
     // Инициализируем комбобокс частоты
     HWND hFreqCombo = GetDlgItem(hDlg, IDC_FREQUENCY_COMBO);
     if (hFreqCombo) {
@@ -1494,14 +1517,20 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
         case IDC_PRESET_RHO_SMT:
             // v2.16.0: УЭС - не требует выбора приёмников, 5 кривых T1-T5
             currentSelection.dataFilter = DataTypeFilter::RHO_SMT_ONLY;
+            currentSelection.rhoSmtMode = (IsDlgButtonChecked(hDlg, IDC_RHO_SMT_FROM_COMPUTER) == BST_CHECKED)
+                ? SmtComputationMode::FROM_COMPUTER
+                : SmtComputationMode::FROM_SONDE;
             currentPreset = PresetType::RHO_SMT;
-            currentPresetDisplayName = L"УЭС";
+            currentPresetDisplayName = BuildSmtPresetDisplayName(L"УЭС", currentSelection.rhoSmtMode);
             break;
         case IDC_PRESET_PHASE_SMT:
             // v2.16.0: Симметризованные фазы - не требует выбора приёмников, 5 кривых T1-T5
             currentSelection.dataFilter = DataTypeFilter::PHASE_SMT_ONLY;
+            currentSelection.phaseSmtMode = (IsDlgButtonChecked(hDlg, IDC_PHASE_SMT_FROM_COMPUTER) == BST_CHECKED)
+                ? SmtComputationMode::FROM_COMPUTER
+                : SmtComputationMode::FROM_SONDE;
             currentPreset = PresetType::PHASE_SMT;
-            currentPresetDisplayName = L"Симм. фазы";
+            currentPresetDisplayName = BuildSmtPresetDisplayName(L"Симм. фазы", currentSelection.phaseSmtMode);
             break;
         case IDC_PRESET_SILENT_AMPL:
             // Амплитуды молчащих передатчиков: две кривые (R1 и R2) из ZERO_AM_RX_1/2
@@ -1534,7 +1563,60 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     }
     
     // Обновляем список кривых
-    UpdateAvailableCurves(hDlg);;
+    UpdateAvailableCurves(hDlg);
+}
+
+void SchematicModule::InitializeSmtModeCheckboxes(HWND hDlg) {
+    // По умолчанию все чекбоксы пустые.
+    // Галочки восстанавливаем только если пресет УЭС/Симм. фазы уже был активен
+    // (т.е. dataFilter соответствует одному из этих пресетов).
+    bool rhoActive = (currentSelection.dataFilter == DataTypeFilter::RHO_SMT_ONLY);
+    bool phaseActive = (currentSelection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY);
+
+    CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE,
+                   rhoActive && currentSelection.rhoSmtMode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER,
+                   rhoActive && currentSelection.rhoSmtMode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
+
+    CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE,
+                   phaseActive && currentSelection.phaseSmtMode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER,
+                   phaseActive && currentSelection.phaseSmtMode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
+}
+
+void SchematicModule::HandleSmtModeCheckbox(HWND hDlg, int checkboxId) {
+    switch (checkboxId) {
+        case IDC_RHO_SMT_FROM_SONDE:
+            currentSelection.rhoSmtMode = SmtComputationMode::FROM_SONDE;
+            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE, BST_CHECKED);
+            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER, BST_UNCHECKED);
+            break;
+        case IDC_RHO_SMT_FROM_COMPUTER:
+            currentSelection.rhoSmtMode = SmtComputationMode::FROM_COMPUTER;
+            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE, BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER, BST_CHECKED);
+            break;
+        case IDC_PHASE_SMT_FROM_SONDE:
+            currentSelection.phaseSmtMode = SmtComputationMode::FROM_SONDE;
+            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE, BST_CHECKED);
+            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER, BST_UNCHECKED);
+            break;
+        case IDC_PHASE_SMT_FROM_COMPUTER:
+            currentSelection.phaseSmtMode = SmtComputationMode::FROM_COMPUTER;
+            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE, BST_UNCHECKED);
+            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER, BST_CHECKED);
+            break;
+        default:
+            return;
+    }
+
+    // Активируем соответствующий пресет (GROUPBOX не шлёт BN_CLICKED,
+    // поэтому чекбоксы — основной триггер пресета УЭС / Симм. фазы).
+    if (checkboxId == IDC_RHO_SMT_FROM_SONDE || checkboxId == IDC_RHO_SMT_FROM_COMPUTER) {
+        HandlePresetButton(hDlg, IDC_PRESET_RHO_SMT);
+    } else {
+        HandlePresetButton(hDlg, IDC_PRESET_PHASE_SMT);
+    }
 }
 
 void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {
@@ -1635,11 +1717,26 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     // Создаем конфигурацию из текущих кривых
     ChartConfiguration config;
     config.curves = currentAvailableCurves;
+
+    for (auto& curve : config.curves) {
+        if (curve.dataType == DataType::RHO_SMT) {
+            curve.smtMode = currentSelection.rhoSmtMode;
+        } else if (curve.dataType == DataType::PHASE_SMT) {
+            curve.smtMode = currentSelection.phaseSmtMode;
+        }
+    }
+
     config.UpdateAxisConfiguration();
     
     // v2.15.0: Передаём информацию о пресете
     config.activePreset = currentPreset;
-    config.presetDisplayName = currentPresetDisplayName;
+    if (currentPreset == PresetType::RHO_SMT) {
+        config.presetDisplayName = BuildSmtPresetDisplayName(L"УЭС", currentSelection.rhoSmtMode);
+    } else if (currentPreset == PresetType::PHASE_SMT) {
+        config.presetDisplayName = BuildSmtPresetDisplayName(L"Симм. фазы", currentSelection.phaseSmtMode);
+    } else {
+        config.presetDisplayName = currentPresetDisplayName;
+    }
     
     // v2.10.0: Получаем тип оси X из combobox
     HWND hDlg = GetParent(GetDlgItem(hSchematicDialog, IDC_XAXIS_TYPE_COMBO));
@@ -2138,6 +2235,15 @@ INT_PTR CALLBACK SchematicDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPA
                     case IDC_XAXIS_TYPE_COMBO:
                         if (HIWORD(wParam) == CBN_SELCHANGE && pSchematic) {
                             pSchematic->HandleXAxisTypeChange(hDlg);
+                        }
+                        return (INT_PTR)TRUE;
+
+                    case IDC_RHO_SMT_FROM_SONDE:
+                    case IDC_RHO_SMT_FROM_COMPUTER:
+                    case IDC_PHASE_SMT_FROM_SONDE:
+                    case IDC_PHASE_SMT_FROM_COMPUTER:
+                        if (pSchematic && HIWORD(wParam) == BN_CLICKED) {
+                            pSchematic->HandleSmtModeCheckbox(hDlg, wmId);
                         }
                         return (INT_PTR)TRUE;
                         

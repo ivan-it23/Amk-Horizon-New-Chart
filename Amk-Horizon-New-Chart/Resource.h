@@ -71,6 +71,10 @@
 // Пресеты УЭС и симметризованных фаз (v2.16.0)
 #define IDC_PRESET_RHO_SMT			1083
 #define IDC_PRESET_PHASE_SMT		1084
+#define IDC_RHO_SMT_FROM_SONDE		1102
+#define IDC_RHO_SMT_FROM_COMPUTER	1103
+#define IDC_PHASE_SMT_FROM_SONDE	1104
+#define IDC_PHASE_SMT_FROM_COMPUTER	1105
 
 // Пресеты молчащих передатчиков
 #define IDC_PRESET_SILENT_AMPL		1085

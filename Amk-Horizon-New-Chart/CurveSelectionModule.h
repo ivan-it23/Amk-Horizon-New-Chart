@@ -3,6 +3,7 @@
 #include "framework.h"
 #include "SchematicModule.h"
 #include "DataModule.h"
+#include "MetrologyModule.h"
 #include <vector>
 #include <string>
 #include <memory>
@@ -25,6 +26,7 @@ private:
     // Текущие конфигурации для каждого графика
     ChartConfiguration chart1Config;
     ChartConfiguration chart2Config;
+    const MetrologyModule* metrologyModule = nullptr;
     
 public:
     CurveSelectionModule();
@@ -32,6 +34,7 @@ public:
     
     // Основные методы управления кривыми
     std::vector<CurveDefinition> GetAvailableCurves(const SchematicSelection& selection) const;
+    void SetMetrologyModule(const MetrologyModule* module) { metrologyModule = module; }
     void ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config);
     ChartConfiguration GetChartConfiguration(int chartNumber) const;
     
@@ -114,6 +117,18 @@ private:
                            const DataModule* dataModule, std::vector<float>& outData) const;
     void CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                      const DataModule* dataModule, std::vector<float>& outData) const;
+
+    void CalculatePhaseSmtData(int transmitterIndex, FrequencyBand frequency,
+                               SmtComputationMode mode,
+                               const DataModule* dataModule,
+                               std::vector<float>& outData,
+                               double minX, double maxX) const;
+
+    void CalculateRhoSmtData(int transmitterIndex, FrequencyBand frequency,
+                             SmtComputationMode mode,
+                             const DataModule* dataModule,
+                             std::vector<float>& outData,
+                             double minX, double maxX) const;
     
     // Методы для работы с индексами данных
     int GetActiveTransmitterIndex(int transmitterIndex, FrequencyBand frequency) const;
