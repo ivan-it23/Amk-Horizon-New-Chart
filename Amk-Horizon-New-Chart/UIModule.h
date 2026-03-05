@@ -81,6 +81,10 @@ private:
     HWND hChart2SurfCheck;   // Checkbox "Surf" для Chart 2
     HWND hChart2SurfEdit;    // Поле ввода количества точек для Chart 2
 
+    // === Элементы управления отображением заметок на графике ===
+    HWND hChart1ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 1
+    HWND hChart2ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 2
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -142,6 +146,11 @@ public:
     void ClearClickCoordinates(int chartNumber);
     void ShowDualAxisControls(int chartNumber, bool show);  // Показать/скрыть элементы для второй оси
     void PositionCursorControls(int windowWidth, int panel2Y = 0);  // Позиционирование координат к правому краю
+
+    // Управление отображением заметок
+    void PositionNotesVisibilityControls(const RECT& chart1Rect, const RECT& chart2Rect, bool dualMode);
+    bool IsNotesVisible(int chartNumber) const;
+    void SetNotesVisible(int chartNumber, bool visible);
 
     // === Управление элементами COM-порта (v2.13.0) ===
     void CreateSerialControls(HWND hWnd, HINSTANCE hInst);

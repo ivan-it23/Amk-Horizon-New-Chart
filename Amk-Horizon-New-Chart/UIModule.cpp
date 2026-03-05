@@ -45,6 +45,8 @@ UIModule::UIModule()
     , hChart1SurfEdit(nullptr)
     , hChart2SurfCheck(nullptr)
     , hChart2SurfEdit(nullptr)
+    , hChart1ShowNotesCheck(nullptr)
+    , hChart2ShowNotesCheck(nullptr)
     , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(5, true);
@@ -163,6 +165,13 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
 
+    // Чекбокс отображения заметок (Chart 1), компактный и на уровне заголовка графика
+    hChart1ShowNotesCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x043A\x0430\x0437\x0430\x0442\x044C \x0437\x0430\x043C\x0435\x0442\x043A\x0438",
+        WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+        0, 0, 128, 18, hWnd, (HMENU)IDC_CHART1_SHOW_NOTES_CHECK, hInst, NULL);
+    SendMessage(hChart1ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
+    SendMessage(hChart1ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
+
     // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
@@ -250,6 +259,13 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
+
+    // Чекбокс отображения заметок (Chart 2), изначально скрыт
+    hChart2ShowNotesCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x043A\x0430\x0437\x0430\x0442\x044C \x0437\x0430\x043C\x0435\x0442\x043A\x0438",
+        WS_CHILD | BS_AUTOCHECKBOX,
+        0, 0, 128, 18, hWnd, (HMENU)IDC_CHART2_SHOW_NOTES_CHECK, hInst, NULL);
+    SendMessage(hChart2ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
+    SendMessage(hChart2ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
 
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
@@ -366,6 +382,9 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     // Показываем/скрываем элементы Surf для Chart 2 (v2.14.0)
     ShowWindow(hChart2SurfCheck, showFlag);
     ShowWindow(hChart2SurfEdit, showFlag);
+
+    // Показываем/скрываем чекбокс отображения заметок для Chart 2
+    ShowWindow(hChart2ShowNotesCheck, showFlag);
 }
 
 void UIModule::PositionChart2Controls(int panel2Y) {
@@ -414,6 +433,56 @@ void UIModule::SetChart1TransmitterEnabled(int transmitterIdx, bool enabled) {
     }
 }
 
+void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const RECT& chart2Rect, bool dualMode) {
+    const int CHECK_WIDTH = 128;
+    const int CHECK_HEIGHT = 18;
+    const int RIGHT_MARGIN = 10;
+    const int TOP_OFFSET = 8;
+
+    if (hChart1ShowNotesCheck) {
+        int x1 = chart1Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
+        int y1 = chart1Rect.top + TOP_OFFSET;
+        SetWindowPos(hChart1ShowNotesCheck, HWND_TOP, x1, y1, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+    }
+
+    if (hChart2ShowNotesCheck) {
+        if (dualMode) {
+            int x2 = chart2Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
+            int y2 = chart2Rect.top + TOP_OFFSET;
+            SetWindowPos(hChart2ShowNotesCheck, HWND_TOP, x2, y2, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+        } else {
+            ShowWindow(hChart2ShowNotesCheck, SW_HIDE);
+        }
+    }
+}
+
+bool UIModule::IsNotesVisible(int chartNumber) const {
+    HWND hCheck = nullptr;
+
+    if (chartNumber == 1) {
+        hCheck = hChart1ShowNotesCheck;
+    } else if (chartNumber == 2) {
+        hCheck = hChart2ShowNotesCheck;
+    }
+
+    if (!hCheck) return true;
+    return SendMessage(hCheck, BM_GETCHECK, 0, 0) == BST_CHECKED;
+}
+
+void UIModule::SetNotesVisible(int chartNumber, bool visible) {
+    HWND hCheck = nullptr;
+
+    if (chartNumber == 1) {
+        hCheck = hChart1ShowNotesCheck;
+    } else if (chartNumber == 2) {
+        hCheck = hChart2ShowNotesCheck;
+    }
+
+    if (hCheck) {
+        SendMessage(hCheck, BM_SETCHECK, visible ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+}
+
 void UIModule::SetChart2TransmitterEnabled(int transmitterIdx, bool enabled) {
     if (transmitterIdx >= 0 && transmitterIdx < chart2EnabledTransmitters.size()) {
         chart2EnabledTransmitters[transmitterIdx] = enabled;
@@ -457,6 +526,19 @@ bool UIModule::HandleCommand(WPARAM wParam, LPARAM lParam, HWND hWnd) {
     case IDC_XRANGE2_RESET_BTN:
         if (wmEvent == BN_CLICKED) {
             // Обработка будет в ChartManager
+            needsRedraw = true;
+        }
+        break;
+
+    case IDC_CHART1_SHOW_NOTES_CHECK:
+    case IDC_CHART2_SHOW_NOTES_CHECK:
+        if (wmEvent == BN_CLICKED) {
+            // Скрываем focus cues, чтобы не показывать пунктирную рамку вокруг текста чекбокса.
+            // Состояние чекбокса при этом сохраняется штатно (BS_AUTOCHECKBOX).
+            HWND hControl = (HWND)lParam;
+            if (hControl) {
+                SendMessage(hControl, WM_UPDATEUISTATE, MAKEWPARAM(UIS_SET, UISF_HIDEFOCUS), 0);
+            }
             needsRedraw = true;
         }
         break;

@@ -674,6 +674,9 @@ void ChartManager::UpdateLayout(HWND hWnd)
         // Позиционируем элементы координат к правому краю только для Chart 1
         uiModule->PositionCursorControls(width, 0);
     }
+
+    // Позиционируем компактные чекбоксы отображения заметок в правом верхнем углу графиков
+    uiModule->PositionNotesVisibilityControls(layoutModule->GetChart1Rect(), layoutModule->GetChart2Rect(), dualMode);
     
     // Обновляем скроллбары после изменения компоновки
     UpdateScrollBars(hWnd);
@@ -718,8 +721,10 @@ void ChartManager::DrawChart1(HDC hdc)
         DrawChartLegacy(hdc, chart1Rect, 1);
     }
 
-    // v2.16.x: Отрисовываем точки заметок поверх графика
-    DrawNoteMarkers(hdc, chart1Rect, 1);
+    // v2.16.x: Отрисовываем точки заметок поверх графика (если включено)
+    if (uiModule->IsNotesVisible(1)) {
+        DrawNoteMarkers(hdc, chart1Rect, 1);
+    }
 
     // Отрисовываем перекрестие поверх графика
     DrawCrosshair(hdc, chart1Rect, 1);
@@ -746,8 +751,10 @@ void ChartManager::DrawChart2(HDC hdc)
         DrawChartLegacy(hdc, chart2Rect, 2);
     }
 
-    // v2.16.x: Отрисовываем точки заметок поверх графика
-    DrawNoteMarkers(hdc, chart2Rect, 2);
+    // v2.16.x: Отрисовываем точки заметок поверх графика (если включено)
+    if (uiModule->IsNotesVisible(2)) {
+        DrawNoteMarkers(hdc, chart2Rect, 2);
+    }
 
     // Отрисовываем перекрестие поверх графика
     DrawCrosshair(hdc, chart2Rect, 2);
@@ -927,6 +934,11 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             
         case IDC_CHART2_SURF_CHECK:
             HandleSurfToggle(hWnd, 2);
+            return true;
+
+        case IDC_CHART1_SHOW_NOTES_CHECK:
+        case IDC_CHART2_SHOW_NOTES_CHECK:
+            // Переключение отображения маркеров заметок
             return true;
             
         case IDC_CHART1_SURF_EDIT:
