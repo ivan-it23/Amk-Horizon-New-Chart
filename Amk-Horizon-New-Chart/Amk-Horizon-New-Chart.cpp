@@ -166,6 +166,112 @@ static void NotesJournal_InitListColumns(HWND hList) {
     ListView_InsertColumn(hList, kNotesJournalColSave, &col);
 }
 
+static void NotesJournal_UpdateColumnWidths(HWND hList, int listClientWidth) {
+    if (!hList) return;
+
+    const int dateW = 130;
+    const int presetW = 140;
+    const int cfgW = 150;
+    const int iconW = 28;
+    const int minNoteW = 180;
+
+    int noteW = listClientWidth - (dateW + presetW + cfgW + iconW + iconW);
+    if (noteW < minNoteW) noteW = minNoteW;
+
+    ListView_SetColumnWidth(hList, kNotesJournalColDate, dateW);
+    ListView_SetColumnWidth(hList, kNotesJournalColPreset, presetW);
+    ListView_SetColumnWidth(hList, kNotesJournalColConfig, cfgW);
+    ListView_SetColumnWidth(hList, kNotesJournalColNote, noteW);
+    ListView_SetColumnWidth(hList, kNotesJournalColEdit, iconW);
+    ListView_SetColumnWidth(hList, kNotesJournalColSave, iconW);
+}
+
+static void NotesJournal_LayoutControls(HWND hDlg) {
+    RECT rc{};
+    if (!GetClientRect(hDlg, &rc)) return;
+
+    const int clientWidth = static_cast<int>(rc.right - rc.left);
+    const int clientHeight = static_cast<int>(rc.bottom - rc.top);
+
+    const int margin = 10;
+    const int infoHeight = 16;
+    const int buttonWidth = 100;
+    const int closeWidth = 86;
+    const int buttonHeight = 26;
+    const int bottomGap = 10;
+    const int listTop = margin + infoHeight + 6;
+    const int buttonY = clientHeight - margin - buttonHeight;
+    const int listBottom = buttonY - bottomGap;
+
+    HWND hInfo = GetDlgItem(hDlg, IDC_NOTES_INFO_LABEL);
+    if (hInfo) {
+        SetWindowPos(hInfo,
+                     nullptr,
+                     margin,
+                     margin,
+                     (std::max)(100, clientWidth - margin * 2),
+                     infoHeight,
+                     SWP_NOZORDER);
+    }
+
+    HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+    if (hList) {
+        const int listWidth = (std::max)(200, clientWidth - margin * 2);
+        const int listHeight = (std::max)(120, listBottom - listTop);
+        SetWindowPos(hList,
+                     nullptr,
+                     margin,
+                     listTop,
+                     listWidth,
+                     listHeight,
+                     SWP_NOZORDER);
+
+        RECT listClient{};
+        if (GetClientRect(hList, &listClient)) {
+            NotesJournal_UpdateColumnWidths(hList, listClient.right - listClient.left);
+        }
+    }
+
+    HWND hRefresh = GetDlgItem(hDlg, IDC_NOTES_REFRESH_BTN);
+    if (hRefresh) {
+        SetWindowPos(hRefresh,
+                     nullptr,
+                     margin,
+                     buttonY,
+                     buttonWidth,
+                     buttonHeight,
+                     SWP_NOZORDER);
+    }
+
+    HWND hClose = GetDlgItem(hDlg, IDOK);
+    int closeX = clientWidth - margin - closeWidth;
+    const int minRightClusterX = margin + buttonWidth + margin;
+    if (closeX < (minRightClusterX + buttonWidth + margin)) {
+        closeX = minRightClusterX + buttonWidth + margin;
+    }
+    if (hClose) {
+        SetWindowPos(hClose,
+                     nullptr,
+                     closeX,
+                     buttonY,
+                     closeWidth,
+                     buttonHeight,
+                     SWP_NOZORDER);
+    }
+
+    HWND hApply = GetDlgItem(hDlg, IDC_NOTES_APPLY_BTN);
+    if (hApply) {
+        const int applyX = closeX - margin - buttonWidth;
+        SetWindowPos(hApply,
+                     nullptr,
+                     applyX,
+                     buttonY,
+                     buttonWidth,
+                     buttonHeight,
+                     SWP_NOZORDER);
+    }
+}
+
 static bool NotesJournal_EditRow(HWND hDlg, int row) {
     NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
     if (!ctx) return false;
@@ -352,9 +458,14 @@ static INT_PTR CALLBACK NotesJournalDialogProc(HWND hDlg, UINT message, WPARAM w
                 NotesJournal_InitListColumns(hList);
             }
 
+            NotesJournal_LayoutControls(hDlg);
             NotesJournal_Refresh(hDlg);
             return (INT_PTR)TRUE;
         }
+
+        case WM_SIZE:
+            NotesJournal_LayoutControls(hDlg);
+            return (INT_PTR)TRUE;
 
         case WM_COMMAND: {
             int id = LOWORD(wParam);
