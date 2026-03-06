@@ -2960,9 +2960,58 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         }
         
         int relX = screenX - chartRect.left - MARGIN_LEFT;
-        
+        double xRatio = static_cast<double>(relX) / static_cast<double>(plotWidth);
+        if (xRatio < 0.0) xRatio = 0.0;
+        if (xRatio > 1.0) xRatio = 1.0;
+
         // X координата
-        dataX = minX + (double)relX / plotWidth * (maxX - minX);
+        // В режиме TEMPERATURE ось X нелинейна относительно индекса кадра,
+        // поэтому нужна привязка к ближайшему индексу по температуре.
+        if (config.xAxisType == XAxisType::TEMPERATURE) {
+            std::vector<float> temperatureData;
+            dataModule->GetTemperatureData(temperatureData);
+
+            if (!temperatureData.empty()) {
+                size_t startIdx = 0;
+                size_t endIdx = temperatureData.size(); // exclusive
+
+                if (zoom.isZoomed) {
+                    startIdx = static_cast<size_t>((std::max)(0.0, zoom.minX));
+                    endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoom.maxX + 1.0));
+                    if (endIdx < startIdx) std::swap(startIdx, endIdx);
+                }
+
+                if (startIdx < endIdx && endIdx <= temperatureData.size()) {
+                    float minTemp = *std::min_element(temperatureData.begin() + startIdx,
+                                                      temperatureData.begin() + endIdx);
+                    float maxTemp = *std::max_element(temperatureData.begin() + startIdx,
+                                                      temperatureData.begin() + endIdx);
+                    if (maxTemp <= minTemp) {
+                        maxTemp = minTemp + 1.0f;
+                    }
+
+                    float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
+
+                    float bestDiff = FLT_MAX;
+                    size_t closestIdx = startIdx;
+                    for (size_t i = startIdx; i < endIdx; ++i) {
+                        float diff = fabs(temperatureData[i] - clickedTemp);
+                        if (diff < bestDiff) {
+                            bestDiff = diff;
+                            closestIdx = i;
+                        }
+                    }
+
+                    dataX = static_cast<double>(closestIdx);
+                } else {
+                    dataX = minX + xRatio * (maxX - minX);
+                }
+            } else {
+                dataX = minX + xRatio * (maxX - minX);
+            }
+        } else {
+            dataX = minX + xRatio * (maxX - minX);
+        }
 
         int clampedY = static_cast<int>((std::max)(dataRect.top, (std::min)(dataRect.bottom, static_cast<LONG>(screenY))));
         double yRatio = (double)(dataRect.bottom - clampedY) / dataHeight;
