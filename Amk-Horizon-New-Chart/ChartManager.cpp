@@ -813,8 +813,16 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     if (serialModule && serialModule->IsConnected()) {
         serialModule->Disconnect();
     }
-    
-    dataModule->LoadDataFromFile(filename);
+
+    std::wstring loadError;
+    if (!dataModule->LoadDataFromFile(filename, loadError)) {
+        const wchar_t* message = loadError.empty()
+            ? L"Не удалось открыть файл данных"
+            : loadError.c_str();
+        MessageBox(nullptr, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
+        return;
+    }
+
     currentDataFilePath = filename;
     if (notesModule) {
         EnsureNotesLoadedForPath(filename + L".notes.jsonl");
@@ -3566,7 +3574,12 @@ bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const 
         return false;
     }
 
-    if (!dataModule->LoadDataFromFile(filePathForPreload)) {
+    std::wstring loadError;
+    if (!dataModule->LoadDataFromFile(filePathForPreload, loadError)) {
+        const wchar_t* message = loadError.empty()
+            ? L"Не удалось открыть файл данных"
+            : loadError.c_str();
+        MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
         return false;
     }
 

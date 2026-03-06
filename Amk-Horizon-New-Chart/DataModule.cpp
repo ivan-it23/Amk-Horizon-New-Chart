@@ -6,6 +6,78 @@
 #include <cmath>
 #include <cwctype>  // v2.15.1: для towlower
 
+bool DataModule::ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature) {
+    const std::streamoff signatureOffset = (format == FileFormat::FORMAT_DEV) ? 11 : 0;
+
+    file.clear();
+    file.seekg(signatureOffset, std::ios::beg);
+    if (!file.good()) {
+        return false;
+    }
+
+    file.read(reinterpret_cast<char*>(&outSignature), sizeof(outSignature));
+    return static_cast<bool>(file);
+}
+
+uint32_t DataModule::DecodeToolCode(uint32_t signature) {
+    const uint32_t low20 = (signature << 12) >> 12;
+    return low20 / 1000u;
+}
+
+bool DataModule::IsDirectlySupportedToolCode(uint32_t toolCode) {
+    return toolCode == 151u || toolCode == 152u;
+}
+
+bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& outError) {
+    outError.clear();
+
+    const FileFormat format = DetectFileFormat(filename);
+    if (format == FileFormat::FORMAT_UNKNOWN) {
+        outError = L"Неподдерживаемый формат файла";
+        return false;
+    }
+
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        outError = L"Не удалось открыть файл данных";
+        return false;
+    }
+
+    file.seekg(0, std::ios::end);
+    const std::streamsize fileSize = file.tellg();
+    file.seekg(0, std::ios::beg);
+
+    if (fileSize <= 0) {
+        outError = L"Файл слишком короткий или не содержит корректную сигнатуру";
+        return false;
+    }
+
+    uint32_t signature = 0;
+    if (!ReadFileSignature(file, format, signature)) {
+        outError = L"Файл слишком короткий или не содержит корректную сигнатуру";
+        return false;
+    }
+
+    const uint32_t toolCode = DecodeToolCode(signature);
+    if (!IsDirectlySupportedToolCode(toolCode)) {
+        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+        return false;
+    }
+
+    const size_t frameSize = sizeof(GP_TOOL_DATA);
+    const size_t physicalFrameSize = (format == FileFormat::FORMAT_DEV) ? (11 + frameSize) : frameSize;
+
+    if (static_cast<size_t>(fileSize) < physicalFrameSize ||
+        (static_cast<size_t>(fileSize) % physicalFrameSize) != 0) {
+        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+        return false;
+    }
+
+    return true;
+}
+
 DataModule::DataModule() {
 }
 
@@ -39,9 +111,24 @@ FileFormat DataModule::DetectFileFormat(const std::wstring& filename) {
 }
 
 bool DataModule::LoadDataFromFile(const std::wstring& filename) {
-    std::ifstream file(filename, std::ios::binary);
-    if (!file.is_open())
+    std::wstring error;
+    return LoadDataFromFile(filename, error);
+}
+
+bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& outError) {
+    outError.clear();
+
+    if (!ValidateDataFile(filename, outError)) {
+        data.clear();
+        loadedFileName.clear();
         return false;
+    }
+
+    std::ifstream file(filename, std::ios::binary);
+    if (!file.is_open()) {
+        outError = L"Не удалось открыть файл данных";
+        return false;
+    }
         
     data.clear();
     
@@ -54,6 +141,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
     file.seekg(0, std::ios::beg);
     
     if (fileSize <= 0) {
+        outError = L"Файл слишком короткий или не содержит корректную сигнатуру";
         file.close();
         return false;
     }
@@ -73,6 +161,8 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
             frameCount = static_cast<size_t>(fileSize) / GP_TOOL_DATA_SIZE;
             
             if (frameCount == 0) {
+                outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                           L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
                 file.close();
                 return false;
             }
@@ -95,6 +185,8 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
             frameCount = static_cast<size_t>(fileSize) / DEV_BLOCK_SIZE;
             
             if (frameCount == 0) {
+                outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                           L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
                 file.close();
                 return false;
             }
@@ -119,24 +211,20 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename) {
             
         case FileFormat::FORMAT_UNKNOWN:
         default:
-            // Неизвестный формат - пробуем читать как .bin
-            frameCount = static_cast<size_t>(fileSize) / GP_TOOL_DATA_SIZE;
-            
-            if (frameCount == 0) {
-                file.close();
-                return false;
-            }
-            
-            data.reserve(frameCount);
-            
-            GP_TOOL_DATA record;
-            while (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
-                data.push_back(record);
-            }
+            outError = L"Неподдерживаемый формат файла";
+            file.close();
+            return false;
             break;
     }
     
     file.close();
+
+    if (data.empty()) {
+        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+        loadedFileName.clear();
+        return false;
+    }
     
     // Сохраняем имя файла без пути и расширения
     if (!data.empty()) {

@@ -3,6 +3,7 @@
 #include <vector>
 #include <string>
 #include <cstdint>
+#include <fstream>
 
 // Forward declarations
 struct CurveDefinition;
@@ -71,16 +72,22 @@ private:
     std::vector<GP_TOOL_DATA> data;
     std::wstring loadedFileName;  // Имя загруженного файла (без пути и расширения)
 
+    static bool ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature);
+    static uint32_t DecodeToolCode(uint32_t signature);
+    static bool IsDirectlySupportedToolCode(uint32_t toolCode);
+
 public:
     DataModule();
     ~DataModule();
 
     // Управление данными
     bool LoadDataFromFile(const std::wstring& filename);
+    bool LoadDataFromFile(const std::wstring& filename, std::wstring& outError);
     void ClearData();
     
     // v2.15.1: Определение формата файла по расширению
     static FileFormat DetectFileFormat(const std::wstring& filename);
+    static bool ValidateDataFile(const std::wstring& filename, std::wstring& outError);
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
