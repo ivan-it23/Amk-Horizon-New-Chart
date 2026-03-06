@@ -25,6 +25,8 @@ struct NotesJournalDialogContext {
     HWND hMainWnd = nullptr;
     std::wstring notesPath;
     std::vector<ChartNote> notes;
+    std::vector<std::wstring> draftTexts;
+    std::vector<bool> dirtyFlags;
     int targetChartNumber = 1;
 };
 
@@ -77,6 +79,56 @@ static std::wstring BuildNotePreview(const std::wstring& text) {
     return out;
 }
 
+static constexpr int kNotesJournalColDate = 0;
+static constexpr int kNotesJournalColPreset = 1;
+static constexpr int kNotesJournalColConfig = 2;
+static constexpr int kNotesJournalColNote = 3;
+static constexpr int kNotesJournalColEdit = 4;
+static constexpr int kNotesJournalColSave = 5;
+
+struct NoteEditDialogContext {
+    std::wstring text;
+    bool ok = false;
+};
+
+static INT_PTR CALLBACK NoteEditDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+        case WM_INITDIALOG: {
+            SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+            NoteEditDialogContext* ctx = reinterpret_cast<NoteEditDialogContext*>(lParam);
+            if (ctx) {
+                SetWindowText(hDlg, L"Редактирование заметки");
+                SetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, ctx->text.c_str());
+                SendMessage(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT), EM_SETSEL, 0, -1);
+                SetFocus(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT));
+                return (INT_PTR)FALSE;
+            }
+            return (INT_PTR)TRUE;
+        }
+
+        case WM_COMMAND: {
+            int id = LOWORD(wParam);
+            if (id == IDOK) {
+                NoteEditDialogContext* ctx = reinterpret_cast<NoteEditDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                if (ctx) {
+                    wchar_t buf[4096];
+                    GetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, buf, _countof(buf));
+                    ctx->text = buf;
+                    ctx->ok = true;
+                }
+                EndDialog(hDlg, IDOK);
+                return (INT_PTR)TRUE;
+            }
+            if (id == IDCANCEL) {
+                EndDialog(hDlg, IDCANCEL);
+                return (INT_PTR)TRUE;
+            }
+            break;
+        }
+    }
+    return (INT_PTR)FALSE;
+}
+
 static void NotesJournal_InitListColumns(HWND hList) {
     if (!hList) return;
 
@@ -85,23 +137,98 @@ static void NotesJournal_InitListColumns(HWND hList) {
 
     col.pszText = const_cast<LPWSTR>(L"Дата");
     col.cx = 130;
-    col.iSubItem = 0;
-    ListView_InsertColumn(hList, 0, &col);
+    col.iSubItem = kNotesJournalColDate;
+    ListView_InsertColumn(hList, kNotesJournalColDate, &col);
 
     col.pszText = const_cast<LPWSTR>(L"Пресет");
     col.cx = 140;
-    col.iSubItem = 1;
-    ListView_InsertColumn(hList, 1, &col);
+    col.iSubItem = kNotesJournalColPreset;
+    ListView_InsertColumn(hList, kNotesJournalColPreset, &col);
 
     col.pszText = const_cast<LPWSTR>(L"Конфигурация");
     col.cx = 150;
-    col.iSubItem = 2;
-    ListView_InsertColumn(hList, 2, &col);
+    col.iSubItem = kNotesJournalColConfig;
+    ListView_InsertColumn(hList, kNotesJournalColConfig, &col);
 
     col.pszText = const_cast<LPWSTR>(L"Заметка");
     col.cx = 250;
-    col.iSubItem = 3;
-    ListView_InsertColumn(hList, 3, &col);
+    col.iSubItem = kNotesJournalColNote;
+    ListView_InsertColumn(hList, kNotesJournalColNote, &col);
+
+    col.pszText = const_cast<LPWSTR>(L"");
+    col.cx = 28;
+    col.iSubItem = kNotesJournalColEdit;
+    ListView_InsertColumn(hList, kNotesJournalColEdit, &col);
+
+    col.pszText = const_cast<LPWSTR>(L"");
+    col.cx = 28;
+    col.iSubItem = kNotesJournalColSave;
+    ListView_InsertColumn(hList, kNotesJournalColSave, &col);
+}
+
+static bool NotesJournal_EditRow(HWND hDlg, int row) {
+    NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+    if (!ctx) return false;
+    if (row < 0 || static_cast<size_t>(row) >= ctx->notes.size()) return false;
+
+    if (ctx->draftTexts.size() != ctx->notes.size()) {
+        ctx->draftTexts.resize(ctx->notes.size());
+        for (size_t i = 0; i < ctx->notes.size(); ++i) {
+            ctx->draftTexts[i] = ctx->notes[i].text;
+        }
+    }
+    if (ctx->dirtyFlags.size() != ctx->notes.size()) {
+        ctx->dirtyFlags.assign(ctx->notes.size(), false);
+    }
+
+    NoteEditDialogContext dlgCtx;
+    dlgCtx.text = ctx->draftTexts[static_cast<size_t>(row)];
+    dlgCtx.ok = false;
+
+    HINSTANCE hInst = GetModuleHandle(nullptr);
+    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_DIALOG), hDlg, NoteEditDialogProc, (LPARAM)&dlgCtx);
+    if (!dlgCtx.ok) return false;
+
+    const size_t idx = static_cast<size_t>(row);
+    ctx->draftTexts[idx] = dlgCtx.text;
+    ctx->dirtyFlags[idx] = (ctx->draftTexts[idx] != ctx->notes[idx].text);
+
+    std::wstring preview = BuildNotePreview(ctx->draftTexts[idx]);
+    HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
+    if (hList) {
+        ListView_SetItemText(hList, row, kNotesJournalColNote, const_cast<LPWSTR>(preview.c_str()));
+    }
+    return true;
+}
+
+static bool NotesJournal_SaveRow(HWND hDlg, int row) {
+    NotesJournalDialogContext* ctx = reinterpret_cast<NotesJournalDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+    if (!ctx || !ctx->manager) return false;
+    if (row < 0 || static_cast<size_t>(row) >= ctx->notes.size()) return false;
+
+    const size_t idx = static_cast<size_t>(row);
+    if (ctx->dirtyFlags.size() != ctx->notes.size() || ctx->draftTexts.size() != ctx->notes.size() || !ctx->dirtyFlags[idx]) {
+        MessageBox(hDlg,
+                   L"Нет изменений для сохранения. Нажмите иконку редактирования, чтобы изменить текст.",
+                   L"Журнал заметок",
+                   MB_OK | MB_ICONINFORMATION);
+        return false;
+    }
+
+    if (!ctx->manager->UpdateNoteTextById(ctx->hMainWnd ? ctx->hMainWnd : hDlg,
+                                          ctx->notes[idx].noteId,
+                                          ctx->draftTexts[idx])) {
+        return false;
+    }
+
+    ctx->notes[idx].text = ctx->draftTexts[idx];
+    ctx->dirtyFlags[idx] = false;
+    if (ctx->hMainWnd) {
+        InvalidateRect(ctx->hMainWnd, nullptr, FALSE);
+    }
+
+    MessageBox(hDlg, L"Текст заметки сохранен.", L"Журнал заметок", MB_OK | MB_ICONINFORMATION);
+    return true;
 }
 
 static bool NotesJournal_Refresh(HWND hDlg) {
@@ -127,6 +254,14 @@ static bool NotesJournal_Refresh(HWND hDlg) {
 
     ctx->notes = std::move(notes);
     ctx->notesPath = std::move(notesPath);
+    ctx->draftTexts.clear();
+    ctx->dirtyFlags.clear();
+    ctx->draftTexts.reserve(ctx->notes.size());
+    ctx->dirtyFlags.reserve(ctx->notes.size());
+    for (const auto& note : ctx->notes) {
+        ctx->draftTexts.push_back(note.text);
+        ctx->dirtyFlags.push_back(false);
+    }
     ctx->targetChartNumber = ctx->manager->GetActiveChartNumber();
 
     HWND hList = GetDlgItem(hDlg, IDC_NOTES_JOURNAL_LIST);
@@ -148,9 +283,11 @@ static bool NotesJournal_Refresh(HWND hDlg) {
         item.pszText = const_cast<LPWSTR>(ts.c_str());
         int row = ListView_InsertItem(hList, &item);
         if (row >= 0) {
-            ListView_SetItemText(hList, row, 1, const_cast<LPWSTR>(preset.c_str()));
-            ListView_SetItemText(hList, row, 2, const_cast<LPWSTR>(cfg.c_str()));
-            ListView_SetItemText(hList, row, 3, const_cast<LPWSTR>(preview.c_str()));
+            ListView_SetItemText(hList, row, kNotesJournalColPreset, const_cast<LPWSTR>(preset.c_str()));
+            ListView_SetItemText(hList, row, kNotesJournalColConfig, const_cast<LPWSTR>(cfg.c_str()));
+            ListView_SetItemText(hList, row, kNotesJournalColNote, const_cast<LPWSTR>(preview.c_str()));
+            ListView_SetItemText(hList, row, kNotesJournalColEdit, const_cast<LPWSTR>(L"✎"));
+            ListView_SetItemText(hList, row, kNotesJournalColSave, const_cast<LPWSTR>(L"💾"));
         }
     }
 
@@ -238,6 +375,19 @@ static INT_PTR CALLBACK NotesJournalDialogProc(HWND hDlg, UINT message, WPARAM w
 
         case WM_NOTIFY: {
             LPNMHDR hdr = reinterpret_cast<LPNMHDR>(lParam);
+            if (hdr && hdr->idFrom == IDC_NOTES_JOURNAL_LIST && hdr->code == NM_CLICK) {
+                LPNMITEMACTIVATE pia = reinterpret_cast<LPNMITEMACTIVATE>(lParam);
+                if (pia && pia->iItem >= 0) {
+                    if (pia->iSubItem == kNotesJournalColEdit) {
+                        NotesJournal_EditRow(hDlg, pia->iItem);
+                        return (INT_PTR)TRUE;
+                    }
+                    if (pia->iSubItem == kNotesJournalColSave) {
+                        NotesJournal_SaveRow(hDlg, pia->iItem);
+                        return (INT_PTR)TRUE;
+                    }
+                }
+            }
             if (hdr && hdr->idFrom == IDC_NOTES_JOURNAL_LIST && hdr->code == NM_DBLCLK) {
                 NotesJournal_ApplySelected(hDlg);
                 return (INT_PTR)TRUE;

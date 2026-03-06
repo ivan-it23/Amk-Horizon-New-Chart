@@ -129,6 +129,7 @@ public:
     bool AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text);
     bool GetNotesForCurrentSource(std::vector<ChartNote>& outNotes, std::wstring& outNotesPath);
     bool ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int chartNumber);
+    bool UpdateNoteTextById(HWND hWnd, const std::string& noteId, const std::wstring& newText);
     int GetActiveChartNumber() const;
     
     // Методы для обработки событий мыши

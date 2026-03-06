@@ -171,12 +171,28 @@ bool NotesModule::LoadFromDisk() {
         if (line.empty()) continue;
 
         std::string op;
-        if (ExtractJsonStringField(line, "op", op) && op == "delete") {
-            std::string id;
-            if (ExtractJsonStringField(line, "noteId", id) && !id.empty()) {
-                noteMap.erase(id);
+        if (ExtractJsonStringField(line, "op", op)) {
+            if (op == "delete") {
+                std::string id;
+                if (ExtractJsonStringField(line, "noteId", id) && !id.empty()) {
+                    noteMap.erase(id);
+                }
+                continue;
             }
-            continue;
+
+            if (op == "update") {
+                std::string id;
+                std::string textUtf8;
+                if (ExtractJsonStringField(line, "noteId", id) &&
+                    ExtractJsonStringField(line, "text", textUtf8) &&
+                    !id.empty()) {
+                    auto it = noteMap.find(id);
+                    if (it != noteMap.end()) {
+                        it->second.text = WidenUtf8(textUtf8);
+                    }
+                }
+                continue;
+            }
         }
 
         ChartNote n;
@@ -293,6 +309,36 @@ bool NotesModule::DeleteNoteById(const std::string& noteId) {
 
     // Маркеры пересчитаются при следующей отрисовке
     renderedMarkers.clear();
+    return true;
+}
+
+bool NotesModule::UpdateNoteTextById(const std::string& noteId, const std::wstring& newText) {
+    if (noteId.empty()) return false;
+    if (notesPath.empty()) return false;
+
+    auto it = std::find_if(notes.begin(), notes.end(), [&](const ChartNote& n) {
+        return n.noteId == noteId;
+    });
+    if (it == notes.end()) return false;
+
+    std::ofstream out(notesPath, std::ios::binary | std::ios::app);
+    if (!out.is_open()) return false;
+
+    std::string textUtf8 = NarrowUtf8(newText);
+
+    std::ostringstream ss;
+    ss << "{";
+    ss << "\"op\":\"update\",";
+    ss << "\"noteId\":\"" << EscapeJsonString(noteId) << "\",";
+    ss << "\"updatedUtcMs\":" << NowUtcMs() << ",";
+    ss << "\"text\":\"" << EscapeJsonString(textUtf8) << "\"";
+    ss << "}\n";
+
+    const std::string line = ss.str();
+    out.write(line.data(), static_cast<std::streamsize>(line.size()));
+    out.close();
+
+    it->text = newText;
     return true;
 }
 

@@ -159,6 +159,7 @@
 #define IDC_NOTES_INFO_LABEL        1097
 #define IDC_CHART1_SHOW_NOTES_CHECK 1106
 #define IDC_CHART2_SHOW_NOTES_CHECK 1107
+#define IDC_NOTE_SAVE_BTN          1108
 
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092

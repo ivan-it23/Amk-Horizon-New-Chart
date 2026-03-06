@@ -51,6 +51,7 @@ public:
 
     bool AppendNote(const ChartNote& note);
     bool DeleteNoteById(const std::string& noteId);
+    bool UpdateNoteTextById(const std::string& noteId, const std::wstring& newText);
 
     void SetRenderedMarkers(std::vector<RenderedMarker>&& markers);
     const ChartNote* HitTestRenderedMarkers(int chartNumber, int x, int y, int radiusPx) const;

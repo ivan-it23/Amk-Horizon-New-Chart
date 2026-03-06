@@ -16,6 +16,7 @@ namespace {
         std::wstring text;
         std::string noteId;
         bool deleteRequested = false;
+        bool saveRequested = false;
     };
 
     static INT_PTR CALLBACK NoteViewDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -42,6 +43,18 @@ namespace {
                         EndDialog(hDlg, IDC_NOTE_DELETE_BTN);
                         return (INT_PTR)TRUE;
                     }
+                    return (INT_PTR)TRUE;
+                }
+
+                if (id == IDC_NOTE_SAVE_BTN) {
+                    NoteViewDialogContext* ctx = reinterpret_cast<NoteViewDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                    if (ctx) {
+                        wchar_t buf[4096];
+                        GetDlgItemText(hDlg, IDC_NOTE_VIEW_TEXT_EDIT, buf, _countof(buf));
+                        ctx->text = buf;
+                        ctx->saveRequested = true;
+                    }
+                    EndDialog(hDlg, IDC_NOTE_SAVE_BTN);
                     return (INT_PTR)TRUE;
                 }
 
@@ -356,6 +369,31 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
 
     ApplyCurveConfiguration(chartNumber, config);
     UpdateChartAfterConfigurationChange(hWnd, chartNumber);
+    return true;
+}
+
+bool ChartManager::UpdateNoteTextById(HWND hWnd, const std::string& noteId, const std::wstring& newText) {
+    if (!notesModule) return false;
+    if (noteId.empty()) return false;
+
+    const std::wstring notesPath = ResolveCurrentNotesPath();
+    if (notesPath.empty()) {
+        MessageBox(hWnd,
+                   L"Нет активного источника заметок для сохранения изменений.",
+                   L"Заметки",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    EnsureNotesLoadedForPath(notesPath);
+    if (!notesModule->UpdateNoteTextById(noteId, newText)) {
+        MessageBox(hWnd,
+                   L"Не удалось сохранить изменения заметки.",
+                   L"Заметки",
+                   MB_OK | MB_ICONERROR);
+        return false;
+    }
+
     return true;
 }
 
@@ -1015,6 +1053,7 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
             ctx.text = note->text;
             ctx.noteId = note->noteId;
             ctx.deleteRequested = false;
+            ctx.saveRequested = false;
 
             HINSTANCE hInst = GetModuleHandle(nullptr);
             DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_VIEW_DIALOG), hWnd, NoteViewDialogProc, (LPARAM)&ctx);
@@ -1022,6 +1061,10 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
             if (ctx.deleteRequested) {
                 (void)notesModule->DeleteNoteById(ctx.noteId);
                 InvalidateRect(hWnd, NULL, FALSE);
+            } else if (ctx.saveRequested) {
+                if (UpdateNoteTextById(hWnd, ctx.noteId, ctx.text)) {
+                    InvalidateRect(hWnd, NULL, FALSE);
+                }
             }
             return;
         }
