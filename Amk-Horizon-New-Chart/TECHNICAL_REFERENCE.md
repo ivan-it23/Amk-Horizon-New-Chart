@@ -1,8 +1,26 @@
-# 🔧 Техническая документация AMK-Horizon-New-Chart
+# Техническая справка AMK-Horizon-New-Chart
 
-## 📊 Структуры данных
+> Статус: актуально для текущей ветки `main`.
 
-### XAxisType (v2.10.0)
+## Назначение документа
+
+Этот файл — **компактная техническая справка** по текущим инвариантам приложения:
+
+- структурам данных
+- преобразованиям значений
+- правилам геометрии/осей/координат
+- зонам ответственности модулей
+
+Детали, вынесенные в отдельные документы:
+
+- формат файлов: `..\FILE_FORMATS_ANALYSIS.md`
+- файловая валидация: `..\FILE_VALIDATION_FOR_5TX_MODEL.md`
+- точка истины по структурам: `ANALYSIS_GP_TOOL_DATA.md`
+- краткий статус ветки: `..\PROJECT_STATUS.md`
+
+## Структуры данных
+
+### XAxisType
 ```cpp
 enum class XAxisType {
     FRAME_NUMBER,   // Номер кадра (по умолчанию)
@@ -44,7 +62,8 @@ enum class DataType {
     RHO_SMT,                 // Симметризованные УЭС (5 каналов)
     SILENT_AMPLITUDE_RX1,    // Амплитуды молчащих передатчиков RX1 (1 канал)
     SILENT_AMPLITUDE_RX2,    // Амплитуды молчащих передатчиков RX2 (1 канал)
-    TEMPERATURE              // Температура (1 значение на запись)
+    SILENT_PHASE_DIFFERENCE, // Разность фаз молчащих передатчиков R2−R1 (источник: ZERO_dPH) (1 канал)
+    TEMPERATURE              // Температура прибора (1 значение на запись)
 };
 ```
 
@@ -79,9 +98,9 @@ struct CurveDefinition {
 };
 ```
 
-## 🔄 Формулы преобразования данных
+## Формулы преобразования данных
 
-### Нормализация фаз (v2.3.0)
+### Нормализация фаз
 ```cpp
 float NormalizePhase(float phaseRadians) {
     const float PI = 3.14159265358979323846f;
@@ -92,7 +111,7 @@ float NormalizePhase(float phaseRadians) {
 // Приводит фазу к диапазону (-π, π]
 ```
 
-### Преобразование амплитуд (v2.2.2)
+### Преобразование амплитуд
 ```cpp
 float ConvertAmplitudeToMillivolts(float rawValue) {
     return rawValue * 4000.0f / pow(2.0f, 24.0f);
@@ -100,7 +119,7 @@ float ConvertAmplitudeToMillivolts(float rawValue) {
 // Сырые данные АЦП → милливольты (mV)
 ```
 
-### Преобразование фаз (v2.2.3)
+### Преобразование фаз
 ```cpp
 float ConvertPhaseToMillidegrees(float radians) {
     return radians * 57295.7795f;  // (180/π) * 1000
@@ -113,7 +132,7 @@ float ConvertPhaseToMillidegrees(float radians) {
 2. Нормализация: `NormalizePhase(phase)`
 3. Преобразование: `phase * 57295.7795f`
 
-## 📐 Отступы области графика (plotRect) (v2.12.2)
+## Отступы области графика (`plotRect`)
 
 ### Унифицированные отступы
 Все методы, работающие с координатами графика, используют одинаковые отступы:
@@ -142,7 +161,7 @@ plotRect.bottom = chartRect.bottom - 50;
 ### Важно
 Все методы должны использовать **одинаковые отступы**, иначе координаты при клике не будут совпадать с подписями на осях.
 
-## 📊 Пропорциональный zoom для двойных осей (v2.12.2)
+## Пропорциональный zoom для двойных осей
 
 ### Проблема
 При zoom/scroll по оси Y изменяется диапазон левой оси, но правая ось имеет другие единицы измерения (мВ vs мдег) и другой диапазон значений.
@@ -172,7 +191,7 @@ double maxYRight = rightMinFull + maxRatio * rightFullRange;
 - При scroll обе оси смещаются пропорционально
 - Визуально кривые на обеих осях масштабируются синхронно
 
-## 📊 Расположение осей Y (v2.7.0)
+## Расположение осей Y
 
 ### Логика двойных осей
 При отображении графиков с двумя типами данных (амплитуды + фазы):
@@ -193,7 +212,7 @@ curve.yAxisGroup = 1;  // Правая ось (мВ)
 - **Только фазы**: Левая ось (мдег)
 - **Только амплитуды**: Левая ось (мВ)
 
-## 📊 Статусная строка (v2.8.0)
+## Статусная строка
 
 ### Структура статусной строки
 Статусная строка состоит из 4 частей:
@@ -247,7 +266,7 @@ const int STATUSBAR_HEIGHT = 25;
 chart1Rect.bottom = windowHeight - MARGIN - STATUSBAR_HEIGHT;
 ```
 
-## 🏗️ Основные модули
+## Основные модули
 
 ### DataModule
 ```cpp
@@ -272,7 +291,7 @@ void CalculateCustomCurveData(const std::vector<CurveDefinition>& curves,
 void CreateControls(HWND hWnd, HINSTANCE hInst);
 void UpdateControlsVisibility(bool showChart2Controls);
 
-// Управление статусной строкой (v2.8.0)
+// Управление статусной строкой
 void UpdateStatusBar(const std::wstring& text);
 void UpdateStatusBarCoordinates(double x, double y1, const std::wstring& y1Unit,
                                 double y2, const std::wstring& y2Unit,
@@ -300,7 +319,7 @@ void DrawDualAxisChart(HDC hdc, const RECT& rect,
                       const std::vector<std::vector<float>>& rightAxisData,
                       const std::wstring& title, bool hasData) const;
 
-// Получение диапазонов данных (v2.8.0)
+// Получение диапазонов данных
 void GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
                   const std::vector<std::vector<float>>& rightAxisData,
                   double& minX, double& maxX,
@@ -310,19 +329,19 @@ void GetDataRanges(const std::vector<std::vector<float>>& leftAxisData,
 
 ### ChartManager
 ```cpp
-// Обработка событий мыши (v2.8.0)
+// Обработка событий мыши
 void HandleMouseMoveForCoordinates(HWND hWnd, int x, int y);
 
-// Преобразование координат (v2.8.0)
+// Преобразование координат
 bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY,
                                 double& dataX, double& dataY1, double& dataY2,
                                 std::wstring& y1Unit, std::wstring& y2Unit,
                                 bool& hasDualAxis) const;
 
-// Получение единиц измерения (v2.8.0)
+// Получение единиц измерения
 std::wstring GetUnitForDataType(DataType dataType) const;
 
-// Обновление информации о файле (v2.8.0)
+// Обновление информации о файле
 void UpdateStatusBarFileInfo();
 ```
 
@@ -352,774 +371,117 @@ ChartConfiguration GetChartConfiguration(int chartNumber) const;
 // Пресеты
 void ApplyPreset(PresetType preset, int chartNumber, FrequencyBand frequency);
 
-// Вычисление данных кривых
-void CalculateCurveData(const ChartConfiguration& config, 
-                       const DataModule* dataModule,
-                       std::vector<std::vector<float>>& leftAxisData,
-                       std::vector<std::vector<float>>& rightAxisData) const;
-```
+ // Вычисление данных кривых
+ void CalculateCurveData(const ChartConfiguration& config, 
+                        const DataModule* dataModule,
+                        std::vector<std::vector<float>>& leftAxisData,
+                        std::vector<std::vector<float>>& rightAxisData) const;
+ ```
 
-## 🎨 Константы
+## UI и визуальные инварианты
 
 ### Цвета каналов T1-T5
-```cpp
-const COLORREF CHANNEL_COLORS[5] = {
-    RGB(0, 128, 0),    // T1 - Зелёный
-    RGB(139, 69, 19),  // T2 - Коричневый
-    RGB(255, 0, 0),    // T3 - Красный
-    RGB(0, 0, 255),    // T4 - Синий
-    RGB(255, 20, 147)  // T5 - Розовый
-};
-```
 
-### Расширенная палитра (12 цветов)
-```cpp
-const COLORREF EXTENDED_PALETTE[12] = {
-    RGB(0, 128, 0),      // Зелёный (T1)
-    RGB(139, 69, 19),    // Коричневый (T2)
-    RGB(255, 0, 0),      // Красный (T3)
-    RGB(0, 0, 255),      // Синий (T4)
-    RGB(0, 100, 100),    // Тёмно-бирюзовый
-    RGB(139, 69, 19),    // Коричневый
-    RGB(128, 0, 128),    // Фиолетовый
-    RGB(255, 20, 147),   // Розовый
-    RGB(255, 140, 0),    // Тёмно-оранжевый
-    RGB(0, 128, 128),    // Бирюзовый
-    RGB(128, 128, 0),    // Оливковый
-    RGB(75, 0, 130)      // Индиго
-};
-```
+Каналы T1-T5 имеют стабильное цветовое кодирование. Для актуальных значений нужно ориентироваться на константы в коде (`ChartModule.cpp`, `CurveSelectionModule.cpp`, `SchematicModule.cpp`), а не на исторические changelog-записи.
 
-### Цвета элементов схемы
-```cpp
-const COLORREF TRANSMITTER_COLOR = RGB(180, 100, 100);  // Передатчики
-const COLORREF RECEIVER_COLOR = RGB(100, 180, 100);     // Приемники
-const COLORREF SILENT_TX_COLOR = RGB(128, 128, 128);    // Молчащие
-const COLORREF SELECTION_COLOR = RGB(255, 255, 0);      // Выделение
-```
+### Правила выбора элементов на схеме
 
-## 📁 Формат файлов
+Ключевые инварианты выбора:
 
-### Бинарный формат данных
-- **Расширение**: *.bin
-- **Структура**: Последовательность записей GP_TOOL_DATA
-- **Размер записи**: 240 байт
-- **Порядок байтов**: Little Endian
-- **Тип данных**: IEEE 754 float (32-bit)
+- должен быть выбран хотя бы один источник данных
+- нельзя одновременно выбирать передатчики и приёмники как два независимых сценария
+- комбинация `R1 + R2 + Silent` невалидна
 
-### Структура записи
-```
-Offset  Size  Field
-0       240   GP_TOOL_DATA (см. `DataModule.h`)
-```
+Практический эффект:
 
-### Форматы `.bin/.biv/.DEV` (файловый контейнер)
-См. `..\FILE_FORMATS_ANALYSIS.md`. Важно:
-- `.bin/.biv` — просто последовательность `GP_TOOL_DATA` (240 байт/кадр)
-- `.DEV` — **11 служебных байт + 240 байт данных** (251 байт/кадр). Это соответствует методическим материалам: для внешней программной совместимости к структуре данных присоединяются 11 байт служебной информации.
-
-## 📡 Протокол обмена по COM (методические материалы)
-Источник: `Методичка-фото-1.png`, `Методичка-фото-2.png`; реализация: `SerialModule.cpp`; эмулятор: `arduino_5Tx_tools_emul_only.ino`.
-
-### UART
-- **Скорость**: 125000 бод
-
-### Формат пакета
-`[CMD:1][LEN:2][PAYLOAD:(LEN-5)][CRC16:2]`
-- `LEN` — **общее** количество байт пакета (payload + 5 байт служебных: CMD+LEN+CRC)
-- CRC16 — Modbus, считается по `CMD+LEN+PAYLOAD` (первые `LEN-2` байт пакета)
-
-### Команды (актуально для приложения)
-- `0x11` — запрос данных измерений
-  - запрос: `LEN = 5`, payload отсутствует
-  - ответ: payload = `GP_TOOL_DATA` (240 байт), `LEN = 245`
-- `0x13` — запрос метрологии
-  - запрос: `LEN = 5`
-  - ответ: payload = `METROLOGY_DATA` (240 байт), `LEN = 245`
-- `0x16` — запрос сигнатуры прибора/модификации
-  - запрос: `LEN = 5`
-  - ответ: payload = `uint32_t signature` (4 байта), `LEN = 9`
-
-### Команды записи (используются в форме метрологии)
-- `0x12` — запись метрологии в прибор
-  - запрос: payload = `METROLOGY_DATA` (240 байт), `LEN = 245`
-  - ответ: квитанция без payload, `LEN = 5`
-- `0x17` — запись `selected_key`
-  - запрос: payload = `uint32_t selected_key` (4 байта), `LEN = 9`
-  - ответ: квитанция без payload, `LEN = 5`
-
-## 🧪 Форма метрологии (текущая реализация)
-
-Реализация: `Amk-Horizon-New-Chart.cpp`, модуль данных: `MetrologyModule.cpp/h`.
-
-- Окно немодальное; при закрытии скрывается.
-- Поддержан текущий сценарий AUTONOM 5Tx.
-- Кнопки формы:
-  - открыть метрологию из файла (`.bin`, 240 байт)
-  - сохранить метрологию в файл
-  - прочитать из зонда (`CMD 0x13`)
-  - записать в зонд (`CMD 0x12`)
-  - записать `selected_key` (`CMD 0x17`)
-- `signature` строится в legacy-совместимом формате:
-  - `low20 = tool_type*100000 + N_Tx*10000 + mod*1000 + number`
-  - для AUTONOM 5Tx: `tool_type=1`, `N_Tx=5`
-  - `number` поддерживается в диапазоне `0..999`
-- В UI поле `D, мм` удалено, но поле `D_sonde_mm` остаётся в структуре и используется в сервисных сценариях.
-
-### Тайминги (важно для таймаутов/ретраев)
-По методичке цикл измерения занимает порядка **600 мс** — во время измерения прибор может не отвечать. В приложении запросы сделаны с таймаутом и ретраями (особенно для метрологии), чтобы устойчиво получать S/N и диаметр для именования файлов записи.
-
-## 📁 Запись потока в файл (при опросе по COM)
-Реализация: `SerialModule.cpp`.
-
-- **Папка по умолчанию**: `%USERPROFILE%\Desktop\AMK_Data` (fallback: `.\AMK_Data`)
-- **Формат файла**: `.bin` как последовательность `GP_TOOL_DATA` (240 байт/кадр)
-- **Имя файла**: `AMK_[S/N]_[D]_[YYYYMMDD]_[HHMMSS].bin`
-- **Если метрология ещё не получена**: файл может стартовать как `AMK_Unknown_...`, затем автоматически переименовывается после получения `METROLOGY_DATA` (S/N и `D_sonde_mm`).
-
-## 🔧 Логика выбора элементов
-
-### Правила валидации
-```cpp
-bool IsValid() const {
-    // Должен быть выбран хотя бы один элемент
-    if (receivers == 0 && transmitters == 0 && silent == 0) return false;
-    
-    // Нельзя одновременно выбирать передатчики и приемники
-    if (transmitters > 0 && receivers > 0) return false;
-    
-    // Запрещена комбинация: оба приемника + молчащие
-    if (silent > 0 && receivers == 2) return false;
-    
-    return true;
-}
-```
-
-### Определение доступных кривых
-- **Два приемника (R1+R2)**: Отношения амплитуд и разности фаз (5 кривых T1-T5)
-- **Один приемник (R1 или R2)**: Амплитуды и разности фаз для T1-T5 (10 кривых при включенных обоих типах)
-- **Выбранные передатчики**: Амплитуды и фазы для R1 и R2
-- **Молчащие передатчики**: Только амплитуды
+- `R1 + R2` даёт отношения амплитуд и разности фаз
+- одиночный `R1` или `R2` даёт амплитуды и фазы выбранного приёмника
+- `Silent` даёт silent-амплитуды и `ZERO_dPH`-кривые
 
 ---
 
-## 🔧 Zoom и скроллинг по оси Y (v2.12.0)
+## Zoom, scroll и ось X
 
-### Обзор
-Версия 2.12.0 добавляет полную поддержку zoom и скроллинга по оси Y, что позволяет детально анализировать данные как по горизонтали, так и по вертикали.
+### Инварианты zoom
 
-### Структура ZoomRange
-```cpp
-struct ZoomRange {
-    double minX, maxX, minY, maxY;
-    bool isZoomed;
-    
-    ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false) {}
-};
-```
+- `zoom->minX` и `zoom->maxX` всегда хранят **индексы кадров**
+- диапазон по Y влияет на отображение, а не на фильтрацию исходных данных по Y
+- минимальный диапазон zoom:
+  - `MIN_X_RANGE = 10`
+  - `MIN_Y_RANGE = 10`
 
-**Поля:**
-- `minX`, `maxX` - диапазон по оси X (индексы кадров или температура)
-- `minY`, `maxY` - диапазон по оси Y (значения данных)
-- `isZoomed` - флаг активного zoom
+### Вертикальный scrollbar
 
-### Новые методы UIModule
+- один вертикальный scrollbar управляет отображаемым диапазоном Y
+- для dual-axis графика правая ось масштабируется **пропорционально** левой
+- вертикальный scrollbar инвертирован: визуальный верх соответствует верхней части графика
 
-#### SetVScrollBarRange
-```cpp
-void SetVScrollBarRange(int chartNumber, int min, int max, int page, int pos);
-```
+### XAxisType
 
-**Назначение**: Настройка диапазона вертикального scrollbar
+Поддерживаются два режима оси X:
 
-**Параметры**:
-- `chartNumber` - номер графика (1 или 2)
-- `min` - минимальное значение (обычно 0)
-- `max` - максимальное значение (обычно 100)
-- `page` - размер страницы (пропорционален видимому диапазону)
-- `pos` - текущая позиция ползунка
+- `FRAME_NUMBER`
+- `TEMPERATURE`
 
-**Особенность**: Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
+Важно:
 
-#### GetVScrollBar
-```cpp
-HWND GetVScrollBar(int chartNumber) const;
-```
+- даже в режиме `TEMPERATURE` внутренний zoom и навигация работают через **индексы кадров**
+- температура используется как способ позиционирования точки по X при отрисовке и coordinate mapping
 
-**Назначение**: Получение handle вертикального scrollbar
+### Surf и X Range
 
-**Возвращает**: HWND вертикального scrollbar или nullptr
-
-### Обновлённые методы ChartManager
-
-#### HandleMouseUp
-```cpp
-void HandleMouseUp(HWND hWnd, int x, int y);
-```
-
-**Изменения**:
-- Добавлена проверка минимального диапазона Y
-- Константа `MIN_Y_RANGE = 10.0`
-- Сообщение пользователю при достижении предела
-
-**Логика проверки**:
-```cpp
-const double MIN_Y_RANGE = 10.0;
-double yRange = maxDataY - minDataY;
-
-if (yRange < MIN_Y_RANGE) {
-    MessageBox(hWnd, 
-        L"Cannot zoom further: Y-axis range must be at least 10 units.\nMinimum range is 10 units.",
-        L"Zoom Limit Reached", 
-        MB_OK | MB_ICONINFORMATION);
-}
-```
-
-#### HandleScrollEvent (v2.12.3 - исправлено)
-```cpp
-void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
-```
-
-**Изменения v2.12.3**:
-- Исправлена формула скроллинга с учётом `nPage` в Windows API
-- Реальный максимум позиции скроллбара = `nMax - nPage + 1`, а не `nMax`
-
-**Алгоритм горизонтального скроллинга (исправленный)**:
-```cpp
-// Горизонтальный скроллинг (ось X)
-double totalRange = static_cast<double>(dataModule->GetDataSize() - 1);
-double viewRange = zoom->maxX - zoom->minX;
-
-// Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
-int maxScrollPos = si.nMax - (int)si.nPage + 1;
-double scrollRatio = (maxScrollPos > 0) ? (double)newPos / (double)maxScrollPos : 0.0;
-double newMinX = scrollRatio * (totalRange - viewRange);
-zoom->minX = newMinX;
-zoom->maxX = newMinX + viewRange;
-```
-
-**Алгоритм вертикального скроллинга (исправленный)**:
-```cpp
-if (isVertical) {
-    // Получаем полный диапазон Y из данных
-    double totalYRange = maxYFull - minYFull;
-    double viewYRange = zoom->maxY - zoom->minY;
-    
-    // Вертикальный scrollbar инвертирован (верх = 0, низ = maxScrollPos)
-    // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
-    int maxScrollPos = si.nMax - (int)si.nPage + 1;
-    double scrollRatio = (maxScrollPos > 0) ? (double)(maxScrollPos - newPos) / (double)maxScrollPos : 0.0;
-    double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
-    zoom->minY = newMinY;
-    zoom->maxY = newMinY + viewYRange;
-}
-```
-
-**Важно**: В Windows API при установке `SCROLLINFO` с `nPage`:
-- `nMax = 100` (устанавливаем)
-- `nPage = (viewRange / totalRange) * 100` (размер видимой области)
-- Реальный максимум позиции = `100 - nPage + 1`
-
-#### UpdateScrollBars
-```cpp
-void UpdateScrollBars(HWND hWnd);
-```
-
-**Изменения**:
-- Добавлена настройка вертикального scrollbar
-- Получение полного диапазона Y из данных
-- Вычисление позиции с учётом инверсии
-
-**Алгоритм настройки вертикального scrollbar**:
-```cpp
-// Получаем полный диапазон Y из данных
-ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
-std::vector<std::vector<float>> leftAxisData, rightAxisData;
-curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, ...);
-
-double minYFull, maxYFull, ...;
-chartModule->GetDataRanges(leftAxisData, rightAxisData, ..., minYFull, maxYFull, ...);
-
-double totalYRange = maxYFull - minYFull;
-double viewRangeY = zoom->maxY - zoom->minY;
-
-// Вертикальный scrollbar инвертирован (верх = 0, низ = 100)
-int vScrollPos = static_cast<int>(100.0 - ((zoom->minY - minYFull) / (totalYRange - viewRangeY)) * 100.0);
-uiModule->SetVScrollBarRange(chartNumber, 0, 100, static_cast<int>((viewRangeY / totalYRange) * 100), vScrollPos);
-```
-
-#### DrawChartWithCurves
-```cpp
-void DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber);
-```
-
-**Изменения**:
-- При активном zoom данные фильтруются только по X (по Y данные не фильтруются)
-- Диапазон по Y используется только для отображения (оси/сетка/проекция)
-- Для сохранения визуального разделения после zoom применяется дополнительный отступ при отрисовке
-
-**Пример**:
-```cpp
-if (zoom->isZoomed) {
-    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                           leftAxisData, rightAxisData,
-                                           leftAxisCurves, rightAxisCurves,
-                                           zoom->minX, zoom->maxX, -1e10, 1e10);
-}
-
-// Получаем диапазоны Y из данных (полный диапазон выбранного участка по X)
-double minYData, maxYData, ...;
-chartModule->GetDataRanges(leftAxisData, rightAxisData, ..., minYData, maxYData, ...);
-
-// Передаём в методы отрисовки диапазон для отображения
-// (при zoom используется zoom->minY/maxY, при необходимости расширяется для визуального отступа)
-chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
-                             leftAxisData, rightAxisData,
-                             title, dataModule->HasData(),
-                             zoom->isZoomed ? zoom->minX : 0.0,
-                             zoom->isZoomed ? zoom->maxX : ...,
-                             zoom->isZoomed ? zoom->minY : minYData,
-                             zoom->isZoomed ? zoom->maxY : maxYData,
-                             showAxes);
-```
-
-### Позиционирование вертикального scrollbar
-
-**Константы**:
-```cpp
-const int SCROLLBAR_SIZE = 15;     // Размер scrollbar
-const int MARGIN_RIGHT = 20;       // Отступ справа
-const int MARGIN_TOP = 60;         // Отступ сверху
-const int MARGIN_BOTTOM = 5;       // Отступ снизу
-```
-
-**Формула позиционирования**:
-```cpp
-SetWindowPos(hVScrollBar, HWND_TOP,
-             chartRect.right - SCROLLBAR_SIZE - MARGIN_RIGHT,  // X позиция
-             chartRect.top + MARGIN_TOP,                       // Y позиция
-             SCROLLBAR_SIZE,                                   // Ширина
-             chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM - SCROLLBAR_SIZE,  // Высота
-             SWP_NOZORDER);
-```
-
-### Двойные оси
-
-**Поведение**: Zoom и scroll применяются к обеим осям Y одновременно
-
-**Реализация**:
-- Один вертикальный scrollbar управляет обеими осями
-- Левая ось (фазы) и правая ось (амплитуды) масштабируются пропорционально
-- Диапазон Y определяется по левой оси (основной)
-
-### Инверсия вертикального scrollbar
-
-**Причина**: В Windows координата Y растёт вниз, но для пользователя логично, что верх scrollbar = верх графика
-
-**Формула преобразования**:
-```cpp
-// Позиция scrollbar → позиция данных
-double newMinY = minYFull + ((100.0 - scrollPos) / 100.0) * (totalYRange - viewYRange);
-
-// Позиция данных → позиция scrollbar
-int scrollPos = static_cast<int>(100.0 - ((zoom->minY - minYFull) / (totalYRange - viewYRange)) * 100.0);
-```
-
-### Константы
-
-**Минимальные диапазоны**:
-```cpp
-const double MIN_X_RANGE = 10.0;  // Минимальный диапазон по X
-const double MIN_Y_RANGE = 10.0;  // Минимальный диапазон по Y
-```
-
-**ID элементов управления**:
-```cpp
-#define IDC_CHART1_VSCROLL  1041  // Вертикальный scrollbar для Chart 1
-#define IDC_CHART2_VSCROLL  1042  // Вертикальный scrollbar для Chart 2
-```
-
-### Примеры использования
-
-#### Zoom по обеим осям
-```cpp
-// Пользователь выделяет область мышью
-HandleMouseDown(hWnd, x1, y1);
-HandleMouseMove(hWnd, x2, y2);
-HandleMouseUp(hWnd, x2, y2);
-
-// Преобразование координат
-ConvertScreenToDataCoords(chartNum, x1, y1, minDataX, minDataY);
-ConvertScreenToDataCoords(chartNum, x2, y2, maxDataX, maxDataY);
-
-// Проверка минимальных диапазонов
-if (xRange >= MIN_X_RANGE && yRange >= MIN_Y_RANGE) {
-    zoom->minX = minDataX;
-    zoom->maxX = maxDataX;
-    zoom->minY = minDataY;
-    zoom->maxY = maxDataY;
-    zoom->isZoomed = true;
-}
-```
-
-#### Вертикальный скроллинг
-```cpp
-// Пользователь перемещает вертикальный scrollbar
-HandleScrollEvent(hWnd, wParam, lParam);
-
-// Определение типа scrollbar
-if (hScrollBar == uiModule->GetVScrollBar(chartNumber)) {
-    isVertical = true;
-}
-
-// Обновление диапазона Y
-if (isVertical) {
-    double newMinY = minYFull + ((100.0 - newPos) / 100.0) * (totalYRange - viewYRange);
-    zoom->minY = newMinY;
-    zoom->maxY = newMinY + viewYRange;
-}
-```
+При активном Surf поля `X Range` не должны автоматически перезаписывать пользовательский ввод. Это поведение считается инвариантом UI.
 
 ---
 
-**Техническая документация AMK-Horizon-New-Chart v2.12.0** - справочник для разработчиков
+## Файлы, протокол и метрология
 
+В этом документе эти темы подробно не дублируются.
 
-## 🔬 Кроссплот: Температура на оси X (v2.10.0)
+Используйте профильные документы:
 
-### Обзор
-Версия 2.10.0 добавляет возможность отображения температуры на оси X вместо номера кадра, что позволяет строить кроссплоты для анализа температурных зависимостей.
+- файловые контейнеры `.bin/.biv/.DEV` → `..\FILE_FORMATS_ANALYSIS.md`
+- файловая валидация → `..\FILE_VALIDATION_FOR_5TX_MODEL.md`
+- измерительные и метрологические структуры → `ANALYSIS_GP_TOOL_DATA.md`
+- текущие ограничения и статус ветки → `..\PROJECT_STATUS.md`
 
-### Новые методы DataModule
+Коротко:
 
-#### GetTemperatureData
-```cpp
-void GetTemperatureData(std::vector<float>& outData) const;
-void GetTemperatureData(std::vector<float>& outData, double minX, double maxX) const;
-```
-
-**Назначение**: Получение массива температур для использования на оси X
-
-**Параметры**:
-- `outData` - выходной массив температур
-- `minX`, `maxX` - диапазон индексов данных (опционально)
-
-**Пример использования**:
-```cpp
-std::vector<float> temperatures;
-dataModule->GetTemperatureData(temperatures);
-// temperatures[i] содержит температуру для i-го кадра
-```
-
-### Новые методы ChartModule
-
-#### DrawChart с температурой
-```cpp
-void DrawChart(HDC hdc, const RECT& rect, 
-               const std::vector<std::vector<float>>& chartData,
-               DataType type, const std::wstring& title, bool hasData,
-               const std::vector<bool>& enabledTransmitters, 
-               const DataModule* dataModule,
-               double minXData, double maxXData, 
-               double minYData, double maxYData,
-               const std::vector<float>& xAxisData, 
-               bool showAxes = true) const;
-```
-
-**Новый параметр**: `xAxisData` - массив значений для оси X (температуры)
-
-#### DrawChartData с температурой
-```cpp
-void DrawChartData(HDC hdc, const RECT& plotRect, 
-                   const std::vector<std::vector<float>>& chartData,
-                   const std::vector<float>& xAxisData, 
-                   double minXData, double maxXData) const;
-```
-
-**Логика отрисовки**:
-- X координата точки определяется по температуре из `xAxisData[i]`
-- Автоматическое определение диапазона температур
-- Линейное масштабирование температуры на ширину графика
-
-#### DrawGridAndAxes с температурой
-```cpp
-void DrawGridAndAxes(HDC hdc, const RECT& plotRect, 
-                     const std::vector<std::vector<float>>& chartData,
-                     const DataModule* dataModule, 
-                     const std::vector<float>& xAxisData,
-                     double minXData, double maxXData, 
-                     double minYData, double maxYData) const;
-```
-
-**Особенности**:
-- Подписи оси X в формате "%.1f°C"
-- 10 вертикальных линий сетки с равномерным распределением температур
-- Автоматическое определение min/max температуры для отображаемого диапазона
-
-### Алгоритм отрисовки кроссплота
-
-```cpp
-// 1. Получение температурных данных
-std::vector<float> temperatures;
-dataModule->GetTemperatureData(temperatures, minX, maxX);
-
-// 2. Определение диапазона температур
-float minTemp = *std::min_element(temperatures.begin(), temperatures.end());
-float maxTemp = *std::max_element(temperatures.begin(), temperatures.end());
-
-// 3. Преобразование координат
-for (size_t i = 0; i < data.size(); i++) {
-    float temp = temperatures[i];
-    int x = plotLeft + (temp - minTemp) / (maxTemp - minTemp) * plotWidth;
-    int y = plotBottom - (data[i] - minY) / (maxY - minY) * plotHeight;
-    // Отрисовка точки (x, y)
-}
-```
-
-### Формат подписей оси X
-
-**Frame Number режим**:
-```
-0    100    200    300    400    500
-```
-
-**Temperature режим**:
-```
-12.5°C  13.0°C  13.5°C  14.0°C  14.5°C  15.0°C
-```
-
-### Сохранение настроек
-
-Тип оси X сохраняется в `ChartConfiguration::xAxisType` и применяется при нажатии "Apply" в Device Schematic.
-
-```cpp
-// Получение типа оси X из combobox
-int selection = SendMessage(hXAxisCombo, CB_GETCURSEL, 0, 0);
-config.xAxisType = (selection == 0) ? XAxisType::FRAME_NUMBER : XAxisType::TEMPERATURE;
-```
-
-### Примеры использования
-
-#### Анализ температурной стабильности амплитуд
-```
-1. Выберите "All Ampl R1" пресет
-2. Установите X-Axis: Temperature
-3. Нажмите Apply
-4. Анализируйте зависимость амплитуд от температуры
-```
-
-#### Температурный дрейф фаз
-```
-1. Выберите "All Phase R1" пресет
-2. Установите X-Axis: Temperature
-3. Нажмите Apply
-4. Отслеживайте изменение фаз при изменении температуры
-```
+- файловая модель приложения — `GP_TOOL_DATA` / `_5Tx_DATA` (`240` байт)
+- метрология — `METROLOGY_DATA` (`240` байт)
+- COM-протокол использует пакет `[CMD][LEN][PAYLOAD][CRC16]`
+- текущие команды приложения: `0x11`, `0x12`, `0x13`, `0x16`, `0x17`
 
 ---
 
-## 🔍 Zoom для кроссплота (v2.10.1)
+## Практические точки входа для разработки
 
-### Обзор
-Версия 2.10.1 добавляет полную поддержку zoom (масштабирования) для режима кроссплота, где ось X представляет температуру.
+Если нужно менять поведение приложения, обычно смотреть сюда:
 
-### Проблема
-В режиме кроссплота экранные координаты должны преобразовываться не в индексы кадров напрямую, а через температуру:
-- Экранная X координата → Температура → Поиск ближайшего индекса кадра с этой температурой
-
-### Решение: ConvertScreenToDataCoords
-
-Метод `ConvertScreenToDataCoords` в `ChartManager.cpp` обновлён для поддержки температурного режима:
-
-```cpp
-void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, 
-                                             double& dataX, double& dataY) const {
-    // 1. Получение конфигурации графика
-    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNum);
-    
-    // 2. Вычисление plotRect с учётом отступов
-    RECT plotRect;
-    if (config.hasDualAxis) {
-        plotRect.left = chartRect->left + 100;
-        plotRect.top = chartRect->top + 65;
-        plotRect.right = chartRect->right - 120;
-        plotRect.bottom = chartRect->bottom - 50;
-    } else {
-        plotRect.left = chartRect->left + 100;
-        plotRect.top = chartRect->top + 65;
-        plotRect.right = chartRect->right - 30;
-        plotRect.bottom = chartRect->bottom - 50;
-    }
-    
-    // 3. Вычисление относительных координат
-    double xRatio = (screenX - plotRect.left) / plotWidth;
-    double yRatio = (plotRect.bottom - screenY) / plotHeight;
-    
-    // 4. Специальная логика для температурного режима
-    if (config.xAxisType == XAxisType::TEMPERATURE) {
-        // Получаем температурные данные
-        std::vector<float> temperatureData;
-        dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
-        
-        // Находим диапазон температур
-        float minTemp = *std::min_element(temperatureData.begin(), temperatureData.end());
-        float maxTemp = *std::max_element(temperatureData.begin(), temperatureData.end());
-        
-        // Температура, на которую кликнули
-        float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
-        
-        // Находим ближайший индекс кадра с этой температурой
-        size_t closestIdx = startIdx;
-        float minDiff = FLT_MAX;
-        for (size_t i = startIdx; i < endIdx; i++) {
-            float diff = fabs(temperatureData[i] - clickedTemp);
-            if (diff < minDiff) {
-                minDiff = diff;
-                closestIdx = i;
-            }
-        }
-        
-        // Возвращаем индекс кадра (не температуру!)
-        dataX = static_cast<double>(closestIdx);
-    }
-}
-```
-
-### Ключевые особенности
-
-1. **Вычисление plotRect**: Учитываются отступы для одной и двойных осей (80px слева, 65px сверху, 30/120px справа, 50px снизу)
-
-2. **Проверка типа оси X**: `config.xAxisType == XAxisType::TEMPERATURE`
-
-3. **Преобразование координат**:
-   - Экранная X → относительная позиция (xRatio)
-   - xRatio → температура (clickedTemp)
-   - Температура → поиск ближайшего индекса кадра
-   - Возврат индекса кадра (не температуры!)
-
-4. **Zoom работает с индексами**: `zoom->minX` и `zoom->maxX` всегда хранят индексы кадров, даже в температурном режиме
-
-### Алгоритм zoom в кроссплоте
-
-```
-1. Пользователь выделяет область мышью
-   ↓
-2. HandleMouseUp вызывает ConvertScreenToDataCoords
-   ↓
-3. Преобразование: экранные координаты → температура → индекс кадра
-   ↓
-4. Сохранение zoom->minX и zoom->maxX (индексы кадров)
-   ↓
-5. Перерисовка графика с новым диапазоном
-   ↓
-6. DrawChartWithCurves получает температуры для zoom->minX..zoom->maxX
-   ↓
-7. Отрисовка увеличенного участка по температуре
-```
-
-### Исправления подписей оси X (v2.10.1)
-
-**Проблема**: Подпись "°C" отображалась как "В°C" и была по центру
-
-**Решение**:
-```cpp
-// Было:
-const wchar_t* xAxisLabel = L"°C";
-int xLabelX = plotRect.left + (plotRect.right - plotRect.left - xLabelSize.cx) / 2;
-int xLabelY = plotRect.bottom + 5;
-
-// Стало:
-const wchar_t* xAxisLabel = L"\u00B0C"; // Unicode для символа градуса
-int xLabelX = plotRect.right - xLabelSize.cx - 5; // Справа с отступом 5px
-int xLabelY = plotRect.bottom + 25; // Ниже числовых значений
-```
-
-**Изменения**:
-- Использован Unicode escape-код `\u00B0` для символа градуса
-- Подпись перемещена в правый угол: `plotRect.right - xLabelSize.cx - 5`
-- Увеличен отступ по вертикали: 25px вместо 5px (избегает наслоения на числа)
-
-### Тестирование zoom
-
-1. Откройте Device Schematic
-2. Выберите "Temperature" в X-Axis
-3. Нажмите Apply
-4. Выделите область на графике мышью (левая кнопка + перетаскивание)
-5. График должен корректно увеличить выбранный участок
-6. Правая кнопка мыши сбрасывает zoom
+- `DataModule.h/.cpp` — структура измерений, загрузка файла, валидация
+- `CurveSelectionModule.cpp` — вычисление кривых, режимы `FROM_SONDE` / `FROM_COMPUTER`
+- `ChartModule.cpp` — геометрия графика, dual-axis отрисовка, plotRect
+- `ChartManager.cpp` — zoom, scroll, coordinate mapping, UI orchestration
+- `SerialModule.h/.cpp` — COM-протокол, запись потока, CRC, метрология
+- `MetrologyModule.cpp` — декодирование сигнатуры и работа с метрологией
 
 ---
 
-**Техническая документация AMK-Horizon-New-Chart v2.10.1** - Кроссплот с полной поддержкой zoom
+## Что не является целью этого документа
 
+Этот файл больше **не** хранит:
 
----
+- подробную историю версий по функциям
+- длинные tutorial-примеры использования UI
+- пошаговые release-notes по отдельным фичам
+- инструкции по сборке релиза
 
-## 👨‍💻 ДЛЯ РАЗРАБОТЧИКОВ
+Для этого используются:
 
-### 🛠️ Настройка среды разработки
-
-**Требования:**
-- Visual Studio 2019/2022 с поддержкой C++17
-- Windows SDK 10.0 или новее
-- Git для контроля версий
-
-**Структура проекта:**
-```
-Amk-Horizon-New-Chart/
-├── Amk-Horizon-New-Chart.cpp    # Точка входа
-├── ChartManager.cpp/h            # Главный координатор
-├── DataModule.cpp/h              # Модуль данных
-├── ChartModule.cpp/h             # Модуль отрисовки
-├── UIModule.cpp/h                # Модуль интерфейса
-├── LayoutModule.cpp/h            # Модуль компоновки
-├── SchematicModule.cpp/h         # Модуль схемы прибора
-└── CurveSelectionModule.cpp/h    # Модуль управления кривыми
-```
-
-### 🏗️ Архитектурные принципы
-
-**Модульность:**
-- Разделение ответственности - каждый модуль отвечает за конкретную область
-- Слабая связанность - модули взаимодействуют через четко определенные интерфейсы
-- Высокая сплоченность - функции внутри модуля тесно связаны по назначению
-
-**Расширяемость:**
-- Открыт для расширения - легко добавлять новые типы данных и графиков
-- Закрыт для модификации - существующий код не требует изменений
-
-### 📋 Стандарты кодирования
-
-**Именование:**
-```cpp
-class DataModule { };              // Классы - PascalCase
-void CalculateChartData();         // Методы - PascalCase
-int chartNumber;                   // Переменные - camelCase
-const int MAX_CHANNELS = 10;       // Константы - UPPER_CASE
-```
-
-**Комментарии:**
-```cpp
-/**
- * @brief Вычисляет данные для отображения на графике
- * @param type Тип данных для вычисления
- * @param freq Частотный диапазон
- * @param outData Выходной массив данных
- * @return true если вычисление успешно
- */
-bool CalculateChartData(DataType type, FrequencyBand freq, 
-                       std::vector<std::vector<float>>& outData);
-```
-
-### 🚀 Сборка релиза
-
-1. Переключитесь на конфигурацию **Release x64**
-2. Очистите решение (Build → Clean Solution)
-3. Пересоберите решение (Build → Rebuild Solution)
-4. Проверьте отсутствие предупреждений
+- `CHANGELOG.md`
+- `USER_GUIDE.md`
+- `README.md`
 
 ---
 
----
-
-**AMK-Horizon-New-Chart v2.12.1** - Техническая документация для разработчиков 🚀
+Эта техническая справка должна оставаться коротким документом про **текущие инварианты системы**, а не архивом исторических изменений.
