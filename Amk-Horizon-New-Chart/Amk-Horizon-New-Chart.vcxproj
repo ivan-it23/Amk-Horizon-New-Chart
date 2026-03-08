@@ -172,6 +172,9 @@
     <ClInclude Include="SchematicModule.h" />
     <ClInclude Include="SerialModule.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="ToolDataAccess.h" />
+    <ClInclude Include="ToolDataAdapters.h" />
+    <ClInclude Include="ToolDataTypes.h" />
     <ClInclude Include="UIModule.h" />
   </ItemGroup>
   <ItemGroup>
@@ -184,6 +187,7 @@
     <ClCompile Include="NotesModule.cpp" />
     <ClCompile Include="SchematicModule.cpp" />
     <ClCompile Include="SerialModule.cpp" />
+    <ClCompile Include="ToolDataAdapters.cpp" />
     <ClCompile Include="UIModule.cpp" />
     <ClCompile Include="MetrologyModule.cpp" />
   </ItemGroup>

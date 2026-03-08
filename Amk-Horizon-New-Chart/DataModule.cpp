@@ -1,9 +1,11 @@
 #include "framework.h"
 #include "DataModule.h"
 #include "SchematicModule.h"
+#include "ToolDataAccess.h"
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <cwctype>  // v2.15.1: для towlower
 
 bool DataModule::ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature) {
@@ -20,12 +22,49 @@ bool DataModule::ReadFileSignature(std::ifstream& file, FileFormat format, uint3
 }
 
 uint32_t DataModule::DecodeToolCode(uint32_t signature) {
-    const uint32_t low20 = (signature << 12) >> 12;
-    return low20 / 1000u;
+    return ToolDataAdapterRegistry::DecodeToolCode(signature);
 }
 
 bool DataModule::IsDirectlySupportedToolCode(uint32_t toolCode) {
-    return toolCode == 151u || toolCode == 152u;
+    return toolCode == 151u || toolCode == 152u || toolCode == 241u;
+}
+
+ToolRecordMetadata DataModule::BuildRecordMetadata(const GP_TOOL_DATA& record) {
+    ToolRecordMetadata metadata = {};
+    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(record.signature);
+    if (adapter) {
+        metadata.kind = adapter->GetKind();
+        metadata.capabilities = adapter->GetCapabilities();
+    }
+    return metadata;
+}
+
+uint32_t DataModule::DecodeToolCodeFromSignature(uint32_t signature) {
+    return DecodeToolCode(signature);
+}
+
+ToolDataKind DataModule::DetermineToolDataKindFromSignature(uint32_t signature) {
+    return ToolDataAdapterRegistry::DetermineToolDataKind(signature);
+}
+
+bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) {
+    outFrame = {};
+    if (!rawFrame || rawFrameSize != sizeof(GP_TOOL_DATA)) {
+        return false;
+    }
+
+    return ToolDataAdapterRegistry::Get().ParseRawFrame(rawFrame, rawFrameSize, outFrame);
+}
+
+bool DataModule::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, GP_TOOL_DATA& outData) {
+    ParsedToolFrame parsedFrame = {};
+    if (!ParseRawFrameDetailed(rawFrame, rawFrameSize, parsedFrame)) {
+        outData = {};
+        return false;
+    }
+
+    outData = parsedFrame.canonicalData;
+    return true;
 }
 
 bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& outError) {
@@ -58,10 +97,10 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
         return false;
     }
 
-    const uint32_t toolCode = DecodeToolCode(signature);
-    if (!IsDirectlySupportedToolCode(toolCode)) {
+    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(signature);
+    if (!adapter || !adapter->SupportsFileFormat(format)) {
         outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
         return false;
     }
 
@@ -71,7 +110,7 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
     if (static_cast<size_t>(fileSize) < physicalFrameSize ||
         (static_cast<size_t>(fileSize) % physicalFrameSize) != 0) {
         outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
         return false;
     }
 
@@ -120,6 +159,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
 
     if (!ValidateDataFile(filename, outError)) {
         data.clear();
+        recordMetadata.clear();
         loadedFileName.clear();
         return false;
     }
@@ -131,6 +171,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
     }
         
     data.clear();
+    recordMetadata.clear();
     
     // v2.15.1: Определяем формат файла
     FileFormat format = DetectFileFormat(filename);
@@ -162,19 +203,25 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
             
             if (frameCount == 0) {
                 outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                           L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+                           L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
                 file.close();
                 return false;
             }
             
             data.reserve(frameCount);
+            recordMetadata.reserve(frameCount);
             
             for (size_t n = 0; n < frameCount; ++n) {
-                GP_TOOL_DATA record;
+                char rawFrameBuffer[sizeof(GP_TOOL_DATA)] = {};
+                ParsedToolFrame parsedFrame = {};
                 // Смещение: n * 240
                 file.seekg(n * GP_TOOL_DATA_SIZE);
-                if (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
-                    data.push_back(record);
+                if (file.read(rawFrameBuffer, GP_TOOL_DATA_SIZE) && ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), parsedFrame)) {
+                    data.push_back(parsedFrame.canonicalData);
+                    ToolRecordMetadata metadata = {};
+                    metadata.kind = parsedFrame.kind;
+                    metadata.capabilities = parsedFrame.capabilities;
+                    recordMetadata.push_back(metadata);
                 }
             }
             break;
@@ -186,12 +233,13 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
             
             if (frameCount == 0) {
                 outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                           L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+                           L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
                 file.close();
                 return false;
             }
             
             data.reserve(frameCount);
+            recordMetadata.reserve(frameCount);
             
             for (size_t n = 0; n < frameCount; ++n) {
                 // Смещение блока: n * 251
@@ -202,9 +250,14 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
                 file.read(headerBuffer, DEV_HEADER_SIZE);
                 
                 // Читаем данные GP_TOOL_DATA
-                GP_TOOL_DATA record;
-                if (file.read(reinterpret_cast<char*>(&record), GP_TOOL_DATA_SIZE)) {
-                    data.push_back(record);
+                char rawFrameBuffer[sizeof(GP_TOOL_DATA)] = {};
+                ParsedToolFrame parsedFrame = {};
+                if (file.read(rawFrameBuffer, GP_TOOL_DATA_SIZE) && ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), parsedFrame)) {
+                    data.push_back(parsedFrame.canonicalData);
+                    ToolRecordMetadata metadata = {};
+                    metadata.kind = parsedFrame.kind;
+                    metadata.capabilities = parsedFrame.capabilities;
+                    recordMetadata.push_back(metadata);
                 }
             }
             break;
@@ -221,7 +274,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
 
     if (data.empty()) {
         outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуру _5Tx_DATA / GP_TOOL_DATA (240 байт на кадр).";
+                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
         loadedFileName.clear();
         return false;
     }
@@ -246,6 +299,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
 
 void DataModule::ClearData() {
     data.clear();
+    recordMetadata.clear();
     loadedFileName.clear();
 }
 
@@ -265,13 +319,44 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
     return data;
 }
 
+bool DataModule::TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetadata) const {
+    if (index >= recordMetadata.size()) {
+        outMetadata = {};
+        return false;
+    }
+
+    outMetadata = recordMetadata[index];
+    return true;
+}
+
+MeasurementView DataModule::GetMeasurementView(size_t index) const {
+    if (index >= data.size()) {
+        return MeasurementView();
+    }
+
+    if (index < recordMetadata.size()) {
+        return MeasurementView(data[index], recordMetadata[index]);
+    }
+
+    return MeasurementView(data[index]);
+}
+
+ToolDataAccessView DataModule::GetDataView(size_t index) const {
+    return GetMeasurementView(index).GetAccessView();
+}
+
 // v2.13.0: Добавление данных в реальном времени
 void DataModule::AddData(const GP_TOOL_DATA& newData) {
     data.push_back(newData);
+    recordMetadata.push_back(BuildRecordMetadata(newData));
 }
 
 void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
     data.insert(data.end(), newDataBatch.begin(), newDataBatch.end());
+    recordMetadata.reserve(data.size());
+    for (const auto& record : newDataBatch) {
+        recordMetadata.push_back(BuildRecordMetadata(record));
+    }
 }
 
 bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const {
@@ -302,13 +387,13 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true}; // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled(static_cast<size_t>(GetAvailableTransmitterCount()), true);
     CalculateChartData(type, freq, outData, allTransmittersEnabled, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
                                    double minX, double maxX, double minY, double maxY) const {
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true}; // По умолчанию все передатчики включены
+    std::vector<bool> allTransmittersEnabled(static_cast<size_t>(GetAvailableTransmitterCount()), true);
     CalculateChartData(type, freq, outData, allTransmittersEnabled, minX, maxX, minY, maxY);
 }
 
@@ -338,65 +423,94 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     case DataType::PHASE_SMT:
     case DataType::RHO_SMT:
         {
-            // 5 каналов для активных передатчиков
-            outData.resize(5); // Каналы T1-T5
+            const int availableTransmitterCount = GetAvailableTransmitterCount();
+            outData.resize(static_cast<size_t>(availableTransmitterCount));
 
-            bool validTransmitters[5];
-            for (int t = 0; t < 5; ++t) {
-                validTransmitters[t] = (t < (int)enabledTransmitters.size()) ? enabledTransmitters[t] : true;
+            std::vector<bool> validTransmitters(static_cast<size_t>(availableTransmitterCount), true);
+            for (int t = 0; t < availableTransmitterCount; ++t) {
+                validTransmitters[static_cast<size_t>(t)] = (t < static_cast<int>(enabledTransmitters.size())) ? enabledTransmitters[static_cast<size_t>(t)] : true;
             }
 
-            // Резервируем память для оптимизации
             size_t expectedSize = endIndex - startIndex;
-            for (int t = 0; t < 5; ++t) {
-                if (validTransmitters[t]) {
-                    outData[t].reserve(expectedSize);
+            for (int t = 0; t < availableTransmitterCount; ++t) {
+                if (validTransmitters[static_cast<size_t>(t)]) {
+                    outData[static_cast<size_t>(t)].reserve(expectedSize);
                 }
             }
 
-            // Основной цикл вычислений
             for (size_t i = startIndex; i < endIndex; ++i) {
-                const GP_TOOL_DATA& record = data[i];
+                const ToolDataAccessView view = GetDataView(i);
+                const int transmitterCount = std::min(availableTransmitterCount, view.GetTransmitterCount());
 
-                for (int t = 0; t < 5; ++t) {
-                    if (!validTransmitters[t]) continue;
+                for (int t = 0; t < transmitterCount; ++t) {
+                    if (!validTransmitters[static_cast<size_t>(t)]) continue;
 
                     float value = 0.0f;
+                    bool hasValue = false;
 
                     switch (type) {
                         case DataType::PHASE_DIFFERENCE:
                             {
-                                float phaseDiff = record.DELTA_PH[freqIdx][t];
+                                float phaseDiff = 0.0f;
+                                if (!view.TryGetDeltaPhase(freqIdx, t, phaseDiff)) {
+                                    break;
+                                }
                                 phaseDiff = NormalizePhase(phaseDiff);
                                 value = phaseDiff * 57295.7795f; // рад -> мдег
+                                hasValue = true;
                             }
                             break;
                         case DataType::AMPLITUDE_RATIO:
-                            value = (record.AM_RX_1[freqIdx][t] != 0.0f) ?
-                                   (record.AM_RX_2[freqIdx][t] / record.AM_RX_1[freqIdx][t]) : 0.0f;
+                            {
+                                float rx1 = 0.0f;
+                                float rx2 = 0.0f;
+                                if (!view.TryGetAmplitudeRx1(freqIdx, t, rx1) || !view.TryGetAmplitudeRx2(freqIdx, t, rx2)) {
+                                    break;
+                                }
+                                value = (rx1 != 0.0f) ? (rx2 / rx1) : 0.0f;
+                                hasValue = true;
+                            }
                             break;
                         case DataType::AMPLITUDE_RX1:
-                            value = record.AM_RX_1[freqIdx][t] * 4000.0f / pow(2.0f, 24.0f);
+                            {
+                                float amplitude = 0.0f;
+                                if (!view.TryGetAmplitudeRx1(freqIdx, t, amplitude)) {
+                                    break;
+                                }
+                                value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                hasValue = true;
+                            }
                             break;
                         case DataType::AMPLITUDE_RX2:
-                            value = record.AM_RX_2[freqIdx][t] * 4000.0f / pow(2.0f, 24.0f);
+                            {
+                                float amplitude = 0.0f;
+                                if (!view.TryGetAmplitudeRx2(freqIdx, t, amplitude)) {
+                                    break;
+                                }
+                                value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                hasValue = true;
+                            }
                             break;
                         case DataType::PHASE_SMT:
                             {
-                                float phase = record.phase_smt[freqIdx][t];
+                                float phase = 0.0f;
+                                if (!view.TryGetPhaseSmt(freqIdx, t, phase)) {
+                                    break;
+                                }
                                 phase = NormalizePhase(phase);
                                 value = phase * 57295.7795f; // рад -> мдег
+                                hasValue = true;
                             }
                             break;
                         case DataType::RHO_SMT:
-                            value = record.rho_smt[freqIdx][t];
+                            hasValue = view.TryGetRhoSmt(freqIdx, t, value);
                             break;
                         default:
                             continue;
                     }
 
-                    if (value >= minY && value <= maxY) {
-                        outData[t].push_back(value);
+                    if (hasValue && value >= minY && value <= maxY) {
+                        outData[static_cast<size_t>(t)].push_back(value);
                     }
                 }
             }
@@ -414,10 +528,15 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             outData[0].reserve(endIndex - startIndex);
             
             for (size_t i = startIndex; i < endIndex; ++i) {
-                const GP_TOOL_DATA& record = data[i];
-                float value = (type == DataType::SILENT_AMPLITUDE_RX1) ?
-                             (record.ZERO_AM_RX_1[freqIdx] * 4000.0f / pow(2.0f, 24.0f)) :
-                             (record.ZERO_AM_RX_2[freqIdx] * 4000.0f / pow(2.0f, 24.0f));
+                const ToolDataAccessView view = GetDataView(i);
+                float amplitude = 0.0f;
+                const bool hasValue = (type == DataType::SILENT_AMPLITUDE_RX1) ?
+                    view.TryGetSilentAmplitudeRx1(freqIdx, amplitude) :
+                    view.TryGetSilentAmplitudeRx2(freqIdx, amplitude);
+                if (!hasValue) {
+                    continue;
+                }
+                float value = amplitude * 4000.0f / pow(2.0f, 24.0f);
                 
                 // Проверяем диапазон значений для фильтрации
                 if (value >= minY && value <= maxY) {
@@ -434,8 +553,11 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             outData[0].reserve(endIndex - startIndex);
 
             for (size_t i = startIndex; i < endIndex; ++i) {
-                const GP_TOOL_DATA& record = data[i];
-                float diff = record.ZERO_dPH[freqIdx];
+                const ToolDataAccessView view = GetDataView(i);
+                float diff = 0.0f;
+                if (!view.TryGetSilentDeltaPhase(freqIdx, diff)) {
+                    continue;
+                }
                 diff = NormalizePhase(diff);
                 float value = diff * 57295.7795f; // рад -> мдег
 
@@ -453,8 +575,8 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             outData[0].reserve(endIndex - startIndex);
             
             for (size_t i = startIndex; i < endIndex; ++i) {
-                const GP_TOOL_DATA& record = data[i];
-                float value = record.temperature;
+                const ToolDataAccessView view = GetDataView(i);
+                float value = view.GetTemperature();
                 
                 // Проверяем диапазон значений для фильтрации
                 if (value >= minY && value <= maxY) {
@@ -486,12 +608,22 @@ std::wstring DataModule::GetDataTypeName(DataType type) const {
 int DataModule::GetActiveTransmitterIndex(Transmitter transmitter, FrequencyBand freq) const {
     (void)freq;
     const int idx = static_cast<int>(transmitter);
-    return (idx >= 0 && idx < 5) ? idx : -1;
+    return (idx >= 0 && idx < GetAvailableTransmitterCount()) ? idx : -1;
 }
 
 int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
     // Для нового формата возвращаем индекс частоты (0=400, 1=2000)
     return (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+}
+
+int DataModule::GetAvailableTransmitterCount() const {
+    int maxCount = 0;
+    for (size_t i = 0; i < data.size(); ++i) {
+        const ToolDataAccessView view = GetDataView(i);
+        maxCount = std::max(maxCount, view.GetTransmitterCount());
+    }
+
+    return (maxCount > 0) ? maxCount : kLegacyFallbackTransmitterCount;
 }
 
 // Новые методы для работы с произвольными кривыми
@@ -589,7 +721,11 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
 
                 outData.reserve(endIndex - startIndex);
                 for (size_t i = startIndex; i < endIndex; ++i) {
-                    float value = data[i].rho_smt[freqIdx][txIdx];
+                    const ToolDataAccessView view = GetDataView(i);
+                    float value = 0.0f;
+                    if (!view.TryGetRhoSmt(freqIdx, txIdx, value)) {
+                        continue;
+                    }
                     if (value >= minY && value <= maxY) {
                         outData.push_back(value);
                     }
@@ -612,7 +748,8 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
         case DataType::TEMPERATURE:
             // Температура - особый случай
             for (size_t i = startIndex; i < endIndex; ++i) {
-                float value = data[i].temperature;
+                const ToolDataAccessView view = GetDataView(i);
+                float value = view.GetTemperature();
                 if (value >= minY && value <= maxY) {
                     outData.push_back(value);
                 }
@@ -665,11 +802,16 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
     const float EPSILON = 1e-10f;
     
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float denominator = record.AM_RX_1[freqIdx][txIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float denominator = 0.0f;
+        float numerator = 0.0f;
+        if (!view.TryGetAmplitudeRx1(freqIdx, txIdx, denominator) ||
+            !view.TryGetAmplitudeRx2(freqIdx, txIdx, numerator)) {
+            continue;
+        }
         
         if (std::abs(denominator) > EPSILON) { // Избегаем деления на ноль
-            float ratio = record.AM_RX_2[freqIdx][txIdx] / denominator;
+            float ratio = numerator / denominator;
             outData.push_back(ratio);
         } else {
             outData.push_back(0.0f); // Или можно использовать std::numeric_limits<float>::quiet_NaN()
@@ -692,8 +834,11 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float difference = record.DELTA_PH[freqIdx][txIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float difference = 0.0f;
+        if (!view.TryGetDeltaPhase(freqIdx, txIdx, difference)) {
+            continue;
+        }
         difference = NormalizePhase(difference);
         outData.push_back(difference * 57295.7795f);
     }
@@ -714,8 +859,14 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float amplitude = (receiverIndex == 0) ? record.AM_RX_1[freqIdx][txIdx] : record.AM_RX_2[freqIdx][txIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float amplitude = 0.0f;
+        const bool hasValue = (receiverIndex == 0) ?
+            view.TryGetAmplitudeRx1(freqIdx, txIdx, amplitude) :
+            view.TryGetAmplitudeRx2(freqIdx, txIdx, amplitude);
+        if (!hasValue) {
+            continue;
+        }
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
@@ -736,8 +887,11 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float phase = record.phase_smt[freqIdx][txIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float phase = 0.0f;
+        if (!view.TryGetPhaseSmt(freqIdx, txIdx, phase)) {
+            continue;
+        }
         phase = NormalizePhase(phase);
         outData.push_back(phase * 57295.7795f);
     }
@@ -757,8 +911,14 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
     outData.reserve(endIndex - startIndex);
     
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float amplitude = (receiverIndex == 0) ? record.ZERO_AM_RX_1[freqIdx] : record.ZERO_AM_RX_2[freqIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float amplitude = 0.0f;
+        const bool hasValue = (receiverIndex == 0) ?
+            view.TryGetSilentAmplitudeRx1(freqIdx, amplitude) :
+            view.TryGetSilentAmplitudeRx2(freqIdx, amplitude);
+        if (!hasValue) {
+            continue;
+        }
         outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
@@ -776,8 +936,11 @@ void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
     outData.reserve(endIndex - startIndex);
 
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const GP_TOOL_DATA& record = data[i];
-        float diff = record.ZERO_dPH[freqIdx];
+        const ToolDataAccessView view = GetDataView(i);
+        float diff = 0.0f;
+        if (!view.TryGetSilentDeltaPhase(freqIdx, diff)) {
+            continue;
+        }
         diff = NormalizePhase(diff);
         outData.push_back(diff * 57295.7795f); // рад -> мдег
     }
@@ -862,8 +1025,9 @@ void DataModule::GetTemperatureData(std::vector<float>& outData) const {
     if (data.empty()) return;
     
     outData.reserve(data.size());
-    for (const auto& record : data) {
-        outData.push_back(record.temperature);
+    for (size_t i = 0; i < data.size(); ++i) {
+        const ToolDataAccessView view = GetDataView(i);
+        outData.push_back(view.GetTemperature());
     }
 }
 
@@ -878,6 +1042,7 @@ void DataModule::GetTemperatureData(std::vector<float>& outData, double minX, do
     
     outData.reserve(endIndex - startIndex);
     for (size_t i = startIndex; i < endIndex; ++i) {
-        outData.push_back(data[i].temperature);
+        const ToolDataAccessView view = GetDataView(i);
+        outData.push_back(view.GetTemperature());
     }
 }

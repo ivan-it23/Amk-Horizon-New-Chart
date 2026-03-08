@@ -49,8 +49,8 @@ UIModule::UIModule()
     , hChart2ShowNotesCheck(nullptr)
     , hTooltip(nullptr)
     , dualMode(false) {
-    chart1EnabledTransmitters.resize(5, true);
-    chart2EnabledTransmitters.resize(5, true);
+    chart1EnabledTransmitters.resize(UI_TRANSMITTER_COUNT, true);
+    chart2EnabledTransmitters.resize(UI_TRANSMITTER_COUNT, true);
 }
 
 UIModule::~UIModule() {

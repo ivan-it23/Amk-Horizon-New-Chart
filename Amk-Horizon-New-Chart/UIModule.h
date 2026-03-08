@@ -7,6 +7,8 @@
 // Класс для управления элементами интерфейса
 class UIModule {
 private:
+    static constexpr int UI_TRANSMITTER_COUNT = 5;
+
     // Элементы управления
     HWND hDualModeCheck;
     HWND hChart1SchematicBtn;  // Кнопка схемы прибора для первого графика

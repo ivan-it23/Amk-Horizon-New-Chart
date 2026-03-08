@@ -67,6 +67,10 @@ enum class DataTypeFilter {
 
 // Выбор элементов на схеме прибора
 struct SchematicSelection {
+    static constexpr int UI_TRANSMITTER_COUNT = 5;
+    static constexpr int UI_RECEIVER_COUNT = 2;
+    static constexpr int UI_SILENT_COUNT = 2;
+
     std::vector<bool> transmitters;  // T1-T5 [5 элементов]
     std::vector<bool> receivers;     // R1-R2 [2 элемента]  
     std::vector<bool> silentTx;      // Молчащие передатчики [2 элемента] для R1 и R2

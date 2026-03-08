@@ -12,8 +12,8 @@
 class CurveSelectionModule {
 private:
     // Цветовые палитры для разных осей
-    static const COLORREF LEFT_AXIS_COLORS[5];   // Приоритетные цвета для левой оси (T1-T5)
-    static const COLORREF RIGHT_AXIS_COLORS[5];  // Альтернативные цвета для правой оси (T1-T5)
+    static const COLORREF LEFT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT];   // Приоритетные цвета для левой оси (T1-T5)
+    static const COLORREF RIGHT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT];  // Альтернативные цвета для правой оси (T1-T5)
     static const COLORREF SILENT_COLOR;          // Цвет для молчащих передатчиков
     static const COLORREF TEMPERATURE_COLOR;     // Цвет для температуры
     
@@ -21,7 +21,7 @@ private:
     static const COLORREF EXTENDED_PALETTE[12];
     
     // Старый массив для обратной совместимости
-    static const COLORREF CURVE_COLORS[5];
+    static const COLORREF CURVE_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT];
     
     // Текущие конфигурации для каждого графика
     ChartConfiguration chart1Config;

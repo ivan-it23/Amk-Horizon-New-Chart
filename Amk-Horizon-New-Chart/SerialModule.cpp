@@ -1,4 +1,5 @@
 #include "SerialModule.h"
+#include "ToolDataAdapters.h"
 #include <shellapi.h>   // Для ShellExecuteW
 #include <setupapi.h>
 #include <devguid.h>
@@ -70,6 +71,7 @@ SerialModule::SerialModule()
     , recordedFrames(0)
 {
     ZeroMemory(&metrology, sizeof(metrology));
+    lastRawDataFrame.clear();
     InitDefaultRecordFolder();  // v2.15.0: Инициализация папки по умолчанию
 }
 
@@ -293,7 +295,8 @@ void SerialModule::OnTimer() {
     }
     
     GP_TOOL_DATA data;
-    SerialResult result = RequestData(data);
+    std::vector<uint8_t> rawPayload;
+    SerialResult result = RequestData(data, &rawPayload);
     
     if (result == SerialResult::SUCCESS) {
         packetsReceived++;
@@ -313,7 +316,7 @@ void SerialModule::OnTimer() {
             if (!ValidateRecordingSettings(settingsError)) {
                 lastError = settingsError;
             } else {
-                WriteDataToFile(data);
+                WriteDataToFile(rawPayload.data(), rawPayload.size());
             }
         }
         
@@ -329,6 +332,10 @@ void SerialModule::OnTimer() {
 // === Команды прибора ===
 
 SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
+    return RequestData(outData, nullptr);
+}
+
+SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_t>* outRawPayload) {
     if (!IsConnected()) {
         return SerialResult::NOT_CONNECTED;
     }
@@ -358,7 +365,18 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
         return SerialResult::INVALID_RESPONSE;
     }
 
-    memcpy(&outData, payload.data(), sizeof(GP_TOOL_DATA));
+    ParsedToolFrame parsedFrame = {};
+    if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), parsedFrame)) {
+        return SerialResult::INVALID_SIGNATURE;
+    }
+
+    outData = parsedFrame.canonicalData;
+
+    lastRawDataFrame = payload;
+    if (outRawPayload) {
+        *outRawPayload = payload;
+    }
+
     return SerialResult::SUCCESS;
 }
 
@@ -971,16 +989,20 @@ void SerialModule::CloseRecordFile() {
     }
 }
 
-void SerialModule::WriteDataToFile(const GP_TOOL_DATA& data) {
+void SerialModule::WriteDataToFile(const void* rawData, size_t rawSize) {
     // Открываем файл если ещё не открыт
     if (!recordFile.is_open()) {
         if (!OpenRecordFile()) {
             return;  // Не удалось открыть файл
         }
     }
+
+    if (!rawData || rawSize != sizeof(GP_TOOL_DATA)) {
+        return;
+    }
     
     // Записываем структуру данных (240 байт)
-    recordFile.write(reinterpret_cast<const char*>(&data), sizeof(GP_TOOL_DATA));
+    recordFile.write(reinterpret_cast<const char*>(rawData), static_cast<std::streamsize>(rawSize));
     recordFile.flush();  // Сразу сбрасываем на диск для надёжности
     
     recordedFrames++;

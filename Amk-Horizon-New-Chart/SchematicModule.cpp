@@ -89,9 +89,9 @@ SchematicSelection::SchematicSelection()
     , dataFilter(DataTypeFilter::ALL)
     , rhoSmtMode(SmtComputationMode::FROM_SONDE)
     , phaseSmtMode(SmtComputationMode::FROM_SONDE) {
-    transmitters.resize(5, false);  // T1-T5
-    receivers.resize(2, false);     // R1-R2
-    silentTx.resize(2, false);      // Молчащие для R1 и R2
+    transmitters.resize(UI_TRANSMITTER_COUNT, false);  // T1-T5
+    receivers.resize(UI_RECEIVER_COUNT, false);     // R1-R2
+    silentTx.resize(UI_SILENT_COUNT, false);      // Молчащие для R1 и R2
 }
 
 void SchematicSelection::Clear() {
@@ -583,9 +583,9 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     SynchronizeElementStates();
     
     // ОТЛАДКА: Выводим итоговое состояние
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
     }
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < SchematicSelection::UI_RECEIVER_COUNT; i++) {
     }
     
     return true;
@@ -594,17 +594,17 @@ bool SchematicModule::HandleElementClick(int x, int y) {
 void SchematicModule::UpdateSelection(ElementType type, int index, bool selected) {
     switch (type) {
         case ElementType::TRANSMITTER:
-            if (index >= 0 && index < 5) {
+            if (index >= 0 && index < SchematicSelection::UI_TRANSMITTER_COUNT) {
                 currentSelection.transmitters[index] = selected;
             }
             break;
         case ElementType::RECEIVER:
-            if (index >= 0 && index < 2) {
+            if (index >= 0 && index < SchematicSelection::UI_RECEIVER_COUNT) {
                 currentSelection.receivers[index] = selected;
             }
             break;
         case ElementType::SILENT_TX:
-            if (index >= 0 && index < 2) {
+            if (index >= 0 && index < SchematicSelection::UI_SILENT_COUNT) {
                 currentSelection.silentTx[index] = selected;
             }
             break;
@@ -674,19 +674,19 @@ void SchematicModule::InitializeSchematicElements(const RECT& schemaRect) {
     // Пока что создаем заглушки для элементов
     
     // Добавляем передатчики T1-T5
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
         RECT rect = CalculateElementRect(schemaRect, ElementType::TRANSMITTER, i);
         schematicElements.emplace_back(rect, ElementType::TRANSMITTER, i);
     }
     
     // Добавляем приемники R1-R2
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < SchematicSelection::UI_RECEIVER_COUNT; i++) {
         RECT rect = CalculateElementRect(schemaRect, ElementType::RECEIVER, i);
         schematicElements.emplace_back(rect, ElementType::RECEIVER, i);
     }
     
     // Добавляем молчащие передатчики
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < SchematicSelection::UI_SILENT_COUNT; i++) {
         RECT rect = CalculateElementRect(schemaRect, ElementType::SILENT_TX, i);
         schematicElements.emplace_back(rect, ElementType::SILENT_TX, i);
     }
@@ -990,40 +990,40 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                     currentSelection.receivers[0] = true;
                     currentSelection.receivers[1] = true;
                 }
-                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
                     // Выбран только приемник R1 (кривые для ВСЕХ 5 передатчиков с R1)
                     currentSelection.receivers[0] = true;
                 }
-                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
                     // Выбран только приемник R2 (кривые для ВСЕХ 5 передатчиков с R2)
                     currentSelection.receivers[1] = true;
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < 5) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
                     // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 5 передатчиков)
                     // Восстанавливаем передатчики из sourceElement
                     for (const auto& curve : existingConfig.curves) {
                         if (curve.sourceElement == ElementType::TRANSMITTER) {
-                            if (curve.elementIndex >= 0 && curve.elementIndex < 5) {
+                            if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
                                 currentSelection.transmitters[curve.elementIndex] = true;
                             }
                         }
                     }
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == 5) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
                     // Особый случай: есть кривые для всех 5 передатчиков с обоими приёмниками
                     // Это может быть либо выбор всех 4 передатчиков, либо какая-то другая комбинация
                     // Проверяем количество кривых: если их 16 (4 передатчика × 2 приёмника × 2 типа данных), 
                     // то скорее всего выбраны все передатчики
                     if (existingConfig.curves.size() >= 20) {
                         // Восстанавливаем все передатчики
-                        for (int i = 0; i < 5; i++) {
+                        for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
                             currentSelection.transmitters[i] = true;
                         }
                     } else {
                         // Восстанавливаем только те передатчики, которые есть в кривых
                         for (const auto& curve : existingConfig.curves) {
                             if (curve.sourceElement == ElementType::TRANSMITTER) {
-                                if (curve.elementIndex >= 0 && curve.elementIndex < 5) {
+                                if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
                                     currentSelection.transmitters[curve.elementIndex] = true;
                                 }
                             }
@@ -1035,7 +1035,7 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 if (hasSilentSource) {
                     for (const auto& curve : existingConfig.curves) {
                         if (curve.sourceElement == ElementType::SILENT_TX) {
-                            if (curve.elementIndex >= 0 && curve.elementIndex < 2) {
+                            if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_SILENT_COUNT) {
                                 currentSelection.silentTx[curve.elementIndex] = true;
                             }
                         }
@@ -1043,9 +1043,9 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 }
                 
                 // ОТЛАДКА: Итоговое состояние выбора
-                for (int i = 0; i < 5; i++) {
+                for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
                 }
-                for (int i = 0; i < 2; i++) {
+                for (int i = 0; i < SchematicSelection::UI_RECEIVER_COUNT; i++) {
                 }
             }
             else {

@@ -1,7 +1,7 @@
 #pragma once
 
 #include "framework.h"
-#include "DataModule.h"
+#include "ToolDataTypes.h"
 #include <string>
 #include <functional>
 #include <vector>
@@ -104,6 +104,7 @@ private:
     bool appendToExistingFile;          // Режим дозаписи в существующий файл
     uint32_t recordedFrames;            // Количество записанных кадров
     std::wstring currentDeviceId;       // ID текущего прибора (SN_Diameter)
+    std::vector<uint8_t> lastRawDataFrame;
 
     // Защита от конфликтов: polling (таймер) vs метрология/команды
     std::mutex ioMutex;
@@ -147,6 +148,7 @@ public:
     
     // Запрос данных измерений (CMD_DATA = 0x11)
     SerialResult RequestData(GP_TOOL_DATA& outData);
+    SerialResult RequestData(GP_TOOL_DATA& outData, std::vector<uint8_t>* outRawPayload);
     
     // Запрос метрологии (CMD_GET_METROLOGY = 0x13)
     SerialResult RequestMetrology(METROLOGY_DATA& outData);
@@ -254,7 +256,7 @@ private:
     void CloseRecordFile();
     
     // Запись одного кадра данных
-    void WriteDataToFile(const GP_TOOL_DATA& data);
+    void WriteDataToFile(const void* rawData, size_t rawSize);
     
     // Генерация уникального имени файла
     std::wstring GenerateRecordFileName() const;

@@ -3256,13 +3256,13 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
     float minTemp = 0.0f, maxTemp = 0.0f;
     bool hasTempRange = false;
-    const auto& allData = dataModule->GetData();
-    if (config.xAxisType == XAxisType::TEMPERATURE && !allData.empty()) {
+    const size_t dataSize = dataModule->GetDataSize();
+    if (config.xAxisType == XAxisType::TEMPERATURE && dataSize > 0) {
         int startIdx = static_cast<int>(floor(minXData));
         int endIdx = static_cast<int>(ceil(maxXData));
         if (startIdx < 0) startIdx = 0;
         if (endIdx < 0) endIdx = 0;
-        int maxIdx = static_cast<int>(allData.size() - 1);
+        int maxIdx = static_cast<int>(dataSize - 1);
         if (startIdx > maxIdx) startIdx = maxIdx;
         if (endIdx > maxIdx) endIdx = maxIdx;
         if (endIdx < startIdx) std::swap(startIdx, endIdx);
@@ -3270,7 +3270,9 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         minTemp = FLT_MAX;
         maxTemp = -FLT_MAX;
         for (int i = startIdx; i <= endIdx; i++) {
-            float t = allData[(size_t)i].temperature;
+            const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(i));
+            const ToolDataAccessView view = measurement.GetAccessView();
+            const float t = view.GetTemperature();
             if (t < minTemp) minTemp = t;
             if (t > maxTemp) maxTemp = t;
         }
@@ -3354,8 +3356,10 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         double xRatio = 0.0;
         if (config.xAxisType == XAxisType::TEMPERATURE) {
             if (!hasTempRange) continue;
-            if ((size_t)n.xIndex >= allData.size()) continue;
-            float t = allData[(size_t)n.xIndex].temperature;
+            if ((size_t)n.xIndex >= dataSize) continue;
+            const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(n.xIndex));
+            const ToolDataAccessView view = measurement.GetAccessView();
+            const float t = view.GetTemperature();
             xRatio = (double)((t - minTemp) / (maxTemp - minTemp));
         } else {
             xRatio = (static_cast<double>(n.xIndex) - minXData) / xRange;

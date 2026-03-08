@@ -4,30 +4,11 @@
 #include <string>
 #include <cstdint>
 #include <fstream>
+#include "ToolDataAccess.h"
 
 // Forward declarations
 struct CurveDefinition;
 struct ChartConfiguration;
-
-// Структура данных прибора (новый формат 5Tx, 240 байт)
-#pragma pack(push, 1)
-struct GP_TOOL_DATA {
-    uint32_t signature;
-    uint32_t condition;
-    uint32_t frame;
-    float temperature;
-    float rho_smt[2][5];
-    float phase_smt[2][5];
-    float AM_RX_1[2][5];
-    float ZERO_AM_RX_1[2];
-    float AM_RX_2[2][5];
-    float ZERO_AM_RX_2[2];
-    float DELTA_PH[2][5];
-    float ZERO_dPH[2];
-};
-#pragma pack(pop)
-
-static_assert(sizeof(GP_TOOL_DATA) == 240, "GP_TOOL_DATA must be exactly 240 bytes");
 
 // Типы данных для отображения
 enum class DataType {
@@ -58,23 +39,17 @@ enum class FrequencyBand {
     FREQ_2000_KHZ    // 2000 кГц
 };
 
-// v2.15.1: Типы файлов данных
-enum class FileFormat {
-    FORMAT_BIN,      // .bin - последовательность GP_TOOL_DATA (240 байт на кадр)
-    FORMAT_BIV,      // .biv - идентичен .bin
-    FORMAT_DEV,      // .DEV - 11-байтный заголовок + GP_TOOL_DATA (251 байт на кадр)
-    FORMAT_UNKNOWN   // Неизвестный формат
-};
-
 // Класс для управления данными
 class DataModule {
 private:
     std::vector<GP_TOOL_DATA> data;
+    std::vector<ToolRecordMetadata> recordMetadata;
     std::wstring loadedFileName;  // Имя загруженного файла (без пути и расширения)
 
     static bool ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature);
     static uint32_t DecodeToolCode(uint32_t signature);
     static bool IsDirectlySupportedToolCode(uint32_t toolCode);
+    static ToolRecordMetadata BuildRecordMetadata(const GP_TOOL_DATA& record);
 
 public:
     DataModule();
@@ -88,9 +63,16 @@ public:
     // v2.15.1: Определение формата файла по расширению
     static FileFormat DetectFileFormat(const std::wstring& filename);
     static bool ValidateDataFile(const std::wstring& filename, std::wstring& outError);
+    static uint32_t DecodeToolCodeFromSignature(uint32_t signature);
+    static ToolDataKind DetermineToolDataKindFromSignature(uint32_t signature);
+    static bool ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame);
+    static bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, GP_TOOL_DATA& outData);
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
+    bool TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetadata) const;
+    MeasurementView GetMeasurementView(size_t index) const;
+    ToolDataAccessView GetDataView(size_t index) const;
     
     // v2.13.0: Добавление данных в реальном времени
     void AddData(const GP_TOOL_DATA& newData);
@@ -183,6 +165,8 @@ private:
     int GetDataArrayIndex(int transmitterIndex, int receiverIndex, 
                          FrequencyBand frequency) const;
     
+    int GetAvailableTransmitterCount() const;
+
     bool IsValidDataRange(double minX, double maxX) const;
     std::pair<size_t, size_t> GetDataIndexRange(double minX, double maxX) const;
     

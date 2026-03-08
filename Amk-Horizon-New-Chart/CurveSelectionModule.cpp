@@ -1,5 +1,6 @@
 #include "framework.h"
 #include "CurveSelectionModule.h"
+#include "ToolDataAccess.h"
 #include <algorithm>
 #include <sstream>
 #include <cmath>
@@ -7,6 +8,11 @@
 
 namespace {
 constexpr float kMdegPerRad = 57295.7795f;
+
+int GetUiTransmitterCount(const std::vector<bool>* transmitters = nullptr) {
+    const int transmittersCount = transmitters ? static_cast<int>(transmitters->size()) : 0;
+    return (transmittersCount > 0) ? transmittersCount : SchematicSelection::UI_TRANSMITTER_COUNT;
+}
 
 float NormalizePhaseLocal(float phaseRadians) {
     const float pi = 3.14159265358979323846f;
@@ -19,11 +25,19 @@ float NormalizePhaseLocal(float phaseRadians) {
     return phaseRadians;
 }
 
-void ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx, float outPhase[5]) {
-    const float d1 = record.DELTA_PH[freqIdx][0];
-    const float d2 = record.DELTA_PH[freqIdx][1];
-    const float d3 = record.DELTA_PH[freqIdx][2];
-    const float d4 = record.DELTA_PH[freqIdx][3];
+void ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx, float outPhase[SchematicSelection::UI_TRANSMITTER_COUNT]) {
+    const ToolDataAccessView view(record);
+    float deltas[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+    for (int txIdx = 0; txIdx < 4; ++txIdx) {
+        if (!view.TryGetDeltaPhase(freqIdx, txIdx, deltas[txIdx])) {
+            deltas[txIdx] = 0.0f;
+        }
+    }
+
+    const float d1 = deltas[0];
+    const float d2 = deltas[1];
+    const float d3 = deltas[2];
+    const float d4 = deltas[3];
 
     // baseline коэффициенты из legacy-документа (simmetry_5)
     outPhase[0] = 1.150f * d1 + 0.500f * d2 - 0.650f * d3 + 0.000f * d4;
@@ -90,7 +104,7 @@ float InvertPhaseToRho(const METROLOGY_DATA& metrology, float targetPhase, int t
 
 // Определение стандартных цветов для кривых T1-T5
 // Цвета для левой оси (приоритетные цвета для T1-T5)
-const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[5] = {
+const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT] = {
     // Спокойная "офисная" палитра (без неона), хорошо читается при множестве 1px линий.
     RGB(0, 128, 0),      // T1 - тёмно-зелёный
     RGB(139, 69, 19),    // T2 - коричневый
@@ -100,11 +114,11 @@ const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[5] = {
 };
 
 // Цвета для правой оси (альтернативные цвета для T1-T5)
-const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[5] = {
+const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT] = {
     // Альтернативные цвета (в целом темнее/спокойнее), чтобы не "кричать" при двойной оси.
     RGB(0, 110, 110),  // T1 - тёмно-бирюзовый
     RGB(139, 69, 19),  // T2 - коричневый
-    RGB(120, 70, 150), // T3 - приглушённый фиолетовый
+    RGB(160, 60, 60),  // T3 - тёмно-красный
     RGB(150, 90, 140), // T4 - приглушённый розово-фиолетовый
     RGB(200, 120, 40)  // T5 - приглушённый оранжево-коричневый
 };
@@ -130,11 +144,11 @@ const COLORREF CurveSelectionModule::EXTENDED_PALETTE[12] = {
 };
 
 // Старый массив для обратной совместимости (теперь не используется)
-const COLORREF CurveSelectionModule::CURVE_COLORS[5] = {
+const COLORREF CurveSelectionModule::CURVE_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT] = {
     RGB(0, 128, 0),      // T1
     RGB(139, 69, 19),    // T2
     RGB(200, 50, 50),    // T3
-    RGB(50, 90, 190),    // T4
+    RGB(128, 0, 128),    // T4
     RGB(170, 80, 140)    // T5
 };
 
@@ -197,8 +211,8 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             curves.push_back(tempCurve);
         }
         else if (selection.dataFilter == DataTypeFilter::RHO_SMT_ONLY) {
-            // v2.16.0: УЭС -> 5 кривых T1-T5
-            for (int i = 0; i < 5; i++) {
+            const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
+            for (int i = 0; i < transmitterCount; ++i) {
                 CurveDefinition rhoCurve = CreateRhoSmtCurve(i, selection.frequency);
                 rhoCurve.smtMode = selection.rhoSmtMode;
                 rhoCurve.yAxisGroup = 0; // Левая ось
@@ -208,8 +222,8 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
             }
         }
         else if (selection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY) {
-            // v2.16.0: Симметризованные фазы -> 5 кривых T1-T5
-            for (int i = 0; i < 5; i++) {
+            const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
+            for (int i = 0; i < transmitterCount; ++i) {
                 CurveDefinition phaseSmtCurve = CreatePhaseSmtCurve(i, selection.frequency);
                 phaseSmtCurve.smtMode = selection.phaseSmtMode;
                 phaseSmtCurve.yAxisGroup = 0; // Левая ось
@@ -490,10 +504,12 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             case DataType::TEMPERATURE:
                 // Температура - извлекаем напрямую из данных
                 {
-                    const auto& data = dataModule->GetData();
-                    curveData.reserve(data.size());
-                    for (const auto& record : data) {
-                        curveData.push_back(record.temperature);
+                    const size_t dataSize = dataModule->GetDataSize();
+                    curveData.reserve(dataSize);
+                    for (size_t i = 0; i < dataSize; ++i) {
+                        const MeasurementView measurement = dataModule->GetMeasurementView(i);
+                        const ToolDataAccessView view = measurement.GetAccessView();
+                        curveData.push_back(view.GetTemperature());
                     }
                 }
                 break;
@@ -602,13 +618,15 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             case DataType::TEMPERATURE:
                 // Температура - извлекаем с учётом диапазона
                 {
-                    const auto& data = dataModule->GetData();
+                    const size_t dataSize = dataModule->GetDataSize();
                     size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
+                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataSize), maxX + 1));
                     
                     curveData.reserve(endIndex - startIndex);
                     for (size_t i = startIndex; i < endIndex; ++i) {
-                        curveData.push_back(data[i].temperature);
+                        const MeasurementView measurement = dataModule->GetMeasurementView(i);
+                        const ToolDataAccessView view = measurement.GetAccessView();
+                        curveData.push_back(view.GetTemperature());
                     }
                 }
                 break;
@@ -650,9 +668,10 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     // v2.12.4: Определяем, односортные ли данные (только один тип)
     // Если данные односортные, все кривые идут на левую ось
     bool isSingleType = (addRatios && !addDifferences) || (!addRatios && addDifferences);
+    const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
     
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем разности фаз (более важны для анализа)
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < transmitterCount; ++i) {
         // Разность фаз (ЛЕВАЯ ось, единицы: миллиградусы)
         if (addDifferences) {
             CurveDefinition differenceCurve = CreateDifferenceCurve(i, selection.frequency);
@@ -665,7 +684,7 @@ void CurveSelectionModule::AddTwoReceiversCurves(std::vector<CurveDefinition>& c
     }
     
     // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем отношения амплитуд
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < transmitterCount; ++i) {
         // Отношение амплитуд
         if (addRatios) {
             CurveDefinition ratioCurve = CreateRatioCurve(i, selection.frequency);
@@ -714,9 +733,10 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     // v2.12.4: Определяем, односортные ли данные (только один тип)
     // Если данные односортные, все кривые идут на левую ось
     bool isSingleType = (addAmplitudes && !addPhases) || (!addAmplitudes && addPhases);
+    const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
     
     // ИЗМЕНЕНО v2.7.0: Сначала добавляем фазы (более важны для анализа)
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < transmitterCount; ++i) {
         // Разность фаз (ЛЕВАЯ ось)
         if (addPhases) {
             CurveDefinition phaseCurve = CreateDifferenceCurve(i, selection.frequency);
@@ -729,7 +749,7 @@ void CurveSelectionModule::AddSingleReceiverCurves(std::vector<CurveDefinition>&
     }
     
     // ИЗМЕНЕНО v2.7.0 + v2.12.4: Потом добавляем амплитуды
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < transmitterCount; ++i) {
         // Амплитуда
         if (addAmplitudes) {
             CurveDefinition amplitudeCurve = CreateAmplitudeCurve(i, receiverIndex, selection.frequency);
@@ -751,7 +771,8 @@ void CurveSelectionModule::AddTransmitterCurves(std::vector<CurveDefinition>& cu
     // ИЗМЕНЕНО v2.6.5: Для каждого передатчика сначала все фазы, потом все амплитуды
     // ИЗМЕНЕНО v2.7.0: Фазы на ЛЕВОЙ оси, амплитуды на ПРАВОЙ оси
     
-    for (int txIndex = 0; txIndex < 5; txIndex++) {
+    const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
+    for (int txIndex = 0; txIndex < transmitterCount; ++txIndex) {
         if (!selection.transmitters[txIndex]) continue; // Пропускаем невыбранные передатчики
 
         // Разность фаз (ЛЕВАЯ ось) - разность фаз R1-R2, одна кривая на передатчик.
@@ -966,7 +987,7 @@ COLORREF CurveSelectionModule::GetCurveColor(int transmitterIndex) const {
 }
 
 COLORREF CurveSelectionModule::GetCurveColorForAxis(int transmitterIndex, int yAxisGroup) const {
-    if (transmitterIndex >= 0 && transmitterIndex < 5) {
+    if (transmitterIndex >= 0 && transmitterIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
         if (yAxisGroup == 0) {
             // Левая ось - приоритетные цвета для T1-T5
             return LEFT_AXIS_COLORS[transmitterIndex];
@@ -1003,7 +1024,7 @@ COLORREF CurveSelectionModule::AssignSmartColor(const std::vector<CurveDefinitio
     }
     
     // Проверяем, можно ли использовать приоритетный цвет для T1-T5 на левой оси
-    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < 5) {
+    if (yAxisGroup == 0 && transmitterIndex >= 0 && transmitterIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
         COLORREF priorityColor = LEFT_AXIS_COLORS[transmitterIndex];
         
         // Проверяем, не используется ли уже этот цвет
@@ -1054,7 +1075,7 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR1Preset(FrequencyBa
     ChartConfiguration config;
     
     // Создаем кривые амплитуд для всех передатчиков T1-T5 на приемнике R1
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreateAmplitudeCurve(i, 0, frequency); // 0 = R1
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -1073,7 +1094,7 @@ ChartConfiguration CurveSelectionModule::CreateAllAmplitudesR2Preset(FrequencyBa
     ChartConfiguration config;
     
     // Создаем кривые амплитуд для всех передатчиков T1-T5 на приемнике R2
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreateAmplitudeCurve(i, 1, frequency); // 1 = R2
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -1092,7 +1113,7 @@ ChartConfiguration CurveSelectionModule::CreateAmplitudeRatiosPreset(FrequencyBa
     ChartConfiguration config;
     
     // Создаем кривые отношений амплитуд для всех передатчиков T1-T5
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreateRatioCurve(i, frequency);
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -1111,7 +1132,7 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
     ChartConfiguration config;
     
     // Создаем кривые разностей фаз для всех передатчиков T1-T5
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreateDifferenceCurve(i, frequency);
         curve.yAxisGroup = 0; // Левая ось
         curve.enabled = true;
@@ -1131,7 +1152,7 @@ ChartConfiguration CurveSelectionModule::CreateRhoSmtPreset(FrequencyBand freque
     ChartConfiguration config;
     
     // Создаем кривые УЭС для всех передатчиков T1-T5
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreateRhoSmtCurve(i, frequency);
         curve.smtMode = SmtComputationMode::FROM_SONDE;
         curve.yAxisGroup = 0; // Левая ось
@@ -1152,7 +1173,7 @@ ChartConfiguration CurveSelectionModule::CreatePhaseSmtPreset(FrequencyBand freq
     ChartConfiguration config;
     
     // Создаем кривые симметризованных фаз для всех передатчиков T1-T5
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
         CurveDefinition curve = CreatePhaseSmtCurve(i, frequency);
         curve.smtMode = SmtComputationMode::FROM_SONDE;
         curve.yAxisGroup = 0; // Левая ось
@@ -1254,9 +1275,8 @@ void CurveSelectionModule::CalculatePhaseSmtData(int transmitterIndex, Frequency
         return;
     }
 
-    const auto& records = dataModule->GetData();
     const size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(records.size()), maxX + 1));
+    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataModule->GetDataSize()), maxX + 1));
     if (startIndex >= endIndex) {
         return;
     }
@@ -1270,15 +1290,22 @@ void CurveSelectionModule::CalculatePhaseSmtData(int transmitterIndex, Frequency
     const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
 
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const auto& record = records[i];
+        const MeasurementView measurement = dataModule->GetMeasurementView(i);
+        const GP_TOOL_DATA* record = measurement.GetRecord();
+        if (!record) {
+            continue;
+        }
+        const ToolDataAccessView view = measurement.GetAccessView();
         float phase = 0.0f;
 
-        if (metro && record.signature == metro->signature) {
-            float phaseComputed[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-            ComputePhaseSmtFromComputer(record, freqIdx, phaseComputed);
+        if (metro && record->signature == metro->signature) {
+            float phaseComputed[SchematicSelection::UI_TRANSMITTER_COUNT] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            ComputePhaseSmtFromComputer(*record, freqIdx, phaseComputed);
             phase = phaseComputed[transmitterIndex];
         } else {
-            phase = record.phase_smt[freqIdx][transmitterIndex];
+            if (!view.TryGetPhaseSmt(freqIdx, transmitterIndex, phase)) {
+                continue;
+            }
         }
 
         phase = NormalizePhaseLocal(phase);
@@ -1296,9 +1323,8 @@ void CurveSelectionModule::CalculateRhoSmtData(int transmitterIndex, FrequencyBa
         return;
     }
 
-    const auto& records = dataModule->GetData();
     const size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(records.size()), maxX + 1));
+    const size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataModule->GetDataSize()), maxX + 1));
     if (startIndex >= endIndex) {
         return;
     }
@@ -1312,15 +1338,22 @@ void CurveSelectionModule::CalculateRhoSmtData(int transmitterIndex, FrequencyBa
     const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
 
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const auto& record = records[i];
+        const MeasurementView measurement = dataModule->GetMeasurementView(i);
+        const GP_TOOL_DATA* record = measurement.GetRecord();
+        if (!record) {
+            continue;
+        }
+        const ToolDataAccessView view = measurement.GetAccessView();
         float rho = 0.0f;
 
-        if (metro && record.signature == metro->signature) {
-            float phaseComputed[5] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-            ComputePhaseSmtFromComputer(record, freqIdx, phaseComputed);
+        if (metro && record->signature == metro->signature) {
+            float phaseComputed[SchematicSelection::UI_TRANSMITTER_COUNT] = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+            ComputePhaseSmtFromComputer(*record, freqIdx, phaseComputed);
             rho = InvertPhaseToRho(*metro, phaseComputed[transmitterIndex], transmitterIndex, freqIdx);
         } else {
-            rho = record.rho_smt[freqIdx][transmitterIndex];
+            if (!view.TryGetRhoSmt(freqIdx, transmitterIndex, rho)) {
+                continue;
+            }
         }
 
         outData.push_back(rho);
