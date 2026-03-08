@@ -1,6 +1,18 @@
 #include "framework.h"
 #include "UIModule.h"
 
+namespace {
+bool IsUiTransmitterIndex(int transmitterIdx) {
+    return transmitterIdx >= 0 && transmitterIdx < UIModule::UI_TRANSMITTER_COUNT;
+}
+
+void SetTransmitterEnabled(std::vector<bool>& enabledTransmitters, int transmitterIdx, bool enabled) {
+    if (IsUiTransmitterIndex(transmitterIdx) && transmitterIdx < static_cast<int>(enabledTransmitters.size())) {
+        enabledTransmitters[static_cast<size_t>(transmitterIdx)] = enabled;
+    }
+}
+}
+
 UIModule::UIModule()
     : hDualModeCheck(nullptr)
     , hChart1SchematicBtn(nullptr)
@@ -428,9 +440,7 @@ void UIModule::ToggleDualMode() {
 
 
 void UIModule::SetChart1TransmitterEnabled(int transmitterIdx, bool enabled) {
-    if (transmitterIdx >= 0 && transmitterIdx < chart1EnabledTransmitters.size()) {
-        chart1EnabledTransmitters[transmitterIdx] = enabled;
-    }
+    SetTransmitterEnabled(chart1EnabledTransmitters, transmitterIdx, enabled);
 }
 
 void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const RECT& chart2Rect, bool dualMode) {
@@ -484,9 +494,7 @@ void UIModule::SetNotesVisible(int chartNumber, bool visible) {
 }
 
 void UIModule::SetChart2TransmitterEnabled(int transmitterIdx, bool enabled) {
-    if (transmitterIdx >= 0 && transmitterIdx < chart2EnabledTransmitters.size()) {
-        chart2EnabledTransmitters[transmitterIdx] = enabled;
-    }
+    SetTransmitterEnabled(chart2EnabledTransmitters, transmitterIdx, enabled);
 }
 
 bool UIModule::HandleCommand(WPARAM wParam, LPARAM lParam, HWND hWnd) {

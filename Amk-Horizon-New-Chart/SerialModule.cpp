@@ -294,12 +294,13 @@ void SerialModule::OnTimer() {
         return;
     }
     
-    GP_TOOL_DATA data;
+    ParsedToolFrame parsedFrame = {};
     std::vector<uint8_t> rawPayload;
-    SerialResult result = RequestData(data, &rawPayload);
+    SerialResult result = RequestData(parsedFrame, &rawPayload);
     
     if (result == SerialResult::SUCCESS) {
         packetsReceived++;
+        const GP_TOOL_DATA& data = parsedFrame.canonicalData;
         lastFrameNumber = data.frame;
         
         // v2.15.3: Если метрология не была получена при подключении (например, Arduino reset из-за DTR/RTS),
@@ -320,6 +321,10 @@ void SerialModule::OnTimer() {
             }
         }
         
+        if (onParsedDataReceived) {
+            onParsedDataReceived(parsedFrame);
+        }
+
         if (onDataReceived) {
             onDataReceived(data);
         }
@@ -331,11 +336,12 @@ void SerialModule::OnTimer() {
 
 // === Команды прибора ===
 
-SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
-    return RequestData(outData, nullptr);
+SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame) {
+    return RequestData(outParsedFrame, nullptr);
 }
 
-SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_t>* outRawPayload) {
+SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vector<uint8_t>* outRawPayload) {
+    outParsedFrame = {};
     if (!IsConnected()) {
         return SerialResult::NOT_CONNECTED;
     }
@@ -365,12 +371,9 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_
         return SerialResult::INVALID_RESPONSE;
     }
 
-    ParsedToolFrame parsedFrame = {};
-    if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), parsedFrame)) {
+    if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
         return SerialResult::INVALID_SIGNATURE;
     }
-
-    outData = parsedFrame.canonicalData;
 
     lastRawDataFrame = payload;
     if (outRawPayload) {
@@ -378,6 +381,22 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_
     }
 
     return SerialResult::SUCCESS;
+}
+
+SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
+    return RequestData(outData, nullptr);
+}
+
+SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_t>* outRawPayload) {
+    ParsedToolFrame parsedFrame = {};
+    const SerialResult result = RequestData(parsedFrame, outRawPayload);
+    if (result != SerialResult::SUCCESS) {
+        outData = {};
+        return result;
+    }
+
+    outData = parsedFrame.canonicalData;
+    return result;
 }
 
 SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
@@ -603,6 +622,10 @@ void SerialModule::HandleMetrologyUpdated() {
 }
 
 // === Callbacks ===
+
+void SerialModule::SetParsedDataCallback(std::function<void(const ParsedToolFrame&)> callback) {
+    onParsedDataReceived = callback;
+}
 
 void SerialModule::SetDataCallback(std::function<void(const GP_TOOL_DATA&)> callback) {
     onDataReceived = callback;

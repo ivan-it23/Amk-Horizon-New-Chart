@@ -163,6 +163,10 @@ public:
         return metadata.capabilities;
     }
 
+    float GetTemperature() const {
+        return record ? record->temperature : 0.0f;
+    }
+
     ToolDataAccessView GetAccessView() const {
         if (!record) {
             return ToolDataAccessView();

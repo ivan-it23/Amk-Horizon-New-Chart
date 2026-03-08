@@ -8,6 +8,89 @@
 #include <cstring>
 #include <cwctype>  // v2.15.1: для towlower
 
+namespace {
+constexpr size_t kCanonicalFrameSize = sizeof(GP_TOOL_DATA);
+constexpr size_t kDevHeaderSize = 11;
+
+size_t GetPhysicalFrameSize(FileFormat format) {
+    return (format == FileFormat::FORMAT_DEV) ? (kCanonicalFrameSize + kDevHeaderSize) : kCanonicalFrameSize;
+}
+
+bool ReadParsedFrameAt(std::ifstream& file, FileFormat format, size_t frameIndex, ParsedToolFrame& outFrame) {
+    outFrame = {};
+
+    const std::streamoff frameOffset = static_cast<std::streamoff>(frameIndex * GetPhysicalFrameSize(format));
+    file.clear();
+    file.seekg(frameOffset, std::ios::beg);
+    if (!file.good()) {
+        return false;
+    }
+
+    if (format == FileFormat::FORMAT_DEV) {
+        file.seekg(static_cast<std::streamoff>(kDevHeaderSize), std::ios::cur);
+        if (!file.good()) {
+            return false;
+        }
+    }
+
+    char rawFrameBuffer[sizeof(GP_TOOL_DATA)] = {};
+    return file.read(rawFrameBuffer, sizeof(rawFrameBuffer)) &&
+           DataModule::ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), outFrame);
+}
+
+void AppendCanonicalRecord(const GP_TOOL_DATA& record,
+                           const ToolRecordMetadata& metadata,
+                           std::vector<GP_TOOL_DATA>& data,
+                           std::vector<ToolRecordMetadata>& recordMetadata) {
+    data.push_back(record);
+    recordMetadata.push_back(metadata);
+}
+
+void AppendCanonicalRecord(const GP_TOOL_DATA& record,
+                           std::vector<GP_TOOL_DATA>& data,
+                           std::vector<ToolRecordMetadata>& recordMetadata) {
+    ToolRecordMetadata metadata = {};
+    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(record.signature);
+    if (adapter) {
+        metadata.kind = adapter->GetKind();
+        metadata.capabilities = adapter->GetCapabilities();
+    }
+
+    AppendCanonicalRecord(record, metadata, data, recordMetadata);
+}
+
+void AppendParsedFrame(const ParsedToolFrame& parsedFrame,
+                       std::vector<GP_TOOL_DATA>& data,
+                       std::vector<ToolRecordMetadata>& recordMetadata) {
+    ToolRecordMetadata metadata = {};
+    metadata.kind = parsedFrame.kind;
+    metadata.capabilities = parsedFrame.capabilities;
+    AppendCanonicalRecord(parsedFrame.canonicalData, metadata, data, recordMetadata);
+}
+
+bool IsSupportedDataFileFormat(FileFormat format) {
+    return format == FileFormat::FORMAT_BIN ||
+           format == FileFormat::FORMAT_BIV ||
+           format == FileFormat::FORMAT_DEV;
+}
+
+void LoadParsedFrames(std::ifstream& file,
+                      FileFormat format,
+                      size_t frameCount,
+                      std::vector<GP_TOOL_DATA>& data,
+                      std::vector<ToolRecordMetadata>& recordMetadata) {
+    data.reserve(frameCount);
+    recordMetadata.reserve(frameCount);
+
+    for (size_t n = 0; n < frameCount; ++n) {
+        ParsedToolFrame parsedFrame = {};
+        if (ReadParsedFrameAt(file, format, n, parsedFrame)) {
+            AppendParsedFrame(parsedFrame, data, recordMetadata);
+        }
+    }
+}
+}
+
 bool DataModule::ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature) {
     const std::streamoff signatureOffset = (format == FileFormat::FORMAT_DEV) ? 11 : 0;
 
@@ -27,16 +110,6 @@ uint32_t DataModule::DecodeToolCode(uint32_t signature) {
 
 bool DataModule::IsDirectlySupportedToolCode(uint32_t toolCode) {
     return toolCode == 151u || toolCode == 152u || toolCode == 241u;
-}
-
-ToolRecordMetadata DataModule::BuildRecordMetadata(const GP_TOOL_DATA& record) {
-    ToolRecordMetadata metadata = {};
-    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(record.signature);
-    if (adapter) {
-        metadata.kind = adapter->GetKind();
-        metadata.capabilities = adapter->GetCapabilities();
-    }
-    return metadata;
 }
 
 uint32_t DataModule::DecodeToolCodeFromSignature(uint32_t signature) {
@@ -104,8 +177,7 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
         return false;
     }
 
-    const size_t frameSize = sizeof(GP_TOOL_DATA);
-    const size_t physicalFrameSize = (format == FileFormat::FORMAT_DEV) ? (11 + frameSize) : frameSize;
+    const size_t physicalFrameSize = GetPhysicalFrameSize(format);
 
     if (static_cast<size_t>(fileSize) < physicalFrameSize ||
         (static_cast<size_t>(fileSize) % physicalFrameSize) != 0) {
@@ -175,6 +247,11 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
     
     // v2.15.1: Определяем формат файла
     FileFormat format = DetectFileFormat(filename);
+    if (!IsSupportedDataFileFormat(format)) {
+        outError = L"Неподдерживаемый формат файла";
+        file.close();
+        return false;
+    }
     
     // Определяем размер файла
     file.seekg(0, std::ios::end);
@@ -187,92 +264,19 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
         return false;
     }
     
-    // Константы размеров
-    const size_t GP_TOOL_DATA_SIZE = sizeof(GP_TOOL_DATA);  // 240 байт
-    const size_t DEV_HEADER_SIZE = 11;                       // 11-байтный заголовок для .DEV
-    const size_t DEV_BLOCK_SIZE = GP_TOOL_DATA_SIZE + DEV_HEADER_SIZE;  // 251 байт
-    
-    size_t frameCount = 0;
-    
-    switch (format) {
-        case FileFormat::FORMAT_BIN:
-        case FileFormat::FORMAT_BIV:
-            // .bin и .biv: последовательность GP_TOOL_DATA без заголовков
-            // Формула: количество_кадров = размер_файла / 240
-            frameCount = static_cast<size_t>(fileSize) / GP_TOOL_DATA_SIZE;
-            
-            if (frameCount == 0) {
-                outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                           L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
-                file.close();
-                return false;
-            }
-            
-            data.reserve(frameCount);
-            recordMetadata.reserve(frameCount);
-            
-            for (size_t n = 0; n < frameCount; ++n) {
-                char rawFrameBuffer[sizeof(GP_TOOL_DATA)] = {};
-                ParsedToolFrame parsedFrame = {};
-                // Смещение: n * 240
-                file.seekg(n * GP_TOOL_DATA_SIZE);
-                if (file.read(rawFrameBuffer, GP_TOOL_DATA_SIZE) && ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), parsedFrame)) {
-                    data.push_back(parsedFrame.canonicalData);
-                    ToolRecordMetadata metadata = {};
-                    metadata.kind = parsedFrame.kind;
-                    metadata.capabilities = parsedFrame.capabilities;
-                    recordMetadata.push_back(metadata);
-                }
-            }
-            break;
-            
-        case FileFormat::FORMAT_DEV:
-            // .DEV: 11-байтный заголовок + GP_TOOL_DATA для каждого кадра
-            // Формула: количество_кадров = размер_файла / 251
-            frameCount = static_cast<size_t>(fileSize) / DEV_BLOCK_SIZE;
-            
-            if (frameCount == 0) {
-                outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                           L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
-                file.close();
-                return false;
-            }
-            
-            data.reserve(frameCount);
-            recordMetadata.reserve(frameCount);
-            
-            for (size_t n = 0; n < frameCount; ++n) {
-                // Смещение блока: n * 251
-                file.seekg(n * DEV_BLOCK_SIZE);
-                
-                // Пропускаем 11-байтный заголовок
-                char headerBuffer[DEV_HEADER_SIZE];
-                file.read(headerBuffer, DEV_HEADER_SIZE);
-                
-                // Читаем данные GP_TOOL_DATA
-                char rawFrameBuffer[sizeof(GP_TOOL_DATA)] = {};
-                ParsedToolFrame parsedFrame = {};
-                if (file.read(rawFrameBuffer, GP_TOOL_DATA_SIZE) && ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), parsedFrame)) {
-                    data.push_back(parsedFrame.canonicalData);
-                    ToolRecordMetadata metadata = {};
-                    metadata.kind = parsedFrame.kind;
-                    metadata.capabilities = parsedFrame.capabilities;
-                    recordMetadata.push_back(metadata);
-                }
-            }
-            break;
-            
-        case FileFormat::FORMAT_UNKNOWN:
-        default:
-            outError = L"Неподдерживаемый формат файла";
-            file.close();
-            return false;
-            break;
+    const size_t frameCount = static_cast<size_t>(fileSize) / GetPhysicalFrameSize(format);
+    if (frameCount == 0) {
+        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
+                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
+        file.close();
+        return false;
     }
+
+    LoadParsedFrames(file, format, frameCount, data, recordMetadata);
     
     file.close();
 
-    if (data.empty()) {
+    if (!HasData()) {
         outError = L"Файл содержит неподдерживаемую структуру данных.\n"
                    L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
         loadedFileName.clear();
@@ -280,7 +284,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
     }
     
     // Сохраняем имя файла без пути и расширения
-    if (!data.empty()) {
+    if (HasData()) {
         // Извлекаем имя файла из полного пути
         size_t lastSlash = filename.find_last_of(L"\\/");
         std::wstring fileNameOnly = (lastSlash != std::wstring::npos) 
@@ -294,7 +298,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
             : fileNameOnly;
     }
     
-    return !data.empty();
+    return HasData();
 }
 
 void DataModule::ClearData() {
@@ -319,6 +323,10 @@ const std::vector<GP_TOOL_DATA>& DataModule::GetData() const {
     return data;
 }
 
+const GP_TOOL_DATA* DataModule::TryGetRecord(size_t index) const {
+    return (index < data.size()) ? &data[index] : nullptr;
+}
+
 bool DataModule::TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetadata) const {
     if (index >= recordMetadata.size()) {
         outMetadata = {};
@@ -330,15 +338,17 @@ bool DataModule::TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetad
 }
 
 MeasurementView DataModule::GetMeasurementView(size_t index) const {
-    if (index >= data.size()) {
+    const GP_TOOL_DATA* record = TryGetRecord(index);
+    if (!record) {
         return MeasurementView();
     }
 
-    if (index < recordMetadata.size()) {
-        return MeasurementView(data[index], recordMetadata[index]);
+    ToolRecordMetadata metadata;
+    if (TryGetRecordMetadata(index, metadata)) {
+        return MeasurementView(*record, metadata);
     }
 
-    return MeasurementView(data[index]);
+    return MeasurementView(*record);
 }
 
 ToolDataAccessView DataModule::GetDataView(size_t index) const {
@@ -346,26 +356,29 @@ ToolDataAccessView DataModule::GetDataView(size_t index) const {
 }
 
 // v2.13.0: Добавление данных в реальном времени
+void DataModule::AddParsedData(const ParsedToolFrame& parsedData) {
+    AppendParsedFrame(parsedData, data, recordMetadata);
+}
+
 void DataModule::AddData(const GP_TOOL_DATA& newData) {
-    data.push_back(newData);
-    recordMetadata.push_back(BuildRecordMetadata(newData));
+    AppendCanonicalRecord(newData, data, recordMetadata);
 }
 
 void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
-    data.insert(data.end(), newDataBatch.begin(), newDataBatch.end());
-    recordMetadata.reserve(data.size());
+    data.reserve(data.size() + newDataBatch.size());
+    recordMetadata.reserve(recordMetadata.size() + newDataBatch.size());
     for (const auto& record : newDataBatch) {
-        recordMetadata.push_back(BuildRecordMetadata(record));
+        AppendCanonicalRecord(record, data, recordMetadata);
     }
 }
 
 bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const {
     // Проверка корректности индексов
-    if (data.empty()) {
+    if (!HasData()) {
         return false;
     }
     
-    if (startIndex >= data.size() || endIndex >= data.size() || startIndex > endIndex) {
+    if (startIndex >= GetDataSize() || endIndex >= GetDataSize() || startIndex > endIndex) {
         return false;
     }
     
@@ -377,7 +390,11 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
     
     // Записываем данные из диапазона [startIndex, endIndex]
     for (size_t i = startIndex; i <= endIndex; ++i) {
-        file.write(reinterpret_cast<const char*>(&data[i]), sizeof(GP_TOOL_DATA));
+        const GP_TOOL_DATA* record = TryGetRecord(i);
+        if (!record) {
+            return false;
+        }
+        file.write(reinterpret_cast<const char*>(record), sizeof(GP_TOOL_DATA));
     }
     
     file.close();
@@ -388,7 +405,7 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
     std::vector<bool> allTransmittersEnabled(static_cast<size_t>(GetAvailableTransmitterCount()), true);
-    CalculateChartData(type, freq, outData, allTransmittersEnabled, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+    CalculateChartData(type, freq, outData, allTransmittersEnabled, 0.0, static_cast<double>(GetDataSize() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData,
@@ -402,7 +419,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                    double minX, double maxX, double minY, double maxY) const {
     outData.clear();
     
-    if (data.empty())
+    if (!HasData())
         return;
     
     // Используем оптимизированный метод получения диапазона индексов
@@ -575,8 +592,8 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             outData[0].reserve(endIndex - startIndex);
             
             for (size_t i = startIndex; i < endIndex; ++i) {
-                const ToolDataAccessView view = GetDataView(i);
-                float value = view.GetTemperature();
+                const MeasurementView measurement = GetMeasurementView(i);
+                float value = measurement.GetTemperature();
                 
                 // Проверяем диапазон значений для фильтрации
                 if (value >= minY && value <= maxY) {
@@ -618,7 +635,7 @@ int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
 
 int DataModule::GetAvailableTransmitterCount() const {
     int maxCount = 0;
-    for (size_t i = 0; i < data.size(); ++i) {
+    for (size_t i = 0; i < GetDataSize(); ++i) {
         const ToolDataAccessView view = GetDataView(i);
         maxCount = std::max(maxCount, view.GetTransmitterCount());
     }
@@ -631,8 +648,14 @@ void DataModule::CalculateCustomCurveData(const std::vector<CurveDefinition>& cu
                                          std::vector<std::vector<float>>& leftAxisData,
                                          std::vector<std::vector<float>>& rightAxisData) const {
     // Вызываем перегруженную версию без ограничений диапазона
+    if (!HasData()) {
+        leftAxisData.clear();
+        rightAxisData.clear();
+        return;
+    }
+
     CalculateCustomCurveData(curves, leftAxisData, rightAxisData, 
-                            0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+                            0.0, static_cast<double>(GetDataSize() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateCustomCurveData(const std::vector<CurveDefinition>& curves,
@@ -642,7 +665,7 @@ void DataModule::CalculateCustomCurveData(const std::vector<CurveDefinition>& cu
     leftAxisData.clear();
     rightAxisData.clear();
     
-    if (data.empty() || curves.empty()) {
+    if (!HasData() || curves.empty()) {
         return;
     }
     
@@ -666,7 +689,12 @@ void DataModule::CalculateCustomCurveData(const std::vector<CurveDefinition>& cu
 void DataModule::CalculateSingleCurveData(const CurveDefinition& curve, 
                                          std::vector<float>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
-    CalculateSingleCurveData(curve, outData, 0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+    if (!HasData()) {
+        outData.clear();
+        return;
+    }
+
+    CalculateSingleCurveData(curve, outData, 0.0, static_cast<double>(GetDataSize() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateSingleCurveData(const CurveDefinition& curve, 
@@ -674,7 +702,7 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
                                          double minX, double maxX, double minY, double maxY) const {
     outData.clear();
     
-    if (data.empty()) {
+    if (!HasData()) {
         return;
     }
     
@@ -972,20 +1000,21 @@ int DataModule::GetDataArrayIndex(int transmitterIndex, int receiverIndex,
 }
 
 bool DataModule::IsValidDataRange(double minX, double maxX) const {
-    return minX >= 0 && maxX < static_cast<double>(data.size()) && minX <= maxX;
+    return minX >= 0 && maxX < static_cast<double>(GetDataSize()) && minX <= maxX;
 }
 
 std::pair<size_t, size_t> DataModule::GetDataIndexRange(double minX, double maxX) const {
-    if (data.empty()) {
+    if (!HasData()) {
         return {0, 0};
     }
     
+    const size_t dataSize = GetDataSize();
     size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(data.size()), maxX + 1));
+    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataSize), maxX + 1));
     
     // Убеждаемся, что индексы корректны
-    startIndex = std::min(startIndex, data.size());
-    endIndex = std::min(endIndex, data.size());
+    startIndex = std::min(startIndex, dataSize);
+    endIndex = std::min(endIndex, dataSize);
     
     if (startIndex >= endIndex) {
         return {0, 0};
@@ -999,8 +1028,14 @@ void DataModule::CalculateChartDataFromConfiguration(const ChartConfiguration& c
                                                    std::vector<std::vector<float>>& leftAxisData,
                                                    std::vector<std::vector<float>>& rightAxisData) const {
     // Вызываем перегруженную версию без ограничений диапазона
+    if (!HasData()) {
+        leftAxisData.clear();
+        rightAxisData.clear();
+        return;
+    }
+
     CalculateChartDataFromConfiguration(config, leftAxisData, rightAxisData,
-                                      0.0, static_cast<double>(data.size() - 1), -1e6, 1e6);
+                                      0.0, static_cast<double>(GetDataSize() - 1), -1e6, 1e6);
 }
 
 void DataModule::CalculateChartDataFromConfiguration(const ChartConfiguration& config,
@@ -1010,7 +1045,7 @@ void DataModule::CalculateChartDataFromConfiguration(const ChartConfiguration& c
     leftAxisData.clear();
     rightAxisData.clear();
     
-    if (data.empty() || config.curves.empty()) {
+    if (!HasData() || config.curves.empty()) {
         return;
     }
     
@@ -1022,18 +1057,18 @@ void DataModule::CalculateChartDataFromConfiguration(const ChartConfiguration& c
 // v2.10.0: Получение температурных данных для оси X
 void DataModule::GetTemperatureData(std::vector<float>& outData) const {
     outData.clear();
-    if (data.empty()) return;
+    if (!HasData()) return;
     
-    outData.reserve(data.size());
-    for (size_t i = 0; i < data.size(); ++i) {
-        const ToolDataAccessView view = GetDataView(i);
-        outData.push_back(view.GetTemperature());
+    outData.reserve(GetDataSize());
+    for (size_t i = 0; i < GetDataSize(); ++i) {
+        const MeasurementView measurement = GetMeasurementView(i);
+        outData.push_back(measurement.GetTemperature());
     }
 }
 
 void DataModule::GetTemperatureData(std::vector<float>& outData, double minX, double maxX) const {
     outData.clear();
-    if (data.empty()) return;
+    if (!HasData()) return;
     
     // Получаем диапазон индексов
     auto indexRange = GetDataIndexRange(minX, maxX);
@@ -1042,7 +1077,7 @@ void DataModule::GetTemperatureData(std::vector<float>& outData, double minX, do
     
     outData.reserve(endIndex - startIndex);
     for (size_t i = startIndex; i < endIndex; ++i) {
-        const ToolDataAccessView view = GetDataView(i);
-        outData.push_back(view.GetTemperature());
+        const MeasurementView measurement = GetMeasurementView(i);
+        outData.push_back(measurement.GetTemperature());
     }
 }

@@ -81,8 +81,14 @@ static std::wstring Utf8ToWide(const std::string& utf8str) {
     return wstrTo;
 }
 
+static constexpr size_t kUiTransmitterCount = static_cast<size_t>(UIModule::UI_TRANSMITTER_COUNT);
+
+static std::vector<bool> MakeAllUiTransmittersEnabled() {
+    return std::vector<bool>(kUiTransmitterCount, true);
+}
+
 // Определение цветов для каналов
-const COLORREF ChartModule::CHANNEL_COLORS[5] = {
+const COLORREF ChartModule::CHANNEL_COLORS[UIModule::UI_TRANSMITTER_COUNT] = {
     // Спокойная "офисная" палитра (без неоновых цветов), хорошо читается при 1px линиях.
     RGB(0, 128, 0),      // T1 - тёмно-зелёный
     RGB(139, 69, 19),    // T2 - коричневый
@@ -91,7 +97,7 @@ const COLORREF ChartModule::CHANNEL_COLORS[5] = {
     RGB(170, 80, 140)    // T5 - приглушённый пурпурный
 };
 
-const wchar_t* ChartModule::CHANNEL_NAMES[5] = {
+const wchar_t* ChartModule::CHANNEL_NAMES[UIModule::UI_TRANSMITTER_COUNT] = {
     L"T1", L"T2", L"T3", L"T4", L"T5"
 };
 
@@ -201,7 +207,7 @@ namespace {
 void ChartModule::DrawChart(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData,
                            DataType type, const std::wstring& title, bool hasData, bool showAxes) const {
     // По умолчанию все передатчики включены
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true};
+    const std::vector<bool> allTransmittersEnabled = MakeAllUiTransmittersEnabled();
     DrawChart(hdc, rect, chartData, type, title, hasData, allTransmittersEnabled, nullptr, 0.0, 0.0, 0.0, 0.0, showAxes);
 }
 
@@ -316,7 +322,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
             points.push_back({ x, y });
         }
 
-        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % kUiTransmitterCount], PS_SOLID);
     }
 }
 
@@ -358,7 +364,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
             points.push_back({ x, y });
         }
 
-        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % kUiTransmitterCount], PS_SOLID);
     }
 }
 
@@ -398,7 +404,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     int totalWidth = 0;
     int lineLength = 15; // Длина цветной линии
     
-    for (size_t channelIdx = 0; channelIdx < 5; channelIdx++) {
+    for (size_t channelIdx = 0; channelIdx < kUiTransmitterCount; channelIdx++) {
         if (isMultiChannel && channelIdx < enabledTransmitters.size()) {
             // Ширина элемента = чекбокс + отступ + линия + отступ + текст
             SIZE textSize;
@@ -408,7 +414,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
             elements.push_back({elementWidth, (int)channelIdx});
             totalWidth += elementWidth;
             
-            if (channelIdx < 5) { // Добавляем промежуток между элементами (кроме последнего)
+            if (channelIdx + 1 < kUiTransmitterCount) { // Добавляем промежуток между элементами (кроме последнего)
                 totalWidth += elementSpacing;
             }
         }
@@ -426,7 +432,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     
     for (const auto& elem : elements) {
         int channelIdx = elem.channelIdx;
-        COLORREF color = CHANNEL_COLORS[channelIdx % 5];
+        COLORREF color = CHANNEL_COLORS[static_cast<size_t>(channelIdx) % kUiTransmitterCount];
         
         // Отрисовка чекбокса
         RECT checkboxRect = {currentX,
@@ -464,7 +470,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
 // Обновленная DrawChartLegend (для совместимости)
 void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<std::vector<float>>& chartData) const {
     // По умолчанию все передатчики включены
-    std::vector<bool> allTransmittersEnabled = {true, true, true, true, true};
+    const std::vector<bool> allTransmittersEnabled = MakeAllUiTransmittersEnabled();
     DrawChartLegend(hdc, rect, chartData, DataType::PHASE_DIFFERENCE, allTransmittersEnabled); // Используем PHASE_DIFFERENCE как заглушку для многоканального типа
 }
 
@@ -503,7 +509,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     std::vector<LegendElement> elements;
     int totalWidth = 0;
     
-    for (int channelIdx = 0; channelIdx < 5; channelIdx++) {
+    for (int channelIdx = 0; channelIdx < static_cast<int>(kUiTransmitterCount); channelIdx++) {
         if (isMultiChannel) {
             SIZE textSize;
             GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
@@ -512,7 +518,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
             elements.push_back({elementWidth, channelIdx, 0});
             totalWidth += elementWidth;
             
-            if (channelIdx < 5) {
+            if (channelIdx + 1 < static_cast<int>(kUiTransmitterCount)) {
                 totalWidth += elementSpacing;
             }
         }
@@ -2447,7 +2453,7 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
             points.push_back({ x, y });
         }
 
-        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % 5], PS_SOLID);
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % kUiTransmitterCount], PS_SOLID);
     }
 }
 

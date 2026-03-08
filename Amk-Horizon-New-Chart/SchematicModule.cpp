@@ -5,6 +5,7 @@
 #include <sstream>
 #include <commctrl.h>
 #include <algorithm>
+#include <array>
 #include <map>
 #include <set>
 
@@ -21,6 +22,143 @@ static std::wstring Utf8ToWide(const std::string& utf8str) {
 static std::wstring BuildSmtPresetDisplayName(const wchar_t* baseName, SmtComputationMode mode) {
     return std::wstring(baseName) +
            (mode == SmtComputationMode::FROM_COMPUTER ? L" (на компьютере)" : L" (на приборе)");
+}
+
+static constexpr size_t kAllUiTransmittersDualReceiverCurveThreshold =
+    static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT) *
+    static_cast<size_t>(SchematicSelection::UI_RECEIVER_COUNT) * 2;
+
+static constexpr int kSchematicElementWidth = 58;
+static constexpr int kSchematicElementHeight = 35;
+static constexpr int kSchematicElementSpacing = 8;
+static constexpr int kFrameToSilentSpacing = 6;
+static constexpr int kSchematicFrameElementsCount =
+    SchematicSelection::UI_TRANSMITTER_COUNT + SchematicSelection::UI_RECEIVER_COUNT;
+static constexpr std::array<int, SchematicSelection::UI_TRANSMITTER_COUNT> kUiTransmitterLayoutPositions = {2, 5, 1, 6, 0};
+static constexpr int kUiReceiverLayoutStartPosition = 3;
+
+static std::wstring BuildIndexedElementLabel(wchar_t prefix, int index) {
+    return std::wstring(1, prefix) + std::to_wstring(index + 1);
+}
+
+static std::wstring BuildSilentElementLabel(int index) {
+    return L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
+}
+
+static std::wstring BuildSilentGroupHeaderLabel(int index) {
+    return L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
+}
+
+static std::wstring BuildElementLabel(ElementType type, int index) {
+    switch (type) {
+        case ElementType::TRANSMITTER:
+            return BuildIndexedElementLabel(L'T', index);
+        case ElementType::RECEIVER:
+            return BuildIndexedElementLabel(L'R', index);
+        case ElementType::SILENT_TX:
+            return BuildSilentElementLabel(index);
+        default:
+            return L"Unknown";
+    }
+}
+
+static std::wstring BuildElementTooltip(ElementType type, int index) {
+    switch (type) {
+        case ElementType::TRANSMITTER:
+            return L"\x041F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A T" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
+        case ElementType::RECEIVER:
+            return L"\x041F\x0440\x0438\x0451\x043C\x043D\x0438\x043A R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
+        case ElementType::SILENT_TX:
+            return L"\x041C\x043E\x043B\x0447\x0430\x0449\x0438\x0439 \x043F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A \x0434\x043B\x044F R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
+        default:
+            return L"Unknown element";
+    }
+}
+
+static bool HasAllUiTransmittersSelected(const std::set<int>& uniqueTransmitters) {
+    return uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT);
+}
+
+static void SelectUiReceiver(SchematicSelection& selection, int receiverIndex) {
+    if (receiverIndex >= 0 && receiverIndex < SchematicSelection::UI_RECEIVER_COUNT) {
+        selection.receivers[receiverIndex] = true;
+    }
+}
+
+static void SelectAllUiReceivers(SchematicSelection& selection) {
+    for (int i = 0; i < SchematicSelection::UI_RECEIVER_COUNT; i++) {
+        selection.receivers[i] = true;
+    }
+}
+
+static bool IsUiTransmitterIndex(int index) {
+    return index >= 0 && index < SchematicSelection::UI_TRANSMITTER_COUNT;
+}
+
+static bool IsUiReceiverIndex(int index) {
+    return index >= 0 && index < SchematicSelection::UI_RECEIVER_COUNT;
+}
+
+static bool IsUiSilentIndex(int index) {
+    return index >= 0 && index < SchematicSelection::UI_SILENT_COUNT;
+}
+
+static int GetSchematicFramePositionIndex(ElementType type, int index) {
+    switch (type) {
+        case ElementType::TRANSMITTER:
+            return IsUiTransmitterIndex(index) ? kUiTransmitterLayoutPositions[static_cast<size_t>(index)] : -1;
+        case ElementType::RECEIVER:
+            return IsUiReceiverIndex(index) ? (kUiReceiverLayoutStartPosition + index) : -1;
+        default:
+            return -1;
+    }
+}
+
+static bool IsSelectionElementSelected(const SchematicSelection& selection, ElementType type, int index) {
+    switch (type) {
+        case ElementType::TRANSMITTER:
+            return IsUiTransmitterIndex(index) && static_cast<size_t>(index) < selection.transmitters.size()
+                ? selection.transmitters[static_cast<size_t>(index)]
+                : false;
+        case ElementType::RECEIVER:
+            return IsUiReceiverIndex(index) && static_cast<size_t>(index) < selection.receivers.size()
+                ? selection.receivers[static_cast<size_t>(index)]
+                : false;
+        case ElementType::SILENT_TX:
+            return IsUiSilentIndex(index) && static_cast<size_t>(index) < selection.silentTx.size()
+                ? selection.silentTx[static_cast<size_t>(index)]
+                : false;
+        default:
+            return false;
+    }
+}
+
+static void RestoreSelectedTransmittersFromCurves(const ChartConfiguration& existingConfig,
+                                                  SchematicSelection& selection) {
+    for (const auto& curve : existingConfig.curves) {
+        if (curve.sourceElement == ElementType::TRANSMITTER) {
+            if (IsUiTransmitterIndex(curve.elementIndex)) {
+                selection.transmitters[curve.elementIndex] = true;
+            }
+        }
+    }
+}
+
+static void SelectAllUiTransmitters(SchematicSelection& selection) {
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
+        selection.transmitters[i] = true;
+    }
+}
+
+static void RestoreSelectedSilentTransmittersFromCurves(const ChartConfiguration& existingConfig,
+                                                        SchematicSelection& selection) {
+    for (const auto& curve : existingConfig.curves) {
+        if (curve.sourceElement == ElementType::SILENT_TX) {
+            if (IsUiSilentIndex(curve.elementIndex)) {
+                selection.silentTx[curve.elementIndex] = true;
+            }
+        }
+    }
 }
 
 // Определение цветов для элементов схемы
@@ -594,17 +732,17 @@ bool SchematicModule::HandleElementClick(int x, int y) {
 void SchematicModule::UpdateSelection(ElementType type, int index, bool selected) {
     switch (type) {
         case ElementType::TRANSMITTER:
-            if (index >= 0 && index < SchematicSelection::UI_TRANSMITTER_COUNT) {
+            if (IsUiTransmitterIndex(index)) {
                 currentSelection.transmitters[index] = selected;
             }
             break;
         case ElementType::RECEIVER:
-            if (index >= 0 && index < SchematicSelection::UI_RECEIVER_COUNT) {
+            if (IsUiReceiverIndex(index)) {
                 currentSelection.receivers[index] = selected;
             }
             break;
         case ElementType::SILENT_TX:
-            if (index >= 0 && index < SchematicSelection::UI_SILENT_COUNT) {
+            if (IsUiSilentIndex(index)) {
                 currentSelection.silentTx[index] = selected;
             }
             break;
@@ -646,20 +784,7 @@ void SchematicModule::SetCurrentSelection(const SchematicSelection& selection) {
     
     // Обновляем состояние элементов схемы
     for (auto& element : schematicElements) {
-        switch (element.type) {
-            case ElementType::TRANSMITTER:
-                element.selected = (element.index < currentSelection.transmitters.size()) 
-                    ? currentSelection.transmitters[element.index] : false;
-                break;
-            case ElementType::RECEIVER:
-                element.selected = (element.index < currentSelection.receivers.size()) 
-                    ? currentSelection.receivers[element.index] : false;
-                break;
-            case ElementType::SILENT_TX:
-                element.selected = (element.index < currentSelection.silentTx.size()) 
-                    ? currentSelection.silentTx[element.index] : false;
-                break;
-        }
+        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
     }
 }
 
@@ -703,49 +828,25 @@ SchematicModule::ElementRect* SchematicModule::FindElementAt(int x, int y) {
 }
 
 std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const {
-    switch (type) {
-        case ElementType::TRANSMITTER:
-            return L"T" + std::to_wstring(index + 1);
-        case ElementType::RECEIVER:
-            return L"R" + std::to_wstring(index + 1);
-        case ElementType::SILENT_TX:
-            // Двухстрочная подпись, чтобы "R1/R2" не терялись даже на компактных кнопках.
-            // "Молч." в Unicode + перенос строки + "R1/R2"
-            return L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
-        default:
-            return L"Unknown";
-    }
+    return BuildElementLabel(type, index);
 }
 
 std::wstring SchematicModule::GetElementTooltip(ElementType type, int index) const {
-    switch (type) {
-        case ElementType::TRANSMITTER:
-            // "Передатчик T - нажмите для выбора"
-            return L"\x041F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A T" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        case ElementType::RECEIVER:
-            // "Приёмник R - нажмите для выбора"
-            return L"\x041F\x0440\x0438\x0451\x043C\x043D\x0438\x043A R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        case ElementType::SILENT_TX:
-            // "Молчащий передатчик для R - нажмите для выбора"
-            return L"\x041C\x043E\x043B\x0447\x0430\x0449\x0438\x0439 \x043F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A \x0434\x043B\x044F R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        default:
-            return L"Unknown element";
-    }
+    return BuildElementTooltip(type, index);
 }
 
 void SchematicModule::DrawTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
-    std::wstring label = L"T" + std::to_wstring(index + 1);
+    std::wstring label = BuildElementLabel(ElementType::TRANSMITTER, index);
     DrawElement(hdc, rect, ElementType::TRANSMITTER, index, selected, false, label);
 }
 
 void SchematicModule::DrawReceiver(HDC hdc, const RECT& rect, int index, bool selected) {
-    std::wstring label = L"R" + std::to_wstring(index + 1);
+    std::wstring label = BuildElementLabel(ElementType::RECEIVER, index);
     DrawElement(hdc, rect, ElementType::RECEIVER, index, selected, false, label);
 }
 
 void SchematicModule::DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
-    // Двухстрочная подпись: "Молч." / "R1"
-    std::wstring label = L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
+    std::wstring label = BuildElementLabel(ElementType::SILENT_TX, index);
     DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, false, label);
 }
 
@@ -777,13 +878,13 @@ void SchematicModule::DrawSelectionHighlight(HDC hdc, const RECT& rect) {
 
 RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType type, int index) {
     RECT rect;
-    const int elementWidth = 58;   // Уменьшено с 70 до 58 (боковые отступы)
-    const int elementHeight = 35;  // Уменьшено с 45 до 35 (отступы сверху/снизу)
-    const int spacing = 8;        // Уменьшено с 12 до 8
-    const int frameToSilentSpacing = 6;  // Уменьшено с 10 до 6 (максимальная компактность)
+    const int elementWidth = kSchematicElementWidth;
+    const int elementHeight = kSchematicElementHeight;
+    const int spacing = kSchematicElementSpacing;
+    const int frameToSilentSpacing = kFrameToSilentSpacing;
     
     // Рассчитываем ширину рамки (7 элементов: T1-T5, R1-R2)
-    const int frameElementsCount = 7;
+    const int frameElementsCount = kSchematicFrameElementsCount;
     const int frameWidth = frameElementsCount * elementWidth + (frameElementsCount - 1) * spacing + 2 * FRAME_PADDING;
     
     // Рассчитываем общую ширину (рамка + отступ + 2 молчащих)
@@ -800,23 +901,9 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
     
     switch (type) {
         case ElementType::TRANSMITTER:
-            {
-                // Передатчики в порядке: T5(pos 0), T3(pos 1), T1(pos 2), T2(pos 5), T4(pos 6)
-                switch (index) {
-                    case 0: positionIndex = 2; break; // T1 -> позиция 2
-                    case 1: positionIndex = 5; break; // T2 -> позиция 5
-                    case 2: positionIndex = 1; break; // T3 -> позиция 1
-                    case 3: positionIndex = 6; break; // T4 -> позиция 6
-                    case 4: positionIndex = 0; break; // T5 -> позиция 0
-                }
-                currentX += positionIndex * (elementWidth + spacing);
-            }
-            break;
-            
         case ElementType::RECEIVER:
-            {
-                // Приемники R1-R2 в центре (позиции 3-4)
-                positionIndex = 3 + index;  // R1=3, R2=4
+            positionIndex = GetSchematicFramePositionIndex(type, index);
+            if (positionIndex >= 0) {
                 currentX += positionIndex * (elementWidth + spacing);
             }
             break;
@@ -824,7 +911,7 @@ RECT SchematicModule::CalculateElementRect(const RECT& schemaRect, ElementType t
         case ElementType::SILENT_TX:
             {
                 // Молчащие передатчики вне рамки (позиции 7-8)
-                positionIndex = 7 + index;  // Silent R1=7, Silent R2=8
+                positionIndex = frameElementsCount + index;
                 // Начинаем после рамки
                 currentX = startX + frameWidth + frameToSilentSpacing + index * (elementWidth + spacing);
             }
@@ -884,28 +971,8 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     // ИСПРАВЛЕНИЕ: Синхронизируем состояние элементов с currentSelection
     // После создания элементов нужно восстановить их состояние selected
     for (auto& element : schematicElements) {
-        switch (element.type) {
-            case ElementType::TRANSMITTER:
-                if (element.index < currentSelection.transmitters.size()) {
-                    element.selected = currentSelection.transmitters[element.index];
-                    if (element.selected) {
-                    }
-                }
-                break;
-            case ElementType::RECEIVER:
-                if (element.index < currentSelection.receivers.size()) {
-                    element.selected = currentSelection.receivers[element.index];
-                    if (element.selected) {
-                    }
-                }
-                break;
-            case ElementType::SILENT_TX:
-                if (element.index < currentSelection.silentTx.size()) {
-                    element.selected = currentSelection.silentTx[element.index];
-                    if (element.selected) {
-                    }
-                }
-                break;
+        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
+        if (element.selected) {
         }
     }
 }
@@ -987,59 +1054,38 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 // Определяем, что было выбрано на схеме
                 if (hasRatioOrDiff) {
                     // Выбраны оба приемника R1+R2
-                    currentSelection.receivers[0] = true;
-                    currentSelection.receivers[1] = true;
+                    SelectAllUiReceivers(currentSelection);
                 }
-                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
+                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
                     // Выбран только приемник R1 (кривые для ВСЕХ 5 передатчиков с R1)
-                    currentSelection.receivers[0] = true;
+                    SelectUiReceiver(currentSelection, 0);
                 }
-                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
+                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
                     // Выбран только приемник R2 (кривые для ВСЕХ 5 передатчиков с R2)
-                    currentSelection.receivers[1] = true;
+                    SelectUiReceiver(currentSelection, 1);
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() < static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && !HasAllUiTransmittersSelected(uniqueTransmitters)) {
                     // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 5 передатчиков)
                     // Восстанавливаем передатчики из sourceElement
-                    for (const auto& curve : existingConfig.curves) {
-                        if (curve.sourceElement == ElementType::TRANSMITTER) {
-                            if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
-                                currentSelection.transmitters[curve.elementIndex] = true;
-                            }
-                        }
-                    }
+                    RestoreSelectedTransmittersFromCurves(existingConfig, currentSelection);
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT)) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
                     // Особый случай: есть кривые для всех 5 передатчиков с обоими приёмниками
                     // Это может быть либо выбор всех 4 передатчиков, либо какая-то другая комбинация
                     // Проверяем количество кривых: если их 16 (4 передатчика × 2 приёмника × 2 типа данных), 
                     // то скорее всего выбраны все передатчики
-                    if (existingConfig.curves.size() >= 20) {
+                    if (existingConfig.curves.size() >= kAllUiTransmittersDualReceiverCurveThreshold) {
                         // Восстанавливаем все передатчики
-                        for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
-                            currentSelection.transmitters[i] = true;
-                        }
+                        SelectAllUiTransmitters(currentSelection);
                     } else {
                         // Восстанавливаем только те передатчики, которые есть в кривых
-                        for (const auto& curve : existingConfig.curves) {
-                            if (curve.sourceElement == ElementType::TRANSMITTER) {
-                                if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
-                                    currentSelection.transmitters[curve.elementIndex] = true;
-                                }
-                            }
-                        }
+                        RestoreSelectedTransmittersFromCurves(existingConfig, currentSelection);
                     }
                 }
                 
                 // Восстанавливаем молчащие передатчики
                 if (hasSilentSource) {
-                    for (const auto& curve : existingConfig.curves) {
-                        if (curve.sourceElement == ElementType::SILENT_TX) {
-                            if (curve.elementIndex >= 0 && curve.elementIndex < SchematicSelection::UI_SILENT_COUNT) {
-                                currentSelection.silentTx[curve.elementIndex] = true;
-                            }
-                        }
-                    }
+                    RestoreSelectedSilentTransmittersFromCurves(existingConfig, currentSelection);
                 }
                 
                 // ОТЛАДКА: Итоговое состояние выбора
@@ -1055,16 +1101,15 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                 for (const auto& curve : existingConfig.curves) {
                     switch (curve.dataType) {
                         case DataType::AMPLITUDE_RX1:
-                            currentSelection.receivers[0] = true; // R1
+                            SelectUiReceiver(currentSelection, 0);
                             break;
                         case DataType::AMPLITUDE_RX2:
-                            currentSelection.receivers[1] = true; // R2
+                            SelectUiReceiver(currentSelection, 1);
                             break;
                         case DataType::AMPLITUDE_RATIO:
                         case DataType::PHASE_DIFFERENCE:
                             // Для отношений и разностей нужны оба приемника
-                            currentSelection.receivers[0] = true; // R1
-                            currentSelection.receivers[1] = true; // R2
+                            SelectAllUiReceivers(currentSelection);
                             break;
                         default:
                             break;
@@ -1384,14 +1429,13 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
             std::wstring groupHeader;
             switch (elementType) {
                 case ElementType::TRANSMITTER:
-                    groupHeader = L"T" + std::to_wstring(elementIndex + 1);
+                    groupHeader = BuildElementLabel(ElementType::TRANSMITTER, elementIndex);
                     break;
                 case ElementType::RECEIVER:
-                    groupHeader = L"R" + std::to_wstring(elementIndex + 1);
+                    groupHeader = BuildElementLabel(ElementType::RECEIVER, elementIndex);
                     break;
                 case ElementType::SILENT_TX:
-                    // "Молч. R" в Unicode
-                    groupHeader = L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(elementIndex + 1);
+                    groupHeader = BuildSilentGroupHeaderLabel(elementIndex);
                     break;
                 default:
                     // "Группа" в Unicode
@@ -2003,23 +2047,7 @@ void SchematicModule::ClearIncompatibleSelections(ElementType newType) {
 void SchematicModule::SynchronizeElementStates() {
     // Синхронизируем визуальное состояние элементов с логическим состоянием
     for (auto& element : schematicElements) {
-        switch (element.type) {
-            case ElementType::TRANSMITTER:
-                if (element.index < currentSelection.transmitters.size()) {
-                    element.selected = currentSelection.transmitters[element.index];
-                }
-                break;
-            case ElementType::RECEIVER:
-                if (element.index < currentSelection.receivers.size()) {
-                    element.selected = currentSelection.receivers[element.index];
-                }
-                break;
-            case ElementType::SILENT_TX:
-                if (element.index < currentSelection.silentTx.size()) {
-                    element.selected = currentSelection.silentTx[element.index];
-                }
-                break;
-        }
+        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
     }
 }
 

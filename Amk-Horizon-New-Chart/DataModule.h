@@ -49,7 +49,6 @@ private:
     static bool ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature);
     static uint32_t DecodeToolCode(uint32_t signature);
     static bool IsDirectlySupportedToolCode(uint32_t toolCode);
-    static ToolRecordMetadata BuildRecordMetadata(const GP_TOOL_DATA& record);
 
 public:
     DataModule();
@@ -70,11 +69,13 @@ public:
     bool HasData() const;
     size_t GetDataSize() const;
     const std::vector<GP_TOOL_DATA>& GetData() const;
+    const GP_TOOL_DATA* TryGetRecord(size_t index) const;
     bool TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetadata) const;
     MeasurementView GetMeasurementView(size_t index) const;
     ToolDataAccessView GetDataView(size_t index) const;
     
     // v2.13.0: Добавление данных в реальном времени
+    void AddParsedData(const ParsedToolFrame& parsedData);
     void AddData(const GP_TOOL_DATA& newData);
     void AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch);
     

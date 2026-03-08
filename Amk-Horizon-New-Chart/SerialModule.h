@@ -1,6 +1,7 @@
 #pragma once
 
 #include "framework.h"
+#include "ToolDataAdapters.h"
 #include "ToolDataTypes.h"
 #include <string>
 #include <functional>
@@ -88,6 +89,7 @@ private:
     uint32_t lastFrameNumber;
     
     // Callbacks
+    std::function<void(const ParsedToolFrame&)> onParsedDataReceived;
     std::function<void(const GP_TOOL_DATA&)> onDataReceived;
     std::function<void(const METROLOGY_DATA&)> onMetrologyReceived;
     std::function<void(ConnectionState, const std::wstring&)> onStateChanged;
@@ -147,6 +149,8 @@ public:
     // === Команды прибора ===
     
     // Запрос данных измерений (CMD_DATA = 0x11)
+    SerialResult RequestData(ParsedToolFrame& outParsedFrame);
+    SerialResult RequestData(ParsedToolFrame& outParsedFrame, std::vector<uint8_t>* outRawPayload);
     SerialResult RequestData(GP_TOOL_DATA& outData);
     SerialResult RequestData(GP_TOOL_DATA& outData, std::vector<uint8_t>* outRawPayload);
     
@@ -165,6 +169,7 @@ public:
     // === Callbacks ===
     
     // Установка callback для получения данных
+    void SetParsedDataCallback(std::function<void(const ParsedToolFrame&)> callback);
     void SetDataCallback(std::function<void(const GP_TOOL_DATA&)> callback);
     
     // Установка callback для получения метрологии

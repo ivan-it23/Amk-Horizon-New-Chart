@@ -631,7 +631,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     
     // v2.13.0: Устанавливаем callback для получения данных с прибора
     // Элементы управления COM-портом теперь в меню "Прибор" и диалоге IDD_SERIAL_STATUS
-    serialModule->SetDataCallback([this, hWnd](const GP_TOOL_DATA& data) {
+    serialModule->SetParsedDataCallback([this, hWnd](const ParsedToolFrame& parsedData) {
         // v2.16.x: если идёт запись в файл, привязываем заметки к текущему recordFilePath
         if (notesModule && serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
             std::wstring recordPath = serialModule->GetRecordFilePath();
@@ -641,7 +641,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
         }
 
         // Добавляем данные в DataModule
-        dataModule->AddData(data);
+        dataModule->AddParsedData(parsedData);
         
         // v2.14.0: Обновляем диапазон для режима Surf
         if (dataModule->HasData()) {
@@ -3271,8 +3271,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         maxTemp = -FLT_MAX;
         for (int i = startIdx; i <= endIdx; i++) {
             const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(i));
-            const ToolDataAccessView view = measurement.GetAccessView();
-            const float t = view.GetTemperature();
+            const float t = measurement.GetTemperature();
             if (t < minTemp) minTemp = t;
             if (t > maxTemp) maxTemp = t;
         }
@@ -3358,8 +3357,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
             if (!hasTempRange) continue;
             if ((size_t)n.xIndex >= dataSize) continue;
             const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(n.xIndex));
-            const ToolDataAccessView view = measurement.GetAccessView();
-            const float t = view.GetTemperature();
+            const float t = measurement.GetTemperature();
             xRatio = (double)((t - minTemp) / (maxTemp - minTemp));
         } else {
             xRatio = (static_cast<double>(n.xIndex) - minXData) / xRange;
