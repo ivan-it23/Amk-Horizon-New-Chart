@@ -9,6 +9,9 @@
 #include <cstdint>
 #include <fstream>
 #include <mutex>
+#include <atomic>
+#include <deque>
+#include <thread>
 
 // Команды протокола обмена с прибором
 namespace SerialCommands {
@@ -57,6 +60,12 @@ enum class SerialResult {
     NOT_CONNECTED
 };
 
+enum class DeviceProtocolMode {
+    UNKNOWN,
+    MODERN_5TX,
+    LEGACY_4TX
+};
+
 // Класс для работы с COM-портом и протоколом обмена с прибором
 class SerialModule {
 private:
@@ -72,6 +81,7 @@ private:
     // Состояние
     ConnectionState state;
     std::wstring lastError;
+    DeviceProtocolMode protocolMode;
     
     // Таймер для периодического опроса
     UINT_PTR timerId;
@@ -87,6 +97,18 @@ private:
     uint32_t packetsReceived;
     uint32_t packetsErrors;
     uint32_t lastFrameNumber;
+
+    struct PendingPollEvent {
+        SerialResult result = SerialResult::TIMEOUT;
+        ParsedToolFrame parsedFrame = {};
+        std::vector<uint8_t> rawPayload;
+    };
+
+    DWORD legacyPollInterval;
+    std::thread legacyPollingThread;
+    std::atomic<bool> stopLegacyPolling;
+    std::mutex pendingPollEventsMutex;
+    std::deque<PendingPollEvent> pendingPollEvents;
     
     // Callbacks
     std::function<void(const ParsedToolFrame&)> onParsedDataReceived;
@@ -145,6 +167,7 @@ public:
     
     // Обработчик таймера (вызывается из WndProc)
     void OnTimer();
+    void FlushPendingPollResults();
     
     // === Команды прибора ===
     
@@ -245,6 +268,10 @@ private:
     
     // Установка состояния с уведомлением
     void SetState(ConnectionState newState, const std::wstring& error = L"");
+
+    void LegacyPollingLoop();
+    void HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, const std::vector<uint8_t>& rawPayload);
+    void HandleFailedPoll();
     
     // Очистка буферов COM-порта
     void PurgeBuffers();

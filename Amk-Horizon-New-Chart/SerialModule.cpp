@@ -20,6 +20,159 @@ uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
     return parsedFrame.canonicalData.frame;
 }
 
+constexpr uint8_t kLegacyLwdDataCommand = 0x67;
+constexpr uint8_t kLegacyLwdMetrologyCommand = 0x65;
+constexpr size_t kLegacyLwdDataPacketSize = 255u;
+constexpr size_t kLegacyLwdDataPayloadOffset = 13u;
+constexpr size_t kLegacyLwdMetrologyPacketSize = 243u;
+constexpr size_t kLegacyLwdMetrologyPayloadOffset = 1u;
+
+bool WaitForBytesAvailable(HANDLE hSerial, size_t expectedBytes, DWORD waitMs) {
+    if (hSerial == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    const ULONGLONG deadline = GetTickCount64() + waitMs;
+    while (GetTickCount64() < deadline) {
+        COMSTAT stat = {};
+        DWORD errors = 0;
+        if (!ClearCommError(hSerial, &errors, &stat)) {
+            return false;
+        }
+
+        if (stat.cbInQue >= expectedBytes) {
+            return true;
+        }
+
+        Sleep(5);
+    }
+
+    COMSTAT stat = {};
+    DWORD errors = 0;
+    if (!ClearCommError(hSerial, &errors, &stat)) {
+        return false;
+    }
+
+    return stat.cbInQue >= expectedBytes;
+}
+
+bool ReadExactAvailableBytes(HANDLE hSerial, size_t expectedBytes, DWORD waitMs, std::vector<uint8_t>& outBuffer) {
+    outBuffer.clear();
+    if (hSerial == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    outBuffer.reserve(expectedBytes);
+    const ULONGLONG deadline = GetTickCount64() + waitMs;
+
+    while (outBuffer.size() < expectedBytes) {
+        COMSTAT stat = {};
+        DWORD errors = 0;
+        if (!ClearCommError(hSerial, &errors, &stat)) {
+            return false;
+        }
+
+        if (stat.cbInQue == 0) {
+            if (GetTickCount64() >= deadline) {
+                break;
+            }
+            Sleep(2);
+            continue;
+        }
+
+        const size_t remaining = expectedBytes - outBuffer.size();
+        const DWORD toRead = static_cast<DWORD>(std::min<size_t>(remaining, stat.cbInQue));
+        const size_t oldSize = outBuffer.size();
+        outBuffer.resize(oldSize + toRead);
+
+        DWORD chunk = 0;
+        if (!ReadFile(hSerial, outBuffer.data() + oldSize, toRead, &chunk, nullptr)) {
+            return false;
+        }
+
+        if (chunk == 0) {
+            outBuffer.resize(oldSize);
+            if (GetTickCount64() >= deadline) {
+                break;
+            }
+            Sleep(2);
+            continue;
+        }
+
+        if (chunk < toRead) {
+            outBuffer.resize(oldSize + chunk);
+        }
+    }
+
+    return outBuffer.size() == expectedBytes;
+}
+
+bool ReadExactBytes(HANDLE hSerial, uint8_t* buffer, size_t expectedBytes) {
+    if (hSerial == INVALID_HANDLE_VALUE || buffer == nullptr) {
+        return false;
+    }
+
+    size_t totalRead = 0;
+    while (totalRead < expectedBytes) {
+        DWORD chunk = 0;
+        if (!ReadFile(hSerial, buffer + totalRead, static_cast<DWORD>(expectedBytes - totalRead), &chunk, nullptr)) {
+            return false;
+        }
+
+        if (chunk == 0) {
+            return false;
+        }
+
+        totalRead += chunk;
+    }
+
+    return true;
+}
+
+bool ReceiveLegacyFixedPacket(HANDLE hSerial,
+                              uint8_t expectedCmd,
+                              size_t totalPacketSize,
+                              DWORD settleAfterHeaderMs,
+                              std::vector<uint8_t>& outPacket) {
+    outPacket.clear();
+    if (hSerial == INVALID_HANDLE_VALUE || totalPacketSize < 5) {
+        return false;
+    }
+
+    if (!WaitForBytesAvailable(hSerial, 3, 500)) {
+        return false;
+    }
+
+    uint8_t header[3] = { 0, 0, 0 };
+    if (!ReadExactBytes(hSerial, header, sizeof(header))) {
+        return false;
+    }
+
+    if (header[0] != expectedCmd) {
+        return false;
+    }
+
+    outPacket.resize(totalPacketSize);
+    outPacket[0] = header[0];
+    outPacket[1] = header[1];
+    outPacket[2] = header[2];
+
+    Sleep(settleAfterHeaderMs);
+
+    const size_t remaining = totalPacketSize - sizeof(header);
+    if (remaining > 0 && !WaitForBytesAvailable(hSerial, remaining, 500)) {
+        outPacket.clear();
+        return false;
+    }
+
+    if (!ReadExactBytes(hSerial, outPacket.data() + sizeof(header), remaining)) {
+        outPacket.clear();
+        return false;
+    }
+
+    return true;
+}
+
 void DispatchDataCallbacks(const ParsedToolFrame& parsedFrame,
                            const std::function<void(const ParsedToolFrame&)>& onParsedDataReceived,
                            const std::function<void(const GP_TOOL_DATA&)>& onDataReceived) {
@@ -31,6 +184,69 @@ void DispatchDataCallbacks(const ParsedToolFrame& parsedFrame,
         GP_TOOL_DATA data = {};
         (void)TryExtractCanonicalData(parsedFrame, data);
         onDataReceived(data);
+    }
+}
+
+#pragma pack(push, 1)
+struct LEGACY_LWD_METROLOGY_DATA {
+    uint32_t signature;
+    uint32_t serial;
+    uint16_t L1[8];
+    uint16_t L2[8];
+    uint16_t F[8];
+    int16_t Air_zz[8];
+    uint16_t PhaseOffsets[4];
+    uint32_t D_sonde_mm;
+    int16_t Air_zz_amt[8];
+    uint8_t service[140];
+};
+#pragma pack(pop)
+
+static_assert(sizeof(LEGACY_LWD_METROLOGY_DATA) == 240, "LEGACY_LWD_METROLOGY_DATA must be exactly 240 bytes");
+
+bool IsLegacyLwd4TxCompatibilitySignature(uint32_t signature) {
+    return ToolDataAdapterRegistry::DecodeToolCode(signature) == 241u ||
+           signature == 0x3143ADD4u ||
+           signature == 0x31443454u ||
+           signature == 0x31444453u ||
+           signature == 0x31443453u;
+}
+
+bool TryParseLegacyLwd4TxFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) {
+    outFrame = {};
+    if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
+        return false;
+    }
+
+    uint32_t signature = 0;
+    memcpy(&signature, rawFrame, sizeof(signature));
+    if (!IsLegacyLwd4TxCompatibilitySignature(signature)) {
+        return false;
+    }
+
+    Lwd4TxAdapter adapter;
+    return adapter.ParseRawFrame(rawFrame, rawFrameSize, outFrame);
+}
+
+void ConvertLegacyLwd4TxMetrology(const LEGACY_LWD_METROLOGY_DATA& legacyData, METROLOGY_DATA& outData) {
+    outData = {};
+    outData.signature = legacyData.signature;
+    outData.serial = legacyData.serial;
+    outData.D_sonde_mm = legacyData.D_sonde_mm;
+
+    for (int txIdx = 0; txIdx < 4; ++txIdx) {
+        outData.L1[txIdx] = legacyData.L1[txIdx];
+        outData.L2[txIdx] = legacyData.L2[txIdx];
+    }
+
+    for (int freqIdx = 0; freqIdx < 2; ++freqIdx) {
+        outData.F[freqIdx] = legacyData.F[freqIdx * 4];
+        for (int txIdx = 0; txIdx < 4; ++txIdx) {
+            const int legacyIndex = txIdx + freqIdx * 4;
+            const int canonicalIndex = txIdx + freqIdx * 5;
+            outData.Air_zz[canonicalIndex] = legacyData.Air_zz[legacyIndex];
+            outData.Air_zz_amt[canonicalIndex] = legacyData.Air_zz_amt[legacyIndex];
+        }
     }
 }
 }
@@ -78,6 +294,7 @@ SerialModule::SerialModule()
     , readTimeout(1000)
     , writeTimeout(1000)
     , state(ConnectionState::DISCONNECTED)
+    , protocolMode(DeviceProtocolMode::UNKNOWN)
     , timerId(0)
     , pollInterval(2000)
     , callbackWindow(nullptr)
@@ -86,6 +303,8 @@ SerialModule::SerialModule()
     , packetsReceived(0)
     , packetsErrors(0)
     , lastFrameNumber(0)
+    , legacyPollInterval(1000)
+    , stopLegacyPolling(false)
     , existingRecordFilePath(L"")
     , isRecordingEnabled(true)  // v2.15.0: Запись включена по умолчанию
     , appendToExistingFile(false)
@@ -252,6 +471,7 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
     
     // Очищаем буферы
     PurgeBuffers();
+    protocolMode = DeviceProtocolMode::UNKNOWN;
     
     SetState(ConnectionState::CONNECTED);
     ResetStatistics();
@@ -270,6 +490,7 @@ void SerialModule::Disconnect() {
     
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
+    protocolMode = DeviceProtocolMode::UNKNOWN;
     currentDeviceId.clear();  // v2.15.0: Сбрасываем ID прибора
     SetState(ConnectionState::DISCONNECTED);
 }
@@ -289,20 +510,48 @@ std::wstring SerialModule::GetLastErrorMessage() const {
 // === Управление опросом ===
 
 void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
-    if (timerId != 0) {
+    if (timerId != 0 || legacyPollingThread.joinable()) {
         StopPolling();
     }
     
     callbackWindow = hWnd;
     pollInterval = intervalMs;
-    
+    legacyPollInterval = intervalMs;
+
+    {
+        std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+        pendingPollEvents.clear();
+    }
+
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        if (legacyPollInterval == 0 || legacyPollInterval > 1000) {
+            legacyPollInterval = 1000;
+        }
+
+        stopLegacyPolling = false;
+        timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
+        legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
+        return;
+    }
+
     timerId = SetTimer(hWnd, IDT_SERIAL_POLL, pollInterval, nullptr);
 }
 
 void SerialModule::StopPolling() {
+    stopLegacyPolling = true;
+
     if (timerId != 0 && callbackWindow != nullptr) {
         KillTimer(callbackWindow, timerId);
         timerId = 0;
+    }
+
+    if (legacyPollingThread.joinable()) {
+        legacyPollingThread.join();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+        pendingPollEvents.clear();
     }
 }
 
@@ -314,38 +563,100 @@ void SerialModule::OnTimer() {
     if (!IsConnected()) {
         return;
     }
+
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX && legacyPollingThread.joinable()) {
+        FlushPendingPollResults();
+        return;
+    }
     
     ParsedToolFrame parsedFrame = {};
     std::vector<uint8_t> rawPayload;
     SerialResult result = RequestData(parsedFrame, &rawPayload);
-    
+
     if (result == SerialResult::SUCCESS) {
-        packetsReceived++;
-        lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
-        
-        // v2.15.3: Если метрология не была получена при подключении (например, Arduino reset из-за DTR/RTS),
-        // пробуем запросить её здесь ограниченное число раз, чтобы имя файла записи не оставалось AMK_Unknown_...
-        if (isRecordingEnabled && !hasMetrology && metrologyAutoRetryCount < 4) {
-            METROLOGY_DATA tmp = {};
-            (void)RequestMetrology(tmp); // результат не критичен: данные продолжают поступать
-            metrologyAutoRetryCount++;
+        HandleSuccessfulPoll(parsedFrame, rawPayload);
+    } else {
+        HandleFailedPoll();
+    }
+}
+
+void SerialModule::FlushPendingPollResults() {
+    std::deque<PendingPollEvent> events;
+    {
+        std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+        events.swap(pendingPollEvents);
+    }
+
+    for (const PendingPollEvent& event : events) {
+        if (event.result == SerialResult::SUCCESS) {
+            HandleSuccessfulPoll(event.parsedFrame, event.rawPayload);
+        } else {
+            HandleFailedPoll();
+        }
+    }
+}
+
+void SerialModule::LegacyPollingLoop() {
+    while (!stopLegacyPolling) {
+        if (!IsConnected() || protocolMode != DeviceProtocolMode::LEGACY_4TX) {
+            break;
         }
 
-        // v2.15.0: Записываем данные в файл
-        if (isRecordingEnabled) {
-            std::wstring settingsError;
-            if (!ValidateRecordingSettings(settingsError)) {
-                lastError = settingsError;
-            } else {
-                WriteDataToFile(rawPayload.data(), rawPayload.size());
+        PendingPollEvent event;
+        event.result = SerialResult::TIMEOUT;
+
+        ParsedToolFrame parsedFrame = {};
+        std::vector<uint8_t> rawPayload;
+        event.result = RequestData(parsedFrame, &rawPayload);
+        if (event.result == SerialResult::SUCCESS) {
+            event.parsedFrame = parsedFrame;
+            event.rawPayload = std::move(rawPayload);
+        }
+
+        {
+            std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+            pendingPollEvents.push_back(std::move(event));
+            if (pendingPollEvents.size() > 8) {
+                pendingPollEvents.pop_front();
             }
         }
-        
-        DispatchDataCallbacks(parsedFrame, onParsedDataReceived, onDataReceived);
+
+        DWORD slept = 0;
+        while (!stopLegacyPolling && slept < legacyPollInterval) {
+            const DWORD step = std::min<DWORD>(50, legacyPollInterval - slept);
+            Sleep(step);
+            slept += step;
+        }
     }
-    else {
-        packetsErrors++;
+}
+
+void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, const std::vector<uint8_t>& rawPayload) {
+    packetsReceived++;
+    lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
+
+    if (isRecordingEnabled && !hasMetrology && metrologyAutoRetryCount < 4) {
+        METROLOGY_DATA tmp = {};
+        (void)RequestMetrology(tmp);
+        metrologyAutoRetryCount++;
     }
+
+    if (isRecordingEnabled) {
+        std::wstring settingsError;
+        if (!ValidateRecordingSettings(settingsError)) {
+            lastError = settingsError;
+        } else {
+            // Записываем canonical GP_TOOL_DATA (240 байт, 2D-массивы),
+            // а не raw LEGACY_GP_TOOL_DATA (flat-массивы), чтобы файлы
+            // были совместимы с загрузкой через ParseRawFrameDetailed.
+            WriteDataToFile(&parsedFrame.canonicalData, sizeof(GP_TOOL_DATA));
+        }
+    }
+
+    DispatchDataCallbacks(parsedFrame, onParsedDataReceived, onDataReceived);
+}
+
+void SerialModule::HandleFailedPoll() {
+    packetsErrors++;
 }
 
 // === Команды прибора ===
@@ -361,40 +672,122 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
     }
 
     std::lock_guard<std::mutex> lock(ioMutex);
-    
-    // Очищаем буферы перед запросом
-    PurgeBuffers();
 
-    // Новый протокол: CMD + uint16 length + payload + CRC16
-    // Запрос данных: CMD_DATA (0x11), payload пустой
-    if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
-        return SerialResult::CONNECTION_FAILED;
-    }
+    auto tryStoreParsedFrame = [this, outRawPayload, &outParsedFrame](const uint8_t* rawFrame, size_t rawFrameSize) -> bool {
+        if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
+            return false;
+        }
 
-    uint8_t cmd = 0;
-    std::vector<uint8_t> payload;
-    if (!ReceivePacket(cmd, payload)) {
-        return SerialResult::TIMEOUT;
-    }
+        ParsedToolFrame parsedFrame = {};
+        bool parsed = ToolDataAdapterRegistry::Get().ParseRawFrame(rawFrame, rawFrameSize, parsedFrame);
+        if (!parsed) {
+            parsed = TryParseLegacyLwd4TxFrame(rawFrame, rawFrameSize, parsedFrame);
+        }
+        if (!parsed) {
+            return false;
+        }
 
-    if (cmd != SerialCommands::CMD_DATA) {
-        return SerialResult::INVALID_RESPONSE;
-    }
+        outParsedFrame = parsedFrame;
+        lastRawDataFrame.assign(rawFrame, rawFrame + rawFrameSize);
+        if (outRawPayload) {
+            *outRawPayload = lastRawDataFrame;
+        }
+        return true;
+    };
 
-    if (payload.size() != sizeof(GP_TOOL_DATA)) {
-        return SerialResult::INVALID_RESPONSE;
-    }
+    auto requestModernData = [this, outRawPayload, &outParsedFrame]() -> SerialResult {
+        PurgeBuffers();
 
-    if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
+        if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        if (!ReceivePacket(cmd, payload)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        if (cmd != SerialCommands::CMD_DATA) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (payload.size() != sizeof(GP_TOOL_DATA)) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
+            return SerialResult::INVALID_SIGNATURE;
+        }
+
+        lastRawDataFrame = payload;
+        if (outRawPayload) {
+            *outRawPayload = payload;
+        }
+
+        return SerialResult::SUCCESS;
+    };
+
+    auto requestLegacyData = [this, &tryStoreParsedFrame]() -> SerialResult {
+        PurgeBuffers();
+
+        // Формат запроса данных: [CMD=0x67][0x00][0x04][0xF0][CRC16:2] = 6 байт
+        // Идентичен старому коду: send_to_tool_(COM, 0x67, 0x00, 0x04, 0xF0)
+        const uint8_t payload[] = { 0x00, 0x04, 0xF0 };
+        std::vector<uint8_t> request(1 + sizeof(payload) + sizeof(uint16_t));
+        request[0] = kLegacyLwdDataCommand;
+        memcpy(request.data() + 1, payload, sizeof(payload));
+        const uint16_t crc = CalculateCRC16(request.data(), 1 + sizeof(payload));
+        request[1 + sizeof(payload)] = static_cast<uint8_t>(crc & 0xFF);
+        request[2 + sizeof(payload)] = static_cast<uint8_t>(crc >> 8);
+
+        DWORD bytesWritten = 0;
+        if (!WriteFile(hSerial, request.data(), static_cast<DWORD>(request.size()), &bytesWritten, nullptr) ||
+            bytesWritten != request.size()) {
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        std::vector<uint8_t> legacyResponse;
+        if (!ReceiveLegacyFixedPacket(hSerial, kLegacyLwdDataCommand, kLegacyLwdDataPacketSize, 300, legacyResponse)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
+            return SerialResult::CRC_ERROR;
+        }
+
+        const size_t candidateOffsets[] = { kLegacyLwdDataPayloadOffset, 12u };
+        for (size_t offset : candidateOffsets) {
+            if (legacyResponse.size() >= offset + sizeof(LEGACY_GP_TOOL_DATA) &&
+                tryStoreParsedFrame(legacyResponse.data() + offset, sizeof(LEGACY_GP_TOOL_DATA))) {
+                return SerialResult::SUCCESS;
+            }
+        }
+
         return SerialResult::INVALID_SIGNATURE;
+    };
+
+    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
+        return requestModernData();
     }
 
-    lastRawDataFrame = payload;
-    if (outRawPayload) {
-        *outRawPayload = payload;
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        return requestLegacyData();
     }
 
-    return SerialResult::SUCCESS;
+    const SerialResult modernResult = requestModernData();
+    if (modernResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::MODERN_5TX;
+        return modernResult;
+    }
+
+    const SerialResult legacyResult = requestLegacyData();
+    if (legacyResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::LEGACY_4TX;
+        return legacyResult;
+    }
+
+    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
 }
 
 SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
@@ -419,36 +812,119 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
     }
 
     std::lock_guard<std::mutex> lock(ioMutex);
-    PurgeBuffers();
-    if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
-        return SerialResult::CONNECTION_FAILED;
-    }
 
-    uint8_t cmd = 0;
-    std::vector<uint8_t> payload;
-    if (!ReceivePacket(cmd, payload)) {
-        return SerialResult::TIMEOUT;
-    }
+    auto applyMetrology = [this, &outData](const METROLOGY_DATA& data) {
+        outData = data;
+        memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
+        hasMetrology = true;
+        HandleMetrologyUpdated();
 
-    if (cmd != SerialCommands::CMD_GET_METROLOGY) {
+        if (onMetrologyReceived) {
+            onMetrologyReceived(outData);
+        }
+    };
+
+    auto requestModernMetrology = [this, &applyMetrology]() -> SerialResult {
+        PurgeBuffers();
+        if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        if (!ReceivePacket(cmd, payload)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        if (cmd != SerialCommands::CMD_GET_METROLOGY) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (payload.size() != sizeof(METROLOGY_DATA)) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        METROLOGY_DATA directData = {};
+        memcpy(&directData, payload.data(), sizeof(METROLOGY_DATA));
+        applyMetrology(directData);
+        return SerialResult::SUCCESS;
+    };
+
+    auto requestLegacyMetrology = [this, &applyMetrology]() -> SerialResult {
+        PurgeBuffers();
+
+        const uint8_t legacyPayload[] = { 0x00, 0x04, 240 };
+        std::vector<uint8_t> legacyRequest(1 + sizeof(legacyPayload) + sizeof(uint16_t));
+        legacyRequest[0] = 0x65;
+        memcpy(legacyRequest.data() + 1, legacyPayload, sizeof(legacyPayload));
+        const uint16_t legacyRequestCrc = CalculateCRC16(legacyRequest.data(), 1 + sizeof(legacyPayload));
+        legacyRequest[1 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc & 0xFF);
+        legacyRequest[2 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc >> 8);
+
+        DWORD bytesWritten = 0;
+        if (!WriteFile(hSerial, legacyRequest.data(), static_cast<DWORD>(legacyRequest.size()), &bytesWritten, nullptr) ||
+            bytesWritten != legacyRequest.size()) {
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        std::vector<uint8_t> legacyResponse;
+        Sleep(150);
+        if (!ReadExactAvailableBytes(hSerial, kLegacyLwdMetrologyPacketSize, 1500, legacyResponse)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        Sleep(20);
+
+        if (legacyResponse.empty() || legacyResponse[0] != kLegacyLwdMetrologyCommand) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
+            return SerialResult::CRC_ERROR;
+        }
+
+        const size_t candidateOffsets[] = { kLegacyLwdMetrologyPayloadOffset, 0u };
+        for (size_t offset : candidateOffsets) {
+            if (legacyResponse.size() < offset + sizeof(LEGACY_LWD_METROLOGY_DATA)) {
+                continue;
+            }
+
+            LEGACY_LWD_METROLOGY_DATA legacyData = {};
+            memcpy(&legacyData, legacyResponse.data() + offset, sizeof(legacyData));
+            if (!IsLegacyLwd4TxCompatibilitySignature(legacyData.signature)) {
+                continue;
+            }
+
+            METROLOGY_DATA converted = {};
+            ConvertLegacyLwd4TxMetrology(legacyData, converted);
+            applyMetrology(converted);
+            return SerialResult::SUCCESS;
+        }
+
         return SerialResult::INVALID_RESPONSE;
+    };
+
+    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
+        return requestModernMetrology();
     }
 
-    if (payload.size() != sizeof(METROLOGY_DATA)) {
-        return SerialResult::INVALID_RESPONSE;
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        return requestLegacyMetrology();
     }
 
-    memcpy(&outData, payload.data(), sizeof(METROLOGY_DATA));
-
-    memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
-    hasMetrology = true;
-    HandleMetrologyUpdated();
-
-    if (onMetrologyReceived) {
-        onMetrologyReceived(outData);
+    const SerialResult modernResult = requestModernMetrology();
+    if (modernResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::MODERN_5TX;
+        return modernResult;
     }
 
-    return SerialResult::SUCCESS;
+    const SerialResult legacyResult = requestLegacyMetrology();
+    if (legacyResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::LEGACY_4TX;
+        return legacyResult;
+    }
+
+    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
 }
 
 SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
@@ -474,7 +950,6 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
         return SerialResult::INVALID_RESPONSE;
     }
 
-    // ACK payload can be empty; some firmwares may echo the written struct.
     METROLOGY_DATA applied = inData;
     if (!payload.empty()) {
         if (payload.size() == sizeof(METROLOGY_DATA)) {
@@ -517,7 +992,6 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
         return SerialResult::INVALID_RESPONSE;
     }
 
-    // ACK payload can be empty or a single status byte
     if (!payload.empty() && payload.size() != 1) {
         return SerialResult::INVALID_RESPONSE;
     }
@@ -531,27 +1005,104 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
     }
 
     std::lock_guard<std::mutex> lock(ioMutex);
-    PurgeBuffers();
-    if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
-        return SerialResult::CONNECTION_FAILED;
-    }
 
-    uint8_t cmd = 0;
-    std::vector<uint8_t> payload;
-    if (!ReceivePacket(cmd, payload)) {
-        return SerialResult::TIMEOUT;
-    }
+    auto requestModernSignature = [this, &outSignature]() -> SerialResult {
+        PurgeBuffers();
+        if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
+            return SerialResult::CONNECTION_FAILED;
+        }
 
-    if (cmd != SerialCommands::CMD_GET_SIGNATURE) {
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        if (!ReceivePacket(cmd, payload)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        if (cmd != SerialCommands::CMD_GET_SIGNATURE) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (payload.size() != sizeof(uint32_t)) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        memcpy(&outSignature, payload.data(), sizeof(uint32_t));
+        return SerialResult::SUCCESS;
+    };
+
+    auto requestLegacySignature = [this, &outSignature]() -> SerialResult {
+        PurgeBuffers();
+
+        const uint8_t legacyPayload[] = { 0x00, 0x04, 240 };
+        std::vector<uint8_t> legacyRequest(1 + sizeof(legacyPayload) + sizeof(uint16_t));
+        legacyRequest[0] = 0x65;
+        memcpy(legacyRequest.data() + 1, legacyPayload, sizeof(legacyPayload));
+        const uint16_t legacyRequestCrc = CalculateCRC16(legacyRequest.data(), 1 + sizeof(legacyPayload));
+        legacyRequest[1 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc & 0xFF);
+        legacyRequest[2 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc >> 8);
+
+        DWORD bytesWritten = 0;
+        if (!WriteFile(hSerial, legacyRequest.data(), static_cast<DWORD>(legacyRequest.size()), &bytesWritten, nullptr) ||
+            bytesWritten != legacyRequest.size()) {
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        std::vector<uint8_t> legacyResponse;
+        Sleep(150);
+        if (!ReadExactAvailableBytes(hSerial, kLegacyLwdMetrologyPacketSize, 1500, legacyResponse)) {
+            return SerialResult::TIMEOUT;
+        }
+
+        Sleep(20);
+
+        if (legacyResponse.empty() || legacyResponse[0] != kLegacyLwdMetrologyCommand) {
+            return SerialResult::INVALID_RESPONSE;
+        }
+
+        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
+            return SerialResult::CRC_ERROR;
+        }
+
+        const size_t candidateOffsets[] = { kLegacyLwdMetrologyPayloadOffset, 0u };
+        for (size_t offset : candidateOffsets) {
+            if (legacyResponse.size() < offset + sizeof(LEGACY_LWD_METROLOGY_DATA)) {
+                continue;
+            }
+
+            LEGACY_LWD_METROLOGY_DATA legacyData = {};
+            memcpy(&legacyData, legacyResponse.data() + offset, sizeof(legacyData));
+            if (!IsLegacyLwd4TxCompatibilitySignature(legacyData.signature)) {
+                continue;
+            }
+
+            outSignature = legacyData.signature;
+            return SerialResult::SUCCESS;
+        }
+
         return SerialResult::INVALID_RESPONSE;
+    };
+
+    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
+        return requestModernSignature();
     }
 
-    if (payload.size() != sizeof(uint32_t)) {
-        return SerialResult::INVALID_RESPONSE;
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        return requestLegacySignature();
     }
 
-    memcpy(&outSignature, payload.data(), sizeof(uint32_t));
-    return SerialResult::SUCCESS;
+    const SerialResult modernResult = requestModernSignature();
+    if (modernResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::MODERN_5TX;
+        return modernResult;
+    }
+
+    const SerialResult legacyResult = requestLegacySignature();
+    if (legacyResult == SerialResult::SUCCESS) {
+        protocolMode = DeviceProtocolMode::LEGACY_4TX;
+        return legacyResult;
+    }
+
+    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
 }
 
 void SerialModule::HandleMetrologyUpdated() {
@@ -565,8 +1116,6 @@ void SerialModule::HandleMetrologyUpdated() {
         return;
     }
 
-    // v2.15.3: If recording started before metrology, file could be AMK_Unknown_*.bin.
-    // Rename after metrology update to include S/N and diameter.
     if (recordFilePath.empty()) return;
 
     const std::wstring unknownPrefix = L"AMK_Unknown_";
@@ -580,7 +1129,7 @@ void SerialModule::HandleMetrologyUpdated() {
         CloseRecordFile();
     }
 
-    std::wstring tail = fileName.substr(unknownPrefix.size()); // e.g. 20260209_190815.bin
+    std::wstring tail = fileName.substr(unknownPrefix.size());
     std::wstring newFileName = L"AMK_" + std::to_wstring(metrology.serial) + L"_" + std::to_wstring(metrology.D_sonde_mm) + L"_" + tail;
 
     std::wstring dirPath = (fileNamePos != std::wstring::npos) ? recordFilePath.substr(0, fileNamePos) : L"";
@@ -605,7 +1154,6 @@ void SerialModule::HandleMetrologyUpdated() {
     }
 
     if (MoveFileW(recordFilePath.c_str(), newPath.c_str()) != 0) {
-        // v2.16.x: also rename notes sidecar, if exists
         std::wstring oldNotesPath = recordFilePath + L".notes.jsonl";
         std::wstring newNotesPath = newPath + L".notes.jsonl";
         if (GetFileAttributesW(oldNotesPath.c_str()) != INVALID_FILE_ATTRIBUTES) {
@@ -771,6 +1319,10 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     packet[2] = header[2];
 
     size_t remaining = totalLen - 3;
+    if (remaining > 0 && !WaitForBytesAvailable(hSerial, remaining, 350)) {
+        Sleep(50);
+    }
+
     DWORD totalRead = 0;
     while (totalRead < remaining) {
         DWORD chunk = 0;

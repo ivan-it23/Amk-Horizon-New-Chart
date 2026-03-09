@@ -221,7 +221,22 @@ bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize
         return false;
     }
 
-    return ToolDataAdapterRegistry::Get().ParseRawFrame(rawFrame, rawFrameSize, outFrame);
+    // Файлы всегда содержат canonical GP_TOOL_DATA (240 байт, 2D-массивы).
+    // Используем passthrough (memcpy) и находим адаптер только для metadata.
+    // НЕ вызываем adapter->ParseRawFrame(), т.к. Lwd4TxAdapter выполняет
+    // flat→2D конвертацию, которая не нужна для canonical данных из файла.
+    GP_TOOL_DATA canonicalData = {};
+    memcpy(&canonicalData, rawFrame, sizeof(canonicalData));
+
+    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(canonicalData.signature);
+    if (!adapter) {
+        return false;
+    }
+
+    outFrame.kind = adapter->GetKind();
+    outFrame.capabilities = adapter->GetCapabilities();
+    outFrame.canonicalData = canonicalData;
+    return true;
 }
 
 bool DataModule::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, GP_TOOL_DATA& outData) {

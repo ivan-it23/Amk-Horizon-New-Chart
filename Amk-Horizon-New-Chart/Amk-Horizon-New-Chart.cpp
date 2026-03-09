@@ -656,15 +656,49 @@ static uint32_t Metro_ReadSelectedKeyCheckboxes(HWND hDlg) {
     return key;
 }
 
+static int Metro_CountActiveTransmitters(const METROLOGY_DATA& metro) {
+    int count = 0;
+    for (int i = 0; i < 5; ++i) {
+        if (metro.L1[i] != 0 || metro.L2[i] != 0) {
+            ++count;
+        }
+    }
+    return count;
+}
+
 static void Metro_UpdateSignaturePanel(HWND hDlg, const METROLOGY_DATA& metro) {
     SetDlgItemText(hDlg, IDC_METRO_SIGNATURE32_EDIT, MetrologyModule::SignatureToBinaryString(metro.signature).c_str());
     auto info = MetrologyModule::DecodeSignature(metro.signature);
     Metro_SetEditUInt(hDlg, IDC_METRO_SIGNATUREPAL_EDIT, info.signatureForPalette);
 
-    // Формат старого/рабочего приложения (актуален для AUTONOM 5Tx):
-    // buff=low20, mod=(buff%10000)/1000, number=buff%1000
+    const int typeClass = static_cast<int>(info.low20 / 100000u);
+    const int decodedNtx = static_cast<int>((info.low20 % 100000u) / 10000u);
+    const int activeNtx = Metro_CountActiveTransmitters(metro);
+    const int ntx = (activeNtx > 0) ? activeNtx : decodedNtx;
     int mod = static_cast<int>((info.low20 % 10000u) / 1000u);
     int number = static_cast<int>(info.low20 % 1000u);
+
+    HWND hType = GetDlgItem(hDlg, IDC_METRO_TYPE_COMBO);
+    if (hType) {
+        int typeIndex = 0;
+        if (typeClass == 2) {
+            typeIndex = 1;
+        } else if (typeClass == 3) {
+            typeIndex = 2;
+        }
+        SendMessage(hType, CB_SETCURSEL, typeIndex, 0);
+    }
+
+    HWND hNtx = GetDlgItem(hDlg, IDC_METRO_NTX_COMBO);
+    if (hNtx) {
+        int ntxIndex = 2;
+        if (ntx <= 3) {
+            ntxIndex = 0;
+        } else if (ntx == 4) {
+            ntxIndex = 1;
+        }
+        SendMessage(hNtx, CB_SETCURSEL, ntxIndex, 0);
+    }
 
     HWND hMod = GetDlgItem(hDlg, IDC_METRO_MOD_COMBO);
     if (hMod) {

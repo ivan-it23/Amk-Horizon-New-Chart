@@ -97,7 +97,14 @@ ToolCapabilities Lwd4TxAdapter::GetCapabilities() const {
 }
 
 bool Lwd4TxAdapter::CanHandleSignature(uint32_t signature) const {
-    return ToolDataAdapterRegistry::DecodeToolCode(signature) == 241u;
+    if (ToolDataAdapterRegistry::DecodeToolCode(signature) == 241u) {
+        return true;
+    }
+    // Дополнительные известные 4Tx signature, не декодируемые как toolCode==241
+    return signature == 0x3143ADD4u ||
+           signature == 0x31443454u ||
+           signature == 0x31444453u ||
+           signature == 0x31443453u;
 }
 
 bool Lwd4TxAdapter::SupportsFileFormat(FileFormat format) const {
@@ -199,15 +206,9 @@ uint32_t ToolDataAdapterRegistry::DecodeToolCode(uint32_t signature) {
 }
 
 ToolDataKind ToolDataAdapterRegistry::DetermineToolDataKind(uint32_t signature) {
-    const uint32_t toolCode = DecodeToolCode(signature);
-    if (toolCode == 151u) {
-        return ToolDataKind::AUTONOM_5TX;
-    }
-    if (toolCode == 152u) {
-        return ToolDataKind::AUTONOM_5TX_SDR;
-    }
-    if (toolCode == 241u) {
-        return ToolDataKind::LWD_4TX;
+    const IToolDataAdapter* adapter = Get().FindAdapterBySignature(signature);
+    if (adapter) {
+        return adapter->GetKind();
     }
     return ToolDataKind::UNKNOWN;
 }
