@@ -24,6 +24,87 @@ static std::wstring BuildSmtPresetDisplayName(const wchar_t* baseName, SmtComput
            (mode == SmtComputationMode::FROM_COMPUTER ? L" (на компьютере)" : L" (на приборе)");
 }
 
+struct SmtUiBinding {
+    int presetId;
+    int fromSondeCheckboxId;
+    int fromComputerCheckboxId;
+    DataTypeFilter dataFilter;
+    PresetType presetType;
+    const wchar_t* baseName;
+    SmtComputationMode SchematicSelection::* modeMember;
+};
+
+const SmtUiBinding* FindSmtBindingByPresetId(int presetId) {
+    static const std::array<SmtUiBinding, 2> kBindings = {{
+        {IDC_PRESET_RHO_SMT, IDC_RHO_SMT_FROM_SONDE, IDC_RHO_SMT_FROM_COMPUTER,
+         DataTypeFilter::RHO_SMT_ONLY, PresetType::RHO_SMT, L"УЭС", &SchematicSelection::rhoSmtMode},
+        {IDC_PRESET_PHASE_SMT, IDC_PHASE_SMT_FROM_SONDE, IDC_PHASE_SMT_FROM_COMPUTER,
+         DataTypeFilter::PHASE_SMT_ONLY, PresetType::PHASE_SMT, L"Симм. фазы", &SchematicSelection::phaseSmtMode}
+    }};
+
+    for (const auto& binding : kBindings) {
+        if (binding.presetId == presetId) {
+            return &binding;
+        }
+    }
+
+    return nullptr;
+}
+
+const SmtUiBinding* FindSmtBindingByCheckboxId(int checkboxId) {
+    static const std::array<int, 2> kSmtPresetIds = {IDC_PRESET_RHO_SMT, IDC_PRESET_PHASE_SMT};
+    for (int presetId : kSmtPresetIds) {
+        const SmtUiBinding* binding = FindSmtBindingByPresetId(presetId);
+        if (!binding) {
+            continue;
+        }
+
+        if (binding->fromSondeCheckboxId == checkboxId || binding->fromComputerCheckboxId == checkboxId) {
+            return binding;
+        }
+    }
+
+    return nullptr;
+}
+
+SmtComputationMode GetDialogSmtMode(HWND hDlg, const SmtUiBinding& binding) {
+    return (IsDlgButtonChecked(hDlg, binding.fromComputerCheckboxId) == BST_CHECKED)
+        ? SmtComputationMode::FROM_COMPUTER
+        : SmtComputationMode::FROM_SONDE;
+}
+
+void ApplySmtPresetState(HWND hDlg,
+                         const SmtUiBinding& binding,
+                         SchematicSelection& selection,
+                         PresetType& currentPreset,
+                         std::wstring& currentPresetDisplayName) {
+    selection.dataFilter = binding.dataFilter;
+    selection.*(binding.modeMember) = GetDialogSmtMode(hDlg, binding);
+    currentPreset = binding.presetType;
+    currentPresetDisplayName = BuildSmtPresetDisplayName(binding.baseName, selection.*(binding.modeMember));
+}
+
+void SyncSmtModeCheckboxes(HWND hDlg, const SmtUiBinding& binding, const SchematicSelection& selection) {
+    const bool isActive = selection.dataFilter == binding.dataFilter;
+    const SmtComputationMode mode = selection.*(binding.modeMember);
+
+    CheckDlgButton(hDlg, binding.fromSondeCheckboxId,
+                   isActive && mode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hDlg, binding.fromComputerCheckboxId,
+                   isActive && mode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
+}
+
+void ApplySmtModeCheckboxSelection(HWND hDlg,
+                                   const SmtUiBinding& binding,
+                                   SchematicSelection& selection,
+                                   SmtComputationMode mode) {
+    selection.*(binding.modeMember) = mode;
+    CheckDlgButton(hDlg, binding.fromSondeCheckboxId,
+                   mode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
+    CheckDlgButton(hDlg, binding.fromComputerCheckboxId,
+                   mode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
+}
+
 static constexpr size_t kAllUiTransmittersDualReceiverCurveThreshold =
     static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT) *
     static_cast<size_t>(SchematicSelection::UI_RECEIVER_COUNT) * 2;
@@ -1559,22 +1640,10 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             currentPresetDisplayName = L"Температура";
             break;
         case IDC_PRESET_RHO_SMT:
-            // v2.16.0: УЭС - не требует выбора приёмников, 5 кривых T1-T5
-            currentSelection.dataFilter = DataTypeFilter::RHO_SMT_ONLY;
-            currentSelection.rhoSmtMode = (IsDlgButtonChecked(hDlg, IDC_RHO_SMT_FROM_COMPUTER) == BST_CHECKED)
-                ? SmtComputationMode::FROM_COMPUTER
-                : SmtComputationMode::FROM_SONDE;
-            currentPreset = PresetType::RHO_SMT;
-            currentPresetDisplayName = BuildSmtPresetDisplayName(L"УЭС", currentSelection.rhoSmtMode);
-            break;
         case IDC_PRESET_PHASE_SMT:
-            // v2.16.0: Симметризованные фазы - не требует выбора приёмников, 5 кривых T1-T5
-            currentSelection.dataFilter = DataTypeFilter::PHASE_SMT_ONLY;
-            currentSelection.phaseSmtMode = (IsDlgButtonChecked(hDlg, IDC_PHASE_SMT_FROM_COMPUTER) == BST_CHECKED)
-                ? SmtComputationMode::FROM_COMPUTER
-                : SmtComputationMode::FROM_SONDE;
-            currentPreset = PresetType::PHASE_SMT;
-            currentPresetDisplayName = BuildSmtPresetDisplayName(L"Симм. фазы", currentSelection.phaseSmtMode);
+            if (const SmtUiBinding* binding = FindSmtBindingByPresetId(presetId)) {
+                ApplySmtPresetState(hDlg, *binding, currentSelection, currentPreset, currentPresetDisplayName);
+            }
             break;
         case IDC_PRESET_SILENT_AMPL:
             // Амплитуды молчащих передатчиков: две кривые (R1 и R2) из ZERO_AM_RX_1/2
@@ -1614,53 +1683,31 @@ void SchematicModule::InitializeSmtModeCheckboxes(HWND hDlg) {
     // По умолчанию все чекбоксы пустые.
     // Галочки восстанавливаем только если пресет УЭС/Симм. фазы уже был активен
     // (т.е. dataFilter соответствует одному из этих пресетов).
-    bool rhoActive = (currentSelection.dataFilter == DataTypeFilter::RHO_SMT_ONLY);
-    bool phaseActive = (currentSelection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY);
+    if (const SmtUiBinding* rhoBinding = FindSmtBindingByPresetId(IDC_PRESET_RHO_SMT)) {
+        SyncSmtModeCheckboxes(hDlg, *rhoBinding, currentSelection);
+    }
 
-    CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE,
-                   rhoActive && currentSelection.rhoSmtMode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
-    CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER,
-                   rhoActive && currentSelection.rhoSmtMode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
-
-    CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE,
-                   phaseActive && currentSelection.phaseSmtMode == SmtComputationMode::FROM_SONDE ? BST_CHECKED : BST_UNCHECKED);
-    CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER,
-                   phaseActive && currentSelection.phaseSmtMode == SmtComputationMode::FROM_COMPUTER ? BST_CHECKED : BST_UNCHECKED);
+    if (const SmtUiBinding* phaseBinding = FindSmtBindingByPresetId(IDC_PRESET_PHASE_SMT)) {
+        SyncSmtModeCheckboxes(hDlg, *phaseBinding, currentSelection);
+    }
 }
 
 void SchematicModule::HandleSmtModeCheckbox(HWND hDlg, int checkboxId) {
-    switch (checkboxId) {
-        case IDC_RHO_SMT_FROM_SONDE:
-            currentSelection.rhoSmtMode = SmtComputationMode::FROM_SONDE;
-            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE, BST_CHECKED);
-            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER, BST_UNCHECKED);
-            break;
-        case IDC_RHO_SMT_FROM_COMPUTER:
-            currentSelection.rhoSmtMode = SmtComputationMode::FROM_COMPUTER;
-            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_SONDE, BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_RHO_SMT_FROM_COMPUTER, BST_CHECKED);
-            break;
-        case IDC_PHASE_SMT_FROM_SONDE:
-            currentSelection.phaseSmtMode = SmtComputationMode::FROM_SONDE;
-            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE, BST_CHECKED);
-            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER, BST_UNCHECKED);
-            break;
-        case IDC_PHASE_SMT_FROM_COMPUTER:
-            currentSelection.phaseSmtMode = SmtComputationMode::FROM_COMPUTER;
-            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_SONDE, BST_UNCHECKED);
-            CheckDlgButton(hDlg, IDC_PHASE_SMT_FROM_COMPUTER, BST_CHECKED);
-            break;
-        default:
-            return;
+    const SmtUiBinding* binding = FindSmtBindingByCheckboxId(checkboxId);
+    if (!binding) {
+        return;
     }
+
+    const SmtComputationMode mode =
+        (checkboxId == binding->fromComputerCheckboxId)
+        ? SmtComputationMode::FROM_COMPUTER
+        : SmtComputationMode::FROM_SONDE;
+
+    ApplySmtModeCheckboxSelection(hDlg, *binding, currentSelection, mode);
 
     // Активируем соответствующий пресет (GROUPBOX не шлёт BN_CLICKED,
     // поэтому чекбоксы — основной триггер пресета УЭС / Симм. фазы).
-    if (checkboxId == IDC_RHO_SMT_FROM_SONDE || checkboxId == IDC_RHO_SMT_FROM_COMPUTER) {
-        HandlePresetButton(hDlg, IDC_PRESET_RHO_SMT);
-    } else {
-        HandlePresetButton(hDlg, IDC_PRESET_PHASE_SMT);
-    }
+    HandlePresetButton(hDlg, binding->presetId);
 }
 
 void SchematicModule::HandleMouseHover(HWND hDlg, int x, int y) {

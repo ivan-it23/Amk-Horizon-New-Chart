@@ -292,6 +292,11 @@ Tasks:
 - [x] Localized `DataModule` parsed-to-canonical materialization a bit further by routing parsed-frame append paths through shared extraction/metadata helpers, narrowing one more compatibility boundary without changing storage behavior or public APIs
 - [x] Separated legacy UI `5Tx` count from fallback transmitter-count semantics via a shared constant path reused by `UIModule` and `SchematicSelection`, making the remaining `5Tx` assumption slightly more explicit without changing UI behavior
 - [x] Localized repeated SMT source-selection logic in `CurveSelectionModule` behind shared helpers, so the `FROM_COMPUTER` legacy branch versus adapter/sonde SMT branch is chosen in one place for both phase and rho paths without changing SMT behavior
+- [x] Localized repeated full-range `DataModule` delegation setup in `CurveSelectionModule` behind a shared helper, reducing one more repeated compatibility-wrapper pattern for ordinary curve calculations without changing curve data semantics
+- [x] Localized repeated SMT preset/checkbox binding logic in `SchematicModule` behind shared helpers, so SMT mode restoration, checkbox synchronization, and preset activation reuse one UI binding path without changing dialog behavior
+- [x] Localized repeated SMT preset assembly in `CurveSelectionModule` behind a shared helper, so the sonde-default SMT preset construction path is expressed once for both rho and phase presets without changing preset semantics
+- [x] Localized repeated silent preset preparation in `CurveSelectionModule` behind small helpers, so base preset config setup and silent-curve finalization are reused without changing silent preset semantics
+- [x] Localized repeated selection-driven SMT curve assembly in `CurveSelectionModule` behind a shared helper, so `RHO_SMT_ONLY` and `PHASE_SMT_ONLY` now reuse one curve-list construction path without changing available-curve semantics
 
 ## Open Risks
 
@@ -354,11 +359,16 @@ Tasks:
 - Inside `DataModule`, parsed-frame append paths now also depend on one smaller helper layer for canonical extraction and metadata materialization, which makes the remaining low-level compatibility boundary a bit more explicit.
 - The legacy `5Tx` UI contract is now also expressed through one shared constant path in the UI/schematic layer, which makes it easier to distinguish true UI constraints from separate runtime fallback semantics.
 - `CurveSelectionModule` now also localizes the selection between legacy computer-side SMT reconstruction and direct adapter/sonde SMT access, reducing one more duplicated compatibility branch near the SMT calculation loops.
+- Ordinary `CurveSelectionModule` calculation wrappers now also share one helper for preparing the full record range before delegating into `DataModule`, so the remaining upper-layer compatibility wrappers are a bit narrower and more consistent.
+- `SchematicModule` now also routes SMT preset/checkbox UI state through one small binding layer, which reduces one more repeated legacy/UI-specific branch around SMT mode selection and preset activation.
+- `CurveSelectionModule` now also shares one helper for constructing the default sonde-backed SMT presets, reducing one more repeated fixed-width preset-assembly branch tied to the current 5Tx UI contract.
+- `CurveSelectionModule` silent preset branches now also share small helpers for preset base initialization and silent-curve finalization, reducing one more repeated special-case preset assembly path while preserving the current silent display semantics.
+- `CurveSelectionModule` now also shares one helper for selection-driven SMT curve-list construction, reducing one more duplicated upper-layer SMT branch where the current mode is propagated into available curves.
 
 ## Current Stage Snapshot
 
 - Current stage: late Phase 7 / compatibility-boundary narrowing and upper-layer render-path consolidation.
-- Rough completion estimate for the currently scoped migration plan: about 86-90%.
+- Rough completion estimate for the currently scoped migration plan: about 91-95%.
 - Main remaining work is no longer broad adapter plumbing, but finishing the highest-value compatibility/documentation boundaries and the last meaningful upper-layer/localization steps without changing behavior.
 
 ## Draft Phase 7 Export Policy

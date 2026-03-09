@@ -105,6 +105,14 @@ private:
     ChartConfiguration CreatePhaseDifferencesPreset(FrequencyBand frequency) const;
     ChartConfiguration CreateRhoSmtPreset(FrequencyBand frequency) const;       // v2.16.0: УЭС
     ChartConfiguration CreatePhaseSmtPreset(FrequencyBand frequency) const;     // v2.16.0: Симм. фазы
+    void AddSmtSelectionCurves(std::vector<CurveDefinition>& curves,
+                               FrequencyBand frequency,
+                               int transmitterCount,
+                               CurveDefinition (CurveSelectionModule::*createCurve)(int, FrequencyBand) const,
+                               SmtComputationMode mode) const;
+    void FinalizeSilentPresetCurve(CurveDefinition& curve,
+                                   const std::vector<CurveDefinition>& existingCurves,
+                                   int silentIndex) const;
     
     // Вспомогательные методы для вычисления данных
     void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,

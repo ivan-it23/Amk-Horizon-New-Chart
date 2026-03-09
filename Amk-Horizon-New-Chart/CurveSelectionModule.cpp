@@ -169,6 +169,48 @@ bool TryGetSelectedRhoSmt(const MeasurementView& measurement,
     return measurement.GetAccessView().TryGetRhoSmt(freqIdx, transmitterIndex, outRho);
 }
 
+bool TryPrepareFullDataRange(const DataModule* dataModule, double& outMinX, double& outMaxX) {
+    outMinX = 0.0;
+    outMaxX = 0.0;
+    if (!dataModule || !dataModule->HasData()) {
+        return false;
+    }
+
+    outMinX = 0.0;
+    outMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    return true;
+}
+
+ChartConfiguration BuildPresetConfigurationBase(PresetType presetType) {
+    ChartConfiguration config;
+    config.Clear();
+    config.activePreset = presetType;
+    config.presetDisplayName = GetPresetDisplayName(config.activePreset);
+    return config;
+}
+
+ChartConfiguration BuildSmtPresetConfiguration(const CurveSelectionModule& module,
+                                               FrequencyBand frequency,
+                                               CurveDefinition (CurveSelectionModule::*createCurve)(int, FrequencyBand) const,
+                                               const char* leftAxisUnits,
+                                               PresetType presetType) {
+    ChartConfiguration config;
+
+    for (int i = 0; i < GetUiTransmitterCount(); ++i) {
+        CurveDefinition curve = (module.*createCurve)(i, frequency);
+        curve.smtMode = SmtComputationMode::FROM_SONDE;
+        curve.yAxisGroup = 0;
+        curve.enabled = true;
+        config.AddCurve(curve);
+    }
+
+    config.leftAxisUnits = leftAxisUnits;
+    config.hasDualAxis = false;
+    config.activePreset = presetType;
+    config.presetDisplayName = GetPresetDisplayName(config.activePreset);
+    return config;
+}
+
 float SignalPhase(const METROLOGY_DATA& metrology, int txIndex, int freqIdx, float rhoValue) {
     if (rhoValue <= 0.0f) {
         rhoValue = 0.01f;
@@ -334,25 +376,19 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
         }
         else if (selection.dataFilter == DataTypeFilter::RHO_SMT_ONLY) {
             const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
-            for (int i = 0; i < transmitterCount; ++i) {
-                CurveDefinition rhoCurve = CreateRhoSmtCurve(i, selection.frequency);
-                rhoCurve.smtMode = selection.rhoSmtMode;
-                rhoCurve.yAxisGroup = 0; // Левая ось
-                rhoCurve.enabled = true;
-                rhoCurve.color = AssignSmartColor(curves, i, rhoCurve.yAxisGroup);
-                curves.push_back(rhoCurve);
-            }
+            AddSmtSelectionCurves(curves,
+                                  selection.frequency,
+                                  transmitterCount,
+                                  &CurveSelectionModule::CreateRhoSmtCurve,
+                                  selection.rhoSmtMode);
         }
         else if (selection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY) {
             const int transmitterCount = GetUiTransmitterCount(&selection.transmitters);
-            for (int i = 0; i < transmitterCount; ++i) {
-                CurveDefinition phaseSmtCurve = CreatePhaseSmtCurve(i, selection.frequency);
-                phaseSmtCurve.smtMode = selection.phaseSmtMode;
-                phaseSmtCurve.yAxisGroup = 0; // Левая ось
-                phaseSmtCurve.enabled = true;
-                phaseSmtCurve.color = AssignSmartColor(curves, i, phaseSmtCurve.yAxisGroup);
-                curves.push_back(phaseSmtCurve);
-            }
+            AddSmtSelectionCurves(curves,
+                                  selection.frequency,
+                                  transmitterCount,
+                                  &CurveSelectionModule::CreatePhaseSmtCurve,
+                                  selection.phaseSmtMode);
         }
     }
     // РЕЖИМ РУЧНОГО ВЫБОРА: Если dataFilter == ALL, используем выбранные элементы схемы
@@ -421,24 +457,15 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             return CreatePhaseDifferencesPreset(frequency);
         case PresetType::SILENT_AMPLITUDES:
             {
-                ChartConfiguration config;
-                config.Clear();
-                config.activePreset = PresetType::SILENT_AMPLITUDES;
-                config.presetDisplayName = GetPresetDisplayName(config.activePreset);
+                ChartConfiguration config = BuildPresetConfigurationBase(PresetType::SILENT_AMPLITUDES);
 
                 // Две кривые: молчащий R1 и молчащий R2
                 CurveDefinition r1 = CreateSilentAmplitudeCurve(0, frequency);
-                r1.yAxisGroup = 0;
-                r1.enabled = true;
-                r1.color = AssignSmartColor(config.curves, 0, r1.yAxisGroup);
-                r1.displayName = GenerateDisplayName(ElementType::SILENT_TX, 0, r1.dataType);
+                FinalizeSilentPresetCurve(r1, config.curves, 0);
                 config.curves.push_back(r1);
 
                 CurveDefinition r2 = CreateSilentAmplitudeCurve(1, frequency);
-                r2.yAxisGroup = 0;
-                r2.enabled = true;
-                r2.color = AssignSmartColor(config.curves, 1, r2.yAxisGroup);
-                r2.displayName = GenerateDisplayName(ElementType::SILENT_TX, 1, r2.dataType);
+                FinalizeSilentPresetCurve(r2, config.curves, 1);
                 config.curves.push_back(r2);
 
                 config.UpdateAxisConfiguration();
@@ -446,16 +473,10 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             }
         case PresetType::SILENT_PHASE_DIFFERENCE:
             {
-                ChartConfiguration config;
-                config.Clear();
-                config.activePreset = PresetType::SILENT_PHASE_DIFFERENCE;
-                config.presetDisplayName = GetPresetDisplayName(config.activePreset);
+                ChartConfiguration config = BuildPresetConfigurationBase(PresetType::SILENT_PHASE_DIFFERENCE);
 
                 CurveDefinition dph = CreateSilentPhaseDifferenceCurve(frequency);
-                dph.yAxisGroup = 0;
-                dph.enabled = true;
-                dph.color = AssignSmartColor(config.curves, 0, dph.yAxisGroup);
-                dph.displayName = GenerateDisplayName(ElementType::SILENT_TX, 0, dph.dataType);
+                FinalizeSilentPresetCurve(dph, config.curves, 0);
                 config.curves.push_back(dph);
 
                 config.UpdateAxisConfiguration();
@@ -1249,117 +1270,107 @@ ChartConfiguration CurveSelectionModule::CreatePhaseDifferencesPreset(FrequencyB
 
 // v2.16.0: Пресет УЭС (rho_smt) для всех передатчиков T1-T5
 ChartConfiguration CurveSelectionModule::CreateRhoSmtPreset(FrequencyBand frequency) const {
-    ChartConfiguration config;
-    
-    // Создаем кривые УЭС для всех передатчиков T1-T5
-    for (int i = 0; i < GetUiTransmitterCount(); ++i) {
-        CurveDefinition curve = CreateRhoSmtCurve(i, frequency);
-        curve.smtMode = SmtComputationMode::FROM_SONDE;
-        curve.yAxisGroup = 0; // Левая ось
-        curve.enabled = true;
-        config.AddCurve(curve);
-    }
-    
-    config.leftAxisUnits = "Ohm*m";
-    config.hasDualAxis = false;
-    config.activePreset = PresetType::RHO_SMT;
-    config.presetDisplayName = GetPresetDisplayName(config.activePreset);
-    
-    return config;
+    return BuildSmtPresetConfiguration(*this,
+                                       frequency,
+                                       &CurveSelectionModule::CreateRhoSmtCurve,
+                                       "Ohm*m",
+                                       PresetType::RHO_SMT);
 }
 
 // v2.16.0: Пресет симметризованных фаз (phase_smt) для всех передатчиков T1-T5
 ChartConfiguration CurveSelectionModule::CreatePhaseSmtPreset(FrequencyBand frequency) const {
-    ChartConfiguration config;
-    
-    // Создаем кривые симметризованных фаз для всех передатчиков T1-T5
-    for (int i = 0; i < GetUiTransmitterCount(); ++i) {
-        CurveDefinition curve = CreatePhaseSmtCurve(i, frequency);
-        curve.smtMode = SmtComputationMode::FROM_SONDE;
-        curve.yAxisGroup = 0; // Левая ось
+    return BuildSmtPresetConfiguration(*this,
+                                       frequency,
+                                       &CurveSelectionModule::CreatePhaseSmtCurve,
+                                       "mdeg",
+                                       PresetType::PHASE_SMT);
+}
+
+void CurveSelectionModule::AddSmtSelectionCurves(std::vector<CurveDefinition>& curves,
+                                                 FrequencyBand frequency,
+                                                 int transmitterCount,
+                                                 CurveDefinition (CurveSelectionModule::*createCurve)(int, FrequencyBand) const,
+                                                 SmtComputationMode mode) const {
+    for (int i = 0; i < transmitterCount; ++i) {
+        CurveDefinition curve = (this->*createCurve)(i, frequency);
+        curve.smtMode = mode;
+        curve.yAxisGroup = 0;
         curve.enabled = true;
-        config.AddCurve(curve);
+        curve.color = AssignSmartColor(curves, i, curve.yAxisGroup);
+        curves.push_back(curve);
     }
-    
-    config.leftAxisUnits = "mdeg";
-    config.hasDualAxis = false;
-    config.activePreset = PresetType::PHASE_SMT;
-    config.presetDisplayName = GetPresetDisplayName(config.activePreset);
-    
-    return config;
+}
+
+void CurveSelectionModule::FinalizeSilentPresetCurve(CurveDefinition& curve,
+                                                     const std::vector<CurveDefinition>& existingCurves,
+                                                     int silentIndex) const {
+    curve.yAxisGroup = 0;
+    curve.enabled = true;
+    curve.color = AssignSmartColor(existingCurves, silentIndex, curve.yAxisGroup);
+    curve.displayName = GenerateDisplayName(ElementType::SILENT_TX, silentIndex, curve.dataType);
 }
 
 void CurveSelectionModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
                                              const DataModule* dataModule, std::vector<float>& outData) const {
-    if (!dataModule || !dataModule->HasData()) {
+    double minX = 0.0;
+    double maxX = 0.0;
+    if (!TryPrepareFullDataRange(dataModule, minX, maxX)) {
         outData.clear();
         return;
     }
-    
-    // Используем полный диапазон данных
-    double minX = 0.0;
-    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-    
+
     // Вызываем метод DataModule для вычисления отношений амплитуд
     dataModule->CalculateRatioData(transmitterIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand frequency,
                                                   const DataModule* dataModule, std::vector<float>& outData) const {
-    if (!dataModule || !dataModule->HasData()) {
+    double minX = 0.0;
+    double maxX = 0.0;
+    if (!TryPrepareFullDataRange(dataModule, minX, maxX)) {
         outData.clear();
         return;
     }
-    
-    // Используем полный диапазон данных
-    double minX = 0.0;
-    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-    
+
     // Вызываем метод DataModule для вычисления разностей фаз
     dataModule->CalculateDifferenceData(transmitterIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
                                                  const DataModule* dataModule, std::vector<float>& outData) const {
-    if (!dataModule || !dataModule->HasData()) {
+    double minX = 0.0;
+    double maxX = 0.0;
+    if (!TryPrepareFullDataRange(dataModule, minX, maxX)) {
         outData.clear();
         return;
     }
-    
-    // Используем полный диапазон данных
-    double minX = 0.0;
-    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-    
+
     // Вызываем метод DataModule для вычисления амплитуд
     dataModule->CalculateAmplitudeData(transmitterIndex, receiverIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculatePhaseData(int transmitterIndex, int receiverIndex, FrequencyBand frequency,
                                              const DataModule* dataModule, std::vector<float>& outData) const {
-    if (!dataModule || !dataModule->HasData()) {
+    double minX = 0.0;
+    double maxX = 0.0;
+    if (!TryPrepareFullDataRange(dataModule, minX, maxX)) {
         outData.clear();
         return;
     }
-    
-    // Используем полный диапазон данных
-    double minX = 0.0;
-    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-    
+
     // Вызываем метод DataModule для вычисления фаз
     dataModule->CalculatePhaseData(transmitterIndex, receiverIndex, frequency, outData, minX, maxX);
 }
 
 void CurveSelectionModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                                        const DataModule* dataModule, std::vector<float>& outData) const {
-    if (!dataModule || !dataModule->HasData()) {
+    double minX = 0.0;
+    double maxX = 0.0;
+    if (!TryPrepareFullDataRange(dataModule, minX, maxX)) {
         outData.clear();
         return;
     }
-    
-    // Используем полный диапазон данных
-    double minX = 0.0;
-    double maxX = static_cast<double>(dataModule->GetDataSize() - 1);
-    
+
     // Вызываем метод DataModule для вычисления амплитуд молчащих передатчиков
     dataModule->CalculateSilentAmplitudeData(receiverIndex, frequency, outData, minX, maxX);
 }
