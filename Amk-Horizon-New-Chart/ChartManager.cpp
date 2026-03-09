@@ -67,6 +67,349 @@ namespace {
         }
         return (INT_PTR)FALSE;
     }
+
+    std::wstring BuildRangeExportSuggestedFileName(const std::wstring& baseFileName,
+                                                   size_t startIndex,
+                                                   size_t endIndex,
+                                                   const SYSTEMTIME& st) {
+        wchar_t fileName[260] = {0};
+        if (!baseFileName.empty()) {
+            swprintf_s(fileName, L"%s_range_%zu_%zu_%02d_%02d_%04d.bin",
+                      baseFileName.c_str(), startIndex, endIndex,
+                      st.wDay, st.wMonth, st.wYear);
+        } else {
+            swprintf_s(fileName, L"data_range_%zu_%zu_%02d_%02d_%04d.bin",
+                      startIndex, endIndex,
+                      st.wDay, st.wMonth, st.wYear);
+        }
+
+        return fileName;
+    }
+
+    std::wstring BuildRangeExportSuccessMessage(size_t recordCount,
+                                                size_t startIndex,
+                                                size_t endIndex,
+                                                const wchar_t* filePath,
+                                                bool hasExportAnalysis,
+                                                const DataRangeExportAnalysis& exportAnalysis) {
+        wchar_t message[768] = {0};
+        if (hasExportAnalysis && exportAnalysis.requiresAdapterAwarePolicy) {
+            swprintf_s(message, L"Successfully saved %zu records (indices %zu to %zu) to file:\n%s\n\nNote: the selected range contains mixed record metadata and was exported using the current canonical compatibility .bin format.",
+                      recordCount, startIndex, endIndex, filePath);
+        } else {
+            swprintf_s(message, L"Successfully saved %zu records (indices %zu to %zu) to file:\n%s",
+                      recordCount, startIndex, endIndex, filePath);
+        }
+
+        return message;
+    }
+
+    bool TryFindClosestTemperatureIndex(const DataModule& dataModule,
+                                        const std::vector<float>& temperatureData,
+                                        size_t startIdx,
+                                        size_t endIdx,
+                                        double xRatio,
+                                        size_t& outClosestIdx) {
+        outClosestIdx = 0;
+        if (startIdx >= endIdx || endIdx > temperatureData.size()) {
+            return false;
+        }
+
+        float minTemp = 0.0f;
+        float maxTemp = 0.0f;
+        const double rangeMinX = static_cast<double>(startIdx);
+        const double rangeMaxX = static_cast<double>(endIdx - 1);
+        if (!dataModule.TryGetTemperatureRange(rangeMinX, rangeMaxX, minTemp, maxTemp)) {
+            return false;
+        }
+
+        const float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
+        float bestDiff = FLT_MAX;
+        size_t closestIdx = startIdx;
+        for (size_t i = startIdx; i < endIdx; ++i) {
+            const float diff = fabs(temperatureData[i] - clickedTemp);
+            if (diff < bestDiff) {
+                bestDiff = diff;
+                closestIdx = i;
+            }
+        }
+
+        outClosestIdx = closestIdx;
+        return true;
+    }
+
+    bool TryResolveTemperatureAxisIndex(const DataModule& dataModule,
+                                        bool isZoomed,
+                                        double zoomMinX,
+                                        double zoomMaxX,
+                                        double xRatio,
+                                        size_t& outClosestIdx) {
+        outClosestIdx = 0;
+
+        std::vector<float> temperatureData;
+        dataModule.GetTemperatureData(temperatureData);
+        if (temperatureData.empty()) {
+            return false;
+        }
+
+        size_t startIdx = 0;
+        size_t endIdx = temperatureData.size();
+        if (isZoomed) {
+            startIdx = static_cast<size_t>((std::max)(0.0, zoomMinX));
+            endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoomMaxX + 1.0));
+            if (endIdx < startIdx) {
+                std::swap(startIdx, endIdx);
+            }
+        }
+
+        if (startIdx >= endIdx || endIdx > temperatureData.size()) {
+            return false;
+        }
+
+        return TryFindClosestTemperatureIndex(dataModule, temperatureData, startIdx, endIdx, xRatio, outClosestIdx);
+    }
+
+    struct TemperatureAxisRenderData {
+        std::vector<float> temperatureData;
+        double minXData = 0.0;
+        double maxXData = 0.0;
+    };
+
+    struct DualAxisChartGeometry {
+        RECT plotRect = {};
+        RECT dataRect = {};
+        int plotWidth = 0;
+        int plotHeight = 0;
+        int dataHeight = 0;
+    };
+
+    struct CurveDataSnapshot {
+        std::vector<std::vector<float>> leftAxisData;
+        std::vector<std::vector<float>> rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves;
+        std::vector<CurveDefinition> rightAxisCurves;
+        double minX = 0.0;
+        double maxX = 0.0;
+        double minY1 = 0.0;
+        double maxY1 = 0.0;
+        double minY2 = 0.0;
+        double maxY2 = 0.0;
+    };
+
+    struct VisibleFrameAxisRange {
+        double minX = 0.0;
+        double maxX = 0.0;
+    };
+
+    bool TryBuildTemperatureAxisRenderData(const DataModule& dataModule,
+                                           bool isZoomed,
+                                           double zoomMinX,
+                                           double zoomMaxX,
+                                           TemperatureAxisRenderData& outData) {
+        outData = {};
+
+        if (isZoomed) {
+            dataModule.GetTemperatureData(outData.temperatureData, zoomMinX, zoomMaxX);
+            outData.minXData = zoomMinX;
+            outData.maxXData = zoomMaxX;
+        } else {
+            dataModule.GetTemperatureData(outData.temperatureData);
+            outData.minXData = 0.0;
+            outData.maxXData = static_cast<double>(dataModule.GetDataSize() > 0 ? dataModule.GetDataSize() - 1 : 0);
+        }
+
+        return !outData.temperatureData.empty();
+    }
+
+    void BuildVisibleFrameAxisRange(bool isZoomed,
+                                    double zoomMinX,
+                                    double zoomMaxX,
+                                    size_t dataSize,
+                                    VisibleFrameAxisRange& outRange) {
+        outRange.minX = isZoomed ? zoomMinX : 0.0;
+        outRange.maxX = isZoomed ? zoomMaxX : static_cast<double>(dataSize > 0 ? dataSize - 1 : 0);
+    }
+
+    void BuildCurveDataSnapshot(const CurveSelectionModule& curveSelectionModule,
+                                const DataModule& dataModule,
+                                const ChartModule& chartModule,
+                                const ChartConfiguration& config,
+                                bool isZoomed,
+                                double zoomMinX,
+                                double zoomMaxX,
+                                CurveDataSnapshot& outSnapshot) {
+        outSnapshot = {};
+
+        if (isZoomed) {
+            curveSelectionModule.CalculateCurveData(config, &dataModule,
+                                                    outSnapshot.leftAxisData, outSnapshot.rightAxisData,
+                                                    outSnapshot.leftAxisCurves, outSnapshot.rightAxisCurves,
+                                                    zoomMinX, zoomMaxX, -1e10, 1e10);
+        } else {
+            curveSelectionModule.CalculateCurveData(config, &dataModule,
+                                                    outSnapshot.leftAxisData, outSnapshot.rightAxisData,
+                                                    outSnapshot.leftAxisCurves, outSnapshot.rightAxisCurves);
+        }
+
+        chartModule.GetDataRanges(outSnapshot.leftAxisData, outSnapshot.rightAxisData,
+                                  outSnapshot.minX, outSnapshot.maxX,
+                                  outSnapshot.minY1, outSnapshot.maxY1,
+                                  outSnapshot.minY2, outSnapshot.maxY2);
+    }
+
+    void DrawFrameAxisChart(ChartModule& chartModule,
+                            HDC hdc,
+                            const RECT& chartRect,
+                            const std::vector<CurveDefinition>& curves,
+                            const std::vector<std::vector<float>>& leftAxisData,
+                            const std::vector<std::vector<float>>& rightAxisData,
+                            const std::wstring& title,
+                            bool hasData,
+                            const VisibleFrameAxisRange& visibleXRange,
+                            double displayMinY,
+                            double displayMaxY,
+                            const ChartConfiguration& config,
+                            bool showAxes) {
+        chartModule.DrawDualAxisChart(hdc, chartRect, curves,
+                                      leftAxisData, rightAxisData,
+                                      title, hasData,
+                                      visibleXRange.minX,
+                                      visibleXRange.maxX,
+                                      displayMinY,
+                                      displayMaxY,
+                                      config,
+                                      showAxes);
+    }
+
+    bool TryBuildDualAxisChartGeometry(const RECT& chartRect, DualAxisChartGeometry& outGeometry) {
+        outGeometry = {};
+
+        outGeometry.plotRect.left = chartRect.left + 100;
+        outGeometry.plotRect.top = chartRect.top + 45;
+        outGeometry.plotRect.right = chartRect.right - 140;
+        outGeometry.plotRect.bottom = chartRect.bottom - 50;
+
+        outGeometry.plotWidth = outGeometry.plotRect.right - outGeometry.plotRect.left;
+        outGeometry.plotHeight = outGeometry.plotRect.bottom - outGeometry.plotRect.top;
+        if (outGeometry.plotWidth <= 0 || outGeometry.plotHeight <= 0) {
+            return false;
+        }
+
+        outGeometry.dataRect = outGeometry.plotRect;
+        int yMargin = outGeometry.plotHeight * 3 / 100;
+        yMargin = (std::max)(8, (std::min)(24, yMargin));
+        outGeometry.dataRect.top += yMargin;
+        outGeometry.dataRect.bottom -= yMargin;
+        outGeometry.dataHeight = outGeometry.dataRect.bottom - outGeometry.dataRect.top;
+
+        return true;
+    }
+
+    double ResolveLinearAxisDataX(bool isZoomed,
+                                  double zoomMinX,
+                                  double zoomMaxX,
+                                  size_t dataSize,
+                                  double xRatio) {
+        if (isZoomed) {
+            return zoomMinX + xRatio * (zoomMaxX - zoomMinX);
+        }
+
+        return xRatio * (dataSize > 0 ? static_cast<double>(dataSize - 1) : 0.0);
+    }
+
+    double ResolveTemperatureAxisDataX(const DataModule& dataModule,
+                                       bool isZoomed,
+                                       double zoomMinX,
+                                       double zoomMaxX,
+                                       double xRatio,
+                                       double fallbackDataX) {
+        size_t closestIdx = 0;
+        if (TryResolveTemperatureAxisIndex(dataModule, isZoomed, zoomMinX, zoomMaxX, xRatio, closestIdx)) {
+            return static_cast<double>(closestIdx);
+        }
+
+        return fallbackDataX;
+    }
+
+    bool TryResolveNoteMarkerScreenX(const DataModule& dataModule,
+                                     XAxisType xAxisType,
+                                     int noteXIndex,
+                                     double minXData,
+                                     double maxXData,
+                                     double xRange,
+                                     float minTemp,
+                                     float maxTemp,
+                                     bool hasTempRange,
+                                     size_t dataSize,
+                                     const RECT& plotRect,
+                                     int plotWidth,
+                                     int& outScreenX) {
+        outScreenX = 0;
+
+        if (noteXIndex < 0) {
+            return false;
+        }
+
+        double xRatio = 0.0;
+        if (xAxisType == XAxisType::TEMPERATURE) {
+            if (!hasTempRange) {
+                return false;
+            }
+            const size_t noteIndex = static_cast<size_t>(noteXIndex);
+            if (noteIndex >= dataSize) {
+                return false;
+            }
+
+            const MeasurementView measurement = dataModule.GetMeasurementView(noteIndex);
+            const float temperature = measurement.GetTemperature();
+            xRatio = static_cast<double>((temperature - minTemp) / (maxTemp - minTemp));
+        } else {
+            xRatio = (static_cast<double>(noteXIndex) - minXData) / xRange;
+        }
+
+        outScreenX = plotRect.left + static_cast<int>(lround(xRatio * plotWidth));
+        return true;
+    }
+
+    void ApplyDisplayYPadding(double& minY, double& maxY) {
+        double range = maxY - minY;
+        if (!(range > 0.0)) {
+            range = 1.0;
+        }
+        const double padding = range * 0.05;
+        minY -= padding;
+        maxY += padding;
+    }
+
+    void BuildDisplayedLeftAxisRange(bool isZoomed,
+                                     double zoomMinY,
+                                     double zoomMaxY,
+                                     double fullMinY,
+                                     double fullMaxY,
+                                     double& outDisplayMinY,
+                                     double& outDisplayMaxY) {
+        outDisplayMinY = isZoomed ? zoomMinY : fullMinY;
+        outDisplayMaxY = isZoomed ? zoomMaxY : fullMaxY;
+        if (isZoomed) {
+            ApplyDisplayYPadding(outDisplayMinY, outDisplayMaxY);
+        }
+    }
+
+    bool TryBuildDrawnAxisRange(double displayMinY,
+                                double displayMaxY,
+                                double& outDrawMinY,
+                                double& outDrawMaxY) {
+        outDrawMinY = displayMinY;
+        outDrawMaxY = displayMaxY;
+
+        const double displayRangeY = outDrawMaxY - outDrawMinY;
+        if (!(displayRangeY > 0.0)) {
+            return false;
+        }
+
+        outDrawMinY -= displayRangeY * 0.02;
+        return (outDrawMaxY - outDrawMinY) > 0.0;
+    }
 }
 
  static void AppendDebugLog(const wchar_t* fmt, ...) {
@@ -1427,28 +1770,20 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     // Вычисляем область графика (plotRect) с учётом отступов
     // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
     // вызывается для всех графиков (даже с одной осью) и использует CalculateDualAxisPlotRect
-    RECT plotRect;
-    plotRect.left = chartRect->left + 100;
-    plotRect.top = chartRect->top + 45;
-    plotRect.right = chartRect->right - 140;
-    plotRect.bottom = chartRect->bottom - 50;
-
-    double plotWidth = static_cast<double>(plotRect.right - plotRect.left);
-    double plotHeight = static_cast<double>(plotRect.bottom - plotRect.top);
-    if (!(plotWidth > 0.0) || !(plotHeight > 0.0)) {
+    DualAxisChartGeometry geometry = {};
+    if (!TryBuildDualAxisChartGeometry(*chartRect, geometry)) {
         dataX = 0.0;
         dataY = 0.0;
         return;
     }
 
+    const RECT& plotRect = geometry.plotRect;
+    const RECT& dataRect = geometry.dataRect;
+    double plotWidth = static_cast<double>(geometry.plotWidth);
+
     // ВАЖНО: синхронизируем Y-геометрию с реальной отрисовкой в DrawDualAxisDataWithZoom,
     // где данные рисуются не по всему plotRect, а по dataRect с вертикальными margin.
-    RECT dataRect = plotRect;
-    int yMargin = static_cast<int>(plotHeight * 3.0 / 100.0);
-    yMargin = (std::max)(8, (std::min)(24, yMargin));
-    dataRect.top += yMargin;
-    dataRect.bottom -= yMargin;
-    double dataHeight = static_cast<double>(dataRect.bottom - dataRect.top);
+    double dataHeight = static_cast<double>(geometry.dataHeight);
     if (!(dataHeight > 0.0)) {
         dataX = 0.0;
         dataY = 0.0;
@@ -1458,96 +1793,34 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     double xRatio = static_cast<double>(screenX - plotRect.left) / plotWidth;
 
     // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
+    const double linearDataX = ResolveLinearAxisDataX(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), xRatio);
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // В режиме кроссплота экранная X координата соответствует температуре
         // Но zoom всё равно работает с индексами кадров
-        
-        // Получаем температурные данные.
-        // ВАЖНО: ChartModule ожидает xAxisData как массив по всем индексам (0..N-1),
-        // и использует minXData/maxXData как индексы. Поэтому здесь всегда берём полный массив.
-        std::vector<float> temperatureData;
-        dataModule->GetTemperatureData(temperatureData);
-        
-        if (!temperatureData.empty()) {
-            // Находим диапазон температур (по видимому диапазону индексов)
-            size_t startIdx = 0;
-            size_t endIdx = temperatureData.size();
-            if (zoom->isZoomed) {
-                startIdx = static_cast<size_t>((std::max)(0.0, zoom->minX));
-                endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoom->maxX + 1));
-                if (endIdx < startIdx) std::swap(startIdx, endIdx);
-            }
-            
-            if (startIdx < endIdx && endIdx <= temperatureData.size()) {
-                float minTemp = *std::min_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
-                float maxTemp = *std::max_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
-                if (maxTemp <= minTemp) {
-                    maxTemp = minTemp + 1.0f; // избегаем деления на ноль
-                }
-                
-                // Температура, на которую кликнули
-                float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
-                
-                // Находим ближайший индекс кадра с этой температурой
-                float minDiff = FLT_MAX;
-                size_t closestIdx = startIdx;
-                for (size_t i = startIdx; i < endIdx; i++) {
-                    float diff = fabs(temperatureData[i] - clickedTemp);
-                    if (diff < minDiff) {
-                        minDiff = diff;
-                        closestIdx = i;
-                    }
-                }
-                
-                // Возвращаем индекс кадра (не температуру!)
-                dataX = static_cast<double>(closestIdx);
-            } else {
-                dataX = xRatio * (dataModule->GetDataSize() - 1);
-            }
-        } else {
-            dataX = xRatio * (dataModule->GetDataSize() - 1);
-        }
+        dataX = ResolveTemperatureAxisDataX(*dataModule, zoom->isZoomed, zoom->minX, zoom->maxX, xRatio, linearDataX);
     } else {
         // Обычный режим: номер кадра на оси X
-        if (zoom->isZoomed) {
-            dataX = zoom->minX + xRatio * (zoom->maxX - zoom->minX);
-        } else {
-            dataX = xRatio * (dataModule->GetDataSize() - 1);
-        }
+        dataX = linearDataX;
     }
     
     // Y координата обрабатывается одинаково для обоих режимов
     // Получаем реальный диапазон Y из данных
     ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
-    std::vector<std::vector<float>> leftAxisData, rightAxisData;
-    std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-    curveSelectionModule->CalculateCurveData(config2, dataModule.get(), leftAxisData, rightAxisData, leftAxisCurves, rightAxisCurves);
-    
-    double minYFull, maxYFull, minXFull, maxXFull, minY2, maxY2;
-    chartModule->GetDataRanges(leftAxisData, rightAxisData, minXFull, maxXFull, minYFull, maxYFull, minY2, maxY2);
+    CurveDataSnapshot curveSnapshot = {};
+    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config2,
+                           false, 0.0, 0.0, curveSnapshot);
 
-    double displayMinY = minYFull;
-    double displayMaxY = maxYFull;
-    if (zoom->isZoomed) {
-        displayMinY = zoom->minY;
-        displayMaxY = zoom->maxY;
-
-        // В zoom-режиме DrawChartWithCurves добавляет display padding +/-5%.
-        double range = displayMaxY - displayMinY;
-        if (!(range > 0.0)) range = 1.0;
-        double pad = range * 0.05;
-        displayMinY -= pad;
-        displayMaxY += pad;
-    }
+    double displayMinY = 0.0;
+    double displayMaxY = 0.0;
+    BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, curveSnapshot.minY1, curveSnapshot.maxY1, displayMinY, displayMaxY);
 
     // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
-    double displayRangeY = displayMaxY - displayMinY;
-    if (!(displayRangeY > 0.0)) {
+    double drawMinY = 0.0;
+    double drawMaxY = 0.0;
+    if (!TryBuildDrawnAxisRange(displayMinY, displayMaxY, drawMinY, drawMaxY)) {
         dataY = displayMinY;
         return;
     }
-    double drawMinY = displayMinY - displayRangeY * 0.02;
-    double drawMaxY = displayMaxY;
     double drawRangeY = drawMaxY - drawMinY;
     if (!(drawRangeY > 0.0)) {
         dataY = drawMinY;
@@ -2092,16 +2365,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     // Получаем параметры zoom
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
 
-    auto ApplyYDisplayPadding = [](double& minY, double& maxY) {
-        double range = maxY - minY;
-        if (!(range > 0.0)) {
-            range = 1.0;
-        }
-        double padding = range * 0.05;
-        minY -= padding;
-        maxY += padding;
-    };
-
      AppendDebugLog(L"[DrawChartWithCurves] chart=%d zoom=%d xAxisType=%d hasDualAxis=%d zoomX=[%.3f..%.3f] zoomY=[%.3f..%.3f]\r\n",
                     chartNumber,
                     zoom->isZoomed ? 1 : 0,
@@ -2111,24 +2374,13 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                     zoom->minY, zoom->maxY);
     
     // Вычисляем данные для кривых с учетом zoom
-    std::vector<std::vector<float>> leftAxisData;
-    std::vector<std::vector<float>> rightAxisData;
-    std::vector<CurveDefinition> leftAxisCurves;
-    std::vector<CurveDefinition> rightAxisCurves;
-    
-    if (zoom->isZoomed) {
-        // Используем zoom параметры только для X (не фильтруем по Y!)
-        // Y zoom используется только для отображения, не для фильтрации данных
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                               leftAxisData, rightAxisData,
-                                               leftAxisCurves, rightAxisCurves,
-                                               zoom->minX, zoom->maxX, -1e10, 1e10);
-    } else {
-        // Используем полный диапазон данных
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                               leftAxisData, rightAxisData,
-                                               leftAxisCurves, rightAxisCurves);
-    }
+    CurveDataSnapshot curveSnapshot = {};
+    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+                           zoom->isZoomed, zoom->minX, zoom->maxX, curveSnapshot);
+    auto& leftAxisData = curveSnapshot.leftAxisData;
+    auto& rightAxisData = curveSnapshot.rightAxisData;
+    auto& leftAxisCurves = curveSnapshot.leftAxisCurves;
+    auto& rightAxisCurves = curveSnapshot.rightAxisCurves;
     
     // Формируем заголовок с частотой
     // "График " в Unicode escape
@@ -2143,17 +2395,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     // v2.10.0: Проверяем тип оси X
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // Режим кроссплота: температура на оси X
-        
-        // Получаем температурные данные
-        std::vector<float> temperatureData;
-        if (zoom->isZoomed) {
-            dataModule->GetTemperatureData(temperatureData, zoom->minX, zoom->maxX);
-        } else {
-            dataModule->GetTemperatureData(temperatureData);
-        }
-        
-        // Проверяем, что данные получены
-        if (temperatureData.empty()) {
+
+        TemperatureAxisRenderData temperatureAxis = {};
+        if (!TryBuildTemperatureAxisRenderData(*dataModule, zoom->isZoomed, zoom->minX, zoom->maxX, temperatureAxis)) {
             // Отрисовываем пустой график с сообщением
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                          leftAxisData, rightAxisData,
@@ -2161,21 +2405,14 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                          0.0, 1.0, -1e6, 1e6, true);
             return;
         }
-        
-        // Определяем диапазоны
-        double minXData = zoom->isZoomed ? zoom->minX : 0.0;
-        double maxXData = zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() - 1);
-        
-        // Получаем диапазоны Y из данных
-        double minYFull, maxYFull, minX, maxX, minY2, maxY2;
-        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
-        
-        double minYData = zoom->isZoomed ? zoom->minY : minYFull;
-        double maxYData = zoom->isZoomed ? zoom->maxY : maxYFull;
 
-        if (zoom->isZoomed) {
-            ApplyYDisplayPadding(minYData, maxYData);
-        }
+        // Получаем диапазоны Y из данных
+        const double minYFull = curveSnapshot.minY1;
+        const double maxYFull = curveSnapshot.maxY1;
+        
+        double minYData = 0.0;
+        double maxYData = 0.0;
+        BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYFull, maxYFull, minYData, maxYData);
 
          AppendDebugLog(L"  [TempX] minYFull=%.6f maxYFull=%.6f -> drawY=[%.6f..%.6f]\r\n",
                         minYFull, maxYFull, minYData, maxYData);
@@ -2184,15 +2421,17 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         // v2.15.0: Передаём config для поддержки компактной легенды пресетов
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
-                                       title, true, temperatureData,
-                                       minXData, maxXData, minYData, maxYData,
+                                       title, true, temperatureAxis.temperatureData,
+                                       temperatureAxis.minXData, temperatureAxis.maxXData, minYData, maxYData,
                                        config, true);
     } else {
         // Обычный режим: номер кадра на оси X
         
         // Получаем диапазоны Y из данных
-        double minYData, maxYData, minXData, maxXData, minY2, maxY2;
-        chartModule->GetDataRanges(leftAxisData, rightAxisData, minXData, maxXData, minYData, maxYData, minY2, maxY2);
+        const double minYData = curveSnapshot.minY1;
+        const double maxYData = curveSnapshot.maxY1;
+        VisibleFrameAxisRange visibleXRange = {};
+        BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
         
         // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
@@ -2200,25 +2439,18 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             // Всегда показываем оси (включая ось X)
             bool showAxes = true;
             
-            double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
-            double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
-
-            if (zoom->isZoomed) {
-                ApplyYDisplayPadding(displayMinY, displayMaxY);
-            }
+            double displayMinY = 0.0;
+            double displayMaxY = 0.0;
+            BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
 
              AppendDebugLog(L"  [FrameX Dual] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
-                            minYData, maxYData, displayMinY, displayMaxY);
+                           minYData, maxYData, displayMinY, displayMaxY);
             
-            chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
-                                         leftAxisData, rightAxisData,
-                                         title, dataModule->HasData(),
-                                         zoom->isZoomed ? zoom->minX : 0.0,
-                                         zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                         displayMinY,
-                                         displayMaxY,
-                                         config,  // v2.15.0: Передаём config для поддержки компактной легенды пресетов
-                                         showAxes);
+            DrawFrameAxisChart(*chartModule, hdc, chartRect, config.curves,
+                               leftAxisData, rightAxisData,
+                               title, dataModule->HasData(), visibleXRange,
+                               displayMinY, displayMaxY,
+                               config, showAxes);
         } else {
             // Используем обычный метод для одной оси
             if (!leftAxisData.empty()) {
@@ -2226,25 +2458,18 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 // Используем метод DrawDualAxisChart даже для одной оси, чтобы правильно отобразить легенду
                 bool showAxes = true;
                 
-                double displayMinY = zoom->isZoomed ? zoom->minY : minYData;
-                double displayMaxY = zoom->isZoomed ? zoom->maxY : maxYData;
-
-                if (zoom->isZoomed) {
-                    ApplyYDisplayPadding(displayMinY, displayMaxY);
-                }
+                double displayMinY = 0.0;
+                double displayMaxY = 0.0;
+                BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
 
                  AppendDebugLog(L"  [FrameX Single] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
                                 minYData, maxYData, displayMinY, displayMaxY);
                 
-                chartModule->DrawDualAxisChart(hdc, chartRect, leftAxisCurves,
-                                             leftAxisData, std::vector<std::vector<float>>(), // Пустая правая ось
-                                             title, dataModule->HasData(),
-                                             zoom->isZoomed ? zoom->minX : 0.0,
-                                             zoom->isZoomed ? zoom->maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0),
-                                             displayMinY,
-                                             displayMaxY,
-                                             config,  // v2.15.0: Передаём config для поддержки компактной легенды пресетов
-                                             showAxes);
+                DrawFrameAxisChart(*chartModule, hdc, chartRect, leftAxisCurves,
+                                   leftAxisData, std::vector<std::vector<float>>(),
+                                   title, dataModule->HasData(), visibleXRange,
+                                   displayMinY, displayMaxY,
+                                   config, showAxes);
             }
         }
     }
@@ -2766,17 +2991,8 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
     SYSTEMTIME st;
     GetLocalTime(&st);
     
-    // Формируем имя файла с датой в формате ДД_ММ_ГГГГ
-    if (!baseFileName.empty()) {
-        swprintf_s(szFile, L"%s_range_%zu_%zu_%02d_%02d_%04d.bin", 
-                  baseFileName.c_str(), startIndex, endIndex,
-                  st.wDay, st.wMonth, st.wYear);
-    } else {
-        // Если имя исходного файла не сохранено (не должно происходить)
-        swprintf_s(szFile, L"data_range_%zu_%zu_%02d_%02d_%04d.bin", 
-                  startIndex, endIndex,
-                  st.wDay, st.wMonth, st.wYear);
-    }
+    const std::wstring suggestedFileName = BuildRangeExportSuggestedFileName(baseFileName, startIndex, endIndex, st);
+    wcsncpy_s(szFile, suggestedFileName.c_str(), _TRUNCATE);
     
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
@@ -2792,14 +3008,15 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
     ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
     
     if (GetSaveFileName(&ofn) == TRUE) {
+        DataRangeExportAnalysis exportAnalysis = {};
+        const bool hasExportAnalysis = dataModule->TryAnalyzeExportRange(startIndex, endIndex, exportAnalysis);
+
         // Сохраняем диапазон данных
         if (dataModule->SaveDataRange(szFile, startIndex, endIndex)) {
             // Формируем сообщение об успехе
-            wchar_t message[512];
             size_t recordCount = endIndex - startIndex + 1;
-            swprintf_s(message, L"Successfully saved %zu records (indices %zu to %zu) to file:\n%s", 
-                      recordCount, startIndex, endIndex, szFile);
-            MessageBox(hWnd, message, L"Success", MB_OK | MB_ICONINFORMATION);
+            const std::wstring successMessage = BuildRangeExportSuccessMessage(recordCount, startIndex, endIndex, szFile, hasExportAnalysis, exportAnalysis);
+            MessageBox(hWnd, successMessage.c_str(), L"Success", MB_OK | MB_ICONINFORMATION);
         } else {
             MessageBox(hWnd, L"Failed to save data range!", L"Error", MB_OK | MB_ICONERROR);
         }
@@ -2877,39 +3094,21 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
 
         // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
-        std::vector<std::vector<float>> leftAxisData, rightAxisData;
-        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-        
-        if (zoom.isZoomed) {
-            // Используем zoom параметры для X (как в DrawChartWithCurves)
-            curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                                   leftAxisData, rightAxisData,
-                                                   leftAxisCurves, rightAxisCurves,
-                                                   zoom.minX, zoom.maxX, -1e10, 1e10);
-        } else {
-            // Используем полный диапазон данных
-            curveSelectionModule->CalculateCurveData(config, dataModule.get(), 
-                                                   leftAxisData, rightAxisData, 
-                                                   leftAxisCurves, rightAxisCurves);
-        }
-        
-        // Определяем диапазоны данных (полные диапазоны из текущих данных)
-        double minX, maxX, minY1Full, maxY1Full, minY2Full, maxY2Full;
-        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minY1Full, maxY1Full, minY2Full, maxY2Full);
+        CurveDataSnapshot curveSnapshot = {};
+        BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+                               zoom.isZoomed, zoom.minX, zoom.maxX, curveSnapshot);
+        auto& leftAxisData = curveSnapshot.leftAxisData;
+        auto& rightAxisData = curveSnapshot.rightAxisData;
+        double minX = curveSnapshot.minX;
+        double maxX = curveSnapshot.maxX;
+        double minY1Full = curveSnapshot.minY1;
+        double maxY1Full = curveSnapshot.maxY1;
+        double minY2Full = curveSnapshot.minY2;
+        double maxY2Full = curveSnapshot.maxY2;
         
         // Текущие диапазоны для отображения (могут быть изменены zoom по Y)
         double minY1 = minY1Full, maxY1 = maxY1Full;
         double minY2 = minY2Full, maxY2 = maxY2Full;
-
-        auto ApplyYDisplayPadding = [](double& minY, double& maxY) {
-            double range = maxY - minY;
-            if (!(range > 0.0)) {
-                range = 1.0;
-            }
-            double padding = range * 0.05;
-            minY -= padding;
-            maxY += padding;
-        };
         
         // Применяем zoom по Y если есть (zoom по X уже применён при получении данных)
         if (zoom.isZoomed) {
@@ -2920,7 +3119,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
 
             // ВАЖНО: синхронизация с фактической отрисовкой (DrawChartWithCurves),
             // где при zoom добавляется display padding +/-5%.
-            ApplyYDisplayPadding(minY1, maxY1);
+            ApplyDisplayYPadding(minY1, maxY1);
             
             // Вычисляем пропорциональный zoom для правой оси (как в ChartModule)
             double leftFullRange = maxY1Full - minY1Full;
@@ -2939,35 +3138,21 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         
         // Преобразуем экранные координаты в координаты данных
         // ВАЖНО: Используем те же отступы, что и в CalculateDualAxisPlotRect
-        const int MARGIN_LEFT = 100;
-        const int MARGIN_RIGHT = 140;
-        const int MARGIN_TOP = 45;
-        const int MARGIN_BOTTOM = 50;
-        
-        int plotWidth = chartRect.right - chartRect.left - MARGIN_LEFT - MARGIN_RIGHT;
-        int plotHeight = chartRect.bottom - chartRect.top - MARGIN_TOP - MARGIN_BOTTOM;
-        if (plotWidth <= 0 || plotHeight <= 0) {
+        DualAxisChartGeometry geometry = {};
+        if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
             return false;
         }
 
         // ВАЖНО: как в DrawDualAxisDataWithZoom — данные рисуются внутри dataRect,
         // а не по всей высоте plotRect.
-        RECT dataRect;
-        dataRect.left = chartRect.left + MARGIN_LEFT;
-        dataRect.top = chartRect.top + MARGIN_TOP;
-        dataRect.right = chartRect.right - MARGIN_RIGHT;
-        dataRect.bottom = chartRect.bottom - MARGIN_BOTTOM;
-
-        int yMargin = plotHeight * 3 / 100;
-        yMargin = (std::max)(8, (std::min)(24, yMargin));
-        dataRect.top += yMargin;
-        dataRect.bottom -= yMargin;
-        int dataHeight = dataRect.bottom - dataRect.top;
+        const RECT& dataRect = geometry.dataRect;
+        const int plotWidth = geometry.plotWidth;
+        const int dataHeight = geometry.dataHeight;
         if (dataHeight <= 0) {
             return false;
         }
         
-        int relX = screenX - chartRect.left - MARGIN_LEFT;
+        int relX = screenX - geometry.plotRect.left;
         double xRatio = static_cast<double>(relX) / static_cast<double>(plotWidth);
         if (xRatio < 0.0) xRatio = 0.0;
         if (xRatio > 1.0) xRatio = 1.0;
@@ -2975,59 +3160,22 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         // X координата
         // В режиме TEMPERATURE ось X нелинейна относительно индекса кадра,
         // поэтому нужна привязка к ближайшему индексу по температуре.
+        const double linearDataX = minX + xRatio * (maxX - minX);
         if (config.xAxisType == XAxisType::TEMPERATURE) {
-            std::vector<float> temperatureData;
-            dataModule->GetTemperatureData(temperatureData);
-
-            if (!temperatureData.empty()) {
-                size_t startIdx = 0;
-                size_t endIdx = temperatureData.size(); // exclusive
-
-                if (zoom.isZoomed) {
-                    startIdx = static_cast<size_t>((std::max)(0.0, zoom.minX));
-                    endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoom.maxX + 1.0));
-                    if (endIdx < startIdx) std::swap(startIdx, endIdx);
-                }
-
-                if (startIdx < endIdx && endIdx <= temperatureData.size()) {
-                    float minTemp = *std::min_element(temperatureData.begin() + startIdx,
-                                                      temperatureData.begin() + endIdx);
-                    float maxTemp = *std::max_element(temperatureData.begin() + startIdx,
-                                                      temperatureData.begin() + endIdx);
-                    if (maxTemp <= minTemp) {
-                        maxTemp = minTemp + 1.0f;
-                    }
-
-                    float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
-
-                    float bestDiff = FLT_MAX;
-                    size_t closestIdx = startIdx;
-                    for (size_t i = startIdx; i < endIdx; ++i) {
-                        float diff = fabs(temperatureData[i] - clickedTemp);
-                        if (diff < bestDiff) {
-                            bestDiff = diff;
-                            closestIdx = i;
-                        }
-                    }
-
-                    dataX = static_cast<double>(closestIdx);
-                } else {
-                    dataX = minX + xRatio * (maxX - minX);
-                }
-            } else {
-                dataX = minX + xRatio * (maxX - minX);
-            }
+            dataX = ResolveTemperatureAxisDataX(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, xRatio, linearDataX);
         } else {
-            dataX = minX + xRatio * (maxX - minX);
+            dataX = linearDataX;
         }
 
         int clampedY = static_cast<int>((std::max)(dataRect.top, (std::min)(dataRect.bottom, static_cast<LONG>(screenY))));
         double yRatio = (double)(dataRect.bottom - clampedY) / dataHeight;
 
-        double leftRange = maxY1 - minY1;
-        if (!(leftRange > 0.0)) leftRange = 1.0;
-        double leftDrawMin = minY1 - leftRange * 0.02;
-        double leftDrawMax = maxY1;
+        double leftDrawMin = 0.0;
+        double leftDrawMax = 0.0;
+        if (!TryBuildDrawnAxisRange(minY1, maxY1, leftDrawMin, leftDrawMax)) {
+            leftDrawMin = minY1;
+            leftDrawMax = maxY1;
+        }
         
         // Y координаты
         hasDualAxis = !rightAxisData.empty();
@@ -3036,10 +3184,12 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             // Двойные оси
             dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin); // Левая ось
 
-            double rightRange = maxY2 - minY2;
-            if (!(rightRange > 0.0)) rightRange = 1.0;
-            double rightDrawMin = minY2 - rightRange * 0.02;
-            double rightDrawMax = maxY2;
+            double rightDrawMin = 0.0;
+            double rightDrawMax = 0.0;
+            if (!TryBuildDrawnAxisRange(minY2, maxY2, rightDrawMin, rightDrawMax)) {
+                rightDrawMin = minY2;
+                rightDrawMax = maxY2;
+            }
             dataY2 = rightDrawMin + yRatio * (rightDrawMax - rightDrawMin); // Правая ось
             
             // Определяем единицы измерения из первых кривых каждой оси
@@ -3130,11 +3280,11 @@ void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber
     // Вычисляем область графика (plotRect) с учётом отступов
     // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
     // вызывается для всех графиков и использует CalculateDualAxisPlotRect
-    RECT plotRect;
-    plotRect.left = chartRect.left + 100;
-    plotRect.top = chartRect.top + 45;
-    plotRect.right = chartRect.right - 140;
-    plotRect.bottom = chartRect.bottom - 50;
+    DualAxisChartGeometry geometry = {};
+    if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
+        return;
+    }
+    const RECT& plotRect = geometry.plotRect;
     
     // Проверяем, что перекрестие находится внутри области графика
     if (crosshair->screenX < plotRect.left || crosshair->screenX > plotRect.right ||
@@ -3186,69 +3336,42 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     if (noteIdx.empty()) return;
 
     // Plot rect (должен совпадать с CalculateDualAxisPlotRect/ConvertScreenToChartCoords)
-    RECT plotRect;
-    plotRect.left = chartRect.left + 100;
-    plotRect.top = chartRect.top + 45;
-    plotRect.right = chartRect.right - 140;
-    plotRect.bottom = chartRect.bottom - 50;
-    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top) return;
-
-    const int plotW = plotRect.right - plotRect.left;
-    const int plotH = plotRect.bottom - plotRect.top;
-
-    RECT dataRect = plotRect;
-    int yMargin = plotH * 3 / 100;
-    yMargin = (std::max)(8, (std::min)(24, yMargin));
-    dataRect.top += yMargin;
-    dataRect.bottom -= yMargin;
-    if (dataRect.bottom <= dataRect.top) return;
-    const int dataH = dataRect.bottom - dataRect.top;
+    DualAxisChartGeometry geometry = {};
+    if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) return;
+    const RECT& plotRect = geometry.plotRect;
+    const RECT& dataRect = geometry.dataRect;
+    if (geometry.dataHeight <= 0) return;
+    const int plotW = geometry.plotWidth;
+    const int dataH = geometry.dataHeight;
 
     // Zoom & X range
     ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
-    const double minXData = zoom.isZoomed ? zoom.minX : 0.0;
-    const double maxXData = zoom.isZoomed ? zoom.maxX : static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0);
+    VisibleFrameAxisRange visibleXRange = {};
+    BuildVisibleFrameAxisRange(zoom.isZoomed, zoom.minX, zoom.maxX, dataModule->GetDataSize(), visibleXRange);
+    const double minXData = visibleXRange.minX;
+    const double maxXData = visibleXRange.maxX;
     const double xRange = (maxXData - minXData);
     if (!(xRange > 0.0)) return;
 
     // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
-    std::vector<std::vector<float>> leftAxisData;
-    std::vector<std::vector<float>> rightAxisData;
-    std::vector<CurveDefinition> leftAxisCurves;
-    std::vector<CurveDefinition> rightAxisCurves;
-
-    if (zoom.isZoomed) {
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                                leftAxisData, rightAxisData,
-                                                leftAxisCurves, rightAxisCurves,
-                                                zoom.minX, zoom.maxX, -1e10, 1e10);
-    } else {
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                                leftAxisData, rightAxisData,
-                                                leftAxisCurves, rightAxisCurves);
-    }
-
-    double minXFull = 0.0, maxXFull = 0.0, minY1Full = 0.0, maxY1Full = 0.0, minY2Full = 0.0, maxY2Full = 0.0;
-    chartModule->GetDataRanges(leftAxisData, rightAxisData, minXFull, maxXFull, minY1Full, maxY1Full, minY2Full, maxY2Full);
+    CurveDataSnapshot curveSnapshot = {};
+    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+                           zoom.isZoomed, zoom.minX, zoom.maxX, curveSnapshot);
+    auto& leftAxisData = curveSnapshot.leftAxisData;
+    auto& rightAxisData = curveSnapshot.rightAxisData;
+    const double minY1Full = curveSnapshot.minY1;
+    const double maxY1Full = curveSnapshot.maxY1;
 
     double minY1 = zoom.isZoomed ? zoom.minY : minY1Full;
     double maxY1 = zoom.isZoomed ? zoom.maxY : maxY1Full;
 
     // v2.15.x: при zoom добавляем padding как в DrawChartWithCurves
-    if (zoom.isZoomed) {
-        double range = maxY1 - minY1;
-        if (!(range > 0.0)) range = 1.0;
-        double pad = range * 0.05;
-        minY1 -= pad;
-        maxY1 += pad;
-    }
+    BuildDisplayedLeftAxisRange(zoom.isZoomed, zoom.minY, zoom.maxY, minY1Full, maxY1Full, minY1, maxY1);
 
     // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
-    double drawMinY1 = minY1;
-    double drawMaxY1 = maxY1;
-    double displayRangeY = drawMaxY1 - drawMinY1;
-    if (!(displayRangeY > 0.0)) return;
-    drawMinY1 -= displayRangeY * 0.02;
+    double drawMinY1 = 0.0;
+    double drawMaxY1 = 0.0;
+    if (!TryBuildDrawnAxisRange(minY1, maxY1, drawMinY1, drawMaxY1)) return;
 
     const double yRange = (drawMaxY1 - drawMinY1);
     if (!(yRange > 0.0)) return;
@@ -3258,27 +3381,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     bool hasTempRange = false;
     const size_t dataSize = dataModule->GetDataSize();
     if (config.xAxisType == XAxisType::TEMPERATURE && dataSize > 0) {
-        int startIdx = static_cast<int>(floor(minXData));
-        int endIdx = static_cast<int>(ceil(maxXData));
-        if (startIdx < 0) startIdx = 0;
-        if (endIdx < 0) endIdx = 0;
-        int maxIdx = static_cast<int>(dataSize - 1);
-        if (startIdx > maxIdx) startIdx = maxIdx;
-        if (endIdx > maxIdx) endIdx = maxIdx;
-        if (endIdx < startIdx) std::swap(startIdx, endIdx);
-
-        minTemp = FLT_MAX;
-        maxTemp = -FLT_MAX;
-        for (int i = startIdx; i <= endIdx; i++) {
-            const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(i));
-            const float t = measurement.GetTemperature();
-            if (t < minTemp) minTemp = t;
-            if (t > maxTemp) maxTemp = t;
-        }
-        if (maxTemp <= minTemp) {
-            maxTemp = minTemp + 1.0f;
-        }
-        hasTempRange = true;
+        hasTempRange = dataModule->TryGetTemperatureRange(minXData, maxXData, minTemp, maxTemp);
     }
 
     struct NoteLabelCandidate {
@@ -3352,20 +3455,15 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         if (n.xIndex < (int)floor(minXData) - 1) continue;
         if (n.xIndex > (int)ceil(maxXData) + 1) continue;
 
-        double xRatio = 0.0;
-        if (config.xAxisType == XAxisType::TEMPERATURE) {
-            if (!hasTempRange) continue;
-            if ((size_t)n.xIndex >= dataSize) continue;
-            const MeasurementView measurement = dataModule->GetMeasurementView(static_cast<size_t>(n.xIndex));
-            const float t = measurement.GetTemperature();
-            xRatio = (double)((t - minTemp) / (maxTemp - minTemp));
-        } else {
-            xRatio = (static_cast<double>(n.xIndex) - minXData) / xRange;
-        }
-
         double yRatio = (drawMaxY1 - n.yLeft) / yRange;
 
-        int x = plotRect.left + (int)lround(xRatio * plotW);
+        int x = 0;
+        if (!TryResolveNoteMarkerScreenX(*dataModule, config.xAxisType, n.xIndex,
+                                         minXData, maxXData, xRange,
+                                         minTemp, maxTemp, hasTempRange, dataSize,
+                                         plotRect, plotW, x)) {
+            continue;
+        }
         int y = dataRect.top + (int)lround(yRatio * dataH);
 
         if (x < plotRect.left || x > plotRect.right || y < dataRect.top || y > dataRect.bottom) {

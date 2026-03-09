@@ -14,6 +14,8 @@ constexpr int kLegacySmtOutputCount = SchematicSelection::UI_TRANSMITTER_COUNT;
 
 using LegacySmtPhaseOutputs = std::array<float, kLegacySmtOutputCount>;
 
+float InvertPhaseToRho(const METROLOGY_DATA& metrology, float targetPhase, int txIndex, int freqIdx);
+
 int GetUiTransmitterCount(const std::vector<bool>* transmitters = nullptr) {
     const int transmittersCount = transmitters ? static_cast<int>(transmitters->size()) : 0;
     return (transmittersCount > 0) ? transmittersCount : SchematicSelection::UI_TRANSMITTER_COUNT;
@@ -57,8 +59,7 @@ float NormalizePhaseLocal(float phaseRadians) {
     return phaseRadians;
 }
 
-LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx) {
-    const ToolDataAccessView view(record);
+LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const ToolDataAccessView& view, int freqIdx) {
     std::array<float, kLegacySmtDeltaInputCount> deltas = {0.0f, 0.0f, 0.0f, 0.0f};
     LegacySmtPhaseOutputs outPhase = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
     for (int txIdx = 0; txIdx < kLegacySmtDeltaInputCount; ++txIdx) {
@@ -82,6 +83,14 @@ LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, in
     return outPhase;
 }
 
+LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx) {
+    return ComputePhaseSmtFromComputer(ToolDataAccessView(record), freqIdx);
+}
+
+LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const MeasurementView& measurement, int freqIdx) {
+    return ComputePhaseSmtFromComputer(measurement.GetAccessView(), freqIdx);
+}
+
 bool TryGetLegacyComputedPhaseSmt(const GP_TOOL_DATA& record, int freqIdx, int transmitterIndex, float& outPhase) {
     if (transmitterIndex < 0 || transmitterIndex >= kLegacySmtOutputCount) {
         outPhase = 0.0f;
@@ -91,6 +100,73 @@ bool TryGetLegacyComputedPhaseSmt(const GP_TOOL_DATA& record, int freqIdx, int t
     const LegacySmtPhaseOutputs phaseComputed = ComputePhaseSmtFromComputer(record, freqIdx);
     outPhase = phaseComputed[transmitterIndex];
     return true;
+}
+
+bool TryGetLegacyComputedPhaseSmt(const MeasurementView& measurement, int freqIdx, int transmitterIndex, float& outPhase) {
+    if (!measurement.IsValid()) {
+        outPhase = 0.0f;
+        return false;
+    }
+
+    if (transmitterIndex < 0 || transmitterIndex >= kLegacySmtOutputCount) {
+        outPhase = 0.0f;
+        return false;
+    }
+
+    const LegacySmtPhaseOutputs phaseComputed = ComputePhaseSmtFromComputer(measurement, freqIdx);
+    outPhase = phaseComputed[transmitterIndex];
+    return true;
+}
+
+const METROLOGY_DATA* GetComputerSmtMetrology(SmtComputationMode mode, const MetrologyModule* metrologyModule) {
+    const bool canCompute =
+        mode == SmtComputationMode::FROM_COMPUTER &&
+        metrologyModule && metrologyModule->HasData();
+    return canCompute ? &metrologyModule->Get() : nullptr;
+}
+
+bool ShouldUseLegacyComputedSmt(const MeasurementView& measurement, const METROLOGY_DATA* metro) {
+    return metro && measurement.IsValid() && measurement.GetSignature() == metro->signature;
+}
+
+bool TryGetSelectedPhaseSmt(const MeasurementView& measurement,
+                           int freqIdx,
+                           int transmitterIndex,
+                           const METROLOGY_DATA* metro,
+                           float& outPhase) {
+    outPhase = 0.0f;
+    if (!measurement.IsValid()) {
+        return false;
+    }
+
+    if (ShouldUseLegacyComputedSmt(measurement, metro)) {
+        return TryGetLegacyComputedPhaseSmt(measurement, freqIdx, transmitterIndex, outPhase);
+    }
+
+    return measurement.GetAccessView().TryGetPhaseSmt(freqIdx, transmitterIndex, outPhase);
+}
+
+bool TryGetSelectedRhoSmt(const MeasurementView& measurement,
+                         int freqIdx,
+                         int transmitterIndex,
+                         const METROLOGY_DATA* metro,
+                         float& outRho) {
+    outRho = 0.0f;
+    if (!measurement.IsValid()) {
+        return false;
+    }
+
+    if (ShouldUseLegacyComputedSmt(measurement, metro)) {
+        float phase = 0.0f;
+        if (!TryGetLegacyComputedPhaseSmt(measurement, freqIdx, transmitterIndex, phase)) {
+            return false;
+        }
+
+        outRho = InvertPhaseToRho(*metro, phase, transmitterIndex, freqIdx);
+        return true;
+    }
+
+    return measurement.GetAccessView().TryGetRhoSmt(freqIdx, transmitterIndex, outRho);
 }
 
 float SignalPhase(const METROLOGY_DATA& metrology, int txIndex, int freqIdx, float rhoValue) {
@@ -548,15 +624,7 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 CalculateSilentAmplitudeData(1, curve.frequency, dataModule, curveData);
                 break;
             case DataType::TEMPERATURE:
-                // Температура - извлекаем напрямую из данных
-                {
-                    const size_t dataSize = dataModule->GetDataSize();
-                    curveData.reserve(dataSize);
-                    for (size_t i = 0; i < dataSize; ++i) {
-                        const MeasurementView measurement = dataModule->GetMeasurementView(i);
-                        curveData.push_back(measurement.GetTemperature());
-                    }
-                }
+                dataModule->GetTemperatureData(curveData);
                 break;
             default:
                 continue; // Неподдерживаемый тип данных
@@ -661,18 +729,7 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
                 dataModule->CalculateSilentAmplitudeData(1, curve.frequency, curveData, minX, maxX);
                 break;
             case DataType::TEMPERATURE:
-                // Температура - извлекаем с учётом диапазона
-                {
-                    const size_t dataSize = dataModule->GetDataSize();
-                    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
-                    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataSize), maxX + 1));
-                    
-                    curveData.reserve(endIndex - startIndex);
-                    for (size_t i = startIndex; i < endIndex; ++i) {
-                        const MeasurementView measurement = dataModule->GetMeasurementView(i);
-                        curveData.push_back(measurement.GetTemperature());
-                    }
-                }
+                dataModule->GetTemperatureData(curveData, minX, maxX);
                 break;
             default:
                 continue; // Неподдерживаемый тип данных
@@ -1326,28 +1383,14 @@ void CurveSelectionModule::CalculatePhaseSmtData(int transmitterIndex, Frequency
     const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
     outData.reserve(endIndex - startIndex);
 
-    const bool canCompute =
-        mode == SmtComputationMode::FROM_COMPUTER &&
-        metrologyModule && metrologyModule->HasData();
-    const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
+    const METROLOGY_DATA* metro = GetComputerSmtMetrology(mode, metrologyModule);
 
     for (size_t i = startIndex; i < endIndex; ++i) {
         const MeasurementView measurement = dataModule->GetMeasurementView(i);
-        const GP_TOOL_DATA* record = measurement.GetRecord();
-        if (!record) {
-            continue;
-        }
-        const ToolDataAccessView view = measurement.GetAccessView();
         float phase = 0.0f;
 
-        if (metro && record->signature == metro->signature) {
-            if (!TryGetLegacyComputedPhaseSmt(*record, freqIdx, transmitterIndex, phase)) {
-                continue;
-            }
-        } else {
-            if (!view.TryGetPhaseSmt(freqIdx, transmitterIndex, phase)) {
-                continue;
-            }
+        if (!TryGetSelectedPhaseSmt(measurement, freqIdx, transmitterIndex, metro, phase)) {
+            continue;
         }
 
         phase = NormalizePhaseLocal(phase);
@@ -1374,30 +1417,14 @@ void CurveSelectionModule::CalculateRhoSmtData(int transmitterIndex, FrequencyBa
     const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
     outData.reserve(endIndex - startIndex);
 
-    const bool canCompute =
-        mode == SmtComputationMode::FROM_COMPUTER &&
-        metrologyModule && metrologyModule->HasData();
-    const METROLOGY_DATA* metro = canCompute ? &metrologyModule->Get() : nullptr;
+    const METROLOGY_DATA* metro = GetComputerSmtMetrology(mode, metrologyModule);
 
     for (size_t i = startIndex; i < endIndex; ++i) {
         const MeasurementView measurement = dataModule->GetMeasurementView(i);
-        const GP_TOOL_DATA* record = measurement.GetRecord();
-        if (!record) {
-            continue;
-        }
-        const ToolDataAccessView view = measurement.GetAccessView();
         float rho = 0.0f;
 
-        if (metro && record->signature == metro->signature) {
-            float phase = 0.0f;
-            if (!TryGetLegacyComputedPhaseSmt(*record, freqIdx, transmitterIndex, phase)) {
-                continue;
-            }
-            rho = InvertPhaseToRho(*metro, phase, transmitterIndex, freqIdx);
-        } else {
-            if (!view.TryGetRhoSmt(freqIdx, transmitterIndex, rho)) {
-                continue;
-            }
+        if (!TryGetSelectedRhoSmt(measurement, freqIdx, transmitterIndex, metro, rho)) {
+            continue;
         }
 
         outData.push_back(rho);

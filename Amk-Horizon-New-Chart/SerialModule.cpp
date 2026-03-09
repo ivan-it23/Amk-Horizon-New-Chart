@@ -14,6 +14,31 @@
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "comdlg32.lib")
 
+namespace {
+bool TryExtractCanonicalData(const ParsedToolFrame& parsedFrame, GP_TOOL_DATA& outData) {
+    outData = parsedFrame.canonicalData;
+    return true;
+}
+
+uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
+    return parsedFrame.canonicalData.frame;
+}
+
+void DispatchDataCallbacks(const ParsedToolFrame& parsedFrame,
+                           const std::function<void(const ParsedToolFrame&)>& onParsedDataReceived,
+                           const std::function<void(const GP_TOOL_DATA&)>& onDataReceived) {
+    if (onParsedDataReceived) {
+        onParsedDataReceived(parsedFrame);
+    }
+
+    if (onDataReceived) {
+        GP_TOOL_DATA data = {};
+        (void)TryExtractCanonicalData(parsedFrame, data);
+        onDataReceived(data);
+    }
+}
+}
+
 // CRC16 таблица (Modbus) - идентична эмулятору
 const uint16_t SerialModule::CRC16_TABLE[256] = {
     0X0000, 0XC0C1, 0XC181, 0X0140, 0XC301, 0X03C0, 0X0280, 0XC241,
@@ -300,8 +325,7 @@ void SerialModule::OnTimer() {
     
     if (result == SerialResult::SUCCESS) {
         packetsReceived++;
-        const GP_TOOL_DATA& data = parsedFrame.canonicalData;
-        lastFrameNumber = data.frame;
+        lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
         
         // v2.15.3: Если метрология не была получена при подключении (например, Arduino reset из-за DTR/RTS),
         // пробуем запросить её здесь ограниченное число раз, чтобы имя файла записи не оставалось AMK_Unknown_...
@@ -321,13 +345,7 @@ void SerialModule::OnTimer() {
             }
         }
         
-        if (onParsedDataReceived) {
-            onParsedDataReceived(parsedFrame);
-        }
-
-        if (onDataReceived) {
-            onDataReceived(data);
-        }
+        DispatchDataCallbacks(parsedFrame, onParsedDataReceived, onDataReceived);
     }
     else {
         packetsErrors++;
@@ -395,7 +413,7 @@ SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData, std::vector<uint8_
         return result;
     }
 
-    outData = parsedFrame.canonicalData;
+    (void)TryExtractCanonicalData(parsedFrame, outData);
     return result;
 }
 

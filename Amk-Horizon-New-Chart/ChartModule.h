@@ -212,6 +212,34 @@ private:
     RECT CalculateDualAxisPlotRect(const RECT& chartRect) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const;
+    void GetAxisValueRange(const std::vector<std::vector<float>>& axisData,
+                           double& outMinValue,
+                           double& outMaxValue) const;
+    void DrawTemperatureDualAxisChartShared(HDC hdc,
+                                            const RECT& rect,
+                                            const std::vector<CurveDefinition>& curves,
+                                            const std::vector<std::vector<float>>& leftAxisData,
+                                            const std::vector<std::vector<float>>& rightAxisData,
+                                            const std::wstring& title,
+                                            bool hasData,
+                                            const std::vector<float>& xAxisData,
+                                            double minXData,
+                                            double maxXData,
+                                            double minYData,
+                                            double maxYData,
+                                            bool showAxes,
+                                            const ChartConfiguration* config) const;
+    bool TryGetVisibleTemperatureAxisRange(const std::vector<float>& xAxisData,
+                                           double minXData,
+                                           double maxXData,
+                                           size_t& outStartIdx,
+                                           size_t& outEndIdx,
+                                           float& outMinTemperature,
+                                           float& outMaxTemperature) const;
+    int CalculateTemperaturePlotX(const RECT& plotRect,
+                                  float temperature,
+                                  float minTemperature,
+                                  float maxTemperature) const;
     
     // Вспомогательные методы для сетки и меток
     double CalculateNiceStep(double range, int targetSteps) const;

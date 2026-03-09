@@ -163,6 +163,10 @@ public:
         return metadata.capabilities;
     }
 
+    uint32_t GetSignature() const {
+        return record ? record->signature : 0;
+    }
+
     float GetTemperature() const {
         return record ? record->temperature : 0.0f;
     }

@@ -49,6 +49,7 @@ enum class ToolDataKind {
     LWD_4TX
 };
 
+static constexpr int kLegacyUiTransmitterCount = 5;
 static constexpr int kLegacyFallbackTransmitterCount = 5;
 
 struct ToolCapabilities {

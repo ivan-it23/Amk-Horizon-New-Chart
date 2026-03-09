@@ -67,7 +67,7 @@ enum class DataTypeFilter {
 
 // Выбор элементов на схеме прибора
 struct SchematicSelection {
-    static constexpr int UI_TRANSMITTER_COUNT = 5;
+    static constexpr int UI_TRANSMITTER_COUNT = kLegacyUiTransmitterCount;
     static constexpr int UI_RECEIVER_COUNT = 2;
     static constexpr int UI_SILENT_COUNT = 2;
 

@@ -71,6 +71,127 @@ static void AppendDebugLog(const wchar_t* fmt, ...) {
      OutputDebugStringW(buffer);
  }
 
+void ChartModule::DrawTemperatureDualAxisChartShared(HDC hdc,
+                                                     const RECT& rect,
+                                                     const std::vector<CurveDefinition>& curves,
+                                                     const std::vector<std::vector<float>>& leftAxisData,
+                                                     const std::vector<std::vector<float>>& rightAxisData,
+                                                     const std::wstring& title,
+                                                     bool hasData,
+                                                     const std::vector<float>& xAxisData,
+                                                     double minXData,
+                                                     double maxXData,
+                                                     double minYData,
+                                                     double maxYData,
+                                                     bool showAxes,
+                                                     const ChartConfiguration* config) const {
+    if (rect.right <= rect.left || rect.bottom <= rect.top)
+        return;
+
+    DrawDualAxisBackground(hdc, rect);
+    DrawChartBorder(hdc, rect);
+    DrawChartTitle(hdc, rect, title);
+
+    RECT plotRect = CalculateDualAxisPlotRect(rect);
+    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
+        return;
+
+    std::string leftUnits, rightUnits;
+    for (const auto& curve : curves) {
+        if (!curve.enabled) continue;
+
+        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
+            leftUnits = curve.units;
+        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
+            rightUnits = curve.units;
+        }
+    }
+
+    if (hasData && !xAxisData.empty() && showAxes) {
+        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
+                                        xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
+    }
+
+    double leftMinFull = 0.0, leftMaxFull = 1.0;
+    GetAxisValueRange(leftAxisData, leftMinFull, leftMaxFull);
+
+    double rightMinFull = 0.0, rightMaxFull = 1.0;
+    GetAxisValueRange(rightAxisData, rightMinFull, rightMaxFull);
+
+    double minYRight = rightMinFull, maxYRight = rightMaxFull;
+    const double leftFullRange = leftMaxFull - leftMinFull;
+    const double rightFullRange = rightMaxFull - rightMinFull;
+    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+        const double minRatio = (minYData - leftMinFull) / leftFullRange;
+        const double maxRatio = (maxYData - leftMinFull) / leftFullRange;
+        minYRight = rightMinFull + minRatio * rightFullRange;
+        maxYRight = rightMinFull + maxRatio * rightFullRange;
+    }
+
+    if (!leftAxisData.empty()) {
+        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
+    }
+
+    if (!rightAxisData.empty()) {
+        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
+    }
+
+    if (hasData && !xAxisData.empty()) {
+        DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
+                                               xAxisData, minXData, maxXData, minYData, maxYData);
+    }
+
+    if (!curves.empty()) {
+        if (config) {
+            DrawDualAxisLegend(hdc, rect, curves, *config);
+        } else {
+            DrawDualAxisLegend(hdc, rect, curves);
+        }
+    }
+}
+
+bool ChartModule::TryGetVisibleTemperatureAxisRange(const std::vector<float>& xAxisData,
+                                                    double minXData,
+                                                    double maxXData,
+                                                    size_t& outStartIdx,
+                                                    size_t& outEndIdx,
+                                                    float& outMinTemperature,
+                                                    float& outMaxTemperature) const {
+    outStartIdx = 0;
+    outEndIdx = 0;
+    outMinTemperature = 0.0f;
+    outMaxTemperature = 0.0f;
+
+    if (xAxisData.empty()) {
+        return false;
+    }
+
+    const size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
+    const size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
+    if (startIdx >= endIdx || endIdx > xAxisData.size()) {
+        return false;
+    }
+
+    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
+    if (maxTemp <= minTemp) {
+        maxTemp = minTemp + 1.0f;
+    }
+
+    outStartIdx = startIdx;
+    outEndIdx = endIdx;
+    outMinTemperature = minTemp;
+    outMaxTemperature = maxTemp;
+    return true;
+}
+
+int ChartModule::CalculateTemperaturePlotX(const RECT& plotRect,
+                                           float temperature,
+                                           float minTemperature,
+                                           float maxTemperature) const {
+    return plotRect.left + (int)((temperature - minTemperature) / (maxTemperature - minTemperature) * (plotRect.right - plotRect.left));
+}
+
 // Вспомогательная функция для конвертации UTF-8 в UTF-16 (локальная для этого файла)
 static std::wstring Utf8ToWide(const std::string& utf8str) {
     if (utf8str.empty()) return std::wstring();
@@ -756,6 +877,23 @@ void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartD
     FindMinMaxValues(chartData, minVal, maxVal, 0.0, 100.0); // По умолчанию используем 0-100 для Y
 }
 
+void ChartModule::GetAxisValueRange(const std::vector<std::vector<float>>& axisData,
+                                    double& outMinValue,
+                                    double& outMaxValue) const {
+    outMinValue = 0.0;
+    outMaxValue = 1.0;
+
+    if (axisData.empty()) {
+        return;
+    }
+
+    float minVal = FLT_MAX;
+    float maxVal = -FLT_MAX;
+    FindMinMaxValues(axisData, minVal, maxVal);
+    outMinValue = static_cast<double>(minVal);
+    outMaxValue = static_cast<double>(maxVal);
+}
+
 void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const {
     minVal = FLT_MAX;
     maxVal = -FLT_MAX;
@@ -984,20 +1122,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     
     // Вычисляем полные диапазоны из данных
     double leftMinFull = 0.0, leftMaxFull = 1.0;
-    if (!leftAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(leftAxisData, minVal, maxVal);
-        leftMinFull = static_cast<double>(minVal);
-        leftMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(leftAxisData, leftMinFull, leftMaxFull);
     
     double rightMinFull = 0.0, rightMaxFull = 1.0;
-    if (!rightAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(rightAxisData, minVal, maxVal);
-        rightMinFull = static_cast<double>(minVal);
-        rightMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(rightAxisData, rightMinFull, rightMaxFull);
     
     // Вычисляем пропорциональный zoom для правой оси
     // Если minYData/maxYData отличаются от полного диапазона левой оси, применяем ту же пропорцию к правой
@@ -1081,20 +1209,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     
     // Вычисляем полные диапазоны из данных
     double leftMinFull = 0.0, leftMaxFull = 1.0;
-    if (!leftAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(leftAxisData, minVal, maxVal);
-        leftMinFull = static_cast<double>(minVal);
-        leftMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(leftAxisData, leftMinFull, leftMaxFull);
     
     double rightMinFull = 0.0, rightMaxFull = 1.0;
-    if (!rightAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(rightAxisData, minVal, maxVal);
-        rightMinFull = static_cast<double>(minVal);
-        rightMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(rightAxisData, rightMinFull, rightMaxFull);
     
     // Вычисляем пропорциональный zoom для правой оси
     double minYRight = rightMinFull, maxYRight = rightMaxFull;
@@ -1138,42 +1256,21 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
                                   const std::vector<std::vector<float>>& leftAxisData,
                                   const std::vector<std::vector<float>>& rightAxisData) const {
     // Находим диапазоны для обеих осей
-    float leftMin = FLT_MAX, leftMax = -FLT_MAX;
-    float rightMin = FLT_MAX, rightMax = -FLT_MAX;
-    
-    // Диапазон левой оси
-    for (const auto& channel : leftAxisData) {
-        for (float val : channel) {
-            leftMin = (std::min)(leftMin, val);
-            leftMax = (std::max)(leftMax, val);
-        }
-    }
-    
-    // Диапазон правой оси
-    for (const auto& channel : rightAxisData) {
-        for (float val : channel) {
-            rightMin = (std::min)(rightMin, val);
-            rightMax = (std::max)(rightMax, val);
-        }
-    }
-    
-    // Добавляем padding
-    if (leftMin != FLT_MAX && leftMax != -FLT_MAX && leftMin != leftMax) {
-        float leftRange = leftMax - leftMin;
-        float leftPadding = leftRange * 0.05f;
-        leftMin -= leftPadding;
-        leftMax += leftPadding;
-    }
-    
-    if (rightMin != FLT_MAX && rightMax != -FLT_MAX && rightMin != rightMax) {
-        float rightRange = rightMax - rightMin;
-        float rightPadding = rightRange * 0.05f;
-        rightMin -= rightPadding;
-        rightMax += rightPadding;
-    }
+    double leftMinValue = 0.0;
+    double leftMaxValue = 0.0;
+    GetAxisValueRange(leftAxisData, leftMinValue, leftMaxValue);
+
+    double rightMinValue = 0.0;
+    double rightMaxValue = 0.0;
+    GetAxisValueRange(rightAxisData, rightMinValue, rightMaxValue);
+
+    const float leftMin = static_cast<float>(leftMinValue);
+    const float leftMax = static_cast<float>(leftMaxValue);
+    const float rightMin = static_cast<float>(rightMinValue);
+    const float rightMax = static_cast<float>(rightMaxValue);
     
     // Отрисовка горизонтальных линий сетки (основываемся на левой оси)
-    if (leftMin != FLT_MAX && leftMax != -FLT_MAX) {
+    if (leftMax > leftMin) {
         double niceStepY = CalculateNiceStep(leftMax - leftMin, (plotRect.bottom - plotRect.top) / 40);
         double currentYVal = CalculateNiceMin(leftMin, niceStepY);
 
@@ -1300,23 +1397,11 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
     if (leftAxisData.empty()) return;
     
     // Находим диапазон левой оси
-    float minVal = FLT_MAX, maxVal = -FLT_MAX;
-    for (const auto& channel : leftAxisData) {
-        for (float val : channel) {
-            minVal = (std::min)(minVal, val);
-            maxVal = (std::max)(maxVal, val);
-        }
-    }
-    
-    if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
-        minVal = 0.0f;
-        maxVal = 100.0f;
-    } else {
-        float range = maxVal - minVal;
-        float padding = range * 0.05f;
-        minVal -= padding;
-        maxVal += padding;
-    }
+    double minValue = 0.0;
+    double maxValue = 0.0;
+    GetAxisValueRange(leftAxisData, minValue, maxValue);
+    const float minVal = static_cast<float>(minValue);
+    const float maxVal = static_cast<float>(maxValue);
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
@@ -1388,23 +1473,11 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     if (rightAxisData.empty()) return;
     
     // Находим диапазон правой оси
-    float minVal = FLT_MAX, maxVal = -FLT_MAX;
-    for (const auto& channel : rightAxisData) {
-        for (float val : channel) {
-            minVal = (std::min)(minVal, val);
-            maxVal = (std::max)(maxVal, val);
-        }
-    }
-    
-    if (minVal == FLT_MAX || maxVal == -FLT_MAX || minVal == maxVal) {
-        minVal = 0.0f;
-        maxVal = 100.0f;
-    } else {
-        float range = maxVal - minVal;
-        float padding = range * 0.05f;
-        minVal -= padding;
-        maxVal += padding;
-    }
+    double minValue = 0.0;
+    double maxValue = 0.0;
+    GetAxisValueRange(rightAxisData, minValue, maxValue);
+    const float minVal = static_cast<float>(minValue);
+    const float maxVal = static_cast<float>(maxValue);
     
     // Рисуем правую ось с отступом от края
     int rightAxisX = plotRect.right + 40; // Отступ 40 пикселей от области графика
@@ -2423,17 +2496,11 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
     FindMinMaxValues(chartData, minVal, maxVal);
     
     // Находим минимальные и максимальные значения температуры для отображаемого диапазона
-    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
-    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
-    
-    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
-    
-    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    
-    if (maxTemp <= minTemp) {
-        maxTemp = minTemp + 1.0f; // Избегаем деления на ноль
-    }
+    size_t startIdx = 0;
+    size_t endIdx = 0;
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    if (!TryGetVisibleTemperatureAxisRange(xAxisData, minXData, maxXData, startIdx, endIdx, minTemp, maxTemp)) return;
     
     // Рисуем данные для каждого канала
     for (size_t channelIdx = 0; channelIdx < chartData.size(); channelIdx++) {
@@ -2444,8 +2511,8 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t i = startIdx; i < endIdx && i < channel.size() && i < xAxisData.size(); i++) {
             // X координата основана на температуре
-            float temp = xAxisData[i];
-            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float temp = xAxisData[i];
+            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
             
             // Y координата основана на значении данных
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
@@ -2464,17 +2531,11 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     if (xAxisData.empty()) return;
     
     // Находим диапазон температур для отображаемого диапазона
-    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
-    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
-    
-    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
-    
-    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    
-    if (maxTemp <= minTemp) {
-        maxTemp = minTemp + 1.0f;
-    }
+    size_t startIdx = 0;
+    size_t endIdx = 0;
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    if (!TryGetVisibleTemperatureAxisRange(xAxisData, minXData, maxXData, startIdx, endIdx, minTemp, maxTemp)) return;
     
     // Находим диапазон Y
     float minVal, maxVal;
@@ -2564,87 +2625,9 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<float>& xAxisData,
                                    double minXData, double maxXData,
                                    double minYData, double maxYData, bool showAxes) const {
-    if (rect.right <= rect.left || rect.bottom <= rect.top)
-        return;
-
-    // Отрисовка фона и рамки
-    DrawDualAxisBackground(hdc, rect);
-    DrawChartBorder(hdc, rect);
-    
-    // Отрисовка заголовка
-    DrawChartTitle(hdc, rect, title);
-    
-    // Расчет области для графика
-    RECT plotRect = CalculateDualAxisPlotRect(rect);
-
-    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
-        return;
-    
-    // Получаем единицы измерения для осей
-    std::string leftUnits, rightUnits;
-    for (const auto& curve : curves) {
-        if (!curve.enabled) continue;
-        
-        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
-            leftUnits = curve.units;
-        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
-            rightUnits = curve.units;
-        }
-    }
-    
-    // Отрисовка сетки и осей с температурой и zoom по Y
-    if (hasData && !xAxisData.empty() && showAxes) {
-        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
-                                       xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
-    }
-    
-    // Вычисляем полные диапазоны из данных
-    double leftMinFull = 0.0, leftMaxFull = 1.0;
-    if (!leftAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(leftAxisData, minVal, maxVal);
-        leftMinFull = static_cast<double>(minVal);
-        leftMaxFull = static_cast<double>(maxVal);
-    }
-    
-    double rightMinFull = 0.0, rightMaxFull = 1.0;
-    if (!rightAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(rightAxisData, minVal, maxVal);
-        rightMinFull = static_cast<double>(minVal);
-        rightMaxFull = static_cast<double>(maxVal);
-    }
-    
-    // Вычисляем пропорциональный zoom для правой оси
-    double minYRight = rightMinFull, maxYRight = rightMaxFull;
-    double leftFullRange = leftMaxFull - leftMinFull;
-    double rightFullRange = rightMaxFull - rightMinFull;
-    
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
-        double minRatio = (minYData - leftMinFull) / leftFullRange;
-        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
-        minYRight = rightMinFull + minRatio * rightFullRange;
-        maxYRight = rightMinFull + maxRatio * rightFullRange;
-    }
-    
-    if (!leftAxisData.empty()) {
-        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
-    }
-    
-    if (!rightAxisData.empty()) {
-        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
-    }
-    
-    // Отрисовка данных с температурой на оси X и zoom по Y
-    if (hasData && !xAxisData.empty()) {
-        DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
-                                               xAxisData, minXData, maxXData, minYData, maxYData);
-    }
-    
-    // Отрисовка легенды
-    if (!curves.empty()) {
-        DrawDualAxisLegend(hdc, rect, curves);
-    }
+    DrawTemperatureDualAxisChartShared(hdc, rect, curves, leftAxisData, rightAxisData,
+                                       title, hasData, xAxisData, minXData, maxXData,
+                                       minYData, maxYData, showAxes, nullptr);
 }
 
 // v2.15.0: Перегрузка с поддержкой температуры и конфигурации (для пресетов)
@@ -2657,87 +2640,9 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    double minXData, double maxXData,
                                    double minYData, double maxYData,
                                    const ChartConfiguration& config, bool showAxes) const {
-    if (rect.right <= rect.left || rect.bottom <= rect.top)
-        return;
-
-    // Отрисовка фона и рамки
-    DrawDualAxisBackground(hdc, rect);
-    DrawChartBorder(hdc, rect);
-    
-    // Отрисовка заголовка
-    DrawChartTitle(hdc, rect, title);
-    
-    // Расчет области для графика
-    RECT plotRect = CalculateDualAxisPlotRect(rect);
-
-    if (plotRect.right <= plotRect.left || plotRect.bottom <= plotRect.top)
-        return;
-    
-    // Получаем единицы измерения для осей
-    std::string leftUnits, rightUnits;
-    for (const auto& curve : curves) {
-        if (!curve.enabled) continue;
-        
-        if (curve.yAxisGroup == 0 && leftUnits.empty()) {
-            leftUnits = curve.units;
-        } else if (curve.yAxisGroup == 1 && rightUnits.empty()) {
-            rightUnits = curve.units;
-        }
-    }
-    
-    // Отрисовка сетки и осей с температурой и zoom по Y
-    if (hasData && !xAxisData.empty() && showAxes) {
-        DrawDualAxisGridWithTemperature(hdc, plotRect, leftAxisData, rightAxisData,
-                                       xAxisData, minXData, maxXData, minYData, maxYData, leftUnits);
-    }
-    
-    // Вычисляем полные диапазоны из данных
-    double leftMinFull = 0.0, leftMaxFull = 1.0;
-    if (!leftAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(leftAxisData, minVal, maxVal);
-        leftMinFull = static_cast<double>(minVal);
-        leftMaxFull = static_cast<double>(maxVal);
-    }
-    
-    double rightMinFull = 0.0, rightMaxFull = 1.0;
-    if (!rightAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(rightAxisData, minVal, maxVal);
-        rightMinFull = static_cast<double>(minVal);
-        rightMaxFull = static_cast<double>(maxVal);
-    }
-    
-    // Вычисляем пропорциональный zoom для правой оси
-    double minYRight = rightMinFull, maxYRight = rightMaxFull;
-    double leftFullRange = leftMaxFull - leftMinFull;
-    double rightFullRange = rightMaxFull - rightMinFull;
-    
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
-        double minRatio = (minYData - leftMinFull) / leftFullRange;
-        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
-        minYRight = rightMinFull + minRatio * rightFullRange;
-        maxYRight = rightMinFull + maxRatio * rightFullRange;
-    }
-    
-    if (!leftAxisData.empty()) {
-        DrawLeftAxisWithZoom(hdc, plotRect, leftAxisData, leftUnits, minYData, maxYData);
-    }
-    
-    if (!rightAxisData.empty()) {
-        DrawRightAxisWithZoom(hdc, plotRect, rightAxisData, rightUnits, minYRight, maxYRight);
-    }
-    
-    // Отрисовка данных с температурой на оси X и zoom по Y
-    if (hasData && !xAxisData.empty()) {
-        DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
-                                               xAxisData, minXData, maxXData, minYData, maxYData);
-    }
-    
-    // Отрисовка легенды с учетом пресета
-    if (!curves.empty()) {
-        DrawDualAxisLegend(hdc, rect, curves, config);
-    }
+    DrawTemperatureDualAxisChartShared(hdc, rect, curves, leftAxisData, rightAxisData,
+                                       title, hasData, xAxisData, minXData, maxXData,
+                                       minYData, maxYData, showAxes, &config);
 }
 
 
@@ -2790,17 +2695,11 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
     }
     
     // Находим диапазон температур
-    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
-    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
-    
-    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
-    
-    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    
-    if (maxTemp <= minTemp) {
-        maxTemp = minTemp + 1.0f;
-    }
+    size_t startIdx = 0;
+    size_t endIdx = 0;
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    if (!TryGetVisibleTemperatureAxisRange(xAxisData, minXData, maxXData, startIdx, endIdx, minTemp, maxTemp)) return;
     
     // Отрисовка кривых левой оси
     size_t leftIndex = 0;
@@ -2817,8 +2716,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         std::vector<POINT> points;
         points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
-            float temp = xAxisData[j];
-            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float temp = xAxisData[j];
+            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
 
@@ -2844,8 +2743,8 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         std::vector<POINT> points;
         points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
-            float temp = xAxisData[j];
-            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float temp = xAxisData[j];
+            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
 
@@ -2869,17 +2768,11 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     if (xAxisData.empty()) return;
     
     // Находим диапазон температур для отображаемого диапазона
-    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
-    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
-    
-    if (startIdx >= endIdx || endIdx > xAxisData.size()) return;
-    
-    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    
-    if (maxTemp <= minTemp) {
-        maxTemp = minTemp + 1.0f;
-    }
+    size_t startIdx = 0;
+    size_t endIdx = 0;
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    if (!TryGetVisibleTemperatureAxisRange(xAxisData, minXData, maxXData, startIdx, endIdx, minTemp, maxTemp)) return;
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
@@ -3143,39 +3036,23 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
     SelectClipRgn(hdc, hClipRegion);
     
     // Находим диапазон температур
-    size_t startIdx = static_cast<size_t>(std::max(0.0, minXData));
-    size_t endIdx = static_cast<size_t>(std::min(static_cast<double>(xAxisData.size()), maxXData + 1));
-    
-    if (startIdx >= endIdx || endIdx > xAxisData.size()) {
+    size_t startIdx = 0;
+    size_t endIdx = 0;
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    if (!TryGetVisibleTemperatureAxisRange(xAxisData, minXData, maxXData, startIdx, endIdx, minTemp, maxTemp)) {
         SelectClipRgn(hdc, regionType == 1 ? hOldClipRegion : NULL);
         DeleteObject(hClipRegion);
         DeleteObject(hOldClipRegion);
         return;
     }
     
-    float minTemp = *std::min_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    float maxTemp = *std::max_element(xAxisData.begin() + startIdx, xAxisData.begin() + endIdx);
-    
-    if (maxTemp <= minTemp) {
-        maxTemp = minTemp + 1.0f;
-    }
-    
     // Вычисляем полные диапазоны из данных для пропорционального zoom
     double leftMinFull = 0.0, leftMaxFull = 1.0;
-    if (!leftAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(leftAxisData, minVal, maxVal);
-        leftMinFull = static_cast<double>(minVal);
-        leftMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(leftAxisData, leftMinFull, leftMaxFull);
     
     double rightMinFull = 0.0, rightMaxFull = 1.0;
-    if (!rightAxisData.empty()) {
-        float minVal = FLT_MAX, maxVal = -FLT_MAX;
-        FindMinMaxValues(rightAxisData, minVal, maxVal);
-        rightMinFull = static_cast<double>(minVal);
-        rightMaxFull = static_cast<double>(maxVal);
-    }
+    GetAxisValueRange(rightAxisData, rightMinFull, rightMaxFull);
     
     // Вычисляем пропорциональный zoom для правой оси
     double minYRight = rightMinFull, maxYRight = rightMaxFull;
@@ -3236,8 +3113,8 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         int clampedToMax = 0;
         for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
             // X координата по температуре
-            float temp = xAxisData[j];
-            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float temp = xAxisData[j];
+            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
             
             // Y координата с учетом zoom
             float v = channel[j];
@@ -3280,8 +3157,8 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
         for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
             // X координата по температуре
-            float temp = xAxisData[j];
-            int x = plotRect.left + (int)((temp - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float temp = xAxisData[j];
+            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
             
             // Y координата с учетом zoom
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));

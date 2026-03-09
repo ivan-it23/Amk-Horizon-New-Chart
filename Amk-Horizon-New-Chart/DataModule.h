@@ -39,6 +39,20 @@ enum class FrequencyBand {
     FREQ_2000_KHZ    // 2000 кГц
 };
 
+struct DataRangeMetadataSummary {
+    ToolRecordMetadata metadata = {};
+    size_t recordCount = 0;
+    bool hasMetadata = false;
+    bool isHomogeneous = false;
+};
+
+struct DataRangeExportAnalysis {
+    DataRangeMetadataSummary metadataSummary = {};
+    bool isValidRange = false;
+    bool canExportAsCanonicalBin = false;
+    bool requiresAdapterAwarePolicy = false;
+};
+
 // Класс для управления данными
 class DataModule {
 private:
@@ -71,6 +85,10 @@ public:
     const std::vector<GP_TOOL_DATA>& GetData() const;
     const GP_TOOL_DATA* TryGetRecord(size_t index) const;
     bool TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetadata) const;
+    bool TryDescribeRangeMetadata(size_t startIndex, size_t endIndex, DataRangeMetadataSummary& outSummary) const;
+    bool TryAnalyzeExportRange(size_t startIndex, size_t endIndex, DataRangeExportAnalysis& outAnalysis) const;
+    bool TryGetRangeMetadataSummary(size_t startIndex, size_t endIndex, ToolRecordMetadata& outMetadata, bool& outIsHomogeneous) const;
+    bool TryGetTemperatureRange(double minX, double maxX, float& outMinTemperature, float& outMaxTemperature) const;
     MeasurementView GetMeasurementView(size_t index) const;
     ToolDataAccessView GetDataView(size_t index) const;
     

@@ -16,6 +16,18 @@ size_t GetPhysicalFrameSize(FileFormat format) {
     return (format == FileFormat::FORMAT_DEV) ? (kCanonicalFrameSize + kDevHeaderSize) : kCanonicalFrameSize;
 }
 
+ToolRecordMetadata BuildParsedFrameMetadata(const ParsedToolFrame& parsedFrame) {
+    ToolRecordMetadata metadata = {};
+    metadata.kind = parsedFrame.kind;
+    metadata.capabilities = parsedFrame.capabilities;
+    return metadata;
+}
+
+bool TryExtractCanonicalData(const ParsedToolFrame& parsedFrame, GP_TOOL_DATA& outData) {
+    outData = parsedFrame.canonicalData;
+    return true;
+}
+
 bool ReadParsedFrameAt(std::ifstream& file, FileFormat format, size_t frameIndex, ParsedToolFrame& outFrame) {
     outFrame = {};
 
@@ -62,10 +74,16 @@ void AppendCanonicalRecord(const GP_TOOL_DATA& record,
 void AppendParsedFrame(const ParsedToolFrame& parsedFrame,
                        std::vector<GP_TOOL_DATA>& data,
                        std::vector<ToolRecordMetadata>& recordMetadata) {
-    ToolRecordMetadata metadata = {};
-    metadata.kind = parsedFrame.kind;
-    metadata.capabilities = parsedFrame.capabilities;
-    AppendCanonicalRecord(parsedFrame.canonicalData, metadata, data, recordMetadata);
+    GP_TOOL_DATA record = {};
+    if (!TryExtractCanonicalData(parsedFrame, record)) {
+        return;
+    }
+
+    AppendCanonicalRecord(record, BuildParsedFrameMetadata(parsedFrame), data, recordMetadata);
+}
+
+bool HasSameRecordMetadata(const ToolRecordMetadata& left, const ToolRecordMetadata& right) {
+    return std::memcmp(&left, &right, sizeof(ToolRecordMetadata)) == 0;
 }
 
 bool IsSupportedDataFileFormat(FileFormat format) {
@@ -88,6 +106,88 @@ void LoadParsedFrames(std::ifstream& file,
             AppendParsedFrame(parsedFrame, data, recordMetadata);
         }
     }
+}
+
+bool WriteCanonicalDataRange(std::ofstream& file,
+                             const DataModule& dataModule,
+                             size_t startIndex,
+                             size_t endIndex) {
+    for (size_t i = startIndex; i <= endIndex; ++i) {
+        const GP_TOOL_DATA* record = dataModule.TryGetRecord(i);
+        if (!record) {
+            return false;
+        }
+
+        file.write(reinterpret_cast<const char*>(record), sizeof(GP_TOOL_DATA));
+        if (!file) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
+struct DataIndexWindow {
+    size_t startIndex = 0;
+    size_t endIndex = 0;
+};
+
+struct ActiveCalculationContext {
+    DataIndexWindow window = {};
+    int frequencyIndex = -1;
+    int transmitterIndex = -1;
+};
+
+struct SilentCalculationContext {
+    DataIndexWindow window = {};
+    int frequencyIndex = -1;
+};
+
+DataIndexWindow BuildDataIndexWindow(const DataModule& dataModule, double minX, double maxX) {
+    if (!dataModule.HasData()) {
+        return {};
+    }
+
+    const size_t dataSize = dataModule.GetDataSize();
+    size_t startIndex = static_cast<size_t>(std::max(0.0, minX));
+    size_t endIndex = static_cast<size_t>(std::min(static_cast<double>(dataSize), maxX + 1));
+
+    startIndex = std::min(startIndex, dataSize);
+    endIndex = std::min(endIndex, dataSize);
+
+    if (startIndex >= endIndex) {
+        return {};
+    }
+
+    return { startIndex, endIndex };
+}
+
+bool TryBuildActiveCalculationContext(const DataModule& dataModule,
+                                      int transmitterIndex,
+                                      FrequencyBand frequency,
+                                      double minX,
+                                      double maxX,
+                                      ActiveCalculationContext& outContext) {
+    outContext = {};
+    outContext.window = BuildDataIndexWindow(dataModule, minX, maxX);
+    outContext.frequencyIndex = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    outContext.transmitterIndex = dataModule.GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
+    return outContext.transmitterIndex != -1;
+}
+
+bool TryBuildSilentCalculationContext(const DataModule& dataModule,
+                                      FrequencyBand frequency,
+                                      double minX,
+                                      double maxX,
+                                      SilentCalculationContext& outContext) {
+    outContext = {};
+    outContext.window = BuildDataIndexWindow(dataModule, minX, maxX);
+    outContext.frequencyIndex = dataModule.GetSilentTransmitterIndex(frequency);
+    return outContext.frequencyIndex != -1;
+}
+
+void ReserveForWindow(std::vector<float>& outData, const DataIndexWindow& window) {
+    outData.reserve(window.endIndex - window.startIndex);
 }
 }
 
@@ -136,8 +236,7 @@ bool DataModule::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, GP_TOO
         return false;
     }
 
-    outData = parsedFrame.canonicalData;
-    return true;
+    return TryExtractCanonicalData(parsedFrame, outData);
 }
 
 bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& outError) {
@@ -337,6 +436,102 @@ bool DataModule::TryGetRecordMetadata(size_t index, ToolRecordMetadata& outMetad
     return true;
 }
 
+bool DataModule::TryDescribeRangeMetadata(size_t startIndex, size_t endIndex, DataRangeMetadataSummary& outSummary) const {
+    outSummary = {};
+
+    if (!HasData() || startIndex > endIndex || endIndex >= GetDataSize()) {
+        return false;
+    }
+
+    ToolRecordMetadata firstMetadata = {};
+    if (!TryGetRecordMetadata(startIndex, firstMetadata)) {
+        return false;
+    }
+
+    outSummary.metadata = firstMetadata;
+    outSummary.recordCount = endIndex - startIndex + 1;
+    outSummary.hasMetadata = true;
+    outSummary.isHomogeneous = true;
+
+    for (size_t index = startIndex + 1; index <= endIndex; ++index) {
+        ToolRecordMetadata currentMetadata = {};
+        if (!TryGetRecordMetadata(index, currentMetadata)) {
+            outSummary = {};
+            return false;
+        }
+
+        if (!HasSameRecordMetadata(currentMetadata, firstMetadata)) {
+            outSummary.isHomogeneous = false;
+        }
+    }
+
+    return true;
+}
+
+bool DataModule::TryAnalyzeExportRange(size_t startIndex, size_t endIndex, DataRangeExportAnalysis& outAnalysis) const {
+    outAnalysis = {};
+
+    DataRangeMetadataSummary metadataSummary = {};
+    if (!TryDescribeRangeMetadata(startIndex, endIndex, metadataSummary)) {
+        return false;
+    }
+
+    outAnalysis.metadataSummary = metadataSummary;
+    outAnalysis.isValidRange = true;
+    outAnalysis.canExportAsCanonicalBin = metadataSummary.hasMetadata;
+    outAnalysis.requiresAdapterAwarePolicy = !metadataSummary.isHomogeneous;
+    return true;
+}
+
+bool DataModule::TryGetRangeMetadataSummary(size_t startIndex, size_t endIndex, ToolRecordMetadata& outMetadata, bool& outIsHomogeneous) const {
+    outMetadata = {};
+    outIsHomogeneous = false;
+
+    DataRangeMetadataSummary summary = {};
+    if (!TryDescribeRangeMetadata(startIndex, endIndex, summary) || !summary.hasMetadata) {
+        return false;
+    }
+
+    outMetadata = summary.metadata;
+    outIsHomogeneous = summary.isHomogeneous;
+    return true;
+}
+
+bool DataModule::TryGetTemperatureRange(double minX, double maxX, float& outMinTemperature, float& outMaxTemperature) const {
+    outMinTemperature = 0.0f;
+    outMaxTemperature = 0.0f;
+
+    if (!HasData()) {
+        return false;
+    }
+
+    const auto indexRange = GetDataIndexRange(minX, maxX);
+    const size_t startIndex = indexRange.first;
+    const size_t endIndex = indexRange.second;
+    if (startIndex >= endIndex) {
+        return false;
+    }
+
+    outMinTemperature = FLT_MAX;
+    outMaxTemperature = -FLT_MAX;
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        const MeasurementView measurement = GetMeasurementView(i);
+        const float value = measurement.GetTemperature();
+        if (value < outMinTemperature) {
+            outMinTemperature = value;
+        }
+        if (value > outMaxTemperature) {
+            outMaxTemperature = value;
+        }
+    }
+
+    if (outMaxTemperature <= outMinTemperature) {
+        outMaxTemperature = outMinTemperature + 1.0f;
+    }
+
+    return true;
+}
+
 MeasurementView DataModule::GetMeasurementView(size_t index) const {
     const GP_TOOL_DATA* record = TryGetRecord(index);
     if (!record) {
@@ -387,14 +582,10 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
     if (!file.is_open()) {
         return false;
     }
-    
-    // Записываем данные из диапазона [startIndex, endIndex]
-    for (size_t i = startIndex; i <= endIndex; ++i) {
-        const GP_TOOL_DATA* record = TryGetRecord(i);
-        if (!record) {
-            return false;
-        }
-        file.write(reinterpret_cast<const char*>(record), sizeof(GP_TOOL_DATA));
+
+    if (!WriteCanonicalDataRange(file, *this, startIndex, endIndex)) {
+        file.close();
+        return false;
     }
     
     file.close();
@@ -774,12 +965,14 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
             break;
             
         case DataType::TEMPERATURE:
-            // Температура - особый случай
-            for (size_t i = startIndex; i < endIndex; ++i) {
-                const ToolDataAccessView view = GetDataView(i);
-                float value = view.GetTemperature();
-                if (value >= minY && value <= maxY) {
-                    outData.push_back(value);
+            {
+                std::vector<float> temperatureData;
+                GetTemperatureData(temperatureData, minX, maxX);
+                outData.reserve(temperatureData.size());
+                for (float value : temperatureData) {
+                    if (value >= minY && value <= maxY) {
+                        outData.push_back(value);
+                    }
                 }
             }
             break;
@@ -815,26 +1008,20 @@ void DataModule::GroupCurvesByAxis(const std::vector<CurveDefinition>& curves,
 void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequency,
                                    std::vector<float>& outData, 
                                    double minX, double maxX) const {
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
-
-    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (txIdx == -1) return;
+    ActiveCalculationContext context = {};
+    if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
     
-    // Резервируем память для оптимизации
-    outData.reserve(endIndex - startIndex);
+    ReserveForWindow(outData, context.window);
     
     // Константа для проверки деления на ноль
     const float EPSILON = 1e-10f;
     
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float denominator = 0.0f;
         float numerator = 0.0f;
-        if (!view.TryGetAmplitudeRx1(freqIdx, txIdx, denominator) ||
-            !view.TryGetAmplitudeRx2(freqIdx, txIdx, numerator)) {
+        if (!view.TryGetAmplitudeRx1(context.frequencyIndex, context.transmitterIndex, denominator) ||
+            !view.TryGetAmplitudeRx2(context.frequencyIndex, context.transmitterIndex, numerator)) {
             continue;
         }
         
@@ -850,21 +1037,15 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
 void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand frequency,
                                         std::vector<float>& outData,
                                         double minX, double maxX) const {
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
-
-    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (txIdx == -1) return;
+    ActiveCalculationContext context = {};
+    if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
     
-    // Резервируем память для оптимизации
-    outData.reserve(endIndex - startIndex);
+    ReserveForWindow(outData, context.window);
     
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float difference = 0.0f;
-        if (!view.TryGetDeltaPhase(freqIdx, txIdx, difference)) {
+        if (!view.TryGetDeltaPhase(context.frequencyIndex, context.transmitterIndex, difference)) {
             continue;
         }
         difference = NormalizePhase(difference);
@@ -875,23 +1056,17 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
 void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex, 
                                        FrequencyBand frequency, std::vector<float>& outData,
                                        double minX, double maxX) const {
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
-
-    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (txIdx == -1) return;
+    ActiveCalculationContext context = {};
+    if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
     
-    // Резервируем память для оптимизации
-    outData.reserve(endIndex - startIndex);
+    ReserveForWindow(outData, context.window);
     
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float amplitude = 0.0f;
         const bool hasValue = (receiverIndex == 0) ?
-            view.TryGetAmplitudeRx1(freqIdx, txIdx, amplitude) :
-            view.TryGetAmplitudeRx2(freqIdx, txIdx, amplitude);
+            view.TryGetAmplitudeRx1(context.frequencyIndex, context.transmitterIndex, amplitude) :
+            view.TryGetAmplitudeRx2(context.frequencyIndex, context.transmitterIndex, amplitude);
         if (!hasValue) {
             continue;
         }
@@ -903,21 +1078,15 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
                                    FrequencyBand frequency, std::vector<float>& outData,
                                    double minX, double maxX) const {
     (void)receiverIndex;
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
-
-    const int freqIdx = (frequency == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
-    const int txIdx = GetActiveTransmitterIndex(static_cast<Transmitter>(transmitterIndex), frequency);
-    if (txIdx == -1) return;
+    ActiveCalculationContext context = {};
+    if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
     
-    // Резервируем память для оптимизации
-    outData.reserve(endIndex - startIndex);
+    ReserveForWindow(outData, context.window);
     
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float phase = 0.0f;
-        if (!view.TryGetPhaseSmt(freqIdx, txIdx, phase)) {
+        if (!view.TryGetPhaseSmt(context.frequencyIndex, context.transmitterIndex, phase)) {
             continue;
         }
         phase = NormalizePhase(phase);
@@ -928,22 +1097,17 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
 void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand frequency,
                                              std::vector<float>& outData,
                                              double minX, double maxX) const {
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
-
-    const int freqIdx = GetSilentTransmitterIndex(frequency);
-    if (freqIdx == -1) return;
+    SilentCalculationContext context = {};
+    if (!TryBuildSilentCalculationContext(*this, frequency, minX, maxX, context)) return;
     
-    // Резервируем память для оптимизации
-    outData.reserve(endIndex - startIndex);
+    ReserveForWindow(outData, context.window);
     
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float amplitude = 0.0f;
         const bool hasValue = (receiverIndex == 0) ?
-            view.TryGetSilentAmplitudeRx1(freqIdx, amplitude) :
-            view.TryGetSilentAmplitudeRx2(freqIdx, amplitude);
+            view.TryGetSilentAmplitudeRx1(context.frequencyIndex, amplitude) :
+            view.TryGetSilentAmplitudeRx2(context.frequencyIndex, amplitude);
         if (!hasValue) {
             continue;
         }
@@ -954,19 +1118,15 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
 void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
                                                    std::vector<float>& outData,
                                                    double minX, double maxX) const {
-    auto indexRange = GetDataIndexRange(minX, maxX);
-    size_t startIndex = indexRange.first;
-    size_t endIndex = indexRange.second;
+    SilentCalculationContext context = {};
+    if (!TryBuildSilentCalculationContext(*this, frequency, minX, maxX, context)) return;
 
-    const int freqIdx = GetSilentTransmitterIndex(frequency);
-    if (freqIdx == -1) return;
+    ReserveForWindow(outData, context.window);
 
-    outData.reserve(endIndex - startIndex);
-
-    for (size_t i = startIndex; i < endIndex; ++i) {
+    for (size_t i = context.window.startIndex; i < context.window.endIndex; ++i) {
         const ToolDataAccessView view = GetDataView(i);
         float diff = 0.0f;
-        if (!view.TryGetSilentDeltaPhase(freqIdx, diff)) {
+        if (!view.TryGetSilentDeltaPhase(context.frequencyIndex, diff)) {
             continue;
         }
         diff = NormalizePhase(diff);
