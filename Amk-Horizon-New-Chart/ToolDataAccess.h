@@ -2,6 +2,11 @@
 
 #include "ToolDataAdapters.h"
 
+inline bool TryExtractCanonicalData(const ParsedToolFrame& parsedFrame, GP_TOOL_DATA& outData) {
+    outData = parsedFrame.canonicalData;
+    return true;
+}
+
 class ToolDataAccessView {
 public:
     ToolDataAccessView()

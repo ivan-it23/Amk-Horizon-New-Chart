@@ -194,7 +194,7 @@ ChartConfiguration BuildSmtPresetConfiguration(const CurveSelectionModule& modul
                                                CurveDefinition (CurveSelectionModule::*createCurve)(int, FrequencyBand) const,
                                                const char* leftAxisUnits,
                                                PresetType presetType) {
-    ChartConfiguration config;
+    ChartConfiguration config = BuildPresetConfigurationBase(presetType);
 
     for (int i = 0; i < GetUiTransmitterCount(); ++i) {
         CurveDefinition curve = (module.*createCurve)(i, frequency);
@@ -206,8 +206,6 @@ ChartConfiguration BuildSmtPresetConfiguration(const CurveSelectionModule& modul
 
     config.leftAxisUnits = leftAxisUnits;
     config.hasDualAxis = false;
-    config.activePreset = presetType;
-    config.presetDisplayName = GetPresetDisplayName(config.activePreset);
     return config;
 }
 

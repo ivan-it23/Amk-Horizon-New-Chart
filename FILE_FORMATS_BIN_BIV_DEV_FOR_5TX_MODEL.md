@@ -68,15 +68,16 @@ struct _5Tx_DATA {
 
 - чтение `.bin`, `.biv`, `.DEV` как контейнеров для `GP_TOOL_DATA`
 - чтение сигнатуры с корректного смещения
-- валидация только для прямой `_5Tx_DATA`-модели (`151`, `152`)
+- adapter-driven валидация и маршрутизация по сигнатурам `151`, `152`, `241`
+- canonical materialization в `GP_TOOL_DATA` после adapter parsing
 
 ### Пока не реализовано
 
-- чтение `_4Tx_DATA`
-- адаптер `LWD_4Tx -> _5Tx_DATA`
-- загрузка файлов `241` как валидных источников данных
+- полное устранение canonical compatibility boundary после adapter parsing
+- adapter-aware export/persistence path вместо текущего canonical `.bin`
+- устранение оставшихся 5Tx-centric UI/SMT contract assumptions
 
-То есть этот документ сохраняет **исторический контекст**, но не должен читаться как обещание, что поддержка `LWD_4Tx` уже присутствует в текущем коде.
+То есть этот документ сохраняет **исторический контекст**, но не должен читаться как описание текущей реализации без сверки с `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md` и `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`.
 
 ---
 
@@ -87,12 +88,12 @@ struct _5Tx_DATA {
 1. Описать структуру `_4Tx_DATA`
 2. Реализовать чтение `.bin/.biv/.DEV` для `_4Tx_DATA`
 3. Добавить адаптер `_4Tx_DATA -> _5Tx_DATA`
-4. Расширить `DataModule::ValidateDataFile(...)` для `toolCode == 241`
-5. Обновить `FILE_FORMATS_ANALYSIS.md` и `FILE_VALIDATION_FOR_5TX_MODEL.md`
+4. Определить, нужен ли вообще отдельный post-canonical storage/export path для `241`, или текущая canonical materialization остаётся допустимой compatibility моделью
+5. Обновить `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md` и `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
 
 До этого момента текущий контракт приложения остаётся простым:
 
-валидны только файлы, напрямую соответствующие `_5Tx_DATA / GP_TOOL_DATA`
+валидны файлы, которые поддерживаются текущим adapter-driven parsing path и затем материализуются в canonical `GP_TOOL_DATA`
 
 ---
 

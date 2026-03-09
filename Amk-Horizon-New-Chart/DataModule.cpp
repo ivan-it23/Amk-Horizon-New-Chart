@@ -23,11 +23,6 @@ ToolRecordMetadata BuildParsedFrameMetadata(const ParsedToolFrame& parsedFrame) 
     return metadata;
 }
 
-bool TryExtractCanonicalData(const ParsedToolFrame& parsedFrame, GP_TOOL_DATA& outData) {
-    outData = parsedFrame.canonicalData;
-    return true;
-}
-
 bool ReadParsedFrameAt(std::ifstream& file, FileFormat format, size_t frameIndex, ParsedToolFrame& outFrame) {
     outFrame = {};
 

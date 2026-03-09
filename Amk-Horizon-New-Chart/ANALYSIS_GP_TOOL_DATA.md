@@ -1,11 +1,28 @@
-# GP_TOOL_DATA / METROLOGY_DATA — актуальный формат 5Tx (240 байт)
+# GP_TOOL_DATA / METROLOGY_DATA — актуальные структуры, canonical shape и протокол
 
 Этот документ — **короткая “точка истины”** по структурам данных прибора и тому, как они используются в приложении.
 
 Источник истины в коде:
 - `DataModule.h`: `GP_TOOL_DATA` (+ `static_assert(sizeof(GP_TOOL_DATA) == 240)`)
 - `SerialModule.h`: `METROLOGY_DATA` (+ `static_assert(sizeof(METROLOGY_DATA) == 240)`)
+- `ToolDataAdapters.h/.cpp`: `ParsedToolFrame`, `ToolDataAdapterRegistry`, adapter-driven parsing
+- `ToolDataAccess.h`: `ToolDataAccessView`, `MeasurementView`, общий compatibility seam `ParsedToolFrame -> GP_TOOL_DATA`
 - методические материалы: `Методичка-фото-1.png`, `Методичка-фото-2.png`
+
+---
+
+## 0) Как эти структуры используются сейчас
+
+Текущий pipeline данных в коде:
+
+`File/COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> графики / UI`
+
+Важно понимать текущее разделение ролей:
+
+- `ParsedToolFrame` — это adapter-level результат парсинга, который несёт `kind`, `capabilities` и `canonicalData`
+- `GP_TOOL_DATA` — это не единственная «сырой формат прибора» истина, а текущая canonical compatibility shape для хранения, расчётов и части публичных API
+- `ToolRecordMetadata` хранится рядом с canonical записью и даёт верхним слоям capability-aware контекст
+- публичные `DataModule::ParseRawFrame(...)`, `DataModule::GetData()`, `SerialModule::RequestData(GP_TOOL_DATA& ...)` и `SerialModule::SetDataCallback(...)` сейчас следует трактовать как compatibility-only surface-ы
 
 ---
 
@@ -35,6 +52,11 @@ struct GP_TOOL_DATA {
 - **Частоты**: `freqIdx = 0 → 400 kHz`, `freqIdx = 1 → 2000 kHz`
 - **Передатчики**: `txIdx = 0..4 → T1..T5`
 - **Молчащий режим**: это отдельные поля `ZERO_AM_RX_*[2]`, `ZERO_dPH[2]` (не “T0 в массиве”)
+
+Примечание по текущей архитектуре:
+
+- часть входных данных уже может приходить не из нативной 5Tx raw-структуры, а из адаптера (`LWD_4Tx`) с последующей canonical materialization в `GP_TOOL_DATA`
+- поэтому верхним слоям нельзя безоговорочно считать `GP_TOOL_DATA` синонимом «исходный on-disk/on-wire layout»
 
 ### Что из чего строится на графиках (логика DataModule)
 - **Амплитуда RX1**: `AM_RX_1[freqIdx][txIdx]`
@@ -98,6 +120,13 @@ struct METROLOGY_DATA {
 - `.DEV` — **11 байт служебных + 240 байт данных** = 251 байт на кадр  
   Приложение заголовок пропускает. По методичке эти 11 байт добавляются для внешней совместимости.
 
+С точки зрения текущего кода:
+
+- файловая валидация и выбор структуры идут через `signature` и `ToolDataAdapterRegistry`
+- поддерживаются сигнатуры `151`, `152` и `241`
+- после adapter parsing файл всё ещё материализуется в canonical `GP_TOOL_DATA` + `ToolRecordMetadata`
+- canonical `.bin` export остаётся текущим compatibility persistence contract
+
 Подробности и схемы: `..\FILE_FORMATS_ANALYSIS.md`.
 
 ---
@@ -118,6 +147,11 @@ CRC16 (Modbus) считается по `CMD+LEN+PAYLOAD` (первые `LEN-2` �
 - `0x16` — запрос сигнатуры (`uint32_t`, 4 байта)
 - `0x12` — запись метрологии (квитанция; используется кнопкой "Записать в зонд")
 - `0x17` — запись `selected_key` (квитанция; используется кнопкой "Записать команду")
+
+С точки зрения runtime path:
+
+- основной realtime in-tree flow сейчас использует `RequestData(ParsedToolFrame& ...)` и `SetParsedDataCallback(...)`
+- GP-level перегрузки `RequestData(GP_TOOL_DATA& ...)` и `SetDataCallback(...)` остаются compatibility wrapper-ами
 
 ### Тайминги (почему нужны ретраи)
 В методичке указано, что цикл измерения порядка **600 мс** — в этот момент прибор может не отвечать. Также Arduino-эмулятор часто перезагружается при открытии COM из-за DTR/RTS, поэтому первый запрос метрологии может таймаутиться — в приложении предусмотрены повторные попытки.

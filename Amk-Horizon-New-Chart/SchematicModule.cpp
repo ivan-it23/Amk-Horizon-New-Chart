@@ -84,6 +84,41 @@ void ApplySmtPresetState(HWND hDlg,
     currentPresetDisplayName = BuildSmtPresetDisplayName(binding.baseName, selection.*(binding.modeMember));
 }
 
+void ApplyBasicPresetState(SchematicSelection& selection,
+                           DataTypeFilter dataFilter,
+                           PresetType presetType,
+                           const wchar_t* displayName,
+                           PresetType& currentPreset,
+                           std::wstring& currentPresetDisplayName) {
+    selection.dataFilter = dataFilter;
+    currentPreset = presetType;
+    currentPresetDisplayName = displayName;
+}
+
+void ApplySmtModesToConfigurationCurves(ChartConfiguration& config, const SchematicSelection& selection) {
+    for (auto& curve : config.curves) {
+        if (curve.dataType == DataType::RHO_SMT) {
+            curve.smtMode = selection.rhoSmtMode;
+        } else if (curve.dataType == DataType::PHASE_SMT) {
+            curve.smtMode = selection.phaseSmtMode;
+        }
+    }
+}
+
+std::wstring BuildAppliedPresetDisplayName(PresetType currentPreset,
+                                           const std::wstring& currentPresetDisplayName,
+                                           const SchematicSelection& selection) {
+    if (currentPreset == PresetType::RHO_SMT) {
+        return BuildSmtPresetDisplayName(L"УЭС", selection.rhoSmtMode);
+    }
+
+    if (currentPreset == PresetType::PHASE_SMT) {
+        return BuildSmtPresetDisplayName(L"Симм. фазы", selection.phaseSmtMode);
+    }
+
+    return currentPresetDisplayName;
+}
+
 void SyncSmtModeCheckboxes(HWND hDlg, const SmtUiBinding& binding, const SchematicSelection& selection) {
     const bool isActive = selection.dataFilter == binding.dataFilter;
     const SmtComputationMode mode = selection.*(binding.modeMember);
@@ -1609,35 +1644,50 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     switch (presetId) {
         case IDC_PRESET_ALL_AMP_R1:
             currentSelection.receivers[0] = true; // R1
-            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
-            currentPreset = PresetType::ALL_AMPLITUDES_R1;
-            currentPresetDisplayName = L"Амплитуда RX1";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::AMPLITUDE_ONLY,
+                                  PresetType::ALL_AMPLITUDES_R1,
+                                  L"Амплитуда RX1",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_ALL_AMP_R2:
             currentSelection.receivers[1] = true; // R2
-            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
-            currentPreset = PresetType::ALL_AMPLITUDES_R2;
-            currentPresetDisplayName = L"Амплитуда RX2";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::AMPLITUDE_ONLY,
+                                  PresetType::ALL_AMPLITUDES_R2,
+                                  L"Амплитуда RX2",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_RATIOS:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
-            currentSelection.dataFilter = DataTypeFilter::RATIO_ONLY;
-            currentPreset = PresetType::AMPLITUDE_RATIOS;
-            currentPresetDisplayName = L"Отношение амплитуд";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::RATIO_ONLY,
+                                  PresetType::AMPLITUDE_RATIOS,
+                                  L"Отношение амплитуд",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_DIFFERENCES:
             currentSelection.receivers[0] = true; // R1
             currentSelection.receivers[1] = true; // R2
-            currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
-            currentPreset = PresetType::PHASE_DIFFERENCES;
-            currentPresetDisplayName = L"Разность фаз";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::DIFFERENCE_ONLY,
+                                  PresetType::PHASE_DIFFERENCES,
+                                  L"Разность фаз",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_TEMPERATURE:
             // Температура не требует выбора приёмников или передатчиков
-            currentSelection.dataFilter = DataTypeFilter::TEMPERATURE_ONLY;
-            currentPreset = PresetType::TEMPERATURE;
-            currentPresetDisplayName = L"Температура";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::TEMPERATURE_ONLY,
+                                  PresetType::TEMPERATURE,
+                                  L"Температура",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_RHO_SMT:
         case IDC_PRESET_PHASE_SMT:
@@ -1649,17 +1699,23 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             // Амплитуды молчащих передатчиков: две кривые (R1 и R2) из ZERO_AM_RX_1/2
             currentSelection.silentTx[0] = true; // Молч. R1
             currentSelection.silentTx[1] = true; // Молч. R2
-            currentSelection.dataFilter = DataTypeFilter::AMPLITUDE_ONLY;
-            currentPreset = PresetType::SILENT_AMPLITUDES;
-            currentPresetDisplayName = L"Ампл. молч. пер.";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::AMPLITUDE_ONLY,
+                                  PresetType::SILENT_AMPLITUDES,
+                                  L"Ампл. молч. пер.",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
         case IDC_PRESET_SILENT_DPH:
             // Разность фаз молчащих передатчиков: одна кривая (R2−R1) из ZERO_dPH с нормализацией
             currentSelection.silentTx[0] = true;
             currentSelection.silentTx[1] = true;
-            currentSelection.dataFilter = DataTypeFilter::DIFFERENCE_ONLY;
-            currentPreset = PresetType::SILENT_PHASE_DIFFERENCE;
-            currentPresetDisplayName = L"Разн. фаз молч. пер.";
+            ApplyBasicPresetState(currentSelection,
+                                  DataTypeFilter::DIFFERENCE_ONLY,
+                                  PresetType::SILENT_PHASE_DIFFERENCE,
+                                  L"Разн. фаз молч. пер.",
+                                  currentPreset,
+                                  currentPresetDisplayName);
             break;
     }
     
@@ -1809,25 +1865,15 @@ bool SchematicModule::ApplyCurrentCurveConfiguration() {
     ChartConfiguration config;
     config.curves = currentAvailableCurves;
 
-    for (auto& curve : config.curves) {
-        if (curve.dataType == DataType::RHO_SMT) {
-            curve.smtMode = currentSelection.rhoSmtMode;
-        } else if (curve.dataType == DataType::PHASE_SMT) {
-            curve.smtMode = currentSelection.phaseSmtMode;
-        }
-    }
+    ApplySmtModesToConfigurationCurves(config, currentSelection);
 
     config.UpdateAxisConfiguration();
     
     // v2.15.0: Передаём информацию о пресете
     config.activePreset = currentPreset;
-    if (currentPreset == PresetType::RHO_SMT) {
-        config.presetDisplayName = BuildSmtPresetDisplayName(L"УЭС", currentSelection.rhoSmtMode);
-    } else if (currentPreset == PresetType::PHASE_SMT) {
-        config.presetDisplayName = BuildSmtPresetDisplayName(L"Симм. фазы", currentSelection.phaseSmtMode);
-    } else {
-        config.presetDisplayName = currentPresetDisplayName;
-    }
+    config.presetDisplayName = BuildAppliedPresetDisplayName(currentPreset,
+                                                             currentPresetDisplayName,
+                                                             currentSelection);
     
     // v2.10.0: Получаем тип оси X из combobox
     HWND hDlg = GetParent(GetDlgItem(hSchematicDialog, IDC_XAXIS_TYPE_COMBO));

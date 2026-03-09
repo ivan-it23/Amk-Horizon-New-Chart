@@ -18,6 +18,31 @@
 - точка истины по структурам: `ANALYSIS_GP_TOOL_DATA.md`
 - краткий статус ветки: `..\PROJECT_STATUS.md`
 
+## Текущее архитектурное состояние
+
+### Актуальный pipeline данных
+
+Текущий основной pipeline проекта:
+
+`File/COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> chart/UI logic`
+
+Практически это означает:
+
+- файл и COM-поток уже парсятся через `ToolDataAdapterRegistry`
+- live ingest в актуальном in-tree пути идёт как `SerialModule::SetParsedDataCallback(...) -> ChartManager -> DataModule::AddParsedData(...)`
+- `DataModule` хранит canonical `GP_TOOL_DATA`, но дополнительно держит `ToolRecordMetadata` для capability-aware доступа
+- верхние calculation/UI path-ы постепенно переводятся на `ToolDataAccessView` и `MeasurementView`
+
+### Важные compatibility boundaries
+
+На текущем этапе Phase 7 остаются важны следующие границы:
+
+- `DataModule` по-прежнему хранит данные в canonical `GP_TOOL_DATA`
+- `SaveDataRange(...)` остаётся основным live persistence/export boundary для canonical `.bin`
+- публичные `DataModule::GetData()`, `DataModule::ParseRawFrame(...)`, `SerialModule::RequestData(GP_TOOL_DATA& ...)` и `SerialModule::SetDataCallback(...)` следует трактовать как compatibility-only API surface-ы
+- предпочтительные внутренние path-ы теперь проходят через `ParseRawFrameDetailed(...)`, `RequestData(ParsedToolFrame& ...)`, `SetParsedDataCallback(...)`, `TryGetRecord(...)`, `TryGetRecordMetadata(...)`, `GetDataView(...)` и `GetMeasurementView(...)`
+
+
 ## Структуры данных
 
 ### XAxisType
@@ -447,7 +472,7 @@ void ApplyPreset(PresetType preset, int chartNumber, FrequencyBand frequency);
 
 Коротко:
 
-- файловая модель приложения — `GP_TOOL_DATA` / `_5Tx_DATA` (`240` байт)
+- файловая модель приложения — adapter-driven parsing с canonical materialization в `GP_TOOL_DATA` (`240` байт)
 - метрология — `METROLOGY_DATA` (`240` байт)
 - COM-протокол использует пакет `[CMD][LEN][PAYLOAD][CRC16]`
 - текущие команды приложения: `0x11`, `0x12`, `0x13`, `0x16`, `0x17`
@@ -478,9 +503,9 @@ void ApplyPreset(PresetType preset, int chartNumber, FrequencyBand frequency);
 
 Для этого используются:
 
-- `CHANGELOG.md`
-- `USER_GUIDE.md`
 - `README.md`
+- `..\PROJECT_STATUS.md`
+- `..\ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
 
 ---
 

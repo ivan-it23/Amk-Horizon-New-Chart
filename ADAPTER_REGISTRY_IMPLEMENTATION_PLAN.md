@@ -297,6 +297,10 @@ Tasks:
 - [x] Localized repeated SMT preset assembly in `CurveSelectionModule` behind a shared helper, so the sonde-default SMT preset construction path is expressed once for both rho and phase presets without changing preset semantics
 - [x] Localized repeated silent preset preparation in `CurveSelectionModule` behind small helpers, so base preset config setup and silent-curve finalization are reused without changing silent preset semantics
 - [x] Localized repeated selection-driven SMT curve assembly in `CurveSelectionModule` behind a shared helper, so `RHO_SMT_ONLY` and `PHASE_SMT_ONLY` now reuse one curve-list construction path without changing available-curve semantics
+- [x] Localized repeated non-SMT preset state assignment in `SchematicModule` behind a small helper, so ordinary, temperature, and silent preset branches now reuse one basic preset-state path without changing dialog behavior
+- [x] Localized SMT-specific configuration finalization in `SchematicModule` behind small helpers, so `ApplyCurrentCurveConfiguration()` now reuses one path for propagating SMT modes into curves and one path for SMT-aware preset display naming without changing apply behavior
+- [x] Reused the shared preset-base helper from `CurveSelectionModule` SMT preset assembly, so both silent and SMT preset builders now pass through one base preset initialization path without changing preset behavior
+- [x] Localized the shared `ParsedToolFrame -> GP_TOOL_DATA` compatibility conversion path in `ToolDataAccess.h`, so `DataModule::ParseRawFrame(...)` and `SerialModule::RequestData(GP_TOOL_DATA& ...)` now reuse one GP-wrapper extraction seam without changing behavior
 
 ## Open Risks
 
@@ -327,11 +331,13 @@ Tasks:
 - SMT computer-side reconstruction still has an explicit 5-output semantic model, which may need a separate design decision if non-5Tx SMT support is introduced.
 - After the export groundwork, the next safest Phase 7 focus is no longer UI/export expansion but formal compatibility-only classification of the remaining low-level GP surfaces with no internal consumers: `DataModule::GetData()`, `DataModule::ParseRawFrame(...)`, `SerialModule::RequestData(GP_TOOL_DATA& ...)`, and `SerialModule::SetDataCallback(...)`.
 - Wrapper internals for the GP-level conversion surfaces are now localized, so the remaining work on these APIs is primarily classification/guidance rather than structural cleanup.
+- The clearest final modification point is now the public compatibility-only declaration boundary in `DataModule.h` and `SerialModule.h`: the remaining work is centered on formal treatment of `GetData()`, `ParseRawFrame(...)`, `RequestData(GP_TOOL_DATA& ...)`, and `SetDataCallback(...)` rather than on further UI/preset refactors.
 - Preferred replacements for remaining compatibility-only surfaces are now clear:
   - `DataModule::GetData()` -> prefer `TryGetRecord(...)`, `TryGetRecordMetadata(...)`, `GetDataView(...)`, or `GetMeasurementView(...)` depending on consumer needs.
   - `DataModule::ParseRawFrame(...)` -> prefer `ParseRawFrameDetailed(...)`.
   - `SerialModule::RequestData(GP_TOOL_DATA& ...)` -> prefer `RequestData(ParsedToolFrame& ...)`.
   - `SerialModule::SetDataCallback(...)` -> prefer `SetParsedDataCallback(...)`.
+- Closing pass after a clean rebuild confirms that no further narrow in-tree code refactor remains clearly justified here; the remaining work is now primarily formal compatibility-only classification and future API-policy decisions around these public surfaces.
 - After this compatibility-only classification, the next safe in-tree narrowing step has started to shift upper-level legacy SMT flow away from direct `GP_TOOL_DATA*` checks where possible, using `MeasurementView` as the primary loop-level abstraction.
 - That narrowing now extends into the legacy SMT helper itself: the compute core operates on `ToolDataAccessView`, so loop-level and helper-level code both depend less directly on raw canonical record access.
 - The same narrowing pattern now also applies to temperature curves: `CurveSelectionModule` no longer duplicates temperature iteration logic and instead delegates that record walk back to `DataModule`.
@@ -364,11 +370,17 @@ Tasks:
 - `CurveSelectionModule` now also shares one helper for constructing the default sonde-backed SMT presets, reducing one more repeated fixed-width preset-assembly branch tied to the current 5Tx UI contract.
 - `CurveSelectionModule` silent preset branches now also share small helpers for preset base initialization and silent-curve finalization, reducing one more repeated special-case preset assembly path while preserving the current silent display semantics.
 - `CurveSelectionModule` now also shares one helper for selection-driven SMT curve-list construction, reducing one more duplicated upper-layer SMT branch where the current mode is propagated into available curves.
+- `SchematicModule` now also shares one small helper for basic non-SMT preset-state assignment, reducing one more repeated UI preset branch while leaving SMT-specific mode/display handling on its dedicated binding path.
+- `SchematicModule` now also shares one small helper path for SMT-specific configuration finalization during Apply, reducing one more duplicated branch around SMT mode propagation and SMT-aware legend naming.
+- `CurveSelectionModule` SMT preset builder now also reuses the same base preset initialization helper as the silent preset branches, narrowing one more repeated preset-metadata setup path.
+- With the UI/preset helper rollout largely complete, the best final code-change entry point is now the compatibility-only GP declaration boundary in `DataModule.h` / `SerialModule.h`, not another upper-layer UI cleanup.
+- The GP-level compatibility wrappers now also share one common `ParsedToolFrame -> GP_TOOL_DATA` extraction helper, so the remaining work on `GetData()`, `ParseRawFrame(...)`, `RequestData(GP_TOOL_DATA& ...)`, and `SetDataCallback(...)` is even more clearly about public compatibility classification than about duplicated conversion logic.
+- A final closing review after successful rebuild did not reveal another behavior-preserving in-tree refactor that is narrower than the remaining public compatibility classification itself, so the current code-side rollout can be treated as effectively complete for this scope.
 
 ## Current Stage Snapshot
 
 - Current stage: late Phase 7 / compatibility-boundary narrowing and upper-layer render-path consolidation.
-- Rough completion estimate for the currently scoped migration plan: about 91-95%.
+- Rough completion estimate for the currently scoped migration plan: about 97-100%.
 - Main remaining work is no longer broad adapter plumbing, but finishing the highest-value compatibility/documentation boundaries and the last meaningful upper-layer/localization steps without changing behavior.
 
 ## Draft Phase 7 Export Policy

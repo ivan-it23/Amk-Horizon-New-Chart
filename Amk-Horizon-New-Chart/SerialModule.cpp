@@ -1,4 +1,5 @@
 #include "SerialModule.h"
+#include "ToolDataAccess.h"
 #include "ToolDataAdapters.h"
 #include <shellapi.h>   // Для ShellExecuteW
 #include <setupapi.h>
@@ -15,11 +16,6 @@
 #pragma comment(lib, "comdlg32.lib")
 
 namespace {
-bool TryExtractCanonicalData(const ParsedToolFrame& parsedFrame, GP_TOOL_DATA& outData) {
-    outData = parsedFrame.canonicalData;
-    return true;
-}
-
 uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
     return parsedFrame.canonicalData.frame;
 }

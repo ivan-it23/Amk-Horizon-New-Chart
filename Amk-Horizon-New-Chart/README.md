@@ -1,6 +1,6 @@
 # AMK-Horizon-New-Chart
 
-**Статус документации:** актуально для ветки `main`, формата 5Tx (`GP_TOOL_DATA`, 240 байт), метрологии AUTONOM 5Tx и протокола `0x11/0x12/0x13/0x16/0x17`
+**Статус документации:** актуально для ветки `main`, текущего adapter-driven parsing pipeline, canonical `GP_TOOL_DATA` / `METROLOGY_DATA` (240 байт), поддерживаемых сигнатур `151` / `152` / `241` и протокола `0x11/0x12/0x13/0x16/0x17`
 
 ## Описание проекта
 
@@ -48,6 +48,20 @@ MetrologyModule SerialModule
 - **CurveSelectionModule** - управление кривыми и пресетами
 - **SerialModule** - работа с COM-портом, протокол обмена, запись потока в файл, команды метрологии/selected_key
 - **MetrologyModule** - загрузка/сохранение метрологии, проверка signature и работа с формой метрологии
+
+### Актуальный data pipeline
+
+Текущее прохождение данных в проекте выглядит так:
+
+`File/COM -> signature detection -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> chart/UI logic`
+
+Ключевые инварианты текущей реализации:
+
+- файл и COM-поток уже маршрутизируются через `ToolDataAdapterRegistry`
+- realtime ingest в основном live-path идёт как `SerialModule -> ChartManager -> DataModule::AddParsedData(...)`
+- верхний слой постепенно опирается на `MeasurementView` и `ToolDataAccessView`, а не на прямой доступ к сырым массивам
+- canonical `GP_TOOL_DATA` всё ещё остаётся основным compatibility storage/API shape
+- публичные GP-level API `GetData()`, `ParseRawFrame(...)`, `RequestData(GP_TOOL_DATA& ...)`, `SetDataCallback(...)` сейчас рассматриваются как compatibility-only surface-ы
 
 ## 🚀 Основные возможности
 
@@ -105,10 +119,12 @@ MetrologyModule SerialModule
 
 ### Форматы данных (v2.16.x)
 - **Поддерживаемые расширения**: `.bin`, `.biv`, `.DEV`
-- **Бинарные файлы** с структурой `GP_TOOL_DATA`
-- **Актуальная структура 5Tx**: 5 передатчиков (T1–T5), 2 частоты (400 kHz, 2000 kHz)
+- **Adapter-driven parsing**: выбор формата/структуры идёт по `signature` через `ToolDataAdapterRegistry`
+- **Canonical storage shape**: после парсинга данные пока сохраняются как `GP_TOOL_DATA` + `ToolRecordMetadata`
+- **Актуальная основная UI/graph модель**: 5 передатчиков (T1–T5), 2 частоты (400 kHz, 2000 kHz)
 - **Валидация при открытии файла**: проверяются расширение, сигнатура, декодированный тип прибора и кратность физическому размеру кадра
-- **Текущая поддержка по структуре**: только `_5Tx_DATA` / `GP_TOOL_DATA` (прямое чтение для `151` и `152`)
+- **Поддерживаемые сигнатуры**: `AUTONOM_5Tx (151)`, `AUTONOM_5Tx_SDR (152)`, `LWD_4Tx (241)`
+- **Важно**: `LWD_4Tx` уже поддерживается на уровне adapter parsing и canonical materialization, но верхняя UI/SMT-логика всё ещё во многом сохраняет 5Tx-centric contract
 
 | Формат | Описание | Размер блока |
 |--------|----------|--------------|
@@ -152,8 +168,8 @@ struct METROLOGY_DATA {
 ```
 Amk-Horizon-New-Chart/
 ├── 📄 README.md                    # Основная документация
-├── 📄 USER_GUIDE.md               # Руководство пользователя
 ├── 📄 TECHNICAL_REFERENCE.md      # Техническая документация
+├── 📄 ANALYSIS_GP_TOOL_DATA.md    # Актуальные структуры данных и протокол
 │
 ├── 🎯 Amk-Horizon-New-Chart.cpp   # Точка входа приложения
 ├── 🎯 ChartManager.cpp/h           # Главный координатор
@@ -227,28 +243,27 @@ Amk-Horizon-New-Chart/
 | Документ | Назначение |
 |----------|------------|
 | **[README.md](README.md)** | Краткий обзор проекта, возможностей и быстрый старт |
-| **[USER_GUIDE.md](USER_GUIDE.md)** | Практическая работа с интерфейсом и графиками |
 | **[TECHNICAL_REFERENCE.md](TECHNICAL_REFERENCE.md)** | Техническая справка по модулям, формулам и UI-логике |
 | **[ANALYSIS_GP_TOOL_DATA.md](ANALYSIS_GP_TOOL_DATA.md)** | Короткая “точка истины” по `GP_TOOL_DATA` и `METROLOGY_DATA` |
+| **[../ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md](../ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md)** | Подробный статус adapter-driven миграции, compatibility boundaries и Phase 7 |
 | **[../FILE_FORMATS_ANALYSIS.md](../FILE_FORMATS_ANALYSIS.md)** | Актуальная логика контейнеров `.bin/.biv/.DEV` |
 | **[../FILE_VALIDATION_FOR_5TX_MODEL.md](../FILE_VALIDATION_FOR_5TX_MODEL.md)** | Актуальная логика валидации входных файлов |
-| **[../PROJECT_STATUS.md](../PROJECT_STATUS.md)** | Краткий статус текущей ветки и ограничений |
-| **[CHANGELOG.md](CHANGELOG.md)** | История изменений без дублирования её в README |
+| **[../PROJECT_STATUS.md](../PROJECT_STATUS.md)** | Краткое текущее состояние ветки, архитектуры и ограничений |
 
 ### Быстрая навигация
 
-- **Начать использовать приложение** → `README.md`, `USER_GUIDE.md`
-- **Понять актуальный формат данных** → `ANALYSIS_GP_TOOL_DATA.md`, `FILE_FORMATS_ANALYSIS.md`
+- **Начать использовать приложение** → `README.md`
+- **Понять актуальный формат данных и протокол** → `ANALYSIS_GP_TOOL_DATA.md`, `FILE_FORMATS_ANALYSIS.md`
 - **Понять текущую валидацию файлов** → `FILE_VALIDATION_FOR_5TX_MODEL.md`
-- **Разрабатывать или вносить изменения** → `TECHNICAL_REFERENCE.md`, `PROJECT_STATUS.md`
-- **Посмотреть историю изменений** → `CHANGELOG.md`
+- **Понять текущее состояние архитектуры и ограничений** → `PROJECT_STATUS.md`, `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
+- **Разрабатывать или вносить изменения** → `TECHNICAL_REFERENCE.md`, `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
 
 ## 🤝 Разработка
 
 ### Принципы
 - **Модульность** - четкое разделение ответственности
 - **Актуальность документации** - опорные документы должны описывать текущее поведение, а не historical drift
-- **Минимум дублирования** - длинная история изменений хранится в `CHANGELOG.md`, а не в обзорных документах
+- **Минимум дублирования** - обзорные документы фиксируют текущее поведение, а подробный статус миграции и boundary decisions хранится в `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
 - **Проверяемость** - спорные места нужно сверять с `DataModule.h/.cpp`, `SerialModule.h/.cpp`, `CurveSelectionModule.cpp`
 
 ---
