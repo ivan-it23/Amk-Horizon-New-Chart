@@ -145,6 +145,18 @@ private:
     mutable CachedCurveSnapshot chart2SnapshotCache;
     mutable CachedTemperatureAxisData chart1TemperatureCache;
     mutable CachedTemperatureAxisData chart2TemperatureCache;
+    struct AsyncSnapshotWarmupState {
+        uint64_t requestId = 0;
+        bool inFlight = false;
+        uint64_t dataVersion = 0;
+        uint64_t configHash = 0;
+        bool isZoomed = false;
+        double zoomMinX = 0.0;
+        double zoomMaxX = 0.0;
+    };
+    mutable AsyncSnapshotWarmupState chart1SnapshotWarmup;
+    mutable AsyncSnapshotWarmupState chart2SnapshotWarmup;
+    mutable uint64_t nextSnapshotWarmupRequestId = 1;
     DWORD lastChart1CoordinateTick = 0;
     DWORD lastChart2CoordinateTick = 0;
     POINT lastChart1CoordinatePoint = { -1, -1 };
@@ -313,9 +325,16 @@ private:
     bool TryGetCurveSnapshot(int chartNumber,
                              const ChartConfiguration& config,
                              const ZoomRange& zoom,
+                             bool allowSynchronousBuild,
                              CachedCurveSnapshot& outSnapshot) const;
     bool TryGetTemperatureAxisData(int chartNumber,
                                    const ZoomRange& zoom,
                                    CachedTemperatureAxisData& outData) const;
+    bool ShouldUseAsyncCurveWarmup() const;
+    void ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
+                                          int chartNumber,
+                                          const ChartConfiguration& config,
+                                          const ZoomRange& zoom);
+    void ScheduleVisibleChartsWarmup(HWND hWnd);
     void ResetCoordinateTracking();
 };

@@ -472,6 +472,19 @@ void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& 
     SelectObject(hdc, hOldFont);
 }
 
+void ChartModule::DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const {
+    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
+    SetTextColor(hdc, RGB(100, 100, 100));
+    SetBkMode(hdc, TRANSPARENT);
+
+    RECT textRect = rect;
+    textRect.top += 36;
+    DrawTextW(hdc, message.c_str(), -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+    SelectObject(hdc, hOldFont);
+}
+
 
 void ChartModule::DrawChartAxes(HDC hdc, const RECT& plotRect, bool showAxes) const {
     if (!showAxes) return; // Не рисуем оси, если они заменены скроллбарами
