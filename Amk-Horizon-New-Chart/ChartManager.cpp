@@ -2961,21 +2961,51 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
         return;
     }
     
+    const size_t dataSize = dataModule->GetDataSize();
+    size_t startIndex = 0;
+    size_t endIndex = dataSize - 1;
+    
     // Получаем текущий диапазон для указанного графика
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     
-    if (!zoom->isZoomed) {
-        MessageBox(hWnd, L"Please set X Range first using Apply button!", L"Information", MB_OK | MB_ICONINFORMATION);
-        return;
+    if (zoom->isZoomed) {
+        // Zoom применён через Apply — используем его диапазон
+        startIndex = static_cast<size_t>(zoom->minX);
+        endIndex = static_cast<size_t>(zoom->maxX);
+    } else {
+        // Zoom не применён — читаем From/To из полей ввода напрямую
+        const bool fromEmpty = uiModule->IsXRangeFromEmpty(chartNumber);
+        const bool toEmpty = uiModule->IsXRangeToEmpty(chartNumber);
+        
+        if (fromEmpty && toEmpty) {
+            // Оба поля пусты — сохраняем ВСЕ данные (0 .. dataSize-1)
+            startIndex = 0;
+            endIndex = dataSize - 1;
+        } else {
+            double fromX = 0.0, toX = 0.0;
+            uiModule->GetXRangeValues(chartNumber, fromX, toX);
+            
+            if (fromEmpty) {
+                startIndex = 0;
+            } else {
+                startIndex = static_cast<size_t>(fromX > 0.0 ? fromX : 0.0);
+            }
+            
+            if (toEmpty) {
+                endIndex = dataSize - 1;
+            } else {
+                endIndex = static_cast<size_t>(toX > 0.0 ? toX : 0.0);
+            }
+        }
     }
     
-    // Получаем индексы начала и конца диапазона
-    size_t startIndex = static_cast<size_t>(zoom->minX);
-    size_t endIndex = static_cast<size_t>(zoom->maxX);
+    // Clamp индексов к границам данных
+    if (startIndex >= dataSize) startIndex = dataSize - 1;
+    if (endIndex >= dataSize) endIndex = dataSize - 1;
     
-    // Проверяем корректность индексов
-    if (startIndex >= dataModule->GetDataSize() || endIndex >= dataModule->GetDataSize()) {
-        MessageBox(hWnd, L"Invalid range indices!", L"Error", MB_OK | MB_ICONERROR);
+    // Проверяем корректность диапазона
+    if (startIndex > endIndex) {
+        MessageBox(hWnd, L"'From' value must be less than or equal to 'To' value!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
     

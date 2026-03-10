@@ -834,6 +834,30 @@ void UIModule::ResetXRangeControls(int chartNumber) {
     EnableWindow(hResetBtn, FALSE);
 }
 
+bool UIModule::IsXRangeFromEmpty(int chartNumber) const {
+    HWND hFromEdit = nullptr;
+    
+    if (chartNumber == 1) {
+        hFromEdit = hXRangeFromEdit;
+    } else if (chartNumber == 2) {
+        hFromEdit = hXRange2FromEdit;
+    } else {
+        return true;
+    }
+    
+    if (!hFromEdit) return true;
+    
+    wchar_t fromText[32];
+    GetWindowText(hFromEdit, fromText, 32);
+    
+    for (int i = 0; fromText[i] != L'\0'; i++) {
+        if (fromText[i] != L' ' && fromText[i] != L'\t') {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool UIModule::IsXRangeToEmpty(int chartNumber) const {
     HWND hToEdit = nullptr;
     

@@ -276,6 +276,12 @@ private:
     // Очистка буферов COM-порта
     void PurgeBuffers();
 
+    // Сброс буфера устройства после неудачной попытки modern-протокола.
+    // Modern SendPacket отправляет 5 байт, Arduino читает 4 → 1 лишний байт.
+    // Эта функция отправляет 3 padding-байта (1+3=4), чтобы Arduino
+    // прочитал и отбросил пакет, очищая буфер.
+    void FlushDeviceBufferAfterModernAttempt();
+
     // Пост-обработка после обновления metrology (deviceId, rename Unknown record file, callbacks)
     void HandleMetrologyUpdated();
     

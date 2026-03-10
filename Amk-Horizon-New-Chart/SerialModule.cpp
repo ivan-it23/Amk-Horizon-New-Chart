@@ -10,10 +10,61 @@
 #include <ctime>
 #include <iomanip>
 #include <sstream>
+#include <chrono>
+#include <cstdarg>
+#include <cstdio>
 
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "shell32.lib")
 #pragma comment(lib, "comdlg32.lib")
+
+// === Отладочный лог для 4Tx (вывод.txt) ===
+namespace {
+std::wstring GetDebugLogPath() {
+    wchar_t modulePath[MAX_PATH] = {};
+    GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
+    std::wstring dir(modulePath);
+    // Exe обычно в <ProjectRoot>\x64\Release\ или \x64\Debug\ — поднимаемся на 2 уровня
+    for (int i = 0; i < 3; ++i) {
+        size_t pos = dir.find_last_of(L"\\/");
+        if (pos != std::wstring::npos) dir = dir.substr(0, pos);
+    }
+    return dir + L"\\вывод.txt";
+}
+
+void DebugLog4Tx(const char* fmt, ...) {
+    static std::wstring logPath = GetDebugLogPath();
+    FILE* f = nullptr;
+    _wfopen_s(&f, logPath.c_str(), L"a");
+    if (!f) return;
+
+    // Timestamp
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
+    std::time_t t = std::chrono::system_clock::to_time_t(now);
+    struct tm lt = {};
+    localtime_s(&lt, &t);
+    fprintf(f, "[%02d:%02d:%02d.%03d] ", lt.tm_hour, lt.tm_min, lt.tm_sec, (int)ms.count());
+
+    va_list args;
+    va_start(args, fmt);
+    vfprintf(f, fmt, args);
+    va_end(args);
+    fprintf(f, "\n");
+    fclose(f);
+}
+
+std::string HexDump(const uint8_t* data, size_t len, size_t maxBytes = 20) {
+    std::string result;
+    char buf[8];
+    for (size_t i = 0; i < len && i < maxBytes; ++i) {
+        sprintf_s(buf, "%02X ", data[i]);
+        result += buf;
+    }
+    if (len > maxBytes) result += "...";
+    return result;
+}
+} // namespace
 
 namespace {
 uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
@@ -528,6 +579,7 @@ void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
             legacyPollInterval = 1000;
         }
 
+        DebugLog4Tx("=== StartPolling: LEGACY_4TX, interval=%lu ms ===", legacyPollInterval);
         stopLegacyPolling = false;
         timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
         legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
@@ -611,6 +663,11 @@ void SerialModule::LegacyPollingLoop() {
         if (event.result == SerialResult::SUCCESS) {
             event.parsedFrame = parsedFrame;
             event.rawPayload = std::move(rawPayload);
+            DebugLog4Tx("LegacyPollingLoop: poll SUCCESS, frame=%u",
+                         GetCanonicalFrameNumber(parsedFrame));
+        } else {
+            DebugLog4Tx("LegacyPollingLoop: poll FAILED, result=%d",
+                         static_cast<int>(event.result));
         }
 
         {
@@ -633,8 +690,12 @@ void SerialModule::LegacyPollingLoop() {
 void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, const std::vector<uint8_t>& rawPayload) {
     packetsReceived++;
     lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
+    DebugLog4Tx("HandleSuccessfulPoll: frame=%u, received=%u, errors=%u, recording=%d, hasMetro=%d",
+                 lastFrameNumber, packetsReceived, packetsErrors,
+                 (int)isRecordingEnabled, (int)hasMetrology);
 
     if (isRecordingEnabled && !hasMetrology && metrologyAutoRetryCount < 4) {
+        DebugLog4Tx("HandleSuccessfulPoll: auto-retry metrology #%u", metrologyAutoRetryCount);
         METROLOGY_DATA tmp = {};
         (void)RequestMetrology(tmp);
         metrologyAutoRetryCount++;
@@ -741,18 +802,29 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         request[1 + sizeof(payload)] = static_cast<uint8_t>(crc & 0xFF);
         request[2 + sizeof(payload)] = static_cast<uint8_t>(crc >> 8);
 
+        DebugLog4Tx("requestLegacyData: sending %zu bytes: %s",
+                     request.size(), HexDump(request.data(), request.size()).c_str());
+
         DWORD bytesWritten = 0;
         if (!WriteFile(hSerial, request.data(), static_cast<DWORD>(request.size()), &bytesWritten, nullptr) ||
             bytesWritten != request.size()) {
+            DebugLog4Tx("requestLegacyData: WriteFile FAILED, written=%lu", bytesWritten);
             return SerialResult::CONNECTION_FAILED;
         }
 
         std::vector<uint8_t> legacyResponse;
         if (!ReceiveLegacyFixedPacket(hSerial, kLegacyLwdDataCommand, kLegacyLwdDataPacketSize, 300, legacyResponse)) {
+            DebugLog4Tx("requestLegacyData: ReceiveLegacyFixedPacket TIMEOUT (expected %zu bytes)",
+                         kLegacyLwdDataPacketSize);
             return SerialResult::TIMEOUT;
         }
 
+        DebugLog4Tx("requestLegacyData: received %zu bytes, header: %s",
+                     legacyResponse.size(),
+                     HexDump(legacyResponse.data(), legacyResponse.size(), 16).c_str());
+
         if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
+            DebugLog4Tx("requestLegacyData: CRC_ERROR");
             return SerialResult::CRC_ERROR;
         }
 
@@ -760,10 +832,15 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         for (size_t offset : candidateOffsets) {
             if (legacyResponse.size() >= offset + sizeof(LEGACY_GP_TOOL_DATA) &&
                 tryStoreParsedFrame(legacyResponse.data() + offset, sizeof(LEGACY_GP_TOOL_DATA))) {
+                uint32_t sig = 0;
+                memcpy(&sig, legacyResponse.data() + offset, sizeof(sig));
+                DebugLog4Tx("requestLegacyData: SUCCESS at offset=%zu, signature=0x%08X",
+                             offset, sig);
                 return SerialResult::SUCCESS;
             }
         }
 
+        DebugLog4Tx("requestLegacyData: INVALID_SIGNATURE (no adapter matched)");
         return SerialResult::INVALID_SIGNATURE;
     };
 
@@ -775,13 +852,19 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         return requestLegacyData();
     }
 
+    DebugLog4Tx("RequestData: protocolMode=UNKNOWN, trying modern first");
     const SerialResult modernResult = requestModernData();
     if (modernResult == SerialResult::SUCCESS) {
         protocolMode = DeviceProtocolMode::MODERN_5TX;
         return modernResult;
     }
 
+    // Modern не удался — сбрасываем буфер устройства
+    DebugLog4Tx("RequestData: modern failed, flushing device buffer");
+    FlushDeviceBufferAfterModernAttempt();
+
     const SerialResult legacyResult = requestLegacyData();
+    DebugLog4Tx("RequestData: legacy result=%d", static_cast<int>(legacyResult));
     if (legacyResult == SerialResult::SUCCESS) {
         protocolMode = DeviceProtocolMode::LEGACY_4TX;
         return legacyResult;
@@ -861,25 +944,38 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         legacyRequest[1 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc & 0xFF);
         legacyRequest[2 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc >> 8);
 
+        DebugLog4Tx("requestLegacyMetrology: sending %zu bytes: %s",
+                     legacyRequest.size(), HexDump(legacyRequest.data(), legacyRequest.size()).c_str());
+
         DWORD bytesWritten = 0;
         if (!WriteFile(hSerial, legacyRequest.data(), static_cast<DWORD>(legacyRequest.size()), &bytesWritten, nullptr) ||
             bytesWritten != legacyRequest.size()) {
+            DebugLog4Tx("requestLegacyMetrology: WriteFile FAILED");
             return SerialResult::CONNECTION_FAILED;
         }
 
         std::vector<uint8_t> legacyResponse;
         Sleep(150);
         if (!ReadExactAvailableBytes(hSerial, kLegacyLwdMetrologyPacketSize, 1500, legacyResponse)) {
+            DebugLog4Tx("requestLegacyMetrology: TIMEOUT (got %zu of %zu bytes)",
+                         legacyResponse.size(), kLegacyLwdMetrologyPacketSize);
             return SerialResult::TIMEOUT;
         }
+
+        DebugLog4Tx("requestLegacyMetrology: received %zu bytes, header: %s",
+                     legacyResponse.size(),
+                     HexDump(legacyResponse.data(), legacyResponse.size(), 16).c_str());
 
         Sleep(20);
 
         if (legacyResponse.empty() || legacyResponse[0] != kLegacyLwdMetrologyCommand) {
+            DebugLog4Tx("requestLegacyMetrology: INVALID_RESPONSE (first byte=0x%02X, expected 0x%02X)",
+                         legacyResponse.empty() ? 0 : legacyResponse[0], kLegacyLwdMetrologyCommand);
             return SerialResult::INVALID_RESPONSE;
         }
 
         if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
+            DebugLog4Tx("requestLegacyMetrology: CRC_ERROR");
             return SerialResult::CRC_ERROR;
         }
 
@@ -912,13 +1008,20 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         return requestLegacyMetrology();
     }
 
+    DebugLog4Tx("RequestMetrology: protocolMode=UNKNOWN, trying modern first");
     const SerialResult modernResult = requestModernMetrology();
     if (modernResult == SerialResult::SUCCESS) {
         protocolMode = DeviceProtocolMode::MODERN_5TX;
         return modernResult;
     }
 
+    // Modern не удался — сбрасываем буфер устройства (SendPacket отправил 5 байт,
+    // Arduino прочитал 4, 1 остался → отправляем 3 padding → Arduino читает 4 и отбрасывает)
+    DebugLog4Tx("RequestMetrology: modern failed, flushing device buffer");
+    FlushDeviceBufferAfterModernAttempt();
+
     const SerialResult legacyResult = requestLegacyMetrology();
+    DebugLog4Tx("RequestMetrology: legacy result=%d", static_cast<int>(legacyResult));
     if (legacyResult == SerialResult::SUCCESS) {
         protocolMode = DeviceProtocolMode::LEGACY_4TX;
         return legacyResult;
@@ -933,6 +1036,54 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
     }
 
     std::lock_guard<std::mutex> lock(ioMutex);
+
+    // === Legacy 4Tx: использовать legacy протокол для записи ===
+    // Формат: [CMD=0x66][METROLOGY_DATA:240][CRC:2] = 243 байта + 1 padding = 244 (кратно 4)
+    // Arduino читает по 4 байта → 244/4 = 61 чтений, 0 остаток = чистый буфер
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        DebugLog4Tx("WriteMetrology: LEGACY_4TX, using legacy CMD=0x66");
+        PurgeBuffers();
+
+        const size_t payloadSize = sizeof(METROLOGY_DATA);
+        // 1(CMD) + 240(METROLOGY) + 2(CRC) + 1(padding) = 244 байт = 4*61
+        std::vector<uint8_t> packet(1 + payloadSize + 2 + 1, 0x00);
+        packet[0] = 0x66; // CMD_WRITE_EE
+        memcpy(packet.data() + 1, &inData, payloadSize);
+        const uint16_t crc = CalculateCRC16(packet.data(), 1 + payloadSize);
+        packet[1 + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
+        packet[2 + payloadSize] = static_cast<uint8_t>(crc >> 8);
+        // packet[3 + payloadSize] = 0x00; // padding (уже 0)
+
+        DebugLog4Tx("WriteMetrology: sending %zu bytes (legacy), header: %s",
+                     packet.size(), HexDump(packet.data(), packet.size(), 8).c_str());
+
+        DWORD bytesWritten = 0;
+        if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr) ||
+            bytesWritten != packet.size()) {
+            DebugLog4Tx("WriteMetrology: WriteFile FAILED");
+            return SerialResult::CONNECTION_FAILED;
+        }
+
+        // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
+        Sleep(500);
+
+        // Вычитываем и отбрасываем всё что Arduino мог отправить
+        // (при совпадении 0x67/0x65 в payload Arduino отправляет ответы)
+        PurgeBuffers();
+        DebugLog4Tx("WriteMetrology: legacy write done, buffers purged");
+
+        // Применяем метрологию локально (даже если прибор не подтвердил)
+        memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
+        hasMetrology = true;
+        HandleMetrologyUpdated();
+
+        if (onMetrologyReceived) {
+            onMetrologyReceived(metrology);
+        }
+        return SerialResult::SUCCESS;
+    }
+
+    // === Modern 5Tx: стандартный modern протокол ===
     PurgeBuffers();
     if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
                     reinterpret_cast<const uint8_t*>(&inData),
@@ -943,6 +1094,11 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
     uint8_t cmd = 0;
     std::vector<uint8_t> payload;
     if (!ReceivePacket(cmd, payload)) {
+        // Modern не удался и protocolMode UNKNOWN — flush буфера
+        if (protocolMode == DeviceProtocolMode::UNKNOWN) {
+            DebugLog4Tx("WriteMetrology: modern TIMEOUT on UNKNOWN, flushing");
+            FlushDeviceBufferAfterModernAttempt();
+        }
         return SerialResult::TIMEOUT;
     }
 
@@ -974,6 +1130,12 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
         return SerialResult::NOT_CONNECTED;
     }
 
+    // Legacy 4Tx устройства не поддерживают выбор ключа — пропускаем
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        DebugLog4Tx("SetSelectedKey: LEGACY_4TX, skipping (not supported)");
+        return SerialResult::SUCCESS;
+    }
+
     std::lock_guard<std::mutex> lock(ioMutex);
     PurgeBuffers();
     if (!SendPacket(SerialCommands::CMD_SET_SELECTED_KEY,
@@ -985,6 +1147,11 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
     uint8_t cmd = 0;
     std::vector<uint8_t> payload;
     if (!ReceivePacket(cmd, payload)) {
+        // Modern не удался и protocolMode UNKNOWN — flush буфера
+        if (protocolMode == DeviceProtocolMode::UNKNOWN) {
+            DebugLog4Tx("SetSelectedKey: modern TIMEOUT on UNKNOWN, flushing");
+            FlushDeviceBufferAfterModernAttempt();
+        }
         return SerialResult::TIMEOUT;
     }
 
@@ -1090,11 +1257,15 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
         return requestLegacySignature();
     }
 
+    DebugLog4Tx("RequestSignature: protocolMode=UNKNOWN, trying modern first");
     const SerialResult modernResult = requestModernSignature();
     if (modernResult == SerialResult::SUCCESS) {
         protocolMode = DeviceProtocolMode::MODERN_5TX;
         return modernResult;
     }
+
+    DebugLog4Tx("RequestSignature: modern failed, flushing device buffer");
+    FlushDeviceBufferAfterModernAttempt();
 
     const SerialResult legacyResult = requestLegacySignature();
     if (legacyResult == SerialResult::SUCCESS) {
@@ -1383,6 +1554,26 @@ void SerialModule::PurgeBuffers() {
     if (hSerial != INVALID_HANDLE_VALUE) {
         PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
     }
+}
+
+void SerialModule::FlushDeviceBufferAfterModernAttempt() {
+    // Modern SendPacket отправляет 5 байт ([CMD][LEN:2][CRC:2]).
+    // Arduino читает ровно 4 байта за раз → 1 байт остаётся в буфере Arduino.
+    // Отправляем 3 padding-байта (0x00), чтобы Arduino получил 1+3=4 байта,
+    // прочитал их, не нашёл валидной команды и отбросил.
+    if (hSerial == INVALID_HANDLE_VALUE) return;
+
+    DebugLog4Tx("FlushDeviceBufferAfterModernAttempt: sending 3 padding bytes");
+    const uint8_t padding[3] = { 0x00, 0x00, 0x00 };
+    DWORD written = 0;
+    WriteFile(hSerial, padding, 3, &written, nullptr);
+
+    // Даём Arduino время обработать (его loop() работает быстро, ~100мкс)
+    Sleep(50);
+
+    // Очищаем app RX буфер (Arduino мог отправить что-то по ошибке)
+    PurgeBuffers();
+    DebugLog4Tx("FlushDeviceBufferAfterModernAttempt: done, purged app RX");
 }
 
 // === Реализация методов записи в файл (v2.15.0) ===

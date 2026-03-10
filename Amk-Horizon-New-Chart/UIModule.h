@@ -132,6 +132,7 @@ public:
     void SetXRangeValues(int chartNumber, double fromX, double toX);
     void SetXRangeResetEnabled(int chartNumber, bool enabled);
     void ResetXRangeControls(int chartNumber);
+    bool IsXRangeFromEmpty(int chartNumber) const; // Проверка, пустое ли поле "From"
     bool IsXRangeToEmpty(int chartNumber) const;  // Проверка, пустое ли поле "To"
 
     // Управление статусной строкой
