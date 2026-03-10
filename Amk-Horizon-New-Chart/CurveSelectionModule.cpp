@@ -1,5 +1,6 @@
 #include "framework.h"
 #include "CurveSelectionModule.h"
+#include "ToolPresentation.h"
 #include "ToolDataAccess.h"
 #include <algorithm>
 #include <array>
@@ -1471,28 +1472,14 @@ std::string CurveSelectionModule::GenerateCurveId(ElementType element, int eleme
 std::string CurveSelectionModule::GenerateDisplayName(ElementType element, int elementIndex, 
                                                      DataType dataType, int receiverIndex) const {
     std::ostringstream oss;
-    
-    switch (element) {
-        case ElementType::TRANSMITTER:
-            oss << "T" << (elementIndex + 1) << " ";
-            break;
-        case ElementType::RECEIVER:
-            oss << "R" << (elementIndex + 1) << " ";
-            break;
-        case ElementType::SILENT_TX:
-            if (dataType == DataType::SILENT_PHASE_DIFFERENCE) {
-                // Разность фаз молчащих передатчиков относится к обоим приёмникам (R2−R1)
-                oss << "Молчащие ";
-            } else {
-                oss << "Молчащий R" << (elementIndex + 1) << " ";
-            }
-            break;
-    }
+
+    const bool silentPhaseDifference = (dataType == DataType::SILENT_PHASE_DIFFERENCE);
+    oss << GetElementDisplayToken(element, elementIndex, silentPhaseDifference) << " ";
     
     oss << GetDataTypeDisplayName(dataType);
     
     if (receiverIndex >= 0) {
-        oss << " R" << (receiverIndex + 1);
+        oss << " " << GetElementDisplayToken(ElementType::RECEIVER, receiverIndex);
     }
     
     return oss.str();

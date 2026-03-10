@@ -134,6 +134,18 @@ bool IsSupportedDataFileFormat(FileFormat format) {
            format == FileFormat::FORMAT_DEV;
 }
 
+std::wstring BuildLoadedFileName(const std::wstring& filename) {
+    size_t lastSlash = filename.find_last_of(L"\\/");
+    std::wstring fileNameOnly = (lastSlash != std::wstring::npos)
+        ? filename.substr(lastSlash + 1)
+        : filename;
+
+    size_t lastDot = fileNameOnly.find_last_of(L'.');
+    return (lastDot != std::wstring::npos)
+        ? fileNameOnly.substr(0, lastDot)
+        : fileNameOnly;
+}
+
 void LoadParsedFrames(std::ifstream& file,
                       FileFormat format,
                       size_t frameCount,
@@ -382,18 +394,34 @@ FileFormat DataModule::DetectFileFormat(const std::wstring& filename) {
     return FileFormat::FORMAT_UNKNOWN;
 }
 
+std::wstring DataModule::ExtractLoadedFileName(const std::wstring& filename) {
+    return BuildLoadedFileName(filename);
+}
+
 bool DataModule::LoadDataFromFile(const std::wstring& filename) {
     std::wstring error;
     return LoadDataFromFile(filename, error);
 }
 
 bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& outError) {
-    outError.clear();
-
-    if (!ValidateDataFile(filename, outError)) {
+    DataLoadResult loadedData;
+    if (!LoadDataFromFileResult(filename, loadedData, outError)) {
         data.clear();
         recordMetadata.clear();
         loadedFileName.clear();
+        ++dataVersion;
+        return false;
+    }
+
+    ApplyLoadedData(std::move(loadedData));
+    return HasData();
+}
+
+bool DataModule::LoadDataFromFileResult(const std::wstring& filename, DataLoadResult& outResult, std::wstring& outError) {
+    outResult = {};
+    outError.clear();
+
+    if (!ValidateDataFile(filename, outError)) {
         return false;
     }
 
@@ -403,9 +431,6 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
         return false;
     }
         
-    data.clear();
-    recordMetadata.clear();
-    
     // v2.15.1: Определяем формат файла
     FileFormat format = DetectFileFormat(filename);
     if (!IsSupportedDataFileFormat(format)) {
@@ -433,39 +458,32 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
         return false;
     }
 
-    LoadParsedFrames(file, format, frameCount, data, recordMetadata);
+    LoadParsedFrames(file, format, frameCount, outResult.data, outResult.recordMetadata);
     
     file.close();
 
-    if (!HasData()) {
+    if (!outResult.HasData()) {
         outError = L"Файл содержит неподдерживаемую структуру данных.\n"
                    L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
-        loadedFileName.clear();
         return false;
     }
-    
-    // Сохраняем имя файла без пути и расширения
-    if (HasData()) {
-        // Извлекаем имя файла из полного пути
-        size_t lastSlash = filename.find_last_of(L"\\/");
-        std::wstring fileNameOnly = (lastSlash != std::wstring::npos) 
-            ? filename.substr(lastSlash + 1) 
-            : filename;
-        
-        // Удаляем расширение
-        size_t lastDot = fileNameOnly.find_last_of(L'.');
-        loadedFileName = (lastDot != std::wstring::npos) 
-            ? fileNameOnly.substr(0, lastDot) 
-            : fileNameOnly;
-    }
-    
-    return HasData();
+
+    outResult.loadedFileName = ExtractLoadedFileName(filename);
+    return outResult.HasData();
+}
+
+void DataModule::ApplyLoadedData(DataLoadResult&& loadedData) {
+    data = std::move(loadedData.data);
+    recordMetadata = std::move(loadedData.recordMetadata);
+    loadedFileName = std::move(loadedData.loadedFileName);
+    ++dataVersion;
 }
 
 void DataModule::ClearData() {
     data.clear();
     recordMetadata.clear();
     loadedFileName.clear();
+    ++dataVersion;
 }
 
 std::wstring DataModule::GetLoadedFileName() const {
@@ -615,10 +633,12 @@ ToolDataAccessView DataModule::GetDataView(size_t index) const {
 // v2.13.0: Добавление данных в реальном времени
 void DataModule::AddParsedData(const ParsedToolFrame& parsedData) {
     AppendParsedFrame(parsedData, data, recordMetadata);
+    ++dataVersion;
 }
 
 void DataModule::AddData(const GP_TOOL_DATA& newData) {
     AppendCanonicalRecord(newData, data, recordMetadata);
+    ++dataVersion;
 }
 
 void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
@@ -626,6 +646,9 @@ void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
     recordMetadata.reserve(recordMetadata.size() + newDataBatch.size());
     for (const auto& record : newDataBatch) {
         AppendCanonicalRecord(record, data, recordMetadata);
+    }
+    if (!newDataBatch.empty()) {
+        ++dataVersion;
     }
 }
 

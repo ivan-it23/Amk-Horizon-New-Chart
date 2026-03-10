@@ -10,6 +10,16 @@
 struct CurveDefinition;
 struct ChartConfiguration;
 
+struct DataLoadResult {
+    std::vector<GP_TOOL_DATA> data;
+    std::vector<ToolRecordMetadata> recordMetadata;
+    std::wstring loadedFileName;
+
+    bool HasData() const {
+        return !data.empty();
+    }
+};
+
 // Типы данных для отображения
 enum class DataType {
     PHASE_DIFFERENCE,        // Разность фаз (источник: DELTA_PH) (5 каналов T1-T5)
@@ -59,10 +69,12 @@ private:
     std::vector<GP_TOOL_DATA> data;
     std::vector<ToolRecordMetadata> recordMetadata;
     std::wstring loadedFileName;  // Имя загруженного файла (без пути и расширения)
+    uint64_t dataVersion = 0;
 
     static bool ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature);
     static uint32_t DecodeToolCode(uint32_t signature);
     static bool IsDirectlySupportedToolCode(uint32_t toolCode);
+    static std::wstring ExtractLoadedFileName(const std::wstring& filename);
 
 public:
     DataModule();
@@ -71,6 +83,8 @@ public:
     // Управление данными
     bool LoadDataFromFile(const std::wstring& filename);
     bool LoadDataFromFile(const std::wstring& filename, std::wstring& outError);
+    static bool LoadDataFromFileResult(const std::wstring& filename, DataLoadResult& outResult, std::wstring& outError);
+    void ApplyLoadedData(DataLoadResult&& loadedData);
     void ClearData();
     
     // v2.15.1: Определение формата файла по расширению
@@ -99,6 +113,7 @@ public:
     
     // Получение имени загруженного файла
     std::wstring GetLoadedFileName() const;
+    uint64_t GetDataVersion() const { return dataVersion; }
     
     // Сохранение диапазона данных
     bool SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const;

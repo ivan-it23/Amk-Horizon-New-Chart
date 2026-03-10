@@ -6,9 +6,11 @@
 #include "ChartModule.h"
 #include "UIModule.h"
 #include "LayoutModule.h"
+#include "SchematicModule.h"
 #include "SerialModule.h"
 #include "MetrologyModule.h"
 #include "NotesModule.h"
+#include "AsyncTaskQueue.h"
 #include <commdlg.h>
 #include <memory>
 #include <vector>
@@ -107,6 +109,46 @@ private:
 
     // v2.16.x: кеш отрисованных маркеров заметок (для hit-test)
     std::vector<NotesModule::RenderedMarker> noteFrameMarkers;
+
+    struct CachedCurveSnapshot {
+        bool valid = false;
+        uint64_t dataVersion = 0;
+        uint64_t configHash = 0;
+        bool isZoomed = false;
+        double zoomMinX = 0.0;
+        double zoomMaxX = 0.0;
+        std::vector<std::vector<float>> leftAxisData;
+        std::vector<std::vector<float>> rightAxisData;
+        std::vector<CurveDefinition> leftAxisCurves;
+        std::vector<CurveDefinition> rightAxisCurves;
+        double minX = 0.0;
+        double maxX = 0.0;
+        double minY1 = 0.0;
+        double maxY1 = 0.0;
+        double minY2 = 0.0;
+        double maxY2 = 0.0;
+    };
+
+    struct CachedTemperatureAxisData {
+        bool valid = false;
+        uint64_t dataVersion = 0;
+        bool isZoomed = false;
+        double zoomMinX = 0.0;
+        double zoomMaxX = 0.0;
+        std::vector<float> temperatureData;
+        double minXData = 0.0;
+        double maxXData = 0.0;
+    };
+
+    std::unique_ptr<AsyncTaskQueue> asyncTaskQueue;
+    mutable CachedCurveSnapshot chart1SnapshotCache;
+    mutable CachedCurveSnapshot chart2SnapshotCache;
+    mutable CachedTemperatureAxisData chart1TemperatureCache;
+    mutable CachedTemperatureAxisData chart2TemperatureCache;
+    DWORD lastChart1CoordinateTick = 0;
+    DWORD lastChart2CoordinateTick = 0;
+    POINT lastChart1CoordinatePoint = { -1, -1 };
+    POINT lastChart2CoordinatePoint = { -1, -1 };
     
 public:
     ChartManager();
@@ -120,7 +162,7 @@ public:
     void RefreshChart2();
     void DrawChart1(HDC hdc);
     void DrawChart2(HDC hdc);
-    void LoadDataFromFile(const std::wstring& filename);
+    void LoadDataFromFile(HWND hWnd, const std::wstring& filename);
     void UpdateStatusBarFileInfo(); // Обновление информации о файле в статусной строке
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const;
@@ -196,6 +238,7 @@ public:
     void HandleSerialStop(HWND hWnd);
     void HandleSerialClear(HWND hWnd);
     bool PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload);
+    bool ApplyPreparedSerialDisplayData(HWND hWnd, const std::wstring& filePathForPreload, DataLoadResult&& loadedData);
     
     // Обработчик таймера опроса прибора
     void HandleSerialTimer(HWND hWnd);
@@ -212,6 +255,7 @@ public:
     SerialModule* GetSerialModule() { return serialModule.get(); }
     MetrologyModule* GetMetrologyModule() { return metrologyModule.get(); }
     UIModule* GetUIModule() { return uiModule.get(); }
+    AsyncTaskQueue* GetAsyncTaskQueue() { return asyncTaskQueue.get(); }
     
     // === Методы для режима Surf (v2.14.0) ===
     void HandleSurfToggle(HWND hWnd, int chartNumber);
@@ -265,4 +309,13 @@ private:
     void ClearAxisHistory(int chartNumber);
     void UpdateZoomActiveState(int chartNumber);
     void AutoFitYForCurrentX(int chartNumber);
+    void InvalidateCachedSnapshots();
+    bool TryGetCurveSnapshot(int chartNumber,
+                             const ChartConfiguration& config,
+                             const ZoomRange& zoom,
+                             CachedCurveSnapshot& outSnapshot) const;
+    bool TryGetTemperatureAxisData(int chartNumber,
+                                   const ZoomRange& zoom,
+                                   CachedTemperatureAxisData& outData) const;
+    void ResetCoordinateTracking();
 };

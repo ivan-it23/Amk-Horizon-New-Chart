@@ -540,19 +540,16 @@ void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
         pendingPollEvents.clear();
     }
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        if (legacyPollInterval == 0 || legacyPollInterval > 1000) {
-            legacyPollInterval = 1000;
-        }
-
-        DebugLog4Tx("=== StartPolling: LEGACY_4TX, interval=%lu ms ===", legacyPollInterval);
-        stopLegacyPolling = false;
-        timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
-        legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
-        return;
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX &&
+        (legacyPollInterval == 0 || legacyPollInterval > 1000)) {
+        legacyPollInterval = 1000;
     }
 
-    timerId = SetTimer(hWnd, IDT_SERIAL_POLL, pollInterval, nullptr);
+    DebugLog4Tx("=== StartPolling: mode=%d, interval=%lu ms ===",
+                static_cast<int>(protocolMode), legacyPollInterval);
+    stopLegacyPolling = false;
+    timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
+    legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
 }
 
 void SerialModule::StopPolling() {
@@ -582,19 +579,8 @@ void SerialModule::OnTimer() {
         return;
     }
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX && legacyPollingThread.joinable()) {
+    if (legacyPollingThread.joinable()) {
         FlushPendingPollResults();
-        return;
-    }
-    
-    ParsedToolFrame parsedFrame = {};
-    std::vector<uint8_t> rawPayload;
-    SerialResult result = RequestData(parsedFrame, &rawPayload);
-
-    if (result == SerialResult::SUCCESS) {
-        HandleSuccessfulPoll(parsedFrame, rawPayload);
-    } else {
-        HandleFailedPoll();
     }
 }
 
@@ -616,7 +602,7 @@ void SerialModule::FlushPendingPollResults() {
 
 void SerialModule::LegacyPollingLoop() {
     while (!stopLegacyPolling) {
-        if (!IsConnected() || protocolMode != DeviceProtocolMode::LEGACY_4TX) {
+        if (!IsConnected()) {
             break;
         }
 
@@ -645,8 +631,11 @@ void SerialModule::LegacyPollingLoop() {
         }
 
         DWORD slept = 0;
-        while (!stopLegacyPolling && slept < legacyPollInterval) {
-            const DWORD step = std::min<DWORD>(50, legacyPollInterval - slept);
+        const DWORD sleepInterval = (protocolMode == DeviceProtocolMode::LEGACY_4TX)
+            ? legacyPollInterval
+            : pollInterval;
+        while (!stopLegacyPolling && slept < sleepInterval) {
+            const DWORD step = std::min<DWORD>(50, sleepInterval - slept);
             Sleep(step);
             slept += step;
         }
@@ -1749,9 +1738,11 @@ void SerialModule::WriteDataToFile(const void* rawData, size_t rawSize) {
     
     // Записываем структуру данных (240 байт)
     recordFile.write(reinterpret_cast<const char*>(rawData), static_cast<std::streamsize>(rawSize));
-    recordFile.flush();  // Сразу сбрасываем на диск для надёжности
     
     recordedFrames++;
+    if ((recordedFrames % 16u) == 0u) {
+        recordFile.flush();
+    }
 }
 
 std::wstring SerialModule::BrowseForFolder(HWND hWnd) {

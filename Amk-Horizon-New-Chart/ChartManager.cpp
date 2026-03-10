@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstdarg>
 #include <cstdio>
+#include <functional>
 
 // === Заметки: диалог просмотра/удаления (v2.16.x) ===
 namespace {
@@ -257,6 +258,41 @@ namespace {
                                   outSnapshot.minY2, outSnapshot.maxY2);
     }
 
+    void HashCombine(uint64_t& seed, uint64_t value) {
+        seed ^= value + 0x9e3779b97f4a7c15ULL + (seed << 6) + (seed >> 2);
+    }
+
+    uint64_t HashDouble(double value) {
+        return std::hash<double>()(value);
+    }
+
+    uint64_t BuildChartConfigurationHash(const ChartConfiguration& config) {
+        uint64_t hashValue = 0;
+        HashCombine(hashValue, static_cast<uint64_t>(config.hasDualAxis ? 1 : 0));
+        HashCombine(hashValue, static_cast<uint64_t>(config.xAxisType));
+        HashCombine(hashValue, static_cast<uint64_t>(config.activePreset));
+        HashCombine(hashValue, std::hash<std::string>()(config.leftAxisUnits));
+        HashCombine(hashValue, std::hash<std::string>()(config.rightAxisUnits));
+        HashCombine(hashValue, std::hash<std::wstring>()(config.presetDisplayName));
+
+        for (const auto& curve : config.curves) {
+            HashCombine(hashValue, std::hash<std::string>()(curve.id));
+            HashCombine(hashValue, std::hash<std::string>()(curve.displayName));
+            HashCombine(hashValue, std::hash<std::string>()(curve.units));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.yAxisGroup));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.enabled ? 1 : 0));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.color));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.lineStyle));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.sourceElement));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.elementIndex));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.dataType));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.frequency));
+            HashCombine(hashValue, static_cast<uint64_t>(curve.smtMode));
+        }
+
+        return hashValue;
+    }
+
     void DrawFrameAxisChart(ChartModule& chartModule,
                             HDC hdc,
                             const RECT& chartRect,
@@ -434,6 +470,7 @@ ChartManager::ChartManager()
     , serialModule(std::make_unique<SerialModule>())  // v2.13.0
     , metrologyModule(std::make_unique<MetrologyModule>())
     , notesModule(std::make_unique<NotesModule>())    // v2.16.x
+    , asyncTaskQueue(std::make_unique<AsyncTaskQueue>())
     , isSelecting(false)
     , activeChart(0)
 {
@@ -482,6 +519,103 @@ ChartManager::ChartManager()
 
 ChartManager::~ChartManager() {
     EndSelectionOverlay();
+}
+
+void ChartManager::InvalidateCachedSnapshots() {
+    chart1SnapshotCache = {};
+    chart2SnapshotCache = {};
+    chart1TemperatureCache = {};
+    chart2TemperatureCache = {};
+}
+
+void ChartManager::ResetCoordinateTracking() {
+    lastChart1CoordinateTick = 0;
+    lastChart2CoordinateTick = 0;
+    lastChart1CoordinatePoint = { -1, -1 };
+    lastChart2CoordinatePoint = { -1, -1 };
+}
+
+bool ChartManager::TryGetCurveSnapshot(int chartNumber,
+                                       const ChartConfiguration& config,
+                                       const ZoomRange& zoom,
+                                       CachedCurveSnapshot& outSnapshot) const {
+    if (!curveSelectionModule || !dataModule || !chartModule || config.curves.empty()) {
+        return false;
+    }
+
+    CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
+    const uint64_t dataVersion = dataModule->GetDataVersion();
+    const uint64_t configHash = BuildChartConfigurationHash(config);
+    if (cache->valid &&
+        cache->dataVersion == dataVersion &&
+        cache->configHash == configHash &&
+        cache->isZoomed == zoom.isZoomed &&
+        cache->zoomMinX == zoom.minX &&
+        cache->zoomMaxX == zoom.maxX) {
+        outSnapshot = *cache;
+        return true;
+    }
+
+    CurveDataSnapshot builtSnapshot = {};
+    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+                           zoom.isZoomed, zoom.minX, zoom.maxX, builtSnapshot);
+
+    cache->valid = true;
+    cache->dataVersion = dataVersion;
+    cache->configHash = configHash;
+    cache->isZoomed = zoom.isZoomed;
+    cache->zoomMinX = zoom.minX;
+    cache->zoomMaxX = zoom.maxX;
+    cache->leftAxisData = std::move(builtSnapshot.leftAxisData);
+    cache->rightAxisData = std::move(builtSnapshot.rightAxisData);
+    cache->leftAxisCurves = std::move(builtSnapshot.leftAxisCurves);
+    cache->rightAxisCurves = std::move(builtSnapshot.rightAxisCurves);
+    cache->minX = builtSnapshot.minX;
+    cache->maxX = builtSnapshot.maxX;
+    cache->minY1 = builtSnapshot.minY1;
+    cache->maxY1 = builtSnapshot.maxY1;
+    cache->minY2 = builtSnapshot.minY2;
+    cache->maxY2 = builtSnapshot.maxY2;
+
+    outSnapshot = *cache;
+    return true;
+}
+
+bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
+                                             const ZoomRange& zoom,
+                                             CachedTemperatureAxisData& outData) const {
+    if (!dataModule) {
+        return false;
+    }
+
+    CachedTemperatureAxisData* cache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
+    const uint64_t dataVersion = dataModule->GetDataVersion();
+    if (cache->valid &&
+        cache->dataVersion == dataVersion &&
+        cache->isZoomed == zoom.isZoomed &&
+        cache->zoomMinX == zoom.minX &&
+        cache->zoomMaxX == zoom.maxX) {
+        outData = *cache;
+        return !outData.temperatureData.empty();
+    }
+
+    TemperatureAxisRenderData renderData = {};
+    if (!TryBuildTemperatureAxisRenderData(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, renderData)) {
+        *cache = {};
+        return false;
+    }
+
+    cache->valid = true;
+    cache->dataVersion = dataVersion;
+    cache->isZoomed = zoom.isZoomed;
+    cache->zoomMinX = zoom.minX;
+    cache->zoomMaxX = zoom.maxX;
+    cache->temperatureData = std::move(renderData.temperatureData);
+    cache->minXData = renderData.minXData;
+    cache->maxXData = renderData.maxXData;
+
+    outData = *cache;
+    return true;
 }
 
 void ChartManager::PushAxisHistory(int chartNumber) {
@@ -985,6 +1119,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
 
         // Добавляем данные в DataModule
         dataModule->AddParsedData(parsedData);
+        InvalidateCachedSnapshots();
         
         // v2.14.0: Обновляем диапазон для режима Surf
         if (dataModule->HasData()) {
@@ -1146,7 +1281,7 @@ void ChartManager::DrawChart2(HDC hdc)
     }
 }
 
-void ChartManager::LoadDataFromFile(const std::wstring& filename)
+void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
 {
     // v2.14.1: При открытии файла останавливаем опрос COM-порта
     // Режимы работы с файлом и COM-портом взаимоисключающие
@@ -1157,24 +1292,129 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
         serialModule->Disconnect();
     }
 
-    std::wstring loadError;
-    if (!dataModule->LoadDataFromFile(filename, loadError)) {
-        const wchar_t* message = loadError.empty()
-            ? L"Не удалось открыть файл данных"
-            : loadError.c_str();
-        MessageBox(nullptr, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
+    if (!dataModule || !asyncTaskQueue) {
         return;
     }
 
-    currentDataFilePath = filename;
-    if (notesModule) {
-        EnsureNotesLoadedForPath(filename + L".notes.jsonl");
+    if (uiModule) {
+        uiModule->UpdateStatusBar(L"Loading data file...");
     }
-    
-    // Обновляем информацию о файле в статусной строке
-    UpdateStatusBarFileInfo();
-    
-    // Сбрасываем масштабирование для обоих графиков при загрузке новых данных
+
+    asyncTaskQueue->PostWorkerTask([this, hWnd, filename]() {
+        DataLoadResult loadedData;
+        std::wstring loadError;
+        const bool loaded = DataModule::LoadDataFromFileResult(filename, loadedData, loadError);
+
+        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, filename, loaded, loadedData = std::move(loadedData), loadError = std::move(loadError)]() mutable {
+            if (!loaded) {
+                const wchar_t* message = loadError.empty()
+                    ? L"Не удалось открыть файл данных"
+                    : loadError.c_str();
+                MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
+                if (uiModule) {
+                    uiModule->UpdateStatusBar(L"Ready");
+                }
+                return;
+            }
+
+            dataModule->ApplyLoadedData(std::move(loadedData));
+            InvalidateCachedSnapshots();
+            ResetCoordinateTracking();
+
+            currentDataFilePath = filename;
+            if (notesModule) {
+                EnsureNotesLoadedForPath(filename + L".notes.jsonl");
+            }
+
+            UpdateStatusBarFileInfo();
+
+            chart1Zoom.isZoomed = false;
+            chart2Zoom.isZoomed = false;
+            chart1Zoom.isXCustom = false;
+            chart2Zoom.isXCustom = false;
+            chart1Zoom.isXToLatest = false;
+            chart2Zoom.isXToLatest = false;
+            chart1Zoom.isYCustom = false;
+            chart2Zoom.isYCustom = false;
+
+            chart1ZoomHistory.clear();
+            chart2ZoomHistory.clear();
+            ClearAxisHistory(1);
+            ClearAxisHistory(2);
+
+            if (dataModule->HasData()) {
+                if (uiModule->IsSurfEnabled(1)) {
+                    UpdateSurfRange(1);
+                } else {
+                    uiModule->ResetXRangeControls(1);
+                }
+
+                if (uiModule->IsSurfEnabled(2)) {
+                    UpdateSurfRange(2);
+                } else {
+                    uiModule->ResetXRangeControls(2);
+                }
+
+                UpdateSurfStatusBar();
+            }
+
+            UpdateScrollBars(hWnd);
+            InvalidateRect(hWnd, nullptr, TRUE);
+        });
+    });
+
+    if (hWnd) {
+        InvalidateRect(hWnd, nullptr, FALSE);
+    }
+}
+
+bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload) {
+    if (!dataModule) {
+        return false;
+    }
+
+    if (!showFullFile) {
+        HandleSerialClear(hWnd);
+        return true;
+    }
+
+    if (filePathForPreload.empty()) {
+        return false;
+    }
+
+    std::wstring loadError;
+    DataLoadResult loadedData;
+    if (!DataModule::LoadDataFromFileResult(filePathForPreload, loadedData, loadError)) {
+        const wchar_t* message = loadError.empty()
+            ? L"Не удалось открыть файл данных"
+            : loadError.c_str();
+        MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
+        return false;
+    }
+
+    return ApplyPreparedSerialDisplayData(hWnd, filePathForPreload, std::move(loadedData));
+}
+
+bool ChartManager::ApplyPreparedSerialDisplayData(HWND hWnd,
+                                                  const std::wstring& filePathForPreload,
+                                                  DataLoadResult&& loadedData) {
+    if (!dataModule || !loadedData.HasData()) {
+        return false;
+    }
+
+    dataModule->ApplyLoadedData(std::move(loadedData));
+    InvalidateCachedSnapshots();
+    ResetCoordinateTracking();
+
+    currentDataFilePath = filePathForPreload;
+    if (notesModule) {
+        EnsureNotesLoadedForPath(filePathForPreload + L".notes.jsonl");
+    }
+
+    if (serialModule) {
+        serialModule->ResetStatistics();
+    }
+
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
     chart1Zoom.isXCustom = false;
@@ -1183,36 +1423,31 @@ void ChartManager::LoadDataFromFile(const std::wstring& filename)
     chart2Zoom.isXToLatest = false;
     chart1Zoom.isYCustom = false;
     chart2Zoom.isYCustom = false;
-    
-    // v2.12.5: Очищаем историю zoom при загрузке нового файла
     chart1ZoomHistory.clear();
     chart2ZoomHistory.clear();
     ClearAxisHistory(1);
     ClearAxisHistory(2);
-    
-    // v2.14.0: Обработка режима Surf при загрузке файла
-    if (dataModule->HasData()) {
-        // Если Surf включён для Chart 1 - показываем последние N точек
+
+    if (dataModule->HasData() && uiModule) {
         if (uiModule->IsSurfEnabled(1)) {
             UpdateSurfRange(1);
         } else {
             uiModule->ResetXRangeControls(1);
         }
-        
-        // Если Surf включён для Chart 2 - показываем последние N точек
+
         if (uiModule->IsSurfEnabled(2)) {
             UpdateSurfRange(2);
         } else {
             uiModule->ResetXRangeControls(2);
         }
-        
-        // Обновляем статусную строку с информацией о Surf
+
         UpdateSurfStatusBar();
     }
-    
-    // Сохраняем конфигурации кривых при загрузке новых данных
-    // Новая система должна продолжать работать с теми же настройками
-    // но на новых данных
+
+    UpdateStatusBarFileInfo();
+    UpdateScrollBars(hWnd);
+    InvalidateRect(hWnd, nullptr, TRUE);
+    return true;
 }
 
 bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
@@ -1806,9 +2041,12 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     // Y координата обрабатывается одинаково для обоих режимов
     // Получаем реальный диапазон Y из данных
     ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
-    CurveDataSnapshot curveSnapshot = {};
-    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config2,
-                           false, 0.0, 0.0, curveSnapshot);
+    CachedCurveSnapshot curveSnapshot = {};
+    ZoomRange fullRangeSnapshot = {};
+    if (!TryGetCurveSnapshot(chartNum, config2, fullRangeSnapshot, curveSnapshot)) {
+        dataY = 0.0;
+        return;
+    }
 
     double displayMinY = 0.0;
     double displayMaxY = 0.0;
@@ -2160,42 +2398,38 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         
         // Настраиваем диапазон вертикального скроллбара (ось Y)
         if (showVScroll1) {
-        // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
-        std::vector<std::vector<float>> leftAxisData, rightAxisData;
-        std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-        
-        // Получаем данные для текущего X диапазона
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData, 
-                                                 leftAxisCurves, rightAxisCurves,
-                                                 chart1Zoom.minX, chart1Zoom.maxX, -1e10, 1e10);
-        
-        double minYFull, maxYFull, minX, maxX, minY2, maxY2;
-        chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
-        
-        // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
-        double dataYRange = maxYFull - minYFull;
-        double padding = dataYRange * 0.05;
-        minYFull -= padding;
-        maxYFull += padding;
-        
-        double totalYRange = maxYFull - minYFull;
-        double viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
-        
-        // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
-        // Защита от деления на ноль
-        int vScrollPos = 50;
-        int vScrollPage = 100;
-        if (totalYRange > viewRangeY && totalYRange > 0) {
-            vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
-            int maxScrollPos = 100 - vScrollPage + 1;
+        CachedCurveSnapshot curveSnapshot = {};
+        if (!TryGetCurveSnapshot(1, config, chart1Zoom, curveSnapshot)) {
+            uiModule->SetVScrollBarRange(1, 0, 100, 100, 50);
+        } else {
+            double minYFull = curveSnapshot.minY1;
+            double maxYFull = curveSnapshot.maxY1;
             
-            // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
-            double scrollableRange = totalYRange - viewRangeY;
-            double scrollRatio = (chart1Zoom.minY - minYFull) / scrollableRange;
-            vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+            // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
+            double dataYRange = maxYFull - minYFull;
+            double padding = dataYRange * 0.05;
+            minYFull -= padding;
+            maxYFull += padding;
+            
+            double totalYRange = maxYFull - minYFull;
+            double viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
+            
+            // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+            // Защита от деления на ноль
+            int vScrollPos = 50;
+            int vScrollPage = 100;
+            if (totalYRange > viewRangeY && totalYRange > 0) {
+                vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+                int maxScrollPos = 100 - vScrollPage + 1;
+                
+                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
+                double scrollableRange = totalYRange - viewRangeY;
+                double scrollRatio = (chart1Zoom.minY - minYFull) / scrollableRange;
+                vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+            }
+            uiModule->SetVScrollBarRange(1, 0, 100, vScrollPage, vScrollPos);
         }
-        uiModule->SetVScrollBarRange(1, 0, 100, vScrollPage, vScrollPos);
         }
     } else {
         uiModule->ShowScrollBars(1, false);
@@ -2274,42 +2508,38 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             
             // Настраиваем диапазон вертикального скроллбара (ось Y)
             if (showVScroll2) {
-            // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
             ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
-            std::vector<std::vector<float>> leftAxisData, rightAxisData;
-            std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-            
-            // Получаем данные для текущего X диапазона
-            curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData,
-                                                     leftAxisCurves, rightAxisCurves,
-                                                     chart2Zoom.minX, chart2Zoom.maxX, -1e10, 1e10);
-            
-            double minYFull, maxYFull, minX, maxX, minY2, maxY2;
-            chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
-            
-            // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
-            double dataYRange = maxYFull - minYFull;
-            double padding = dataYRange * 0.05;
-            minYFull -= padding;
-            maxYFull += padding;
-            
-            double totalYRange = maxYFull - minYFull;
-            double viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
-            
-            // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
-            // Защита от деления на ноль
-            int vScrollPos = 50;
-            int vScrollPage = 100;
-            if (totalYRange > viewRangeY && totalYRange > 0) {
-                vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
-                int maxScrollPos = 100 - vScrollPage + 1;
+            CachedCurveSnapshot curveSnapshot = {};
+            if (!TryGetCurveSnapshot(2, config, chart2Zoom, curveSnapshot)) {
+                uiModule->SetVScrollBarRange(2, 0, 100, 100, 50);
+            } else {
+                double minYFull = curveSnapshot.minY1;
+                double maxYFull = curveSnapshot.maxY1;
                 
-                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
-                double scrollableRange = totalYRange - viewRangeY;
-                double scrollRatio = (chart2Zoom.minY - minYFull) / scrollableRange;
-                vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
+                double dataYRange = maxYFull - minYFull;
+                double padding = dataYRange * 0.05;
+                minYFull -= padding;
+                maxYFull += padding;
+                
+                double totalYRange = maxYFull - minYFull;
+                double viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
+                
+                // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+                // Защита от деления на ноль
+                int vScrollPos = 50;
+                int vScrollPage = 100;
+                if (totalYRange > viewRangeY && totalYRange > 0) {
+                    vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+                    int maxScrollPos = 100 - vScrollPage + 1;
+                    
+                    // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
+                    double scrollableRange = totalYRange - viewRangeY;
+                    double scrollRatio = (chart2Zoom.minY - minYFull) / scrollableRange;
+                    vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                }
+                uiModule->SetVScrollBarRange(2, 0, 100, vScrollPage, vScrollPos);
             }
-            uiModule->SetVScrollBarRange(2, 0, 100, vScrollPage, vScrollPos);
             }
         } else {
             uiModule->ShowScrollBars(2, false);
@@ -2336,8 +2566,6 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     // Перерисовываем только область конкретного графика
     // FALSE - не стираем фон, т.к. используем double buffering для устранения мигания
     InvalidateRect(hWnd, &chartRect, FALSE);
-    // Принудительно обновляем окно для немедленной перерисовки
-    UpdateWindow(hWnd);
 }
 
 // Метод для отображения схемы прибора (v2.9.4: немодальное окно)
@@ -2373,10 +2601,10 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                     zoom->minX, zoom->maxX,
                     zoom->minY, zoom->maxY);
     
-    // Вычисляем данные для кривых с учетом zoom
-    CurveDataSnapshot curveSnapshot = {};
-    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
-                           zoom->isZoomed, zoom->minX, zoom->maxX, curveSnapshot);
+    CachedCurveSnapshot curveSnapshot = {};
+    if (!TryGetCurveSnapshot(chartNumber, config, *zoom, curveSnapshot)) {
+        return;
+    }
     auto& leftAxisData = curveSnapshot.leftAxisData;
     auto& rightAxisData = curveSnapshot.rightAxisData;
     auto& leftAxisCurves = curveSnapshot.leftAxisCurves;
@@ -2396,8 +2624,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // Режим кроссплота: температура на оси X
 
-        TemperatureAxisRenderData temperatureAxis = {};
-        if (!TryBuildTemperatureAxisRenderData(*dataModule, zoom->isZoomed, zoom->minX, zoom->maxX, temperatureAxis)) {
+        CachedTemperatureAxisData temperatureAxis = {};
+        if (!TryGetTemperatureAxisData(chartNumber, *zoom, temperatureAxis)) {
             // Отрисовываем пустой график с сообщением
             chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                          leftAxisData, rightAxisData,
@@ -3057,6 +3285,7 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
 void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
     if (!dataModule || !dataModule->HasData()) {
         uiModule->ClearStatusBarCoordinates();
+        ResetCoordinateTracking();
         return;
     }
 
@@ -3066,8 +3295,21 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
     if (chartNum == 0) {
         // Курсор вне графиков
         uiModule->ClearStatusBarCoordinates();
+        ResetCoordinateTracking();
         return;
     }
+
+    POINT currentPoint = { x, y };
+    DWORD now = GetTickCount();
+    DWORD* lastTick = (chartNum == 1) ? &lastChart1CoordinateTick : &lastChart2CoordinateTick;
+    POINT* lastPoint = (chartNum == 1) ? &lastChart1CoordinatePoint : &lastChart2CoordinatePoint;
+    if (lastPoint->x == currentPoint.x &&
+        lastPoint->y == currentPoint.y &&
+        now - *lastTick < 16) {
+        return;
+    }
+    *lastPoint = currentPoint;
+    *lastTick = now;
 
     // Преобразуем экранные координаты в координаты данных
     double dataX, dataY1, dataY2;
@@ -3124,9 +3366,10 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
 
         // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
-        CurveDataSnapshot curveSnapshot = {};
-        BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
-                               zoom.isZoomed, zoom.minX, zoom.maxX, curveSnapshot);
+        CachedCurveSnapshot curveSnapshot = {};
+        if (!TryGetCurveSnapshot(chartNum, config, zoom, curveSnapshot)) {
+            return false;
+        }
         auto& leftAxisData = curveSnapshot.leftAxisData;
         auto& rightAxisData = curveSnapshot.rightAxisData;
         double minX = curveSnapshot.minX;
@@ -3384,9 +3627,10 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     if (!(xRange > 0.0)) return;
 
     // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
-    CurveDataSnapshot curveSnapshot = {};
-    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
-                           zoom.isZoomed, zoom.minX, zoom.maxX, curveSnapshot);
+    CachedCurveSnapshot curveSnapshot = {};
+    if (!TryGetCurveSnapshot(chartNumber, config, zoom, curveSnapshot)) {
+        return;
+    }
     auto& leftAxisData = curveSnapshot.leftAxisData;
     auto& rightAxisData = curveSnapshot.rightAxisData;
     const double minY1Full = curveSnapshot.minY1;
@@ -3690,82 +3934,13 @@ void ChartManager::HandleSerialStop(HWND hWnd) {
     UpdateXRangeUI(hWnd);
 }
 
-bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload) {
-    if (!dataModule) {
-        return false;
-    }
-
-    if (!showFullFile) {
-        HandleSerialClear(hWnd);
-        return true;
-    }
-
-    if (filePathForPreload.empty()) {
-        return false;
-    }
-
-    std::wstring loadError;
-    if (!dataModule->LoadDataFromFile(filePathForPreload, loadError)) {
-        const wchar_t* message = loadError.empty()
-            ? L"Не удалось открыть файл данных"
-            : loadError.c_str();
-        MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
-        return false;
-    }
-
-    currentDataFilePath = filePathForPreload;
-    if (notesModule) {
-        EnsureNotesLoadedForPath(filePathForPreload + L".notes.jsonl");
-    }
-
-    // Сбрасываем статистику COM перед новой сессией
-    if (serialModule) {
-        serialModule->ResetStatistics();
-    }
-
-    // Сбрасываем zoom и историю
-    chart1Zoom.isZoomed = false;
-    chart2Zoom.isZoomed = false;
-    chart1Zoom.isXCustom = false;
-    chart2Zoom.isXCustom = false;
-    chart1Zoom.isXToLatest = false;
-    chart2Zoom.isXToLatest = false;
-    chart1Zoom.isYCustom = false;
-    chart2Zoom.isYCustom = false;
-    chart1ZoomHistory.clear();
-    chart2ZoomHistory.clear();
-    ClearAxisHistory(1);
-    ClearAxisHistory(2);
-
-    // Обновляем X диапазоны и Surf-статус
-    if (dataModule->HasData() && uiModule) {
-        if (uiModule->IsSurfEnabled(1)) {
-            UpdateSurfRange(1);
-        } else {
-            uiModule->ResetXRangeControls(1);
-        }
-
-        if (uiModule->IsSurfEnabled(2)) {
-            UpdateSurfRange(2);
-        } else {
-            uiModule->ResetXRangeControls(2);
-        }
-
-        UpdateSurfStatusBar();
-    }
-
-    UpdateStatusBarFileInfo();
-    UpdateScrollBars(hWnd);
-    InvalidateRect(hWnd, nullptr, TRUE);
-
-    return true;
-}
-
 void ChartManager::HandleSerialClear(HWND hWnd) {
     if (!dataModule) return;
     
     // Очищаем данные
     dataModule->ClearData();
+    InvalidateCachedSnapshots();
+    ResetCoordinateTracking();
 
     // v2.16.x: при переходе к COM-режиму не должны писать заметки в sidecar последнего открытого файла
     currentDataFilePath.clear();

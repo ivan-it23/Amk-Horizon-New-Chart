@@ -19,6 +19,7 @@
 #define MAX_LOADSTRING 100
 
 struct MetrologyDialogContext;
+extern ChartManager* g_chartManager;
 
 struct NotesJournalDialogContext {
     ChartManager* manager = nullptr;
@@ -90,6 +91,55 @@ struct NoteEditDialogContext {
     std::wstring text;
     bool ok = false;
 };
+
+struct SerialConnectTaskResult {
+    SerialResult connectResult = SerialResult::TIMEOUT;
+    SerialResult metrologyResult = SerialResult::TIMEOUT;
+    METROLOGY_DATA metrology = {};
+    bool showFullFile = false;
+    std::wstring preloadPath;
+    DataLoadResult preloadedData;
+    std::wstring preloadError;
+};
+
+static void SetSerialDialogBusyState(HWND hDlg, bool busy) {
+    const int controlIds[] = {
+        IDC_SERIAL_PORT_COMBO,
+        IDC_SERIAL_CONNECT_BTN,
+        IDC_SERIAL_START_BTN,
+        IDC_SERIAL_RECORD_CHECK,
+        IDC_SERIAL_APPEND_CHECK,
+        IDC_SERIAL_APPEND_SHOW_FULL_CHECK,
+        IDC_SERIAL_BROWSE_BTN,
+        IDC_SERIAL_OPEN_FOLDER_BTN,
+        IDC_SERIAL_CLEAR_BTN
+    };
+
+    for (int controlId : controlIds) {
+        if (HWND hControl = GetDlgItem(hDlg, controlId)) {
+            EnableWindow(hControl, !busy);
+        }
+    }
+
+    if (HWND hStopBtn = GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN)) {
+        EnableWindow(hStopBtn, !busy && g_chartManager && g_chartManager->IsSerialConnected());
+    }
+}
+
+static void PopulateSerialPortsCombo(HWND hDlg, const std::vector<std::wstring>& ports) {
+    HWND hPortCombo = GetDlgItem(hDlg, IDC_SERIAL_PORT_COMBO);
+    if (!hPortCombo) {
+        return;
+    }
+
+    SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
+    for (const auto& port : ports) {
+        SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
+    }
+    if (!ports.empty()) {
+        SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+    }
+}
 
 static INT_PTR CALLBACK NoteEditDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
@@ -1213,6 +1263,10 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+    if (AsyncTaskQueue::TryDispatchUiTask(message, lParam)) {
+        return 0;
+    }
+
     switch (message)
     {
     case WM_COMMAND:
@@ -1381,8 +1435,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     
                     if (GetOpenFileName(&ofn) && g_chartManager)
                     {
-                        g_chartManager->LoadDataFromFile(szFile);
-                        InvalidateRect(hWnd, NULL, FALSE);
+                        g_chartManager->LoadDataFromFile(hWnd, szFile);
                     }
                 }
                 break;
@@ -1763,6 +1816,11 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
     static HWND hAppendShowFullCheck = nullptr;
     static HWND hRecordStatus = nullptr;
     static HWND hRecordFrames = nullptr;
+    static bool isBusy = false;
+
+    if (AsyncTaskQueue::TryDispatchUiTask(message, lParam)) {
+        return (INT_PTR)TRUE;
+    }
     
     switch (message)
     {
@@ -1783,16 +1841,29 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             hRecordStatus = GetDlgItem(hDlg, IDC_SERIAL_RECORD_STATUS);
             hRecordFrames = GetDlgItem(hDlg, IDC_SERIAL_RECORD_FRAMES);
             
-            // Заполняем список COM-портов
-            if (hPortCombo) {
-                SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
-                std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
-                for (const auto& port : ports) {
-                    SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
-                }
-                if (!ports.empty()) {
-                    SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
-                }
+            // Заполняем список COM-портов асинхронно, чтобы диалог открывался без фриза.
+            if (g_chartManager && g_chartManager->GetAsyncTaskQueue()) {
+                isBusy = true;
+                SetSerialDialogBusyState(hDlg, true);
+                SetWindowText(hStatusLabel, L"Поиск COM-портов...");
+                g_chartManager->GetAsyncTaskQueue()->PostWorkerTask([hDlg]() {
+                    std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
+                    AsyncTaskQueue::PostUiTask(hDlg, [hDlg, ports = std::move(ports)]() mutable {
+                        if (!IsWindow(hDlg)) {
+                            return;
+                        }
+
+                        PopulateSerialPortsCombo(hDlg, ports);
+                        isBusy = false;
+                        SetSerialDialogBusyState(hDlg, false);
+                        if (g_chartManager) {
+                            bool connected = g_chartManager->IsSerialConnected();
+                            bool polling = g_chartManager->IsSerialPolling();
+                            SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL),
+                                          connected ? (polling ? L"Опрос..." : L"Подключено") : L"Отключено");
+                        }
+                    });
+                });
             }
             
             // v2.15.0: Инициализация чекбокса записи
@@ -1850,22 +1921,35 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
         switch (LOWORD(wParam))
         {
         case IDC_SERIAL_CONNECT_BTN:
-            // Кнопка "Обновить" - обновляем список портов
-            if (hPortCombo) {
-                SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
-                std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
-                for (const auto& port : ports) {
-                    SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
-                }
-                if (!ports.empty()) {
-                    SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
-                }
+            // Кнопка "Обновить" - обновляем список портов асинхронно.
+            if (!isBusy && g_chartManager && g_chartManager->GetAsyncTaskQueue()) {
+                isBusy = true;
+                SetSerialDialogBusyState(hDlg, true);
+                SetWindowText(hStatusLabel, L"Поиск COM-портов...");
+                g_chartManager->GetAsyncTaskQueue()->PostWorkerTask([hDlg]() {
+                    std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
+                    AsyncTaskQueue::PostUiTask(hDlg, [hDlg, ports = std::move(ports)]() mutable {
+                        if (!IsWindow(hDlg)) {
+                            return;
+                        }
+
+                        PopulateSerialPortsCombo(hDlg, ports);
+                        isBusy = false;
+                        SetSerialDialogBusyState(hDlg, false);
+                        if (g_chartManager) {
+                            bool connected = g_chartManager->IsSerialConnected();
+                            bool polling = g_chartManager->IsSerialPolling();
+                            SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL),
+                                          connected ? (polling ? L"Опрос..." : L"Подключено") : L"Отключено");
+                        }
+                    });
+                });
             }
             return (INT_PTR)TRUE;
             
         case IDC_SERIAL_START_BTN:
             // Кнопка "Подключить"
-            if (g_chartManager && hPortCombo) {
+            if (!isBusy && g_chartManager && hPortCombo) {
                 // Получаем выбранный порт
                 int sel = (int)SendMessage(hPortCombo, CB_GETCURSEL, 0, 0);
                 if (sel != CB_ERR) {
@@ -1881,73 +1965,116 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             return (INT_PTR)TRUE;
                         }
 
-                        SerialResult result = serial->Connect(portName);
-                        
-                        if (result == SerialResult::SUCCESS) {
-                            SetWindowText(hStatusLabel, L"Подключено");
-                            EnableWindow(hStartBtn, FALSE);
-                            EnableWindow(hStopBtn, TRUE);
-                            
-                            // v2.15.0: Сначала запрашиваем метрологию (до начала записи!)
-                            // Это нужно для правильного именования файла записи
-                            METROLOGY_DATA metro;
-                            // NOTE: при открытии COM-порта Arduino часто перезагружается из-за DTR/RTS,
-                            // поэтому первый запрос метрологии может таймаутиться. Делаем несколько попыток.
-                            SerialResult metroRes = SerialResult::TIMEOUT;
-                            for (int attempt = 0; attempt < 4; ++attempt) {
-                                metroRes = serial->RequestMetrology(metro);
-                                if (metroRes == SerialResult::SUCCESS) {
-                                    break;
-                                }
-                                // Первая пауза под Arduino reset, последующие — короткие ретраи
-                                Sleep(attempt == 0 ? 1200 : 300);
-                            }
+                        const bool showFullFile =
+                            serial->IsAppendToExistingEnabled() &&
+                            hAppendShowFullCheck &&
+                            (SendMessage(hAppendShowFullCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
+                        const std::wstring preloadPath = showFullFile ? serial->GetExistingRecordFilePath() : L"";
 
-                            if (metroRes == SerialResult::SUCCESS) {
-                                wchar_t info[128];
-                                swprintf_s(info, L"S/N: %u\nD: %u mm", metro.serial, metro.D_sonde_mm);
-                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
-                            } else {
-                                // Не блокируем работу: данные могут идти и без метрологии, но файл будет AMK_Unknown...
-                                std::wstring msg = L"Метрология не получена: " + SerialModule::ResultToString(metroRes);
-                                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, msg.c_str());
-                            }
-                            
-                            HWND hMainWnd = GetParent(hDlg);
-                            bool showFullFile = false;
-                            if (serial->IsAppendToExistingEnabled() && hAppendShowFullCheck) {
-                                showFullFile = (SendMessage(hAppendShowFullCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
-                            }
+                        isBusy = true;
+                        SetSerialDialogBusyState(hDlg, true);
+                        SetWindowText(hStatusLabel, L"Подключение...");
+                        SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"Подготовка соединения...");
 
-                            if (showFullFile) {
-                                bool loaded = g_chartManager->PrepareSerialDisplayData(
-                                    hMainWnd,
-                                    true,
-                                    serial->GetExistingRecordFilePath()
-                                );
-                                if (!loaded) {
-                                    MessageBox(
-                                        hDlg,
-                                        L"Не удалось загрузить существующий файл. Будут показаны только текущие данные COM-сессии.",
-                                        L"Дозапись",
-                                        MB_OK | MB_ICONWARNING
-                                    );
-                                    g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
-                                }
-                            } else {
-                                g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
-                            }
-
-                            SetWindowText(hFrameLabel, L"0");
-                            SetWindowText(hPacketsLabel, L"0 / 0");
-                            
-                            // Запускаем опрос (после получения метрологии)
-                            serial->StartPolling(hMainWnd, 2000);
-                            SetWindowText(hStatusLabel, L"Опрос...");
-                        } else {
-                            std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result);
-                            SetWindowText(hStatusLabel, errorMsg.c_str());
+                        AsyncTaskQueue* queue = g_chartManager->GetAsyncTaskQueue();
+                        if (!queue) {
+                            isBusy = false;
+                            SetSerialDialogBusyState(hDlg, false);
+                            SetWindowText(hStatusLabel, L"Ошибка очереди задач");
+                            return (INT_PTR)TRUE;
                         }
+
+                        const std::wstring selectedPort = portName;
+                        queue->PostWorkerTask([hDlg, selectedPort, showFullFile, preloadPath]() {
+                            SerialConnectTaskResult result = {};
+                            result.showFullFile = showFullFile;
+                            result.preloadPath = preloadPath;
+
+                            if (g_chartManager) {
+                                if (SerialModule* serial = g_chartManager->GetSerialModule()) {
+                                    result.connectResult = serial->Connect(selectedPort);
+                                    if (result.connectResult == SerialResult::SUCCESS) {
+                                        for (int attempt = 0; attempt < 4; ++attempt) {
+                                            result.metrologyResult = serial->RequestMetrology(result.metrology);
+                                            if (result.metrologyResult == SerialResult::SUCCESS) {
+                                                break;
+                                            }
+                                            Sleep(attempt == 0 ? 1200 : 300);
+                                        }
+
+                                        if (result.showFullFile && !result.preloadPath.empty()) {
+                                            DataModule::LoadDataFromFileResult(result.preloadPath,
+                                                                               result.preloadedData,
+                                                                               result.preloadError);
+                                        }
+                                    }
+                                }
+                            }
+
+                            AsyncTaskQueue::PostUiTask(hDlg, [hDlg, result = std::move(result)]() mutable {
+                                if (!IsWindow(hDlg)) {
+                                    return;
+                                }
+
+                                isBusy = false;
+                                SetSerialDialogBusyState(hDlg, false);
+
+                                if (!g_chartManager) {
+                                    return;
+                                }
+
+                                SerialModule* serial = g_chartManager->GetSerialModule();
+                                if (!serial) {
+                                    return;
+                                }
+
+                                if (result.connectResult == SerialResult::SUCCESS) {
+                                    SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Подключено");
+                                    EnableWindow(GetDlgItem(hDlg, IDC_SERIAL_START_BTN), FALSE);
+                                    EnableWindow(GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN), TRUE);
+
+                                    if (result.metrologyResult == SerialResult::SUCCESS) {
+                                        wchar_t info[128];
+                                        swprintf_s(info, L"S/N: %u\nD: %u mm", result.metrology.serial, result.metrology.D_sonde_mm);
+                                        SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
+                                    } else {
+                                        std::wstring msg = L"Метрология не получена: " + SerialModule::ResultToString(result.metrologyResult);
+                                        SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, msg.c_str());
+                                    }
+
+                                    HWND hMainWnd = GetParent(hDlg);
+                                    if (result.showFullFile) {
+                                        if (!result.preloadedData.HasData()) {
+                                            MessageBox(
+                                                hDlg,
+                                                L"Не удалось загрузить существующий файл. Будут показаны только текущие данные COM-сессии.",
+                                                L"Дозапись",
+                                                MB_OK | MB_ICONWARNING
+                                            );
+                                            g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
+                                        } else {
+                                            g_chartManager->ApplyPreparedSerialDisplayData(
+                                                hMainWnd,
+                                                result.preloadPath,
+                                                std::move(result.preloadedData)
+                                            );
+                                        }
+                                    } else {
+                                        g_chartManager->PrepareSerialDisplayData(hMainWnd, false, L"");
+                                    }
+
+                                    SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_FRAME_LABEL), L"0");
+                                    SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_PACKETS_LABEL), L"0 / 0");
+
+                                    serial->StartPolling(hMainWnd, 2000);
+                                    SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Опрос...");
+                                } else {
+                                    std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result.connectResult);
+                                    SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), errorMsg.c_str());
+                                    SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"");
+                                }
+                            });
+                        });
                     }
                 } else {
                     MessageBox(hDlg, L"Выберите COM-порт", L"Ошибка", MB_OK | MB_ICONWARNING);

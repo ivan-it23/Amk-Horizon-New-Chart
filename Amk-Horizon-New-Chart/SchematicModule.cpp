@@ -1,6 +1,7 @@
 #include "framework.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
+#include "ToolPresentation.h"
 #include "Resource.h"
 #include <sstream>
 #include <commctrl.h>
@@ -153,42 +154,16 @@ static constexpr int kSchematicFrameElementsCount =
 static constexpr std::array<int, SchematicSelection::UI_TRANSMITTER_COUNT> kUiTransmitterLayoutPositions = {2, 5, 1, 6, 0};
 static constexpr int kUiReceiverLayoutStartPosition = 3;
 
-static std::wstring BuildIndexedElementLabel(wchar_t prefix, int index) {
-    return std::wstring(1, prefix) + std::to_wstring(index + 1);
-}
-
-static std::wstring BuildSilentElementLabel(int index) {
-    return L"\x041C\x043E\x043B\x0447.\nR" + std::to_wstring(index + 1);
-}
-
 static std::wstring BuildSilentGroupHeaderLabel(int index) {
     return L"\x041C\x043E\x043B\x0447. R" + std::to_wstring(index + 1);
 }
 
 static std::wstring BuildElementLabel(ElementType type, int index) {
-    switch (type) {
-        case ElementType::TRANSMITTER:
-            return BuildIndexedElementLabel(L'T', index);
-        case ElementType::RECEIVER:
-            return BuildIndexedElementLabel(L'R', index);
-        case ElementType::SILENT_TX:
-            return BuildSilentElementLabel(index);
-        default:
-            return L"Unknown";
-    }
+    return GetElementShortLabel(type, index);
 }
 
 static std::wstring BuildElementTooltip(ElementType type, int index) {
-    switch (type) {
-        case ElementType::TRANSMITTER:
-            return L"\x041F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A T" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        case ElementType::RECEIVER:
-            return L"\x041F\x0440\x0438\x0451\x043C\x043D\x0438\x043A R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        case ElementType::SILENT_TX:
-            return L"\x041C\x043E\x043B\x0447\x0430\x0449\x0438\x0439 \x043F\x0435\x0440\x0435\x0434\x0430\x0442\x0447\x0438\x043A \x0434\x043B\x044F R" + std::to_wstring(index + 1) + L" - \x043D\x0430\x0436\x043C\x0438\x0442\x0435 \x0434\x043B\x044F \x0432\x044B\x0431\x043E\x0440\x0430";
-        default:
-            return L"Unknown element";
-    }
+    return GetElementTooltipText(type, index);
 }
 
 static bool HasAllUiTransmittersSelected(const std::set<int>& uniqueTransmitters) {
