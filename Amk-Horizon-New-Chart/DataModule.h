@@ -66,10 +66,30 @@ struct DataRangeExportAnalysis {
 // Класс для управления данными
 class DataModule {
 private:
+    struct DerivedSeriesChannelCache {
+        std::vector<float> valuesByRecord;
+        std::vector<uint8_t> validByRecord;
+    };
+
+    struct DerivedSeriesFamilyCache {
+        bool valid = false;
+        uint64_t dataVersion = 0;
+        DataType type = DataType::TEMPERATURE;
+        FrequencyBand frequency = FrequencyBand::FREQ_400_KHZ;
+        int transmitterCount = 0;
+        std::vector<DerivedSeriesChannelCache> channels;
+    };
+
     std::vector<GP_TOOL_DATA> data;
     std::vector<ToolRecordMetadata> recordMetadata;
     std::wstring loadedFileName;  // Имя загруженного файла (без пути и расширения)
     uint64_t dataVersion = 0;
+    mutable int cachedAvailableTransmitterCount = -1;
+    mutable uint64_t cachedAvailableTransmitterCountVersion = 0;
+    mutable DerivedSeriesFamilyCache phaseDifference400Cache;
+    mutable DerivedSeriesFamilyCache phaseDifference2000Cache;
+    mutable DerivedSeriesFamilyCache amplitudeRatio400Cache;
+    mutable DerivedSeriesFamilyCache amplitudeRatio2000Cache;
 
     static bool ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature);
     static uint32_t DecodeToolCode(uint32_t signature);
@@ -200,6 +220,25 @@ private:
                          FrequencyBand frequency) const;
     
     int GetAvailableTransmitterCount() const;
+    void InvalidateDerivedCaches();
+    bool IsDerivedSeriesCacheableType(DataType type) const;
+    DerivedSeriesFamilyCache* GetMutableDerivedSeriesFamilyCache(DataType type, FrequencyBand freq);
+    const DerivedSeriesFamilyCache* GetDerivedSeriesFamilyCache(DataType type, FrequencyBand freq) const;
+    bool EnsureDerivedSeriesFamilyCache(DataType type, FrequencyBand freq, const DerivedSeriesFamilyCache*& outCache) const;
+    bool TryAppendCachedDerivedSeriesWindow(const DerivedSeriesFamilyCache& cache,
+                                            int transmitterIndex,
+                                            size_t startIndex,
+                                            size_t endIndex,
+                                            double minY,
+                                            double maxY,
+                                            std::vector<float>& outData) const;
+    bool TryPopulateCachedDerivedSeries(const DerivedSeriesFamilyCache& cache,
+                                        const std::vector<bool>& enabledTransmitters,
+                                        size_t startIndex,
+                                        size_t endIndex,
+                                        double minY,
+                                        double maxY,
+                                        std::vector<std::vector<float>>& outData) const;
 
     bool IsValidDataRange(double minX, double maxX) const;
     std::pair<size_t, size_t> GetDataIndexRange(double minX, double maxX) const;

@@ -135,6 +135,8 @@ private:
         bool isZoomed = false;
         double zoomMinX = 0.0;
         double zoomMaxX = 0.0;
+        size_t startIndex = 0;
+        size_t endIndex = 0;
         std::vector<float> temperatureData;
         double minXData = 0.0;
         double maxXData = 0.0;
@@ -326,10 +328,16 @@ private:
                              const ChartConfiguration& config,
                              const ZoomRange& zoom,
                              bool allowSynchronousBuild,
-                             CachedCurveSnapshot& outSnapshot) const;
+                             const CachedCurveSnapshot*& outSnapshot) const;
     bool TryGetTemperatureAxisData(int chartNumber,
                                    const ZoomRange& zoom,
-                                   CachedTemperatureAxisData& outData) const;
+                                   bool allowSynchronousBuild,
+                                   const CachedTemperatureAxisData*& outData) const;
+    double ResolveTemperatureAxisDataX(int chartNumber,
+                                       const ZoomRange& zoom,
+                                       double xRatio,
+                                       double fallbackDataX,
+                                       bool allowSynchronousBuild) const;
     bool ShouldUseAsyncCurveWarmup() const;
     void ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
                                           int chartNumber,

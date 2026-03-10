@@ -363,9 +363,182 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
 }
 
 DataModule::DataModule() {
+    InvalidateDerivedCaches();
 }
 
 DataModule::~DataModule() {
+}
+
+void DataModule::InvalidateDerivedCaches() {
+    cachedAvailableTransmitterCount = -1;
+    cachedAvailableTransmitterCountVersion = 0;
+    phaseDifference400Cache = {};
+    phaseDifference2000Cache = {};
+    amplitudeRatio400Cache = {};
+    amplitudeRatio2000Cache = {};
+}
+
+bool DataModule::IsDerivedSeriesCacheableType(DataType type) const {
+    switch (type) {
+        case DataType::PHASE_DIFFERENCE:
+        case DataType::AMPLITUDE_RATIO:
+            return true;
+        default:
+            return false;
+    }
+}
+
+DataModule::DerivedSeriesFamilyCache* DataModule::GetMutableDerivedSeriesFamilyCache(DataType type, FrequencyBand freq) {
+    if (type == DataType::PHASE_DIFFERENCE) {
+        return (freq == FrequencyBand::FREQ_400_KHZ) ? &phaseDifference400Cache : &phaseDifference2000Cache;
+    }
+    if (type == DataType::AMPLITUDE_RATIO) {
+        return (freq == FrequencyBand::FREQ_400_KHZ) ? &amplitudeRatio400Cache : &amplitudeRatio2000Cache;
+    }
+    return nullptr;
+}
+
+const DataModule::DerivedSeriesFamilyCache* DataModule::GetDerivedSeriesFamilyCache(DataType type, FrequencyBand freq) const {
+    return const_cast<DataModule*>(this)->GetMutableDerivedSeriesFamilyCache(type, freq);
+}
+
+bool DataModule::EnsureDerivedSeriesFamilyCache(DataType type, FrequencyBand freq, const DerivedSeriesFamilyCache*& outCache) const {
+    outCache = nullptr;
+    if (!HasData() || !IsDerivedSeriesCacheableType(type)) {
+        return false;
+    }
+
+    DerivedSeriesFamilyCache* cache = const_cast<DataModule*>(this)->GetMutableDerivedSeriesFamilyCache(type, freq);
+    if (!cache) {
+        return false;
+    }
+
+    if (cache->valid && cache->dataVersion == dataVersion) {
+        outCache = cache;
+        return true;
+    }
+
+    const int transmitterCount = GetAvailableTransmitterCount();
+    if (transmitterCount <= 0) {
+        *cache = {};
+        return false;
+    }
+
+    cache->valid = false;
+    cache->dataVersion = dataVersion;
+    cache->type = type;
+    cache->frequency = freq;
+    cache->transmitterCount = transmitterCount;
+    cache->channels.clear();
+    cache->channels.resize(static_cast<size_t>(transmitterCount));
+
+    const size_t recordCount = GetDataSize();
+    for (auto& channel : cache->channels) {
+        channel.valuesByRecord.assign(recordCount, 0.0f);
+        channel.validByRecord.assign(recordCount, 0);
+    }
+
+    const int freqIdx = (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
+    constexpr float kAmplitudeRatioEpsilon = 1e-10f;
+    constexpr float kMillidegreePerRadian = 57295.7795f;
+
+    for (size_t i = 0; i < recordCount; ++i) {
+        const ToolDataAccessView view = GetDataView(i);
+        const int viewTransmitterCount = (std::min)(transmitterCount, view.GetTransmitterCount());
+        for (int txIdx = 0; txIdx < viewTransmitterCount; ++txIdx) {
+            float value = 0.0f;
+            bool hasValue = false;
+
+            if (type == DataType::PHASE_DIFFERENCE) {
+                float phaseDiff = 0.0f;
+                if (view.TryGetDeltaPhase(freqIdx, txIdx, phaseDiff)) {
+                    value = NormalizePhase(phaseDiff) * kMillidegreePerRadian;
+                    hasValue = true;
+                }
+            } else if (type == DataType::AMPLITUDE_RATIO) {
+                float rx1 = 0.0f;
+                float rx2 = 0.0f;
+                if (view.TryGetAmplitudeRx1(freqIdx, txIdx, rx1) && view.TryGetAmplitudeRx2(freqIdx, txIdx, rx2)) {
+                    value = (std::abs(rx1) > kAmplitudeRatioEpsilon) ? (rx2 / rx1) : 0.0f;
+                    hasValue = true;
+                }
+            }
+
+            if (hasValue) {
+                DerivedSeriesChannelCache& channel = cache->channels[static_cast<size_t>(txIdx)];
+                channel.valuesByRecord[i] = value;
+                channel.validByRecord[i] = 1;
+            }
+        }
+    }
+
+    cache->valid = true;
+    outCache = cache;
+    return true;
+}
+
+bool DataModule::TryAppendCachedDerivedSeriesWindow(const DerivedSeriesFamilyCache& cache,
+                                                    int transmitterIndex,
+                                                    size_t startIndex,
+                                                    size_t endIndex,
+                                                    double minY,
+                                                    double maxY,
+                                                    std::vector<float>& outData) const {
+    outData.clear();
+    if (transmitterIndex < 0 || transmitterIndex >= cache.transmitterCount) {
+        return false;
+    }
+
+    const size_t channelIndex = static_cast<size_t>(transmitterIndex);
+    if (channelIndex >= cache.channels.size()) {
+        return false;
+    }
+
+    const DerivedSeriesChannelCache& channel = cache.channels[channelIndex];
+    if (startIndex >= endIndex ||
+        endIndex > channel.valuesByRecord.size() ||
+        endIndex > channel.validByRecord.size()) {
+        return false;
+    }
+
+    outData.reserve(endIndex - startIndex);
+    for (size_t i = startIndex; i < endIndex; ++i) {
+        if (!channel.validByRecord[i]) {
+            continue;
+        }
+
+        const float value = channel.valuesByRecord[i];
+        if (value >= minY && value <= maxY) {
+            outData.push_back(value);
+        }
+    }
+
+    return true;
+}
+
+bool DataModule::TryPopulateCachedDerivedSeries(const DerivedSeriesFamilyCache& cache,
+                                                const std::vector<bool>& enabledTransmitters,
+                                                size_t startIndex,
+                                                size_t endIndex,
+                                                double minY,
+                                                double maxY,
+                                                std::vector<std::vector<float>>& outData) const {
+    outData.clear();
+    if (startIndex >= endIndex || cache.transmitterCount <= 0) {
+        return false;
+    }
+
+    outData.resize(static_cast<size_t>(cache.transmitterCount));
+    for (int txIdx = 0; txIdx < cache.transmitterCount; ++txIdx) {
+        const bool enabled = (txIdx < static_cast<int>(enabledTransmitters.size())) ? enabledTransmitters[static_cast<size_t>(txIdx)] : true;
+        if (!enabled) {
+            continue;
+        }
+
+        TryAppendCachedDerivedSeriesWindow(cache, txIdx, startIndex, endIndex, minY, maxY, outData[static_cast<size_t>(txIdx)]);
+    }
+
+    return true;
 }
 
 // v2.15.1: Определение формата файла по расширению
@@ -410,6 +583,7 @@ bool DataModule::LoadDataFromFile(const std::wstring& filename, std::wstring& ou
         recordMetadata.clear();
         loadedFileName.clear();
         ++dataVersion;
+        InvalidateDerivedCaches();
         return false;
     }
 
@@ -477,6 +651,7 @@ void DataModule::ApplyLoadedData(DataLoadResult&& loadedData) {
     recordMetadata = std::move(loadedData.recordMetadata);
     loadedFileName = std::move(loadedData.loadedFileName);
     ++dataVersion;
+    InvalidateDerivedCaches();
 }
 
 void DataModule::ClearData() {
@@ -484,6 +659,7 @@ void DataModule::ClearData() {
     recordMetadata.clear();
     loadedFileName.clear();
     ++dataVersion;
+    InvalidateDerivedCaches();
 }
 
 std::wstring DataModule::GetLoadedFileName() const {
@@ -634,11 +810,13 @@ ToolDataAccessView DataModule::GetDataView(size_t index) const {
 void DataModule::AddParsedData(const ParsedToolFrame& parsedData) {
     AppendParsedFrame(parsedData, data, recordMetadata);
     ++dataVersion;
+    InvalidateDerivedCaches();
 }
 
 void DataModule::AddData(const GP_TOOL_DATA& newData) {
     AppendCanonicalRecord(newData, data, recordMetadata);
     ++dataVersion;
+    InvalidateDerivedCaches();
 }
 
 void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
@@ -649,6 +827,7 @@ void DataModule::AddDataBatch(const std::vector<GP_TOOL_DATA>& newDataBatch) {
     }
     if (!newDataBatch.empty()) {
         ++dataVersion;
+        InvalidateDerivedCaches();
     }
 }
 
@@ -705,7 +884,15 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
     
     if (startIndex >= endIndex) 
         return;
-    
+
+    if (IsDerivedSeriesCacheableType(type)) {
+        const DerivedSeriesFamilyCache* derivedCache = nullptr;
+        if (EnsureDerivedSeriesFamilyCache(type, freq, derivedCache) && derivedCache) {
+            TryPopulateCachedDerivedSeries(*derivedCache, enabledTransmitters, startIndex, endIndex, minY, maxY, outData);
+            return;
+        }
+    }
+
     const int freqIdx = (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
 
     switch (type) {
@@ -910,13 +1097,19 @@ int DataModule::GetSilentTransmitterIndex(FrequencyBand freq) const {
 }
 
 int DataModule::GetAvailableTransmitterCount() const {
+    if (cachedAvailableTransmitterCountVersion == dataVersion && cachedAvailableTransmitterCount > 0) {
+        return cachedAvailableTransmitterCount;
+    }
+
     int maxCount = 0;
     for (size_t i = 0; i < GetDataSize(); ++i) {
         const ToolDataAccessView view = GetDataView(i);
         maxCount = std::max(maxCount, view.GetTransmitterCount());
     }
 
-    return (maxCount > 0) ? maxCount : kLegacyFallbackTransmitterCount;
+    cachedAvailableTransmitterCount = (maxCount > 0) ? maxCount : kLegacyFallbackTransmitterCount;
+    cachedAvailableTransmitterCountVersion = dataVersion;
+    return cachedAvailableTransmitterCount;
 }
 
 // Новые методы для работы с произвольными кривыми
@@ -1095,6 +1288,18 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
                                    double minX, double maxX) const {
     ActiveCalculationContext context = {};
     if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
+
+    const DerivedSeriesFamilyCache* derivedCache = nullptr;
+    if (EnsureDerivedSeriesFamilyCache(DataType::AMPLITUDE_RATIO, frequency, derivedCache) && derivedCache) {
+        TryAppendCachedDerivedSeriesWindow(*derivedCache,
+                                           context.transmitterIndex,
+                                           context.window.startIndex,
+                                           context.window.endIndex,
+                                           -1e30,
+                                           1e30,
+                                           outData);
+        return;
+    }
     
     ReserveForWindow(outData, context.window);
     
@@ -1124,6 +1329,18 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
                                         double minX, double maxX) const {
     ActiveCalculationContext context = {};
     if (!TryBuildActiveCalculationContext(*this, transmitterIndex, frequency, minX, maxX, context)) return;
+
+    const DerivedSeriesFamilyCache* derivedCache = nullptr;
+    if (EnsureDerivedSeriesFamilyCache(DataType::PHASE_DIFFERENCE, frequency, derivedCache) && derivedCache) {
+        TryAppendCachedDerivedSeriesWindow(*derivedCache,
+                                           context.transmitterIndex,
+                                           context.window.startIndex,
+                                           context.window.endIndex,
+                                           -1e30,
+                                           1e30,
+                                           outData);
+        return;
+    }
     
     ReserveForWindow(outData, context.window);
     
@@ -1222,15 +1439,22 @@ void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
 // Метод нормализации фазы в диапазон (-π, π]
 float DataModule::NormalizePhase(float phaseRadians) const {
     const float PI = 3.14159265358979323846f;
-    
-    // Приводим фазу к диапазону (-π, π]
-    while (phaseRadians > PI) {
-        phaseRadians -= 2.0f * PI;
+    const float TWO_PI = 2.0f * PI;
+
+    if (!std::isfinite(phaseRadians)) {
+        return 0.0f;
     }
-    while (phaseRadians <= -PI) {
-        phaseRadians += 2.0f * PI;
+
+    phaseRadians = std::fmod(phaseRadians + PI, TWO_PI);
+    if (phaseRadians < 0.0f) {
+        phaseRadians += TWO_PI;
     }
-    
+
+    phaseRadians -= PI;
+    if (phaseRadians <= -PI) {
+        phaseRadians += TWO_PI;
+    }
+
     return phaseRadians;
 }
 

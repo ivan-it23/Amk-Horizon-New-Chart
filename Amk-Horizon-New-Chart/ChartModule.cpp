@@ -258,6 +258,61 @@ namespace {
         }
     };
 
+    struct TemperaturePolylineCacheEntry {
+        const float* xAxisDataPtr = nullptr;
+        const float* channelDataPtr = nullptr;
+        size_t xAxisDataSize = 0;
+        size_t channelDataSize = 0;
+        RECT plotRect = {};
+        RECT dataRect = {};
+        size_t startIdx = 0;
+        size_t endIdx = 0;
+        float minTemp = 0.0f;
+        float maxTemp = 0.0f;
+        float minY = 0.0f;
+        float maxY = 0.0f;
+        std::vector<POINT> points;
+    };
+
+    static std::vector<TemperaturePolylineCacheEntry> g_temperaturePolylineCache;
+
+    static bool IsSameRect(const RECT& lhs, const RECT& rhs) {
+        return lhs.left == rhs.left &&
+               lhs.top == rhs.top &&
+               lhs.right == rhs.right &&
+               lhs.bottom == rhs.bottom;
+    }
+
+    static const std::vector<POINT>* FindCachedTemperaturePolyline(const std::vector<float>& xAxisData,
+                                                                   const std::vector<float>& channel,
+                                                                   const RECT& plotRect,
+                                                                   const RECT& dataRect,
+                                                                   size_t startIdx,
+                                                                   size_t endIdx,
+                                                                   float minTemp,
+                                                                   float maxTemp,
+                                                                   float minY,
+                                                                   float maxY) {
+        for (const auto& entry : g_temperaturePolylineCache) {
+            if (entry.xAxisDataPtr == xAxisData.data() &&
+                entry.channelDataPtr == channel.data() &&
+                entry.xAxisDataSize == xAxisData.size() &&
+                entry.channelDataSize == channel.size() &&
+                IsSameRect(entry.plotRect, plotRect) &&
+                IsSameRect(entry.dataRect, dataRect) &&
+                entry.startIdx == startIdx &&
+                entry.endIdx == endIdx &&
+                entry.minTemp == minTemp &&
+                entry.maxTemp == maxTemp &&
+                entry.minY == minY &&
+                entry.maxY == maxY) {
+                return &entry.points;
+            }
+        }
+
+        return nullptr;
+    }
+
     static bool IsGdiPlusReady() {
         static GdiPlusScope scope;
         return scope.initialized;
@@ -350,14 +405,134 @@ namespace {
         return optimized;
     }
 
-    static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle) {
+    static void FlushOptimizedBucket(std::vector<POINT>& outPoints,
+                                     const POINT& firstPoint,
+                                     const POINT& minPoint,
+                                     const POINT& maxPoint,
+                                     size_t minIndex,
+                                     size_t maxIndex,
+                                     const POINT& lastPoint) {
+        AppendPointIfDifferent(outPoints, firstPoint);
+        if (minIndex < maxIndex) {
+            AppendPointIfDifferent(outPoints, minPoint);
+            AppendPointIfDifferent(outPoints, maxPoint);
+        } else if (maxIndex < minIndex) {
+            AppendPointIfDifferent(outPoints, maxPoint);
+            AppendPointIfDifferent(outPoints, minPoint);
+        }
+        AppendPointIfDifferent(outPoints, lastPoint);
+    }
+
+    static const std::vector<POINT>& BuildOptimizedTemperaturePolyline(const RECT& plotRect,
+                                                                       const RECT& dataRect,
+                                                                       const std::vector<float>& xAxisData,
+                                                                       const std::vector<float>& channel,
+                                                                       size_t startIdx,
+                                                                       size_t endIdx,
+                                                                       float minTemp,
+                                                                       float maxTemp,
+                                                                       float minY,
+                                                                       float maxY) {
+        if (const std::vector<POINT>* cached = FindCachedTemperaturePolyline(
+                xAxisData, channel, plotRect, dataRect, startIdx, endIdx, minTemp, maxTemp, minY, maxY)) {
+            return *cached;
+        }
+
+        std::vector<POINT> optimized;
+        const size_t boundedEnd = (std::min)(endIdx, (std::min)(channel.size(), xAxisData.size()));
+        if (startIdx >= boundedEnd || maxTemp <= minTemp || maxY <= minY) {
+            static const std::vector<POINT> emptyPoints;
+            return emptyPoints;
+        }
+
+        optimized.reserve((std::min)(boundedEnd - startIdx, static_cast<size_t>(8192)));
+
+        bool hasBucket = false;
+        LONG bucketX = 0;
+        POINT firstPoint = {};
+        POINT lastPoint = {};
+        POINT minPoint = {};
+        POINT maxPoint = {};
+        size_t bucketPointIndex = 0;
+        size_t minIndex = 0;
+        size_t maxIndex = 0;
+
+        for (size_t i = startIdx; i < boundedEnd; ++i) {
+            const int x = plotRect.left + static_cast<int>(
+                (xAxisData[i] - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
+            const float clampedValue = (std::max)(minY, (std::min)(maxY, channel[i]));
+            const int y = dataRect.bottom - static_cast<int>((clampedValue - minY) / (maxY - minY) * (dataRect.bottom - dataRect.top));
+            const POINT point = { x, y };
+
+            if (!hasBucket || point.x != bucketX) {
+                if (hasBucket) {
+                    FlushOptimizedBucket(optimized, firstPoint, minPoint, maxPoint, minIndex, maxIndex, lastPoint);
+                }
+
+                hasBucket = true;
+                bucketX = point.x;
+                firstPoint = point;
+                lastPoint = point;
+                minPoint = point;
+                maxPoint = point;
+                bucketPointIndex = 0;
+                minIndex = 0;
+                maxIndex = 0;
+                continue;
+            }
+
+            ++bucketPointIndex;
+            lastPoint = point;
+            if (point.y < minPoint.y) {
+                minPoint = point;
+                minIndex = bucketPointIndex;
+            }
+            if (point.y > maxPoint.y) {
+                maxPoint = point;
+                maxIndex = bucketPointIndex;
+            }
+        }
+
+        if (hasBucket) {
+            FlushOptimizedBucket(optimized, firstPoint, minPoint, maxPoint, minIndex, maxIndex, lastPoint);
+        }
+
+        if (g_temperaturePolylineCache.size() >= 24) {
+            g_temperaturePolylineCache.erase(g_temperaturePolylineCache.begin());
+        }
+
+        TemperaturePolylineCacheEntry entry = {};
+        entry.xAxisDataPtr = xAxisData.data();
+        entry.channelDataPtr = channel.data();
+        entry.xAxisDataSize = xAxisData.size();
+        entry.channelDataSize = channel.size();
+        entry.plotRect = plotRect;
+        entry.dataRect = dataRect;
+        entry.startIdx = startIdx;
+        entry.endIdx = endIdx;
+        entry.minTemp = minTemp;
+        entry.maxTemp = maxTemp;
+        entry.minY = minY;
+        entry.maxY = maxY;
+        entry.points = std::move(optimized);
+        g_temperaturePolylineCache.push_back(std::move(entry));
+        return g_temperaturePolylineCache.back().points;
+    }
+
+    static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle, bool pointsAlreadyOptimized = false) {
         if (points.size() < 2) {
             return;
         }
 
-        const std::vector<POINT> optimizedPoints = OptimizePolylineForRender(points);
-        const std::vector<POINT>& renderPoints = (optimizedPoints.size() >= 2) ? optimizedPoints : points;
-        const bool useAntialias = renderPoints.size() <= 4000;
+        std::vector<POINT> optimizedPoints;
+        const std::vector<POINT>* renderPoints = &points;
+        if (!pointsAlreadyOptimized) {
+            optimizedPoints = OptimizePolylineForRender(points);
+            if (optimizedPoints.size() >= 2) {
+                renderPoints = &optimizedPoints;
+            }
+        }
+        const bool useAntialias = renderPoints->size() <= 4000;
 
         if (IsGdiPlusReady()) {
             void* pGraphics = nullptr;
@@ -376,7 +551,7 @@ namespace {
                         GdipSetPenDashStyle(pPen, GpConst::DashStyleDash);
                     }
 
-                    GdipDrawLinesI(pGraphics, pPen, renderPoints.data(), static_cast<int>(renderPoints.size()));
+                    GdipDrawLinesI(pGraphics, pPen, renderPoints->data(), static_cast<int>(renderPoints->size()));
                     GdipDeletePen(pPen);
                 }
                 GdipDeleteGraphics(pGraphics);
@@ -387,7 +562,7 @@ namespace {
         // Fallback на GDI (если GDI+ недоступен)
         HPEN hPen = CreateCurvePen(lineStyle, color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        Polyline(hdc, renderPoints.data(), static_cast<int>(renderPoints.size()));
+        Polyline(hdc, renderPoints->data(), static_cast<int>(renderPoints->size()));
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
     }
@@ -1765,16 +1940,6 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
     float rightMin = static_cast<float>(rightMinY) - yPaddingRight;
     float rightMax = static_cast<float>(rightMaxY);
     
-    // Отладочный вывод
-    wchar_t debugMsg[512];
-    swprintf_s(debugMsg, L"=== DrawDualAxisDataWithZoom ===\n"
-                         L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
-                         L"leftMinY=%.2f, leftMaxY=%.2f\n"
-                         L"leftMin=%.2f, leftMax=%.2f\n",
-              plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
-              leftMinY, leftMaxY, leftMin, leftMax);
-    AppendDebugLog(L"%ls", debugMsg);
-    
     // Создаем clipping region с небольшим расширением, чтобы крайние точки не обрезались
     // Расширяем на 5 пикселей сверху и снизу
     HRGN hClipRegion = CreateRectRgn(dataRect.left, dataRect.top - 5, dataRect.right, dataRect.bottom + 5);
@@ -1796,16 +1961,6 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
 
         std::vector<POINT> points;
         points.reserve(channel.size());
-        
-        // Отладка для кривой
-        float minChannelVal = *std::min_element(channel.begin(), channel.end());
-        float maxChannelVal = *std::max_element(channel.begin(), channel.end());
-        swprintf_s(debugMsg, L"Left Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
-        AppendDebugLog(L"%ls", debugMsg);
-        
-        int minY = INT_MAX, maxY = INT_MIN;
-        int clampedToMin = 0;
-        int clampedToMax = 0;
         double xRange = maxXData - minXData;
         for (size_t j = 0; j < channel.size(); j++) {
             // Вычисляем реальный индекс данных и преобразуем в экранную координату
@@ -1815,23 +1970,10 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
             // Ограничиваем значение данных к диапазону leftMin/leftMax для корректного отображения
             float v = channel[j];
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, v));
-            if (clampedValue == leftMin && v < leftMin) clampedToMin++;
-            if (clampedValue == leftMax && v > leftMax) clampedToMax++;
             int y = dataRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (dataRect.bottom - dataRect.top));
-            
-            // Отслеживаем min/max Y координаты
-            minY = (std::min)(minY, y);
-            maxY = (std::max)(maxY, y);
 
             points.push_back({ x, y });
         }
-        
-        // Отладка: выводим диапазон Y координат
-        swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
-                  minY, maxY, plotRect.top, plotRect.bottom);
-        AppendDebugLog(L"%ls", debugMsg);
-
-        AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, channel.size());
         
         DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
         leftIndex++;
@@ -2589,20 +2731,9 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         const auto& channel = chartData[channelIdx];
         if (channel.empty()) continue;
 
-        std::vector<POINT> points;
-        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
-        for (size_t i = startIdx; i < endIdx && i < channel.size() && i < xAxisData.size(); i++) {
-            // X координата основана на температуре
-            const float temp = xAxisData[i];
-            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
-            
-            // Y координата основана на значении данных
-            int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
-            
-            points.push_back({ x, y });
-        }
-
-        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % kUiTransmitterCount], PS_SOLID);
+        const auto& points = BuildOptimizedTemperaturePolyline(
+            plotRect, plotRect, xAxisData, channel, startIdx, endIdx, minTemp, maxTemp, minVal, maxVal);
+        DrawCurvePolyline(hdc, points, CHANNEL_COLORS[channelIdx % kUiTransmitterCount], PS_SOLID, true);
     }
 }
 
@@ -2795,18 +2926,9 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
 
-        std::vector<POINT> points;
-        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
-        for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
-            const float temp = xAxisData[j];
-            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
-            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
-
-            points.push_back({ x, y });
-        }
-
-        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
+        const auto& points = BuildOptimizedTemperaturePolyline(
+            plotRect, plotRect, xAxisData, channel, startIdx, endIdx, minTemp, maxTemp, leftMin, leftMax);
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID, true);
         leftIndex++;
     }
     
@@ -2822,18 +2944,9 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
             continue;
         }
 
-        std::vector<POINT> points;
-        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
-        for (size_t j = startIdx; j < endIdx && j < channel.size() && j < xAxisData.size(); j++) {
-            const float temp = xAxisData[j];
-            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
-            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
-            int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
-
-            points.push_back({ x, y });
-        }
-
-        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
+        const auto& points = BuildOptimizedTemperaturePolyline(
+            plotRect, plotRect, xAxisData, channel, startIdx, endIdx, minTemp, maxTemp, rightMin, rightMax);
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle, true);
         rightIndex++;
     }
 }
@@ -3159,16 +3272,6 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
     float rightMin = static_cast<float>(minYRight) - yPaddingRight;
     float rightMax = static_cast<float>(maxYRight);
     
-    // Отладочный вывод
-    wchar_t debugMsg[512];
-    swprintf_s(debugMsg, L"=== DrawDualAxisDataWithTemperatureAndZoom ===\n"
-                         L"plotRect: left=%d, top=%d, right=%d, bottom=%d\n"
-                         L"minYData=%.2f, maxYData=%.2f\n"
-                         L"leftMin=%.2f, leftMax=%.2f\n",
-              plotRect.left, plotRect.top, plotRect.right, plotRect.bottom,
-              minYData, maxYData, leftMin, leftMax);
-    AppendDebugLog(L"%ls", debugMsg);
-    
     // Отрисовка кривых левой оси (сплошные линии)
     size_t leftIndex = 0;
     for (size_t i = 0; i < curves.size() && leftIndex < leftAxisData.size(); i++) {
@@ -3181,45 +3284,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             continue;
         }
 
-        std::vector<POINT> points;
-        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
-        
-        // Отладка для первой кривой
-        float minChannelVal = *std::min_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
-        float maxChannelVal = *std::max_element(channel.begin() + startIdx, channel.begin() + std::min(endIdx, channel.size()));
-        swprintf_s(debugMsg, L"Curve %zu: minVal=%.2f, maxVal=%.2f\n", leftIndex, minChannelVal, maxChannelVal);
-        AppendDebugLog(L"%ls", debugMsg);
-        
-        int minY = INT_MAX, maxY = INT_MIN;
-        int clampedToMin = 0;
-        int clampedToMax = 0;
-        for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
-            // X координата по температуре
-            const float temp = xAxisData[j];
-            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
-            
-            // Y координата с учетом zoom
-            float v = channel[j];
-            float clampedValue = (std::max)(leftMin, (std::min)(leftMax, v));
-            if (clampedValue == leftMin && v < leftMin) clampedToMin++;
-            if (clampedValue == leftMax && v > leftMax) clampedToMax++;
-            int y = dataRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (dataRect.bottom - dataRect.top));
-            
-            // Отслеживаем min/max Y координаты
-            minY = (std::min)(minY, y);
-            maxY = (std::max)(maxY, y);
-
-            points.push_back({ x, y });
-        }
-        
-        // Отладка: выводим диапазон Y координат
-        swprintf_s(debugMsg, L"  Screen Y range: minY=%d, maxY=%d (plotRect.top=%d, plotRect.bottom=%d)\n",
-                  minY, maxY, plotRect.top, plotRect.bottom);
-        AppendDebugLog(L"%ls", debugMsg);
-
-        AppendDebugLog(L"  Clamp stats: toMin=%d toMax=%d (points=%zu)\n", clampedToMin, clampedToMax, (size_t)(endIdx - startIdx));
-        
-        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID);
+        const auto& points = BuildOptimizedTemperaturePolyline(
+            plotRect, dataRect, xAxisData, channel, startIdx, endIdx, minTemp, maxTemp, leftMin, leftMax);
+        DrawCurvePolyline(hdc, points, curve.color, PS_SOLID, true);
         leftIndex++;
     }
     
@@ -3235,21 +3302,9 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
             continue;
         }
 
-        std::vector<POINT> points;
-        points.reserve((endIdx > startIdx) ? (endIdx - startIdx) : 0);
-        for (size_t j = startIdx; j < endIdx && j < channel.size(); j++) {
-            // X координата по температуре
-            const float temp = xAxisData[j];
-            const int x = CalculateTemperaturePlotX(plotRect, temp, minTemp, maxTemp);
-            
-            // Y координата с учетом zoom
-            float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
-            int y = dataRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (dataRect.bottom - dataRect.top));
-
-            points.push_back({ x, y });
-        }
-
-        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle);
+        const auto& points = BuildOptimizedTemperaturePolyline(
+            plotRect, dataRect, xAxisData, channel, startIdx, endIdx, minTemp, maxTemp, rightMin, rightMax);
+        DrawCurvePolyline(hdc, points, curve.color, curve.lineStyle, true);
         rightIndex++;
     }
     

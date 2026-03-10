@@ -105,8 +105,8 @@ namespace {
         return message;
     }
 
-    bool TryFindClosestTemperatureIndex(const DataModule& dataModule,
-                                        const std::vector<float>& temperatureData,
+    bool TryFindClosestTemperatureIndex(const std::vector<float>& temperatureData,
+                                        size_t baseIndex,
                                         size_t startIdx,
                                         size_t endIdx,
                                         double xRatio,
@@ -116,12 +116,11 @@ namespace {
             return false;
         }
 
-        float minTemp = 0.0f;
-        float maxTemp = 0.0f;
-        const double rangeMinX = static_cast<double>(startIdx);
-        const double rangeMaxX = static_cast<double>(endIdx - 1);
-        if (!dataModule.TryGetTemperatureRange(rangeMinX, rangeMaxX, minTemp, maxTemp)) {
-            return false;
+        auto minMaxTemperature = std::minmax_element(temperatureData.begin() + startIdx, temperatureData.begin() + endIdx);
+        float minTemp = *minMaxTemperature.first;
+        float maxTemp = *minMaxTemperature.second;
+        if (maxTemp <= minTemp) {
+            maxTemp = minTemp + 1.0f;
         }
 
         const float clickedTemp = minTemp + static_cast<float>(xRatio) * (maxTemp - minTemp);
@@ -135,42 +134,26 @@ namespace {
             }
         }
 
-        outClosestIdx = closestIdx;
+        outClosestIdx = baseIndex + closestIdx;
         return true;
     }
 
-    bool TryResolveTemperatureAxisIndex(const DataModule& dataModule,
-                                        bool isZoomed,
-                                        double zoomMinX,
-                                        double zoomMaxX,
+    bool TryResolveTemperatureAxisIndex(const std::vector<float>& temperatureData,
+                                        size_t baseIndex,
                                         double xRatio,
                                         size_t& outClosestIdx) {
         outClosestIdx = 0;
-
-        std::vector<float> temperatureData;
-        dataModule.GetTemperatureData(temperatureData);
         if (temperatureData.empty()) {
             return false;
         }
 
-        size_t startIdx = 0;
         size_t endIdx = temperatureData.size();
-        if (isZoomed) {
-            startIdx = static_cast<size_t>((std::max)(0.0, zoomMinX));
-            endIdx = static_cast<size_t>((std::min)(static_cast<double>(temperatureData.size()), zoomMaxX + 1.0));
-            if (endIdx < startIdx) {
-                std::swap(startIdx, endIdx);
-            }
-        }
-
-        if (startIdx >= endIdx || endIdx > temperatureData.size()) {
-            return false;
-        }
-
-        return TryFindClosestTemperatureIndex(dataModule, temperatureData, startIdx, endIdx, xRatio, outClosestIdx);
+        return TryFindClosestTemperatureIndex(temperatureData, baseIndex, 0, endIdx, xRatio, outClosestIdx);
     }
 
     struct TemperatureAxisRenderData {
+        size_t startIndex = 0;
+        size_t endIndex = 0;
         std::vector<float> temperatureData;
         double minXData = 0.0;
         double maxXData = 0.0;
@@ -210,13 +193,23 @@ namespace {
         outData = {};
 
         if (isZoomed) {
+            const size_t dataSize = dataModule.GetDataSize();
+            outData.startIndex = static_cast<size_t>((std::max)(0.0, zoomMinX));
+            outData.endIndex = static_cast<size_t>((std::min)(static_cast<double>(dataSize), zoomMaxX + 1.0));
+            outData.startIndex = (std::min)(outData.startIndex, dataSize);
+            outData.endIndex = (std::min)(outData.endIndex, dataSize);
+            if (outData.startIndex >= outData.endIndex) {
+                return false;
+            }
             dataModule.GetTemperatureData(outData.temperatureData, zoomMinX, zoomMaxX);
-            outData.minXData = zoomMinX;
-            outData.maxXData = zoomMaxX;
+            outData.minXData = 0.0;
+            outData.maxXData = static_cast<double>(outData.temperatureData.empty() ? 0 : (outData.temperatureData.size() - 1));
         } else {
+            outData.startIndex = 0;
+            outData.endIndex = dataModule.GetDataSize();
             dataModule.GetTemperatureData(outData.temperatureData);
             outData.minXData = 0.0;
-            outData.maxXData = static_cast<double>(dataModule.GetDataSize() > 0 ? dataModule.GetDataSize() - 1 : 0);
+            outData.maxXData = static_cast<double>(outData.temperatureData.empty() ? 0 : (outData.temperatureData.size() - 1));
         }
 
         return !outData.temperatureData.empty();
@@ -351,20 +344,6 @@ namespace {
         }
 
         return xRatio * (dataSize > 0 ? static_cast<double>(dataSize - 1) : 0.0);
-    }
-
-    double ResolveTemperatureAxisDataX(const DataModule& dataModule,
-                                       bool isZoomed,
-                                       double zoomMinX,
-                                       double zoomMaxX,
-                                       double xRatio,
-                                       double fallbackDataX) {
-        size_t closestIdx = 0;
-        if (TryResolveTemperatureAxisIndex(dataModule, isZoomed, zoomMinX, zoomMaxX, xRatio, closestIdx)) {
-            return static_cast<double>(closestIdx);
-        }
-
-        return fallbackDataX;
     }
 
     bool TryResolveNoteMarkerScreenX(const DataModule& dataModule,
@@ -551,14 +530,23 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 
     AsyncSnapshotWarmupState* warmupState = (chartNumber == 1) ? &chart1SnapshotWarmup : &chart2SnapshotWarmup;
     const CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
+    const CachedTemperatureAxisData* temperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
     const uint64_t dataVersion = dataModule->GetDataVersion();
     const uint64_t configHash = BuildChartConfigurationHash(config);
+    const bool needsTemperatureAxis = (config.xAxisType == XAxisType::TEMPERATURE);
+    const bool hasMatchingTemperatureCache = !needsTemperatureAxis ||
+        (temperatureCache->valid &&
+         temperatureCache->dataVersion == dataVersion &&
+         temperatureCache->isZoomed == zoom.isZoomed &&
+         temperatureCache->zoomMinX == zoom.minX &&
+         temperatureCache->zoomMaxX == zoom.maxX);
     if (cache->valid &&
         cache->dataVersion == dataVersion &&
         cache->configHash == configHash &&
         cache->isZoomed == zoom.isZoomed &&
         cache->zoomMinX == zoom.minX &&
-        cache->zoomMaxX == zoom.maxX) {
+        cache->zoomMaxX == zoom.maxX &&
+        hasMatchingTemperatureCache) {
         return;
     }
     if (warmupState->inFlight &&
@@ -581,10 +569,16 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 
     asyncTaskQueue->PostWorkerTask([this, hWnd, chartNumber, requestId, dataVersion, configHash, config, zoom]() {
         CurveDataSnapshot builtSnapshot = {};
+        TemperatureAxisRenderData builtTemperatureAxis = {};
         BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
                                zoom.isZoomed, zoom.minX, zoom.maxX, builtSnapshot);
+        if (config.xAxisType == XAxisType::TEMPERATURE) {
+            TryBuildTemperatureAxisRenderData(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, builtTemperatureAxis);
+        }
 
-        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, chartNumber, requestId, dataVersion, configHash, zoom, builtSnapshot = std::move(builtSnapshot)]() mutable {
+        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, chartNumber, requestId, dataVersion, configHash, zoom,
+                                         builtSnapshot = std::move(builtSnapshot),
+                                         builtTemperatureAxis = std::move(builtTemperatureAxis)]() mutable {
             AsyncSnapshotWarmupState* warmup = (chartNumber == 1) ? &chart1SnapshotWarmup : &chart2SnapshotWarmup;
             if (warmup->requestId != requestId) {
                 return;
@@ -624,6 +618,20 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
             cache->minY2 = builtSnapshot.minY2;
             cache->maxY2 = builtSnapshot.maxY2;
 
+            if (!builtTemperatureAxis.temperatureData.empty()) {
+                CachedTemperatureAxisData* temperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
+                temperatureCache->valid = true;
+                temperatureCache->dataVersion = dataVersion;
+                temperatureCache->isZoomed = zoom.isZoomed;
+                temperatureCache->zoomMinX = zoom.minX;
+                temperatureCache->zoomMaxX = zoom.maxX;
+                temperatureCache->startIndex = builtTemperatureAxis.startIndex;
+                temperatureCache->endIndex = builtTemperatureAxis.endIndex;
+                temperatureCache->temperatureData = std::move(builtTemperatureAxis.temperatureData);
+                temperatureCache->minXData = builtTemperatureAxis.minXData;
+                temperatureCache->maxXData = builtTemperatureAxis.maxXData;
+            }
+
             UpdateScrollBars(hWnd);
             InvalidateChart(hWnd, chartNumber);
         });
@@ -647,7 +655,7 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
                                        const ChartConfiguration& config,
                                        const ZoomRange& zoom,
                                        bool allowSynchronousBuild,
-                                       CachedCurveSnapshot& outSnapshot) const {
+                                       const CachedCurveSnapshot*& outSnapshot) const {
     if (!curveSelectionModule || !dataModule || !chartModule || config.curves.empty()) {
         return false;
     }
@@ -661,7 +669,7 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
         cache->isZoomed == zoom.isZoomed &&
         cache->zoomMinX == zoom.minX &&
         cache->zoomMaxX == zoom.maxX) {
-        outSnapshot = *cache;
+        outSnapshot = cache;
         return true;
     }
 
@@ -690,13 +698,14 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
     cache->minY2 = builtSnapshot.minY2;
     cache->maxY2 = builtSnapshot.maxY2;
 
-    outSnapshot = *cache;
+    outSnapshot = cache;
     return true;
 }
 
 bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
                                              const ZoomRange& zoom,
-                                             CachedTemperatureAxisData& outData) const {
+                                             bool allowSynchronousBuild,
+                                             const CachedTemperatureAxisData*& outData) const {
     if (!dataModule) {
         return false;
     }
@@ -708,8 +717,12 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
         cache->isZoomed == zoom.isZoomed &&
         cache->zoomMinX == zoom.minX &&
         cache->zoomMaxX == zoom.maxX) {
-        outData = *cache;
-        return !outData.temperatureData.empty();
+        outData = cache;
+        return !outData->temperatureData.empty();
+    }
+
+    if (!allowSynchronousBuild) {
+        return false;
     }
 
     TemperatureAxisRenderData renderData = {};
@@ -723,12 +736,32 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
     cache->isZoomed = zoom.isZoomed;
     cache->zoomMinX = zoom.minX;
     cache->zoomMaxX = zoom.maxX;
+    cache->startIndex = renderData.startIndex;
+    cache->endIndex = renderData.endIndex;
     cache->temperatureData = std::move(renderData.temperatureData);
     cache->minXData = renderData.minXData;
     cache->maxXData = renderData.maxXData;
 
-    outData = *cache;
+    outData = cache;
     return true;
+}
+
+double ChartManager::ResolveTemperatureAxisDataX(int chartNumber,
+                                                 const ZoomRange& zoom,
+                                                 double xRatio,
+                                                 double fallbackDataX,
+                                                 bool allowSynchronousBuild) const {
+    const CachedTemperatureAxisData* temperatureAxis = nullptr;
+    if (!TryGetTemperatureAxisData(chartNumber, zoom, allowSynchronousBuild, temperatureAxis)) {
+        return fallbackDataX;
+    }
+
+    size_t closestIdx = 0;
+    if (TryResolveTemperatureAxisIndex(temperatureAxis->temperatureData, temperatureAxis->startIndex, xRatio, closestIdx)) {
+        return static_cast<double>(closestIdx);
+    }
+
+    return fallbackDataX;
 }
 
 void ChartManager::PushAxisHistory(int chartNumber) {
@@ -1041,15 +1074,15 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     // Это значение и сохраняем как yLeft — оно совпадает с тем, что рисует
     // DrawDualAxisDataWithZoom, поэтому маркер всегда будет на кривой.
     if (curveSelectionModule) {
-        CachedCurveSnapshot fullRangeSnapshot = {};
+        const CachedCurveSnapshot* fullRangeSnapshot = nullptr;
         ZoomRange unzoomedRange = {};
         std::vector<std::vector<float>> fallbackLeftAxisData;
         std::vector<std::vector<float>> fallbackRightAxisData;
         const std::vector<std::vector<float>>* leftAxisData = nullptr;
         const std::vector<std::vector<float>>* rightAxisData = nullptr;
         if (TryGetCurveSnapshot(chartNumber, config, unzoomedRange, true, fullRangeSnapshot)) {
-            leftAxisData = &fullRangeSnapshot.leftAxisData;
-            rightAxisData = &fullRangeSnapshot.rightAxisData;
+            leftAxisData = &fullRangeSnapshot->leftAxisData;
+            rightAxisData = &fullRangeSnapshot->rightAxisData;
         } else {
             std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
             curveSelectionModule->CalculateCurveData(config, dataModule.get(),
@@ -2159,7 +2192,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // В режиме кроссплота экранная X координата соответствует температуре
         // Но zoom всё равно работает с индексами кадров
-        dataX = ResolveTemperatureAxisDataX(*dataModule, zoom->isZoomed, zoom->minX, zoom->maxX, xRatio, linearDataX);
+        dataX = ResolveTemperatureAxisDataX(chartNum, *zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
     } else {
         // Обычный режим: номер кадра на оси X
         dataX = linearDataX;
@@ -2168,7 +2201,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     // Y координата обрабатывается одинаково для обоих режимов
     // Получаем реальный диапазон Y из данных
     ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
-    CachedCurveSnapshot curveSnapshot = {};
+    const CachedCurveSnapshot* curveSnapshot = nullptr;
     ZoomRange fullRangeSnapshot = {};
     if (!TryGetCurveSnapshot(chartNum, config2, fullRangeSnapshot, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
         dataY = 0.0;
@@ -2177,7 +2210,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 
     double displayMinY = 0.0;
     double displayMaxY = 0.0;
-    BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, curveSnapshot.minY1, curveSnapshot.maxY1, displayMinY, displayMaxY);
+    BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, curveSnapshot->minY1, curveSnapshot->maxY1, displayMinY, displayMaxY);
 
     // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
     double drawMinY = 0.0;
@@ -2526,13 +2559,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         // Настраиваем диапазон вертикального скроллбара (ось Y)
         if (showVScroll1) {
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
-        CachedCurveSnapshot curveSnapshot = {};
+        const CachedCurveSnapshot* curveSnapshot = nullptr;
         if (!TryGetCurveSnapshot(1, config, chart1Zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
             ScheduleAsyncCurveSnapshotWarmup(hWnd, 1, config, chart1Zoom);
             uiModule->SetVScrollBarRange(1, 0, 100, 100, 50);
         } else {
-            double minYFull = curveSnapshot.minY1;
-            double maxYFull = curveSnapshot.maxY1;
+            double minYFull = curveSnapshot->minY1;
+            double maxYFull = curveSnapshot->maxY1;
             
             // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
             double dataYRange = maxYFull - minYFull;
@@ -2637,13 +2670,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             // Настраиваем диапазон вертикального скроллбара (ось Y)
             if (showVScroll2) {
             ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
-            CachedCurveSnapshot curveSnapshot = {};
+            const CachedCurveSnapshot* curveSnapshot = nullptr;
             if (!TryGetCurveSnapshot(2, config, chart2Zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
                 ScheduleAsyncCurveSnapshotWarmup(hWnd, 2, config, chart2Zoom);
                 uiModule->SetVScrollBarRange(2, 0, 100, 100, 50);
             } else {
-                double minYFull = curveSnapshot.minY1;
-                double maxYFull = curveSnapshot.maxY1;
+                double minYFull = curveSnapshot->minY1;
+                double maxYFull = curveSnapshot->maxY1;
                 
                 // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
                 double dataYRange = maxYFull - minYFull;
@@ -2730,15 +2763,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     // Получаем параметры zoom
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
 
-     AppendDebugLog(L"[DrawChartWithCurves] chart=%d zoom=%d xAxisType=%d hasDualAxis=%d zoomX=[%.3f..%.3f] zoomY=[%.3f..%.3f]\r\n",
-                    chartNumber,
-                    zoom->isZoomed ? 1 : 0,
-                    static_cast<int>(config.xAxisType),
-                    config.hasDualAxis ? 1 : 0,
-                    zoom->minX, zoom->maxX,
-                    zoom->minY, zoom->maxY);
-    
-    CachedCurveSnapshot curveSnapshot = {};
+    const CachedCurveSnapshot* curveSnapshot = nullptr;
+    const CachedCurveSnapshot* staleCurveCache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
     // Формируем заголовок с частотой
     // "График " в Unicode escape
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
@@ -2750,55 +2776,60 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     }
 
     if (!TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
-        chartModule->DrawDualAxisBackground(hdc, chartRect);
-        chartModule->DrawChartBorder(hdc, chartRect);
-        chartModule->DrawChartTitle(hdc, chartRect, title);
-        chartModule->DrawNoDataMessage(hdc, chartRect, L"Подготовка графика...");
-        return;
+        if (ShouldUseAsyncCurveWarmup() && staleCurveCache->valid) {
+            curveSnapshot = staleCurveCache;
+        } else {
+            chartModule->DrawDualAxisBackground(hdc, chartRect);
+            chartModule->DrawChartBorder(hdc, chartRect);
+            chartModule->DrawChartTitle(hdc, chartRect, title);
+            chartModule->DrawNoDataMessage(hdc, chartRect, L"Подготовка графика...");
+            return;
+        }
     }
-    auto& leftAxisData = curveSnapshot.leftAxisData;
-    auto& rightAxisData = curveSnapshot.rightAxisData;
-    auto& leftAxisCurves = curveSnapshot.leftAxisCurves;
-    auto& rightAxisCurves = curveSnapshot.rightAxisCurves;
+    auto& leftAxisData = curveSnapshot->leftAxisData;
+    auto& rightAxisData = curveSnapshot->rightAxisData;
+    auto& leftAxisCurves = curveSnapshot->leftAxisCurves;
+    auto& rightAxisCurves = curveSnapshot->rightAxisCurves;
     
     // v2.10.0: Проверяем тип оси X
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // Режим кроссплота: температура на оси X
 
-        CachedTemperatureAxisData temperatureAxis = {};
-        if (!TryGetTemperatureAxisData(chartNumber, *zoom, temperatureAxis)) {
-            // Отрисовываем пустой график с сообщением
-            chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
-                                         leftAxisData, rightAxisData,
-                                         title + L" (No temperature data)", false,
-                                         0.0, 1.0, -1e6, 1e6, true);
-            return;
+        const CachedTemperatureAxisData* temperatureAxis = nullptr;
+        const CachedTemperatureAxisData* staleTemperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
+        if (!TryGetTemperatureAxisData(chartNumber, *zoom, !ShouldUseAsyncCurveWarmup(), temperatureAxis)) {
+            if (ShouldUseAsyncCurveWarmup() && staleTemperatureCache->valid) {
+                temperatureAxis = staleTemperatureCache;
+            } else {
+                chartModule->DrawDualAxisBackground(hdc, chartRect);
+                chartModule->DrawChartBorder(hdc, chartRect);
+                chartModule->DrawChartTitle(hdc, chartRect, title);
+                chartModule->DrawNoDataMessage(hdc, chartRect, L"Подготовка графика...");
+                return;
+            }
         }
 
         // Получаем диапазоны Y из данных
-        const double minYFull = curveSnapshot.minY1;
-        const double maxYFull = curveSnapshot.maxY1;
+        const double minYFull = curveSnapshot->minY1;
+        const double maxYFull = curveSnapshot->maxY1;
         
         double minYData = 0.0;
         double maxYData = 0.0;
         BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYFull, maxYFull, minYData, maxYData);
 
-         AppendDebugLog(L"  [TempX] minYFull=%.6f maxYFull=%.6f -> drawY=[%.6f..%.6f]\r\n",
-                        minYFull, maxYFull, minYData, maxYData);
-        
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         // v2.15.0: Передаём config для поддержки компактной легенды пресетов
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
-                                       title, true, temperatureAxis.temperatureData,
-                                       temperatureAxis.minXData, temperatureAxis.maxXData, minYData, maxYData,
+                                       title, true, temperatureAxis->temperatureData,
+                                       temperatureAxis->minXData, temperatureAxis->maxXData, minYData, maxYData,
                                        config, true);
     } else {
         // Обычный режим: номер кадра на оси X
         
         // Получаем диапазоны Y из данных
-        const double minYData = curveSnapshot.minY1;
-        const double maxYData = curveSnapshot.maxY1;
+        const double minYData = curveSnapshot->minY1;
+        const double maxYData = curveSnapshot->maxY1;
         VisibleFrameAxisRange visibleXRange = {};
         BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
         
@@ -2812,9 +2843,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             double displayMaxY = 0.0;
             BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
 
-             AppendDebugLog(L"  [FrameX Dual] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
-                           minYData, maxYData, displayMinY, displayMaxY);
-            
             DrawFrameAxisChart(*chartModule, hdc, chartRect, config.curves,
                                leftAxisData, rightAxisData,
                                title, dataModule->HasData(), visibleXRange,
@@ -2831,9 +2859,6 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 double displayMaxY = 0.0;
                 BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
 
-                 AppendDebugLog(L"  [FrameX Single] dataY=[%.6f..%.6f] -> drawY=[%.6f..%.6f]\r\n",
-                                minYData, maxYData, displayMinY, displayMaxY);
-                
                 DrawFrameAxisChart(*chartModule, hdc, chartRect, leftAxisCurves,
                                    leftAxisData, std::vector<std::vector<float>>(),
                                    title, dataModule->HasData(), visibleXRange,
@@ -3171,12 +3196,12 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     zoom->isXToLatest = isToEmpty;
     zoom->isYCustom = false; // Y подобран автоматически под выбранный X диапазон
 
-    CachedCurveSnapshot curveSnapshot = {};
+    const CachedCurveSnapshot* curveSnapshot = nullptr;
     if (TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
-        const double yRange = curveSnapshot.maxY1 - curveSnapshot.minY1;
+        const double yRange = curveSnapshot->maxY1 - curveSnapshot->minY1;
         const double padding = yRange * 0.05;
-        zoom->minY = curveSnapshot.minY1 - padding;
-        zoom->maxY = curveSnapshot.maxY1 + padding;
+        zoom->minY = curveSnapshot->minY1 - padding;
+        zoom->maxY = curveSnapshot->maxY1 + padding;
     }
     
     // Обновляем скроллбары
@@ -3502,18 +3527,18 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
 
         // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
-        CachedCurveSnapshot curveSnapshot = {};
+        const CachedCurveSnapshot* curveSnapshot = nullptr;
         if (!TryGetCurveSnapshot(chartNum, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
             return false;
         }
-        auto& leftAxisData = curveSnapshot.leftAxisData;
-        auto& rightAxisData = curveSnapshot.rightAxisData;
-        double minX = curveSnapshot.minX;
-        double maxX = curveSnapshot.maxX;
-        double minY1Full = curveSnapshot.minY1;
-        double maxY1Full = curveSnapshot.maxY1;
-        double minY2Full = curveSnapshot.minY2;
-        double maxY2Full = curveSnapshot.maxY2;
+        auto& leftAxisData = curveSnapshot->leftAxisData;
+        auto& rightAxisData = curveSnapshot->rightAxisData;
+        double minX = curveSnapshot->minX;
+        double maxX = curveSnapshot->maxX;
+        double minY1Full = curveSnapshot->minY1;
+        double maxY1Full = curveSnapshot->maxY1;
+        double minY2Full = curveSnapshot->minY2;
+        double maxY2Full = curveSnapshot->maxY2;
         
         // Текущие диапазоны для отображения (могут быть изменены zoom по Y)
         double minY1 = minY1Full, maxY1 = maxY1Full;
@@ -3571,7 +3596,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         // поэтому нужна привязка к ближайшему индексу по температуре.
         const double linearDataX = minX + xRatio * (maxX - minX);
         if (config.xAxisType == XAxisType::TEMPERATURE) {
-            dataX = ResolveTemperatureAxisDataX(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, xRatio, linearDataX);
+            dataX = ResolveTemperatureAxisDataX(chartNum, zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
         } else {
             dataX = linearDataX;
         }
@@ -3763,14 +3788,14 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     if (!(xRange > 0.0)) return;
 
     // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
-    CachedCurveSnapshot curveSnapshot = {};
+    const CachedCurveSnapshot* curveSnapshot = nullptr;
     if (!TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
         return;
     }
-    auto& leftAxisData = curveSnapshot.leftAxisData;
-    auto& rightAxisData = curveSnapshot.rightAxisData;
-    const double minY1Full = curveSnapshot.minY1;
-    const double maxY1Full = curveSnapshot.maxY1;
+    auto& leftAxisData = curveSnapshot->leftAxisData;
+    auto& rightAxisData = curveSnapshot->rightAxisData;
+    const double minY1Full = curveSnapshot->minY1;
+    const double maxY1Full = curveSnapshot->maxY1;
 
     double minY1 = zoom.isZoomed ? zoom.minY : minY1Full;
     double maxY1 = zoom.isZoomed ? zoom.maxY : maxY1Full;
@@ -3791,9 +3816,9 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     bool hasTempRange = false;
     const size_t dataSize = dataModule->GetDataSize();
     if (config.xAxisType == XAxisType::TEMPERATURE && dataSize > 0) {
-        CachedTemperatureAxisData temperatureAxis = {};
-        if (TryGetTemperatureAxisData(chartNumber, zoom, temperatureAxis) && !temperatureAxis.temperatureData.empty()) {
-            auto tempRange = std::minmax_element(temperatureAxis.temperatureData.begin(), temperatureAxis.temperatureData.end());
+        const CachedTemperatureAxisData* temperatureAxis = nullptr;
+        if (TryGetTemperatureAxisData(chartNumber, zoom, !ShouldUseAsyncCurveWarmup(), temperatureAxis) && !temperatureAxis->temperatureData.empty()) {
+            auto tempRange = std::minmax_element(temperatureAxis->temperatureData.begin(), temperatureAxis->temperatureData.end());
             minTemp = *tempRange.first;
             maxTemp = *tempRange.second;
             if (maxTemp <= minTemp) {
