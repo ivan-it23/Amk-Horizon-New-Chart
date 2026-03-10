@@ -220,8 +220,22 @@ namespace {
                                     double zoomMaxX,
                                     size_t dataSize,
                                     VisibleFrameAxisRange& outRange) {
-        outRange.minX = isZoomed ? zoomMinX : 0.0;
-        outRange.maxX = isZoomed ? zoomMaxX : static_cast<double>(dataSize > 0 ? dataSize - 1 : 0);
+        if (!isZoomed) {
+            outRange.minX = 0.0;
+            outRange.maxX = static_cast<double>(dataSize > 0 ? dataSize - 1 : 0);
+            return;
+        }
+
+        const size_t startIndex = static_cast<size_t>((std::max)(0.0, zoomMinX));
+        const size_t endIndex = static_cast<size_t>((std::min)(static_cast<double>(dataSize), zoomMaxX + 1.0));
+        if (startIndex >= endIndex) {
+            outRange.minX = 0.0;
+            outRange.maxX = static_cast<double>(dataSize > 0 ? dataSize - 1 : 0);
+            return;
+        }
+
+        outRange.minX = static_cast<double>(startIndex);
+        outRange.maxX = static_cast<double>(endIndex - 1);
     }
 
     void BuildCurveDataSnapshot(const CurveSelectionModule& curveSelectionModule,
@@ -249,6 +263,11 @@ namespace {
                                   outSnapshot.minX, outSnapshot.maxX,
                                   outSnapshot.minY1, outSnapshot.maxY1,
                                   outSnapshot.minY2, outSnapshot.maxY2);
+
+        VisibleFrameAxisRange visibleRange = {};
+        BuildVisibleFrameAxisRange(isZoomed, zoomMinX, zoomMaxX, dataModule.GetDataSize(), visibleRange);
+        outSnapshot.minX = visibleRange.minX;
+        outSnapshot.maxX = visibleRange.maxX;
     }
 
     void HashCombine(uint64_t& seed, uint64_t value) {
@@ -1906,16 +1925,51 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
         
         // Преобразуем экранные координаты в координаты данных
         double minDataX, minDataY, maxDataX, maxDataY;
-        
-        ConvertScreenToDataCoords(activeChart, 
-            (std::min)(selectionStart.x, selectionEnd.x), 
-            (std::max)(selectionStart.y, selectionEnd.y), 
-            minDataX, minDataY);
-            
-        ConvertScreenToDataCoords(activeChart, 
-            (std::max)(selectionStart.x, selectionEnd.x), 
-            (std::min)(selectionStart.y, selectionEnd.y), 
-            maxDataX, maxDataY);
+        double ignoredY2 = 0.0;
+        std::wstring ignoredY1Unit, ignoredY2Unit;
+        bool ignoredHasDualAxis = false;
+
+        const int minScreenX = (std::min)(selectionStart.x, selectionEnd.x);
+        const int maxScreenX = (std::max)(selectionStart.x, selectionEnd.x);
+        const int minScreenY = (std::min)(selectionStart.y, selectionEnd.y);
+        const int maxScreenY = (std::max)(selectionStart.y, selectionEnd.y);
+
+        bool resolvedMinCorner = ConvertScreenToChartCoords(activeChart,
+                                                            minScreenX,
+                                                            maxScreenY,
+                                                            minDataX,
+                                                            minDataY,
+                                                            ignoredY2,
+                                                            ignoredY1Unit,
+                                                            ignoredY2Unit,
+                                                            ignoredHasDualAxis);
+        bool resolvedMaxCorner = ConvertScreenToChartCoords(activeChart,
+                                                            maxScreenX,
+                                                            minScreenY,
+                                                            maxDataX,
+                                                            maxDataY,
+                                                            ignoredY2,
+                                                            ignoredY1Unit,
+                                                            ignoredY2Unit,
+                                                            ignoredHasDualAxis);
+
+        if (!resolvedMinCorner) {
+            ConvertScreenToDataCoords(activeChart, minScreenX, maxScreenY, minDataX, minDataY);
+        }
+        if (!resolvedMaxCorner) {
+            ConvertScreenToDataCoords(activeChart, maxScreenX, minScreenY, maxDataX, maxDataY);
+        }
+
+        AppendDebugLog(L"[ZoomApply] chart=%d screenRect=[(%d,%d)-(%d,%d)] dataRect=[x %.3f..%.3f y %.3f..%.3f]\r\n",
+                       activeChart,
+                       minScreenX,
+                       minScreenY,
+                       maxScreenX,
+                       maxScreenY,
+                       minDataX,
+                       maxDataX,
+                       minDataY,
+                       maxDataY);
         
         const double MIN_X_RANGE = 10.0;
         const double MIN_Y_RANGE = 10.0;
@@ -2186,9 +2240,13 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     }
 
     double xRatio = static_cast<double>(screenX - plotRect.left) / plotWidth;
+    if (xRatio < 0.0) xRatio = 0.0;
+    if (xRatio > 1.0) xRatio = 1.0;
 
     // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
-    const double linearDataX = ResolveLinearAxisDataX(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), xRatio);
+    VisibleFrameAxisRange visibleXRange = {};
+    BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
+    const double linearDataX = visibleXRange.minX + xRatio * (visibleXRange.maxX - visibleXRange.minX);
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // В режиме кроссплота экранная X координата соответствует температуре
         // Но zoom всё равно работает с индексами кадров
@@ -3546,8 +3604,6 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         
         // Применяем zoom по Y если есть (zoom по X уже применён при получении данных)
         if (zoom.isZoomed) {
-            minX = zoom.minX;
-            maxX = zoom.maxX;
             minY1 = zoom.minY;
             maxY1 = zoom.maxY;
 

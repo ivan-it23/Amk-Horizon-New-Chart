@@ -7,6 +7,7 @@
 #include <cmath>
 #include <cstring>
 #include <cwctype>  // v2.15.1: для towlower
+#include <limits>
 
 namespace {
 constexpr size_t kCanonicalFrameSize = sizeof(GP_TOOL_DATA);
@@ -501,15 +502,19 @@ bool DataModule::TryAppendCachedDerivedSeriesWindow(const DerivedSeriesFamilyCac
         return false;
     }
 
+    const float kMissingValue = std::numeric_limits<float>::quiet_NaN();
     outData.reserve(endIndex - startIndex);
     for (size_t i = startIndex; i < endIndex; ++i) {
         if (!channel.validByRecord[i]) {
+            outData.push_back(kMissingValue);
             continue;
         }
 
         const float value = channel.valuesByRecord[i];
         if (value >= minY && value <= maxY) {
             outData.push_back(value);
+        } else {
+            outData.push_back(kMissingValue);
         }
     }
 

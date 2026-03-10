@@ -275,6 +275,7 @@ namespace {
     };
 
     static std::vector<TemperaturePolylineCacheEntry> g_temperaturePolylineCache;
+    static const LONG kPolylineBreakCoord = INT_MIN;
 
     static bool IsSameRect(const RECT& lhs, const RECT& rhs) {
         return lhs.left == rhs.left &&
@@ -311,6 +312,20 @@ namespace {
         }
 
         return nullptr;
+    }
+
+    static bool IsFiniteValue(float value) {
+        return std::isfinite(value);
+    }
+
+    static bool IsPolylineBreak(const POINT& point) {
+        return point.x == kPolylineBreakCoord && point.y == kPolylineBreakCoord;
+    }
+
+    static void AppendPolylineBreak(std::vector<POINT>& outPoints) {
+        if (!outPoints.empty() && !IsPolylineBreak(outPoints.back())) {
+            outPoints.push_back({ kPolylineBreakCoord, kPolylineBreakCoord });
+        }
     }
 
     static bool IsGdiPlusReady() {
@@ -458,6 +473,15 @@ namespace {
         size_t maxIndex = 0;
 
         for (size_t i = startIdx; i < boundedEnd; ++i) {
+            if (!IsFiniteValue(xAxisData[i]) || !IsFiniteValue(channel[i])) {
+                if (hasBucket) {
+                    FlushOptimizedBucket(optimized, firstPoint, minPoint, maxPoint, minIndex, maxIndex, lastPoint);
+                    AppendPolylineBreak(optimized);
+                    hasBucket = false;
+                }
+                continue;
+            }
+
             const int x = plotRect.left + static_cast<int>(
                 (xAxisData[i] - minTemp) / (maxTemp - minTemp) * (plotRect.right - plotRect.left));
             const float clampedValue = (std::max)(minY, (std::min)(maxY, channel[i]));
@@ -519,7 +543,7 @@ namespace {
         return g_temperaturePolylineCache.back().points;
     }
 
-    static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle, bool pointsAlreadyOptimized = false) {
+    static void DrawCurvePolylineSegment(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle, bool pointsAlreadyOptimized) {
         if (points.size() < 2) {
             return;
         }
@@ -565,6 +589,40 @@ namespace {
         Polyline(hdc, renderPoints->data(), static_cast<int>(renderPoints->size()));
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
+    }
+
+    static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle, bool pointsAlreadyOptimized = false) {
+        if (points.size() < 2) {
+            return;
+        }
+
+        size_t segmentStart = 0;
+        bool hasBreaks = false;
+        for (const POINT& point : points) {
+            if (IsPolylineBreak(point)) {
+                hasBreaks = true;
+                break;
+            }
+        }
+
+        if (!hasBreaks) {
+            DrawCurvePolylineSegment(hdc, points, color, lineStyle, pointsAlreadyOptimized);
+            return;
+        }
+
+        for (size_t i = 0; i <= points.size(); ++i) {
+            const bool isBreak = (i == points.size()) || IsPolylineBreak(points[i]);
+            if (!isBreak) {
+                continue;
+            }
+
+            if (i > segmentStart + 1) {
+                std::vector<POINT> segment(points.begin() + static_cast<std::ptrdiff_t>(segmentStart),
+                                           points.begin() + static_cast<std::ptrdiff_t>(i));
+                DrawCurvePolylineSegment(hdc, segment, color, lineStyle, pointsAlreadyOptimized);
+            }
+            segmentStart = i + 1;
+        }
     }
 }
 
@@ -694,6 +752,10 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         points.reserve(channel.size());
         const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t i = 0; i < channel.size(); i++) {
+            if (!IsFiniteValue(channel[i])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             int x = plotRect.left + (int)((double)i / xDenominator * (plotRect.right - plotRect.left));
             int y = plotRect.bottom - (int)((channel[i] - minVal) / (maxVal - minVal) * (plotRect.bottom - plotRect.top));
             points.push_back({ x, y });
@@ -726,6 +788,10 @@ void ChartModule::DrawChartData(HDC hdc, const RECT& plotRect, const std::vector
         std::vector<POINT> points;
         points.reserve(channel.size());
         for (size_t i = 0; i < channel.size(); i++) {
+            if (!IsFiniteValue(channel[i])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             // Реальная X координата в данных (индекс i соответствует реальной позиции в данных)
             double realX = static_cast<double>(i);
             
@@ -1158,6 +1224,9 @@ void ChartModule::FindMinMaxValues(const std::vector<std::vector<float>>& chartD
     // Находим исходные минимум и максимум
     for (const auto& channel : chartData) {
         for (float val : channel) {
+            if (!IsFiniteValue(val)) {
+                continue;
+            }
             minVal = (std::min)(minVal, val);
             maxVal = (std::max)(maxVal, val);
         }
@@ -1863,6 +1932,10 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         points.reserve(channel.size());
         const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t j = 0; j < channel.size(); j++) {
+            if (!IsFiniteValue(channel[j])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             int x = plotRect.left + (int)((double)j / xDenominator * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(leftMin, (std::min)(leftMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - leftMin) / (leftMax - leftMin) * (plotRect.bottom - plotRect.top));
@@ -1889,6 +1962,10 @@ void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
         points.reserve(channel.size());
         const double xDenominator = (channel.size() > 1) ? static_cast<double>(channel.size() - 1) : 1.0;
         for (size_t j = 0; j < channel.size(); j++) {
+            if (!IsFiniteValue(channel[j])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             int x = plotRect.left + (int)((double)j / xDenominator * (plotRect.right - plotRect.left));
             float clampedValue = (std::max)(rightMin, (std::min)(rightMax, channel[j]));
             int y = plotRect.bottom - (int)((clampedValue - rightMin) / (rightMax - rightMin) * (plotRect.bottom - plotRect.top));
@@ -1963,6 +2040,10 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         points.reserve(channel.size());
         double xRange = maxXData - minXData;
         for (size_t j = 0; j < channel.size(); j++) {
+            if (!IsFiniteValue(channel[j])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             // Вычисляем реальный индекс данных и преобразуем в экранную координату
             double dataX = minXData + (double)j;
             int x = plotRect.left + (int)((dataX - minXData) / xRange * (plotRect.right - plotRect.left));
@@ -1995,6 +2076,10 @@ void ChartModule::DrawDualAxisDataWithZoom(HDC hdc, const RECT& plotRect,
         std::vector<POINT> points;
         points.reserve(channel.size());
         for (size_t j = 0; j < channel.size(); j++) {
+            if (!IsFiniteValue(channel[j])) {
+                AppendPolylineBreak(points);
+                continue;
+            }
             // Вычисляем реальный индекс данных и преобразуем в экранную координату
             double dataX = minXData + (double)j;
             int x = plotRect.left + (int)((dataX - minXData) / xRangeForRightAxis * (plotRect.right - plotRect.left));
