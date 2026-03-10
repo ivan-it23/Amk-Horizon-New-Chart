@@ -16,6 +16,22 @@
         "_UNICODE"
       ],
       "intelliSenseMode": "windows-msvc-x86"
+    },
+    {
+      "inheritEnvironments": [
+        "msvc_x64"
+      ],
+      "name": "x64-Release",
+      "includePath": [
+        "${env.INCLUDE}",
+        "${workspaceRoot}\\**"
+      ],
+      "defines": [
+        "NDEBUG",
+        "UNICODE",
+        "_UNICODE"
+      ],
+      "intelliSenseMode": "windows-msvc-x64"
     }
   ]
 }
