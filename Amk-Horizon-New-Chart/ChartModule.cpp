@@ -1,6 +1,7 @@
 #include "framework.h"
 #include "ChartModule.h"
 #include "SchematicModule.h"
+#include "ToolPresentation.h"
 #include <algorithm>
 #include <cfloat>
 #include <cmath>
@@ -46,6 +47,7 @@ extern "C" {
 // GDI+ enum constants
 namespace GpConst {
     enum {
+        SmoothingModeNone      = 0,
         SmoothingModeAntiAlias = 4,
         PixelOffsetModeHalf    = 4,
         UnitPixel              = 2,
@@ -208,6 +210,10 @@ static std::vector<bool> MakeAllUiTransmittersEnabled() {
     return std::vector<bool>(kUiTransmitterCount, true);
 }
 
+static std::wstring GetLegendChannelLabel(size_t channelIdx) {
+    return GetElementShortLabel(ElementType::TRANSMITTER, static_cast<int>(channelIdx));
+}
+
 // Определение цветов для каналов
 const COLORREF ChartModule::CHANNEL_COLORS[UIModule::UI_TRANSMITTER_COUNT] = {
     // Спокойная "офисная" палитра (без неоновых цветов), хорошо читается при 1px линиях.
@@ -216,10 +222,6 @@ const COLORREF ChartModule::CHANNEL_COLORS[UIModule::UI_TRANSMITTER_COUNT] = {
     RGB(200, 50, 50),    // T3 - приглушённый красный
     RGB(50, 90, 190),    // T4 - приглушённый синий
     RGB(170, 80, 140)    // T5 - приглушённый пурпурный
-};
-
-const wchar_t* ChartModule::CHANNEL_NAMES[UIModule::UI_TRANSMITTER_COUNT] = {
-    L"T1", L"T2", L"T3", L"T4", L"T5"
 };
 
 ChartModule::ChartModule() {
@@ -286,15 +288,81 @@ namespace {
         return CreatePen(PS_SOLID, kCurveWidthPx, color);
     }
 
+    static void AppendPointIfDifferent(std::vector<POINT>& outPoints, const POINT& point) {
+        if (outPoints.empty() ||
+            outPoints.back().x != point.x ||
+            outPoints.back().y != point.y) {
+            outPoints.push_back(point);
+        }
+    }
+
+    static std::vector<POINT> OptimizePolylineForRender(const std::vector<POINT>& points) {
+        if (points.size() <= 2) {
+            return points;
+        }
+
+        std::vector<POINT> optimized;
+        optimized.reserve((std::min)(points.size(), static_cast<size_t>(8192)));
+
+        size_t bucketStart = 0;
+        while (bucketStart < points.size()) {
+            const LONG bucketX = points[bucketStart].x;
+            size_t bucketEnd = bucketStart + 1;
+            while (bucketEnd < points.size() && points[bucketEnd].x == bucketX) {
+                ++bucketEnd;
+            }
+
+            const POINT firstPoint = points[bucketStart];
+            const POINT lastPoint = points[bucketEnd - 1];
+            POINT minPoint = firstPoint;
+            POINT maxPoint = firstPoint;
+            size_t minIndex = bucketStart;
+            size_t maxIndex = bucketStart;
+
+            for (size_t i = bucketStart + 1; i < bucketEnd; ++i) {
+                if (points[i].y < minPoint.y) {
+                    minPoint = points[i];
+                    minIndex = i;
+                }
+                if (points[i].y > maxPoint.y) {
+                    maxPoint = points[i];
+                    maxIndex = i;
+                }
+            }
+
+            AppendPointIfDifferent(optimized, firstPoint);
+            if (minIndex < maxIndex) {
+                AppendPointIfDifferent(optimized, minPoint);
+                AppendPointIfDifferent(optimized, maxPoint);
+            } else if (maxIndex < minIndex) {
+                AppendPointIfDifferent(optimized, maxPoint);
+                AppendPointIfDifferent(optimized, minPoint);
+            }
+            AppendPointIfDifferent(optimized, lastPoint);
+
+            bucketStart = bucketEnd;
+        }
+
+        if (optimized.size() < 2 && !points.empty()) {
+            optimized = points;
+        }
+
+        return optimized;
+    }
+
     static void DrawCurvePolyline(HDC hdc, const std::vector<POINT>& points, COLORREF color, int lineStyle) {
         if (points.size() < 2) {
             return;
         }
 
+        const std::vector<POINT> optimizedPoints = OptimizePolylineForRender(points);
+        const std::vector<POINT>& renderPoints = (optimizedPoints.size() >= 2) ? optimizedPoints : points;
+        const bool useAntialias = renderPoints.size() <= 4000;
+
         if (IsGdiPlusReady()) {
             void* pGraphics = nullptr;
             if (GdipCreateFromHDC(hdc, &pGraphics) == GpOk && pGraphics) {
-                GdipSetSmoothingMode(pGraphics, GpConst::SmoothingModeAntiAlias);
+                GdipSetSmoothingMode(pGraphics, useAntialias ? GpConst::SmoothingModeAntiAlias : GpConst::SmoothingModeNone);
                 GdipSetPixelOffsetMode(pGraphics, GpConst::PixelOffsetModeHalf);
 
                 // ARGB: 0xAARRGGBB
@@ -308,7 +376,7 @@ namespace {
                         GdipSetPenDashStyle(pPen, GpConst::DashStyleDash);
                     }
 
-                    GdipDrawLinesI(pGraphics, pPen, points.data(), static_cast<int>(points.size()));
+                    GdipDrawLinesI(pGraphics, pPen, renderPoints.data(), static_cast<int>(renderPoints.size()));
                     GdipDeletePen(pPen);
                 }
                 GdipDeleteGraphics(pGraphics);
@@ -319,7 +387,7 @@ namespace {
         // Fallback на GDI (если GDI+ недоступен)
         HPEN hPen = CreateCurvePen(lineStyle, color);
         HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
-        Polyline(hdc, points.data(), static_cast<int>(points.size()));
+        Polyline(hdc, renderPoints.data(), static_cast<int>(renderPoints.size()));
         SelectObject(hdc, hOldPen);
         DeleteObject(hPen);
     }
@@ -529,7 +597,8 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
         if (isMultiChannel && channelIdx < enabledTransmitters.size()) {
             // Ширина элемента = чекбокс + отступ + линия + отступ + текст
             SIZE textSize;
-            GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+            const std::wstring channelLabel = GetLegendChannelLabel(channelIdx);
+            GetTextExtentPoint32(hdc, channelLabel.c_str(), (int)channelLabel.length(), &textSize);
             int elementWidth = checkboxSize + 5 + lineLength + 5 + textSize.cx;
             
             elements.push_back({elementWidth, (int)channelIdx});
@@ -576,12 +645,11 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
         
         currentX += lineLength + 5;
         
-        // Отрисовка названия канала (CHANNEL_NAMES уже wide-строки)
-        const wchar_t* name = CHANNEL_NAMES[channelIdx];
-        TextOut(hdc, currentX, legendY, name, (int)wcslen(name));
+        const std::wstring name = GetLegendChannelLabel(static_cast<size_t>(channelIdx));
+        TextOut(hdc, currentX, legendY, name.c_str(), (int)name.length());
         
         SIZE textSize;
-        GetTextExtentPoint32(hdc, name, (int)wcslen(name), &textSize);
+        GetTextExtentPoint32(hdc, name.c_str(), (int)name.length(), &textSize);
         currentX += textSize.cx + elementSpacing;
     }
     
@@ -633,7 +701,8 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     for (int channelIdx = 0; channelIdx < static_cast<int>(kUiTransmitterCount); channelIdx++) {
         if (isMultiChannel) {
             SIZE textSize;
-            GetTextExtentPoint32(hdc, CHANNEL_NAMES[channelIdx], (int)wcslen(CHANNEL_NAMES[channelIdx]), &textSize);
+            const std::wstring channelLabel = GetLegendChannelLabel(static_cast<size_t>(channelIdx));
+            GetTextExtentPoint32(hdc, channelLabel.c_str(), (int)channelLabel.length(), &textSize);
             int elementWidth = checkboxSize + 5 + lineLength + 5 + textSize.cx;
             
             elements.push_back({elementWidth, channelIdx, 0});

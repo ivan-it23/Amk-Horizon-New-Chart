@@ -14,7 +14,6 @@ class ChartModule {
 private:
     // Цвета для разных каналов
     static const COLORREF CHANNEL_COLORS[UIModule::UI_TRANSMITTER_COUNT];
-    static const wchar_t* CHANNEL_NAMES[UIModule::UI_TRANSMITTER_COUNT]; // Добавляем статическое объявление для имен каналов
 
 public:
     ChartModule();

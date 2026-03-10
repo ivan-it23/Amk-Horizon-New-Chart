@@ -26,6 +26,131 @@ bool IsUiTransmitterIndex(int transmitterIndex) {
     return transmitterIndex >= 0 && transmitterIndex < GetUiTransmitterCount();
 }
 
+bool IsBatchablePresetType(PresetType preset) {
+    switch (preset) {
+        case PresetType::ALL_AMPLITUDES_R1:
+        case PresetType::ALL_AMPLITUDES_R2:
+        case PresetType::AMPLITUDE_RATIOS:
+        case PresetType::PHASE_DIFFERENCES:
+        case PresetType::RHO_SMT:
+        case PresetType::PHASE_SMT:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool TryResolveBatchedDataType(const ChartConfiguration& config, DataType& outDataType) {
+    outDataType = DataType::TEMPERATURE;
+    if (!config.IsPresetActive() || !IsBatchablePresetType(config.activePreset)) {
+        return false;
+    }
+
+    switch (config.activePreset) {
+        case PresetType::ALL_AMPLITUDES_R1:
+            outDataType = DataType::AMPLITUDE_RX1;
+            return true;
+        case PresetType::ALL_AMPLITUDES_R2:
+            outDataType = DataType::AMPLITUDE_RX2;
+            return true;
+        case PresetType::AMPLITUDE_RATIOS:
+            outDataType = DataType::AMPLITUDE_RATIO;
+            return true;
+        case PresetType::PHASE_DIFFERENCES:
+            outDataType = DataType::PHASE_DIFFERENCE;
+            return true;
+        case PresetType::RHO_SMT:
+            outDataType = DataType::RHO_SMT;
+            return true;
+        case PresetType::PHASE_SMT:
+            outDataType = DataType::PHASE_SMT;
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool TryBuildBatchedPresetCurveData(const ChartConfiguration& config,
+                                    const DataModule* dataModule,
+                                    double minX,
+                                    double maxX,
+                                    std::vector<std::vector<float>>& leftAxisData,
+                                    std::vector<std::vector<float>>& rightAxisData,
+                                    std::vector<CurveDefinition>& leftAxisCurves,
+                                    std::vector<CurveDefinition>& rightAxisCurves) {
+    if (!dataModule || !dataModule->HasData()) {
+        return false;
+    }
+
+    DataType batchedDataType = DataType::TEMPERATURE;
+    if (!TryResolveBatchedDataType(config, batchedDataType)) {
+        return false;
+    }
+
+    if (config.curves.empty()) {
+        return false;
+    }
+
+    const FrequencyBand frequency = config.curves.front().frequency;
+    std::vector<bool> enabledTransmitters(static_cast<size_t>(GetUiTransmitterCount()), false);
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled || !IsUiTransmitterIndex(curve.elementIndex)) {
+            continue;
+        }
+
+        if (curve.frequency != frequency || curve.dataType != batchedDataType) {
+            return false;
+        }
+
+        if ((batchedDataType == DataType::PHASE_SMT || batchedDataType == DataType::RHO_SMT) &&
+            curve.smtMode != SmtComputationMode::FROM_SONDE) {
+            return false;
+        }
+
+        enabledTransmitters[static_cast<size_t>(curve.elementIndex)] = true;
+    }
+
+    std::vector<std::vector<float>> batchedData;
+    dataModule->CalculateChartData(batchedDataType, frequency, batchedData, enabledTransmitters, minX, maxX, -1e10, 1e10);
+    if (batchedData.empty()) {
+        return true;
+    }
+
+    bool hasEnabledLeftAxis = false;
+    bool hasEnabledRightAxis = false;
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled) continue;
+        if (curve.yAxisGroup == 0) hasEnabledLeftAxis = true;
+        if (curve.yAxisGroup == 1) hasEnabledRightAxis = true;
+    }
+    const bool normalizeAxes = (!hasEnabledLeftAxis && hasEnabledRightAxis);
+
+    for (const auto& curve : config.curves) {
+        if (!curve.enabled || !IsUiTransmitterIndex(curve.elementIndex)) {
+            continue;
+        }
+
+        const size_t channelIndex = static_cast<size_t>(curve.elementIndex);
+        if (channelIndex >= batchedData.size()) {
+            continue;
+        }
+
+        const int effectiveAxisGroup = normalizeAxes ? 0 : curve.yAxisGroup;
+        if (effectiveAxisGroup == 0) {
+            leftAxisData.push_back(batchedData[channelIndex]);
+            CurveDefinition normalizedCurve = curve;
+            normalizedCurve.yAxisGroup = 0;
+            normalizedCurve.lineStyle = PS_SOLID;
+            leftAxisCurves.push_back(normalizedCurve);
+        } else {
+            rightAxisData.push_back(batchedData[channelIndex]);
+            rightAxisCurves.push_back(curve);
+        }
+    }
+
+    return true;
+}
+
 const wchar_t* GetPresetDisplayName(PresetType preset) {
     switch (preset) {
         case PresetType::ALL_AMPLITUDES_R1:
@@ -576,6 +701,14 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
     if (!dataModule || !dataModule->HasData()) {
         return;
     }
+
+    double minX = 0.0;
+    double maxX = static_cast<double>(dataModule->GetDataSize() > 0 ? dataModule->GetDataSize() - 1 : 0);
+    if (TryBuildBatchedPresetCurveData(config, dataModule, minX, maxX,
+                                       leftAxisData, rightAxisData,
+                                       leftAxisCurves, rightAxisCurves)) {
+        return;
+    }
     
     // НОВОЕ v2.6.3: Нормализация осей - если нет включённых кривых на левой оси,
     // но есть на правой, перемещаем правые кривые на левую ось
@@ -683,6 +816,12 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
     rightAxisCurves.clear();
     
     if (!dataModule || !dataModule->HasData()) {
+        return;
+    }
+
+    if (TryBuildBatchedPresetCurveData(config, dataModule, minX, maxX,
+                                       leftAxisData, rightAxisData,
+                                       leftAxisCurves, rightAxisCurves)) {
         return;
     }
     

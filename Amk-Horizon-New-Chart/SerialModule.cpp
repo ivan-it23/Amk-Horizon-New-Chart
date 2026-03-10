@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cstdarg>
 #include <cstdio>
+#include <filesystem>
 
 #pragma comment(lib, "setupapi.lib")
 #pragma comment(lib, "shell32.lib")
@@ -35,6 +36,11 @@ std::string HexDump(const uint8_t* data, size_t len, size_t maxBytes = 20) {
 namespace {
 uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
     return parsedFrame.canonicalData.frame;
+}
+
+bool OpenAppendBinaryStream(std::ofstream& stream, const std::wstring& path) {
+    stream.open(std::filesystem::path(path), std::ios::binary | std::ios::app);
+    return stream.is_open();
 }
 
 constexpr uint8_t kLegacyLwdDataCommand = 0x67;
@@ -1304,8 +1310,7 @@ void SerialModule::HandleMetrologyUpdated() {
     }
 
     if (wasOpen) {
-        std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
-        recordFile.open(narrowPath, std::ios::binary | std::ios::app);
+        (void)OpenAppendBinaryStream(recordFile, recordFilePath);
     }
 }
 
@@ -1705,8 +1710,7 @@ bool SerialModule::OpenRecordFile() {
     }
     
     // Открываем файл для бинарной записи
-    std::string narrowPath(recordFilePath.begin(), recordFilePath.end());
-    recordFile.open(narrowPath, std::ios::binary | std::ios::app);
+    OpenAppendBinaryStream(recordFile, recordFilePath);
     
     if (!recordFile.is_open()) {
         lastError = L"Не удалось создать файл записи: " + recordFilePath;
