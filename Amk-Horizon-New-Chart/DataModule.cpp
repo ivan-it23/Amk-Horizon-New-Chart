@@ -45,6 +45,53 @@ bool ReadParsedFrameAt(std::ifstream& file, FileFormat format, size_t frameIndex
            DataModule::ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), outFrame);
 }
 
+bool IsReasonableFrameCounter(uint32_t frame) {
+    return frame <= 100000000u;
+}
+
+bool IsReasonableTemperatureValue(float temperature) {
+    return std::isfinite(temperature) && temperature >= -200.0f && temperature <= 300.0f;
+}
+
+bool HasNonZeroLegacyFifthSlotData(const GP_TOOL_DATA& data) {
+    constexpr float epsilon = 1e-12f;
+    return std::fabs(data.rho_smt[0][4]) > epsilon ||
+           std::fabs(data.rho_smt[1][4]) > epsilon ||
+           std::fabs(data.phase_smt[0][4]) > epsilon ||
+           std::fabs(data.phase_smt[1][4]) > epsilon ||
+           std::fabs(data.AM_RX_1[0][4]) > epsilon ||
+           std::fabs(data.AM_RX_1[1][4]) > epsilon ||
+           std::fabs(data.AM_RX_2[0][4]) > epsilon ||
+           std::fabs(data.AM_RX_2[1][4]) > epsilon ||
+           std::fabs(data.DELTA_PH[0][4]) > epsilon ||
+           std::fabs(data.DELTA_PH[1][4]) > epsilon;
+}
+
+bool ShouldParseAsLegacyLwd4TxRawFrame(const void* rawFrame, size_t rawFrameSize) {
+    if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
+        return false;
+    }
+
+    GP_TOOL_DATA canonicalView = {};
+    memcpy(&canonicalView, rawFrame, sizeof(canonicalView));
+    if (HasNonZeroLegacyFifthSlotData(canonicalView)) {
+        return true;
+    }
+
+    LEGACY_GP_TOOL_DATA legacyView = {};
+    memcpy(&legacyView, rawFrame, sizeof(legacyView));
+
+    const bool canonicalLooksValid =
+        IsReasonableFrameCounter(canonicalView.frame) &&
+        IsReasonableTemperatureValue(canonicalView.temperature);
+
+    const bool legacyLooksValid =
+        IsReasonableFrameCounter(legacyView.frame) &&
+        IsReasonableTemperatureValue(legacyView.temperature);
+
+    return !canonicalLooksValid && legacyLooksValid;
+}
+
 void AppendCanonicalRecord(const GP_TOOL_DATA& record,
                            const ToolRecordMetadata& metadata,
                            std::vector<GP_TOOL_DATA>& data,
@@ -231,6 +278,11 @@ bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize
     const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(canonicalData.signature);
     if (!adapter) {
         return false;
+    }
+
+    if (adapter->GetKind() == ToolDataKind::LWD_4TX &&
+        ShouldParseAsLegacyLwd4TxRawFrame(rawFrame, rawFrameSize)) {
+        return adapter->ParseRawFrame(rawFrame, rawFrameSize, outFrame);
     }
 
     outFrame.kind = adapter->GetKind();

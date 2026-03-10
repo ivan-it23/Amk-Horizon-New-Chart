@@ -20,49 +20,15 @@
 
 // === Отладочный лог для 4Tx (вывод.txt) ===
 namespace {
-std::wstring GetDebugLogPath() {
-    wchar_t modulePath[MAX_PATH] = {};
-    GetModuleFileNameW(nullptr, modulePath, MAX_PATH);
-    std::wstring dir(modulePath);
-    // Exe обычно в <ProjectRoot>\x64\Release\ или \x64\Debug\ — поднимаемся на 2 уровня
-    for (int i = 0; i < 3; ++i) {
-        size_t pos = dir.find_last_of(L"\\/");
-        if (pos != std::wstring::npos) dir = dir.substr(0, pos);
-    }
-    return dir + L"\\вывод.txt";
-}
-
 void DebugLog4Tx(const char* fmt, ...) {
-    static std::wstring logPath = GetDebugLogPath();
-    FILE* f = nullptr;
-    _wfopen_s(&f, logPath.c_str(), L"a");
-    if (!f) return;
-
-    // Timestamp
-    auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()) % 1000;
-    std::time_t t = std::chrono::system_clock::to_time_t(now);
-    struct tm lt = {};
-    localtime_s(&lt, &t);
-    fprintf(f, "[%02d:%02d:%02d.%03d] ", lt.tm_hour, lt.tm_min, lt.tm_sec, (int)ms.count());
-
-    va_list args;
-    va_start(args, fmt);
-    vfprintf(f, fmt, args);
-    va_end(args);
-    fprintf(f, "\n");
-    fclose(f);
+    (void)fmt;
 }
 
 std::string HexDump(const uint8_t* data, size_t len, size_t maxBytes = 20) {
-    std::string result;
-    char buf[8];
-    for (size_t i = 0; i < len && i < maxBytes; ++i) {
-        sprintf_s(buf, "%02X ", data[i]);
-        result += buf;
-    }
-    if (len > maxBytes) result += "...";
-    return result;
+    (void)data;
+    (void)len;
+    (void)maxBytes;
+    return {};
 }
 } // namespace
 
