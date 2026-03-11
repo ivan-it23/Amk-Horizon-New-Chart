@@ -33,6 +33,11 @@
 - `CurveSelectionModule` и `SchematicModule` получили серию safe-step локализаций вокруг SMT preset handling и selection-driven curve assembly.
 - Range export flow локализован и подготовлен к будущей adapter-aware export policy без изменения текущего canonical `.bin` поведения.
 - Документация Phase 7 и compatibility boundaries приведена в актуальное состояние.
+- Реализована асинхронная подготовка тяжёлых UI/data path-ов через `AsyncTaskQueue`, что убрало заметные подвисания при загрузке и части COM-операций.
+- Добавлены многоуровневые кеши для больших данных: snapshot cache в `ChartManager`, derived-series cache в `DataModule`, screen-space polyline cache в `ChartModule`.
+- Для больших наборов точек внедрены LOD/downsampling, throttling `WM_MOUSEMOVE`, уменьшение лишних redraw и корректная обработка `NaN` в рендере.
+- Исправлена синхронизация zoom/draw/coordinate mapping для `.DEV` и повторного zoom на больших файлах.
+- Исправлено позиционирование заметок от перекрестия; для пресетов разности фаз отключена некорректная привязка заметки к ближайшей кривой.
 
 ## Известные ограничения
 - `GP_TOOL_DATA` всё ещё остаётся основной canonical storage/API shape, поэтому полное отделение format-specific behavior ещё не завершено.
