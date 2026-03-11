@@ -45,22 +45,39 @@ private:
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
         double minX, maxX, minY, maxY;
+        double minYRight, maxYRight;
         bool isZoomed;
         bool isXCustom; // true если пользователь вручную задал диапазон X
         bool isXToLatest; // true если пользователь задал только "From", а "To" должен следовать за последним кадром
         bool isYCustom; // true если пользователь вручную задал диапазон Y (важно для Surf)
+        bool hasRightAxisCustomRange; // true если для dual-axis явно задан диапазон правой оси
         
-        ZoomRange() : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0), isZoomed(false), isXCustom(false), isXToLatest(false), isYCustom(false) {}
+        ZoomRange()
+            : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0),
+              minYRight(0.0), maxYRight(0.0),
+              isZoomed(false), isXCustom(false), isXToLatest(false), isYCustom(false),
+              hasRightAxisCustomRange(false) {}
     };
 
     struct AxisZoomRange {
         double min;
         double max;
         bool isCustom;
+        double minRight;
+        double maxRight;
+        bool hasRightAxisRange;
 
-        AxisZoomRange() : min(0.0), max(0.0), isCustom(false) {}
-        AxisZoomRange(double minValue, double maxValue, bool custom)
-            : min(minValue), max(maxValue), isCustom(custom) {}
+        AxisZoomRange()
+            : min(0.0), max(0.0), isCustom(false),
+              minRight(0.0), maxRight(0.0), hasRightAxisRange(false) {}
+        AxisZoomRange(double minValue,
+                      double maxValue,
+                      bool custom,
+                      double minRightValue = 0.0,
+                      double maxRightValue = 0.0,
+                      bool hasRightRange = false)
+            : min(minValue), max(maxValue), isCustom(custom),
+              minRight(minRightValue), maxRight(maxRightValue), hasRightAxisRange(hasRightRange) {}
     };
     
     // Переменные для масштабирования

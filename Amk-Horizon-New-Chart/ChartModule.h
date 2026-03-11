@@ -51,7 +51,10 @@ public:
                           const std::vector<std::vector<float>>& rightAxisData,
                           const std::wstring& title, bool hasData,
                           double minXData, double maxXData, 
-                          double minYData, double maxYData, bool showAxes = true) const;
+                          double minYData, double maxYData, bool showAxes = true,
+                          bool useExplicitRightAxisRange = false,
+                          double explicitRightMinY = 0.0,
+                          double explicitRightMaxY = 0.0) const;
     
     // v2.15.0: Перегрузка с поддержкой zoom и конфигурации (для пресетов)
     void DrawDualAxisChart(HDC hdc, const RECT& rect, 
@@ -61,7 +64,10 @@ public:
                           const std::wstring& title, bool hasData,
                           double minXData, double maxXData, 
                           double minYData, double maxYData,
-                          const ChartConfiguration& config, bool showAxes = true) const;
+                          const ChartConfiguration& config, bool showAxes = true,
+                          bool useExplicitRightAxisRange = false,
+                          double explicitRightMinY = 0.0,
+                          double explicitRightMaxY = 0.0) const;
     
     // v2.10.0: Перегрузка с поддержкой температуры на оси X
     void DrawDualAxisChart(HDC hdc, const RECT& rect,
@@ -71,7 +77,10 @@ public:
                           const std::wstring& title, bool hasData,
                           const std::vector<float>& xAxisData,
                           double minXData, double maxXData,
-                          double minYData, double maxYData, bool showAxes = true) const;
+                          double minYData, double maxYData, bool showAxes = true,
+                          bool useExplicitRightAxisRange = false,
+                          double explicitRightMinY = 0.0,
+                          double explicitRightMaxY = 0.0) const;
     
     // v2.15.0: Перегрузка с поддержкой температуры и конфигурации (для пресетов)
     void DrawDualAxisChart(HDC hdc, const RECT& rect,
@@ -82,7 +91,10 @@ public:
                           const std::vector<float>& xAxisData,
                           double minXData, double maxXData,
                           double minYData, double maxYData,
-                          const ChartConfiguration& config, bool showAxes = true) const;
+                          const ChartConfiguration& config, bool showAxes = true,
+                          bool useExplicitRightAxisRange = false,
+                          double explicitRightMinY = 0.0,
+                          double explicitRightMaxY = 0.0) const;
 
     // Вспомогательные методы отрисовки
     void DrawChartBackground(HDC hdc, const RECT& rect) const;
@@ -195,7 +207,8 @@ public:
                                                const std::vector<std::vector<float>>& rightAxisData,
                                                const std::vector<float>& xAxisData,
                                                double minXData, double maxXData,
-                                               double minYData, double maxYData) const;
+                                               double minYData, double maxYData,
+                                               double minYRight, double maxYRight) const;
     
     void DrawDualAxisLegend(HDC hdc, const RECT& rect,
                            const std::vector<CurveDefinition>& curves) const;
@@ -227,7 +240,10 @@ private:
                                             double minYData,
                                             double maxYData,
                                             bool showAxes,
-                                            const ChartConfiguration* config) const;
+                                            const ChartConfiguration* config,
+                                            bool useExplicitRightAxisRange,
+                                            double explicitRightMinY,
+                                            double explicitRightMaxY) const;
     bool TryGetVisibleTemperatureAxisRange(const std::vector<float>& xAxisData,
                                            double minXData,
                                            double maxXData,

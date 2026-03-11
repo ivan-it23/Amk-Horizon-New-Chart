@@ -21,6 +21,7 @@ struct ChartNote {
     double yLeft = 0.0;
     double yRight = 0.0;
     bool hasYRight = false;
+    int anchorAxisGroup = 0;          // 0 = левая ось, 1 = правая ось
 
     std::wstring text;               // текст заметки
 };

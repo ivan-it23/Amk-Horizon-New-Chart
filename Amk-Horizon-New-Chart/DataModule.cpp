@@ -244,6 +244,23 @@ bool TryBuildSilentCalculationContext(const DataModule& dataModule,
 void ReserveForWindow(std::vector<float>& outData, const DataIndexWindow& window) {
     outData.reserve(window.endIndex - window.startIndex);
 }
+
+float GetMissingPlotValue() {
+    return std::numeric_limits<float>::quiet_NaN();
+}
+
+void AppendAlignedPlotValue(std::vector<float>& outData, bool hasValue, float value) {
+    outData.push_back(hasValue ? value : GetMissingPlotValue());
+}
+
+void AppendAlignedFilteredPlotValue(std::vector<float>& outData,
+                                    bool hasValue,
+                                    float value,
+                                    double minY,
+                                    double maxY) {
+    const bool isVisibleValue = hasValue && value >= minY && value <= maxY;
+    AppendAlignedPlotValue(outData, isVisibleValue, value);
+}
 }
 
 bool DataModule::ReadFileSignature(std::ifstream& file, FileFormat format, uint32_t& outSignature) {
@@ -927,76 +944,76 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                 const ToolDataAccessView view = GetDataView(i);
                 const int transmitterCount = std::min(availableTransmitterCount, view.GetTransmitterCount());
 
-                for (int t = 0; t < transmitterCount; ++t) {
+                for (int t = 0; t < availableTransmitterCount; ++t) {
                     if (!validTransmitters[static_cast<size_t>(t)]) continue;
 
                     float value = 0.0f;
                     bool hasValue = false;
 
-                    switch (type) {
-                        case DataType::PHASE_DIFFERENCE:
-                            {
-                                float phaseDiff = 0.0f;
-                                if (!view.TryGetDeltaPhase(freqIdx, t, phaseDiff)) {
-                                    break;
+                    if (t < transmitterCount) {
+                        switch (type) {
+                            case DataType::PHASE_DIFFERENCE:
+                                {
+                                    float phaseDiff = 0.0f;
+                                    if (!view.TryGetDeltaPhase(freqIdx, t, phaseDiff)) {
+                                        break;
+                                    }
+                                    phaseDiff = NormalizePhase(phaseDiff);
+                                    value = phaseDiff * 57295.7795f; // рад -> мдег
+                                    hasValue = true;
                                 }
-                                phaseDiff = NormalizePhase(phaseDiff);
-                                value = phaseDiff * 57295.7795f; // рад -> мдег
-                                hasValue = true;
-                            }
-                            break;
-                        case DataType::AMPLITUDE_RATIO:
-                            {
-                                float rx1 = 0.0f;
-                                float rx2 = 0.0f;
-                                if (!view.TryGetAmplitudeRx1(freqIdx, t, rx1) || !view.TryGetAmplitudeRx2(freqIdx, t, rx2)) {
-                                    break;
+                                break;
+                            case DataType::AMPLITUDE_RATIO:
+                                {
+                                    float rx1 = 0.0f;
+                                    float rx2 = 0.0f;
+                                    if (!view.TryGetAmplitudeRx1(freqIdx, t, rx1) || !view.TryGetAmplitudeRx2(freqIdx, t, rx2)) {
+                                        break;
+                                    }
+                                    value = (rx1 != 0.0f) ? (rx2 / rx1) : 0.0f;
+                                    hasValue = true;
                                 }
-                                value = (rx1 != 0.0f) ? (rx2 / rx1) : 0.0f;
-                                hasValue = true;
-                            }
-                            break;
-                        case DataType::AMPLITUDE_RX1:
-                            {
-                                float amplitude = 0.0f;
-                                if (!view.TryGetAmplitudeRx1(freqIdx, t, amplitude)) {
-                                    break;
+                                break;
+                            case DataType::AMPLITUDE_RX1:
+                                {
+                                    float amplitude = 0.0f;
+                                    if (!view.TryGetAmplitudeRx1(freqIdx, t, amplitude)) {
+                                        break;
+                                    }
+                                    value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                    hasValue = true;
                                 }
-                                value = amplitude * 4000.0f / pow(2.0f, 24.0f);
-                                hasValue = true;
-                            }
-                            break;
-                        case DataType::AMPLITUDE_RX2:
-                            {
-                                float amplitude = 0.0f;
-                                if (!view.TryGetAmplitudeRx2(freqIdx, t, amplitude)) {
-                                    break;
+                                break;
+                            case DataType::AMPLITUDE_RX2:
+                                {
+                                    float amplitude = 0.0f;
+                                    if (!view.TryGetAmplitudeRx2(freqIdx, t, amplitude)) {
+                                        break;
+                                    }
+                                    value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                    hasValue = true;
                                 }
-                                value = amplitude * 4000.0f / pow(2.0f, 24.0f);
-                                hasValue = true;
-                            }
-                            break;
-                        case DataType::PHASE_SMT:
-                            {
-                                float phase = 0.0f;
-                                if (!view.TryGetPhaseSmt(freqIdx, t, phase)) {
-                                    break;
+                                break;
+                            case DataType::PHASE_SMT:
+                                {
+                                    float phase = 0.0f;
+                                    if (!view.TryGetPhaseSmt(freqIdx, t, phase)) {
+                                        break;
+                                    }
+                                    phase = NormalizePhase(phase);
+                                    value = phase * 57295.7795f; // рад -> мдег
+                                    hasValue = true;
                                 }
-                                phase = NormalizePhase(phase);
-                                value = phase * 57295.7795f; // рад -> мдег
-                                hasValue = true;
-                            }
-                            break;
-                        case DataType::RHO_SMT:
-                            hasValue = view.TryGetRhoSmt(freqIdx, t, value);
-                            break;
-                        default:
-                            continue;
+                                break;
+                            case DataType::RHO_SMT:
+                                hasValue = view.TryGetRhoSmt(freqIdx, t, value);
+                                break;
+                            default:
+                                break;
+                        }
                     }
 
-                    if (hasValue && value >= minY && value <= maxY) {
-                        outData[static_cast<size_t>(t)].push_back(value);
-                    }
+                    AppendAlignedFilteredPlotValue(outData[static_cast<size_t>(t)], hasValue, value, minY, maxY);
                 }
             }
         }
@@ -1018,15 +1035,8 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                 const bool hasValue = (type == DataType::SILENT_AMPLITUDE_RX1) ?
                     view.TryGetSilentAmplitudeRx1(freqIdx, amplitude) :
                     view.TryGetSilentAmplitudeRx2(freqIdx, amplitude);
-                if (!hasValue) {
-                    continue;
-                }
                 float value = amplitude * 4000.0f / pow(2.0f, 24.0f);
-                
-                // Проверяем диапазон значений для фильтрации
-                if (value >= minY && value <= maxY) {
-                    outData[0].push_back(value);
-                }
+                AppendAlignedFilteredPlotValue(outData[0], hasValue, value, minY, maxY);
             }
         }
         break;
@@ -1040,15 +1050,12 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             for (size_t i = startIndex; i < endIndex; ++i) {
                 const ToolDataAccessView view = GetDataView(i);
                 float diff = 0.0f;
-                if (!view.TryGetSilentDeltaPhase(freqIdx, diff)) {
-                    continue;
+                const bool hasValue = view.TryGetSilentDeltaPhase(freqIdx, diff);
+                if (hasValue) {
+                    diff = NormalizePhase(diff);
                 }
-                diff = NormalizePhase(diff);
                 float value = diff * 57295.7795f; // рад -> мдег
-
-                if (value >= minY && value <= maxY) {
-                    outData[0].push_back(value);
-                }
+                AppendAlignedFilteredPlotValue(outData[0], hasValue, value, minY, maxY);
             }
         }
         break;
@@ -1062,11 +1069,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
             for (size_t i = startIndex; i < endIndex; ++i) {
                 const MeasurementView measurement = GetMeasurementView(i);
                 float value = measurement.GetTemperature();
-                
-                // Проверяем диапазон значений для фильтрации
-                if (value >= minY && value <= maxY) {
-                    outData[0].push_back(value);
-                }
+                AppendAlignedFilteredPlotValue(outData[0], std::isfinite(value), value, minY, maxY);
             }
         }
         break;
@@ -1317,14 +1320,14 @@ void DataModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequenc
         float numerator = 0.0f;
         if (!view.TryGetAmplitudeRx1(context.frequencyIndex, context.transmitterIndex, denominator) ||
             !view.TryGetAmplitudeRx2(context.frequencyIndex, context.transmitterIndex, numerator)) {
+            AppendAlignedPlotValue(outData, false, 0.0f);
             continue;
         }
         
         if (std::abs(denominator) > EPSILON) { // Избегаем деления на ноль
-            float ratio = numerator / denominator;
-            outData.push_back(ratio);
+            AppendAlignedPlotValue(outData, true, numerator / denominator);
         } else {
-            outData.push_back(0.0f); // Или можно использовать std::numeric_limits<float>::quiet_NaN()
+            AppendAlignedPlotValue(outData, true, 0.0f);
         }
     }
 }
@@ -1353,10 +1356,11 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
         const ToolDataAccessView view = GetDataView(i);
         float difference = 0.0f;
         if (!view.TryGetDeltaPhase(context.frequencyIndex, context.transmitterIndex, difference)) {
+            AppendAlignedPlotValue(outData, false, 0.0f);
             continue;
         }
         difference = NormalizePhase(difference);
-        outData.push_back(difference * 57295.7795f);
+        AppendAlignedPlotValue(outData, true, difference * 57295.7795f);
     }
 }
 
@@ -1374,10 +1378,7 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
         const bool hasValue = (receiverIndex == 0) ?
             view.TryGetAmplitudeRx1(context.frequencyIndex, context.transmitterIndex, amplitude) :
             view.TryGetAmplitudeRx2(context.frequencyIndex, context.transmitterIndex, amplitude);
-        if (!hasValue) {
-            continue;
-        }
-        outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
+        AppendAlignedPlotValue(outData, hasValue, amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
 
@@ -1394,10 +1395,11 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
         const ToolDataAccessView view = GetDataView(i);
         float phase = 0.0f;
         if (!view.TryGetPhaseSmt(context.frequencyIndex, context.transmitterIndex, phase)) {
+            AppendAlignedPlotValue(outData, false, 0.0f);
             continue;
         }
         phase = NormalizePhase(phase);
-        outData.push_back(phase * 57295.7795f);
+        AppendAlignedPlotValue(outData, true, phase * 57295.7795f);
     }
 }
 
@@ -1415,10 +1417,7 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
         const bool hasValue = (receiverIndex == 0) ?
             view.TryGetSilentAmplitudeRx1(context.frequencyIndex, amplitude) :
             view.TryGetSilentAmplitudeRx2(context.frequencyIndex, amplitude);
-        if (!hasValue) {
-            continue;
-        }
-        outData.push_back(amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
+        AppendAlignedPlotValue(outData, hasValue, amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
     }
 }
 
@@ -1434,10 +1433,11 @@ void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
         const ToolDataAccessView view = GetDataView(i);
         float diff = 0.0f;
         if (!view.TryGetSilentDeltaPhase(context.frequencyIndex, diff)) {
+            AppendAlignedPlotValue(outData, false, 0.0f);
             continue;
         }
         diff = NormalizePhase(diff);
-        outData.push_back(diff * 57295.7795f); // рад -> мдег
+        AppendAlignedPlotValue(outData, true, diff * 57295.7795f); // рад -> мдег
     }
 }
 

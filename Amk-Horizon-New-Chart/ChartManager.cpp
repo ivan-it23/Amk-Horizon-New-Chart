@@ -317,7 +317,10 @@ namespace {
                             double displayMinY,
                             double displayMaxY,
                             const ChartConfiguration& config,
-                            bool showAxes) {
+                            bool showAxes,
+                            bool useExplicitRightAxisRange,
+                            double explicitRightMinY,
+                            double explicitRightMaxY) {
         chartModule.DrawDualAxisChart(hdc, chartRect, curves,
                                       leftAxisData, rightAxisData,
                                       title, hasData,
@@ -326,7 +329,10 @@ namespace {
                                       displayMinY,
                                       displayMaxY,
                                       config,
-                                      showAxes);
+                                      showAxes,
+                                      useExplicitRightAxisRange,
+                                      explicitRightMinY,
+                                      explicitRightMaxY);
     }
 
     bool TryBuildDualAxisChartGeometry(const RECT& chartRect, DualAxisChartGeometry& outGeometry) {
@@ -350,6 +356,37 @@ namespace {
         outGeometry.dataRect.bottom -= yMargin;
         outGeometry.dataHeight = outGeometry.dataRect.bottom - outGeometry.dataRect.top;
 
+        return true;
+    }
+
+    bool TryClampSelectionToVisibleDataArea(const RECT& chartRect,
+                                            int minScreenX,
+                                            int minScreenY,
+                                            int maxScreenX,
+                                            int maxScreenY,
+                                            int& outMinScreenX,
+                                            int& outMinScreenY,
+                                            int& outMaxScreenX,
+                                            int& outMaxScreenY) {
+        outMinScreenX = minScreenX;
+        outMinScreenY = minScreenY;
+        outMaxScreenX = maxScreenX;
+        outMaxScreenY = maxScreenY;
+
+        DualAxisChartGeometry geometry = {};
+        if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
+            return false;
+        }
+
+        const LONG minX = static_cast<LONG>(minScreenX);
+        const LONG maxX = static_cast<LONG>(maxScreenX);
+        const LONG minY = static_cast<LONG>(minScreenY);
+        const LONG maxY = static_cast<LONG>(maxScreenY);
+
+        outMinScreenX = static_cast<int>((std::max)(geometry.plotRect.left, (std::min)(geometry.plotRect.right, minX)));
+        outMaxScreenX = static_cast<int>((std::max)(geometry.plotRect.left, (std::min)(geometry.plotRect.right, maxX)));
+        outMinScreenY = static_cast<int>((std::max)(geometry.dataRect.top, (std::min)(geometry.dataRect.bottom, minY)));
+        outMaxScreenY = static_cast<int>((std::max)(geometry.dataRect.top, (std::min)(geometry.dataRect.bottom, maxY)));
         return true;
     }
 
@@ -426,6 +463,62 @@ namespace {
         outDisplayMaxY = isZoomed ? zoomMaxY : fullMaxY;
         if (isZoomed) {
             ApplyDisplayYPadding(outDisplayMinY, outDisplayMaxY);
+        }
+    }
+
+    void ClearExplicitRightAxisRange(double& minYRight,
+                                     double& maxYRight,
+                                     bool& hasRightAxisCustomRange) {
+        minYRight = 0.0;
+        maxYRight = 0.0;
+        hasRightAxisCustomRange = false;
+    }
+
+    void SetExplicitRightAxisRange(double& storedMinYRight,
+                                   double& storedMaxYRight,
+                                   bool& hasRightAxisCustomRange,
+                                   bool hasRightAxisRange,
+                                   double minYRight,
+                                   double maxYRight) {
+        if (!hasRightAxisRange || !(maxYRight > minYRight)) {
+            ClearExplicitRightAxisRange(storedMinYRight, storedMaxYRight, hasRightAxisCustomRange);
+            return;
+        }
+
+        storedMinYRight = minYRight;
+        storedMaxYRight = maxYRight;
+        hasRightAxisCustomRange = true;
+    }
+
+    void BuildDisplayedRightAxisRange(bool zoomIsYCustom,
+                                      bool hasRightAxisCustomRange,
+                                      double zoomMinYRight,
+                                      double zoomMaxYRight,
+                                      double fullMinYLeft,
+                                      double fullMaxYLeft,
+                                      double fullMinYRight,
+                                      double fullMaxYRight,
+                                      double displayMinYLeft,
+                                      double displayMaxYLeft,
+                                      double& outDisplayMinYRight,
+                                      double& outDisplayMaxYRight) {
+        outDisplayMinYRight = fullMinYRight;
+        outDisplayMaxYRight = fullMaxYRight;
+
+        if (zoomIsYCustom && hasRightAxisCustomRange && zoomMaxYRight > zoomMinYRight) {
+            outDisplayMinYRight = zoomMinYRight;
+            outDisplayMaxYRight = zoomMaxYRight;
+            ApplyDisplayYPadding(outDisplayMinYRight, outDisplayMaxYRight);
+            return;
+        }
+
+        const double leftFullRange = fullMaxYLeft - fullMinYLeft;
+        const double rightFullRange = fullMaxYRight - fullMinYRight;
+        if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+            const double minRatio = (displayMinYLeft - fullMinYLeft) / leftFullRange;
+            const double maxRatio = (displayMaxYLeft - fullMinYLeft) / leftFullRange;
+            outDisplayMinYRight = fullMinYRight + minRatio * rightFullRange;
+            outDisplayMaxYRight = fullMinYRight + maxRatio * rightFullRange;
         }
     }
 
@@ -826,7 +919,12 @@ void ChartManager::PushAxisHistory(int chartNumber) {
     std::vector<AxisZoomRange>* yHistory = (chartNumber == 1) ? &chart1YZoomHistory : &chart2YZoomHistory;
 
     xHistory->emplace_back(zoom->minX, zoom->maxX, zoom->isXCustom);
-    yHistory->emplace_back(zoom->minY, zoom->maxY, zoom->isYCustom);
+    yHistory->emplace_back(zoom->minY,
+                           zoom->maxY,
+                           zoom->isYCustom,
+                           zoom->minYRight,
+                           zoom->maxYRight,
+                           zoom->hasRightAxisCustomRange);
 }
 
 bool ChartManager::PopAxisHistoryX(int chartNumber, AxisZoomRange& outState) {
@@ -891,6 +989,7 @@ void ChartManager::AutoFitYForCurrentX(int chartNumber) {
     zoom->minY = minYData - padding;
     zoom->maxY = maxYData + padding;
     zoom->isYCustom = false;
+    ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
 }
 
 void ChartManager::EnsureNotesLoadedForPath(const std::wstring& notesPath) {
@@ -1128,10 +1227,49 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
 
     double y1 = resolvedDataY1;
     double y2 = resolvedDataY2;
+    int anchorAxisGroup = 0;
+
+    double leftDrawMin = 0.0;
+    double leftDrawMax = 0.0;
+    double rightDrawMin = 0.0;
+    double rightDrawMax = 0.0;
+    bool hasLeftDrawRange = false;
+    bool hasRightDrawRange = false;
+
+    {
+        ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
+        const CachedCurveSnapshot* visibleSnapshot = nullptr;
+        if (TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), visibleSnapshot)) {
+            double displayMinYLeft = 0.0;
+            double displayMaxYLeft = 0.0;
+            BuildDisplayedLeftAxisRange(zoom.isZoomed, zoom.minY, zoom.maxY,
+                                        visibleSnapshot->minY1, visibleSnapshot->maxY1,
+                                        displayMinYLeft, displayMaxYLeft);
+            hasLeftDrawRange = TryBuildDrawnAxisRange(displayMinYLeft, displayMaxYLeft, leftDrawMin, leftDrawMax);
+
+            if (hasDualAxis && !visibleSnapshot->rightAxisData.empty()) {
+                double displayMinYRight = visibleSnapshot->minY2;
+                double displayMaxYRight = visibleSnapshot->maxY2;
+                BuildDisplayedRightAxisRange(zoom.isYCustom,
+                                             zoom.hasRightAxisCustomRange,
+                                             zoom.minYRight,
+                                             zoom.maxYRight,
+                                             visibleSnapshot->minY1,
+                                             visibleSnapshot->maxY1,
+                                             visibleSnapshot->minY2,
+                                             visibleSnapshot->maxY2,
+                                             displayMinYLeft,
+                                             displayMaxYLeft,
+                                             displayMinYRight,
+                                             displayMaxYRight);
+                hasRightDrawRange = TryBuildDrawnAxisRange(displayMinYRight, displayMaxYRight, rightDrawMin, rightDrawMax);
+            }
+        }
+    }
 
     // Snap-to-curve: вычисляем данные кривых (полный диапазон, без zoom) и находим
     // ближайшее к выбранному Y значение кривой в кадре xIndex.
-    if (curveSelectionModule && snapNoteToCurve) {
+    if (curveSelectionModule) {
         const CachedCurveSnapshot* fullRangeSnapshot = nullptr;
         ZoomRange unzoomedRange = {};
         std::vector<std::vector<float>> fallbackLeftAxisData;
@@ -1150,45 +1288,61 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
             rightAxisData = &fallbackRightAxisData;
         }
 
-        // Левая ось: находим ближайшую кривую к crosshair->dataY
-        {
-            double bestDist = 1e30;
-            double bestVal = y1;
-            for (const auto& channel : *leftAxisData) {
-                if (xIndex >= 0 && static_cast<size_t>(xIndex) < channel.size()) {
-                    double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
-                    double d = fabs(v - resolvedDataY1);
-                    if (d < bestDist) {
-                        bestDist = d;
-                        bestVal = v;
-                    }
-                }
+        bool hasLeftCandidate = false;
+        double bestLeftDist = 1e30;
+        double bestLeftVal = y1;
+        for (const auto& channel : *leftAxisData) {
+            if (xIndex < 0 || static_cast<size_t>(xIndex) >= channel.size()) {
+                continue;
             }
-            y1 = bestVal;
+            double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
+            if (!std::isfinite(v)) {
+                continue;
+            }
+            double d = fabs(v - resolvedDataY1);
+            if (d < bestLeftDist) {
+                bestLeftDist = d;
+                bestLeftVal = v;
+                hasLeftCandidate = true;
+            }
+        }
+        if (snapNoteToCurve && hasLeftCandidate) {
+            y1 = bestLeftVal;
         }
 
         // Правая ось
         hasDualAxis = rightAxisData && !rightAxisData->empty();
+        bool hasRightCandidate = false;
+        double bestRightDist = 1e30;
+        double bestRightVal = y2;
         if (hasDualAxis) {
-            // Для правой оси получаем координату из ConvertScreenToChartCoords
-            // и тоже привязываем к ближайшей кривой правой оси.
-            double dataXTmp = 0.0, dataY1Tmp = 0.0, dataY2Tmp = 0.0;
-            bool hasDualAxisTmp = false;
-            if (ConvertScreenToChartCoords(chartNumber, crosshair->screenX, crosshair->screenY,
-                                           dataXTmp, dataY1Tmp, dataY2Tmp, y1Unit, y2Unit, hasDualAxisTmp)) {
-                double bestDist = 1e30;
-                double bestVal = dataY2Tmp;
-                for (const auto& channel : *rightAxisData) {
-                    if (xIndex >= 0 && static_cast<size_t>(xIndex) < channel.size()) {
-                        double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
-                        double d = fabs(v - dataY2Tmp);
-                        if (d < bestDist) {
-                            bestDist = d;
-                            bestVal = v;
-                        }
-                    }
+            for (const auto& channel : *rightAxisData) {
+                if (xIndex < 0 || static_cast<size_t>(xIndex) >= channel.size()) {
+                    continue;
                 }
-                y2 = bestVal;
+                double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
+                if (!std::isfinite(v)) {
+                    continue;
+                }
+                double d = fabs(v - resolvedDataY2);
+                if (d < bestRightDist) {
+                    bestRightDist = d;
+                    bestRightVal = v;
+                    hasRightCandidate = true;
+                }
+            }
+            if (snapNoteToCurve && hasRightCandidate) {
+                y2 = bestRightVal;
+            }
+        }
+
+        if (hasDualAxis && hasRightCandidate) {
+            const double leftRange = hasLeftDrawRange ? (leftDrawMax - leftDrawMin) : 1.0;
+            const double rightRange = hasRightDrawRange ? (rightDrawMax - rightDrawMin) : 1.0;
+            const double leftNormDist = hasLeftCandidate ? (bestLeftDist / ((leftRange > 1e-9) ? leftRange : 1.0)) : 1e30;
+            const double rightNormDist = bestRightDist / ((rightRange > 1e-9) ? rightRange : 1.0);
+            if (rightNormDist < leftNormDist) {
+                anchorAxisGroup = 1;
             }
         }
 
@@ -1208,13 +1362,14 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
         }
     }
 
-    AppendDebugLog(L"[AddNoteFinal] chart=%d preset=%d snap=%d stored=(xIndex %d y1 %.3f y2 %.3f)\r\n",
+    AppendDebugLog(L"[AddNoteFinal] chart=%d preset=%d snap=%d stored=(xIndex %d y1 %.3f y2 %.3f anchor=%d)\r\n",
                    chartNumber,
                    static_cast<int>(config.activePreset),
                    snapNoteToCurve ? 1 : 0,
                    xIndex,
                    y1,
-                   y2);
+                   y2,
+                   anchorAxisGroup);
 
     ChartNote n;
     n.noteId = NotesModule::GenerateNoteId();
@@ -1227,6 +1382,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     n.yLeft = y1;
     n.yRight = y2;
     n.hasYRight = hasDualAxis;
+    n.anchorAxisGroup = anchorAxisGroup;
     n.text = text;
 
     if (!notesModule->AppendNote(n)) {
@@ -1972,33 +2128,71 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
         
         // Преобразуем экранные координаты в координаты данных
         double minDataX, minDataY, maxDataX, maxDataY;
-        double ignoredY2 = 0.0;
-        std::wstring ignoredY1Unit, ignoredY2Unit;
-        bool ignoredHasDualAxis = false;
+        double minDataYRight = 0.0;
+        double maxDataYRight = 0.0;
+        std::wstring minY1Unit, minY2Unit, maxY1Unit, maxY2Unit;
+        bool minCornerHasDualAxis = false;
+        bool maxCornerHasDualAxis = false;
 
-        const int minScreenX = (std::min)(selectionStart.x, selectionEnd.x);
-        const int maxScreenX = (std::max)(selectionStart.x, selectionEnd.x);
-        const int minScreenY = (std::min)(selectionStart.y, selectionEnd.y);
-        const int maxScreenY = (std::max)(selectionStart.y, selectionEnd.y);
+        const int rawMinScreenX = (std::min)(selectionStart.x, selectionEnd.x);
+        const int rawMaxScreenX = (std::max)(selectionStart.x, selectionEnd.x);
+        const int rawMinScreenY = (std::min)(selectionStart.y, selectionEnd.y);
+        const int rawMaxScreenY = (std::max)(selectionStart.y, selectionEnd.y);
+
+        int minScreenX = rawMinScreenX;
+        int maxScreenX = rawMaxScreenX;
+        int minScreenY = rawMinScreenY;
+        int maxScreenY = rawMaxScreenY;
+
+        const RECT chartRect = (activeChart == 2) ? layoutModule->GetChart2Rect() : layoutModule->GetChart1Rect();
+        TryClampSelectionToVisibleDataArea(chartRect,
+                                           rawMinScreenX,
+                                           rawMinScreenY,
+                                           rawMaxScreenX,
+                                           rawMaxScreenY,
+                                           minScreenX,
+                                           minScreenY,
+                                           maxScreenX,
+                                           maxScreenY);
+
+        if (maxScreenX - minScreenX <= 10 || maxScreenY - minScreenY <= 10) {
+            AppendDebugLog(L"[ZoomApply] chart=%d ignored rawRect=[(%d,%d)-(%d,%d)] clampedRect=[(%d,%d)-(%d,%d)]\r\n",
+                           activeChart,
+                           rawMinScreenX,
+                           rawMinScreenY,
+                           rawMaxScreenX,
+                           rawMaxScreenY,
+                           minScreenX,
+                           minScreenY,
+                           maxScreenX,
+                           maxScreenY);
+            UpdateScrollBars(hWnd);
+            if (activeChart > 0) {
+                InvalidateChart(hWnd, activeChart);
+            } else {
+                InvalidateRect(hWnd, NULL, FALSE);
+            }
+            return;
+        }
 
         bool resolvedMinCorner = ConvertScreenToChartCoords(activeChart,
                                                             minScreenX,
                                                             maxScreenY,
                                                             minDataX,
                                                             minDataY,
-                                                            ignoredY2,
-                                                            ignoredY1Unit,
-                                                            ignoredY2Unit,
-                                                            ignoredHasDualAxis);
+                                                            minDataYRight,
+                                                            minY1Unit,
+                                                            minY2Unit,
+                                                            minCornerHasDualAxis);
         bool resolvedMaxCorner = ConvertScreenToChartCoords(activeChart,
                                                             maxScreenX,
                                                             minScreenY,
                                                             maxDataX,
                                                             maxDataY,
-                                                            ignoredY2,
-                                                            ignoredY1Unit,
-                                                            ignoredY2Unit,
-                                                            ignoredHasDualAxis);
+                                                            maxDataYRight,
+                                                            maxY1Unit,
+                                                            maxY2Unit,
+                                                            maxCornerHasDualAxis);
 
         if (!resolvedMinCorner) {
             ConvertScreenToDataCoords(activeChart, minScreenX, maxScreenY, minDataX, minDataY);
@@ -2007,8 +2201,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             ConvertScreenToDataCoords(activeChart, maxScreenX, minScreenY, maxDataX, maxDataY);
         }
 
-        AppendDebugLog(L"[ZoomApply] chart=%d screenRect=[(%d,%d)-(%d,%d)] dataRect=[x %.3f..%.3f y %.3f..%.3f]\r\n",
+        AppendDebugLog(L"[ZoomApply] chart=%d rawRect=[(%d,%d)-(%d,%d)] clampedRect=[(%d,%d)-(%d,%d)] dataRect=[x %.3f..%.3f y1 %.3f..%.3f y2 %.3f..%.3f dual=%d]\r\n",
                        activeChart,
+                       rawMinScreenX,
+                       rawMinScreenY,
+                       rawMaxScreenX,
+                       rawMaxScreenY,
                        minScreenX,
                        minScreenY,
                        maxScreenX,
@@ -2016,7 +2214,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                        minDataX,
                        maxDataX,
                        minDataY,
-                       maxDataY);
+                       maxDataY,
+                       minDataYRight,
+                       maxDataYRight,
+                       minCornerHasDualAxis && maxCornerHasDualAxis ? 1 : 0);
         
         const double MIN_X_RANGE = 10.0;
         const double MIN_Y_RANGE = 10.0;
@@ -2047,6 +2248,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart1Zoom.maxX = surfMaxX;
                 chart1Zoom.minY = minDataY;
                 chart1Zoom.maxY = maxDataY;
+                SetExplicitRightAxisRange(chart1Zoom.minYRight,
+                                          chart1Zoom.maxYRight,
+                                          chart1Zoom.hasRightAxisCustomRange,
+                                          minCornerHasDualAxis && maxCornerHasDualAxis,
+                                          minDataYRight,
+                                          maxDataYRight);
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = false;
                 chart1Zoom.isXToLatest = false;
@@ -2058,6 +2265,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart2Zoom.maxX = surfMaxX;
                 chart2Zoom.minY = minDataY;
                 chart2Zoom.maxY = maxDataY;
+                SetExplicitRightAxisRange(chart2Zoom.minYRight,
+                                          chart2Zoom.maxYRight,
+                                          chart2Zoom.hasRightAxisCustomRange,
+                                          minCornerHasDualAxis && maxCornerHasDualAxis,
+                                          minDataYRight,
+                                          maxDataYRight);
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = false;
                 chart2Zoom.isXToLatest = false;
@@ -2084,6 +2297,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart1Zoom.maxX = maxDataX;
                 chart1Zoom.minY = minDataY;
                 chart1Zoom.maxY = maxDataY;
+                SetExplicitRightAxisRange(chart1Zoom.minYRight,
+                                          chart1Zoom.maxYRight,
+                                          chart1Zoom.hasRightAxisCustomRange,
+                                          minCornerHasDualAxis && maxCornerHasDualAxis,
+                                          minDataYRight,
+                                          maxDataYRight);
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = true;
                 chart1Zoom.isYCustom = true;
@@ -2094,6 +2313,12 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart2Zoom.maxX = maxDataX;
                 chart2Zoom.minY = minDataY;
                 chart2Zoom.maxY = maxDataY;
+                SetExplicitRightAxisRange(chart2Zoom.minYRight,
+                                          chart2Zoom.maxYRight,
+                                          chart2Zoom.hasRightAxisCustomRange,
+                                          minCornerHasDualAxis && maxCornerHasDualAxis,
+                                          minDataYRight,
+                                          maxDataYRight);
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = true;
                 chart2Zoom.isYCustom = true;
@@ -2408,8 +2633,12 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
                 zoom->minY = prevAxis.min;
                 zoom->maxY = prevAxis.max;
                 zoom->isYCustom = prevAxis.isCustom;
+                zoom->minYRight = prevAxis.minRight;
+                zoom->maxYRight = prevAxis.maxRight;
+                zoom->hasRightAxisCustomRange = prevAxis.hasRightAxisRange;
             } else {
                 zoom->isYCustom = false;
+                ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
                 if (uiModule->IsSurfEnabled(chartNumber)) {
                     UpdateSurfRange(chartNumber);
                 } else {
@@ -2527,6 +2756,23 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
             zoom->minY = newMinY;
             zoom->maxY = newMinY + viewYRange;
+
+            if (zoom->hasRightAxisCustomRange && maxY2 > minY2) {
+                double minYFullRight = minY2;
+                double maxYFullRight = maxY2;
+                double dataYRangeRight = maxYFullRight - minYFullRight;
+                double paddingRight = dataYRangeRight * 0.05;
+                minYFullRight -= paddingRight;
+                maxYFullRight += paddingRight;
+
+                double totalYRangeRight = maxYFullRight - minYFullRight;
+                double viewYRangeRight = zoom->maxYRight - zoom->minYRight;
+                if (totalYRangeRight > viewYRangeRight && totalYRangeRight > 0.0) {
+                    double newMinYRight = minYFullRight + scrollRatio * (totalYRangeRight - viewYRangeRight);
+                    zoom->minYRight = newMinYRight;
+                    zoom->maxYRight = newMinYRight + viewYRangeRight;
+                }
+            }
         }
     } else {
         // Горизонтальный скроллинг (ось X)
@@ -2925,13 +3171,35 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         double maxYData = 0.0;
         BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYFull, maxYFull, minYData, maxYData);
 
+        double displayMinYRight = curveSnapshot->minY2;
+        double displayMaxYRight = curveSnapshot->maxY2;
+        const bool useExplicitRightAxisRange = config.hasDualAxis && !rightAxisData.empty() &&
+                                               zoom->isYCustom && zoom->hasRightAxisCustomRange;
+        if (config.hasDualAxis && !rightAxisData.empty()) {
+            BuildDisplayedRightAxisRange(zoom->isYCustom,
+                                         zoom->hasRightAxisCustomRange,
+                                         zoom->minYRight,
+                                         zoom->maxYRight,
+                                         minYFull,
+                                         maxYFull,
+                                         curveSnapshot->minY2,
+                                         curveSnapshot->maxY2,
+                                         minYData,
+                                         maxYData,
+                                         displayMinYRight,
+                                         displayMaxYRight);
+        }
+
         // Вызываем новый метод отрисовки с температурой и правильной легендой
         // v2.15.0: Передаём config для поддержки компактной легенды пресетов
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
                                        title, true, temperatureAxis->temperatureData,
                                        temperatureAxis->minXData, temperatureAxis->maxXData, minYData, maxYData,
-                                       config, true);
+                                       config, true,
+                                       useExplicitRightAxisRange,
+                                       displayMinYRight,
+                                       displayMaxYRight);
     } else {
         // Обычный режим: номер кадра на оси X
         
@@ -2951,11 +3219,30 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             double displayMaxY = 0.0;
             BuildDisplayedLeftAxisRange(zoom->isZoomed, zoom->minY, zoom->maxY, minYData, maxYData, displayMinY, displayMaxY);
 
+            double displayMinYRight = curveSnapshot->minY2;
+            double displayMaxYRight = curveSnapshot->maxY2;
+            const bool useExplicitRightAxisRange = zoom->isYCustom && zoom->hasRightAxisCustomRange;
+            BuildDisplayedRightAxisRange(zoom->isYCustom,
+                                         zoom->hasRightAxisCustomRange,
+                                         zoom->minYRight,
+                                         zoom->maxYRight,
+                                         minYData,
+                                         maxYData,
+                                         curveSnapshot->minY2,
+                                         curveSnapshot->maxY2,
+                                         displayMinY,
+                                         displayMaxY,
+                                         displayMinYRight,
+                                         displayMaxYRight);
+
             DrawFrameAxisChart(*chartModule, hdc, chartRect, config.curves,
                                leftAxisData, rightAxisData,
                                title, dataModule->HasData(), visibleXRange,
                                displayMinY, displayMaxY,
-                               config, showAxes);
+                               config, showAxes,
+                               useExplicitRightAxisRange,
+                               displayMinYRight,
+                               displayMaxYRight);
         } else {
             // Используем обычный метод для одной оси
             if (!leftAxisData.empty()) {
@@ -2971,7 +3258,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                    leftAxisData, std::vector<std::vector<float>>(),
                                    title, dataModule->HasData(), visibleXRange,
                                    displayMinY, displayMaxY,
-                                   config, showAxes);
+                                   config, showAxes,
+                                   false, 0.0, 0.0);
             }
         }
     }
@@ -3303,6 +3591,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     zoom->isXCustom = true;
     zoom->isXToLatest = isToEmpty;
     zoom->isYCustom = false; // Y подобран автоматически под выбранный X диапазон
+    ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
 
     const CachedCurveSnapshot* curveSnapshot = nullptr;
     if (TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
@@ -3369,12 +3658,14 @@ void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
         zoom->isXCustom = false;
         zoom->isXToLatest = false;
         zoom->isYCustom = false;
+        ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
         UpdateSurfRange(chartNumber);
     } else {
         zoom->isZoomed = false;
         zoom->isXCustom = false;
         zoom->isXToLatest = false;
         zoom->isYCustom = false;
+        ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
     }
     
     // v2.12.5: Очищаем историю zoom при полном сбросе через кнопку
@@ -3660,21 +3951,20 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             // ВАЖНО: синхронизация с фактической отрисовкой (DrawChartWithCurves),
             // где при zoom добавляется display padding +/-5%.
             ApplyDisplayYPadding(minY1, maxY1);
-            
-            // Вычисляем пропорциональный zoom для правой оси (как в ChartModule)
-            double leftFullRange = maxY1Full - minY1Full;
-            double rightFullRange = maxY2Full - minY2Full;
-            
-            if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
-                // Вычисляем пропорцию zoom от левой оси
-                double minRatio = (minY1 - minY1Full) / leftFullRange;
-                double maxRatio = (maxY1 - minY1Full) / leftFullRange;
-                
-                // Применяем ту же пропорцию к правой оси
-                minY2 = minY2Full + minRatio * rightFullRange;
-                maxY2 = minY2Full + maxRatio * rightFullRange;
-            }
         }
+
+        BuildDisplayedRightAxisRange(zoom.isYCustom,
+                                     zoom.hasRightAxisCustomRange,
+                                     zoom.minYRight,
+                                     zoom.maxYRight,
+                                     minY1Full,
+                                     maxY1Full,
+                                     minY2Full,
+                                     maxY2Full,
+                                     minY1,
+                                     maxY1,
+                                     minY2,
+                                     maxY2);
         
         // Преобразуем экранные координаты в координаты данных
         // ВАЖНО: Используем те же отступы, что и в CalculateDualAxisPlotRect
@@ -3902,6 +4192,8 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     auto& rightAxisData = curveSnapshot->rightAxisData;
     const double minY1Full = curveSnapshot->minY1;
     const double maxY1Full = curveSnapshot->maxY1;
+    const double minY2Full = curveSnapshot->minY2;
+    const double maxY2Full = curveSnapshot->maxY2;
 
     double minY1 = zoom.isZoomed ? zoom.minY : minY1Full;
     double maxY1 = zoom.isZoomed ? zoom.maxY : maxY1Full;
@@ -3914,8 +4206,28 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     double drawMaxY1 = 0.0;
     if (!TryBuildDrawnAxisRange(minY1, maxY1, drawMinY1, drawMaxY1)) return;
 
-    const double yRange = (drawMaxY1 - drawMinY1);
-    if (!(yRange > 0.0)) return;
+    double minY2 = minY2Full;
+    double maxY2 = maxY2Full;
+    BuildDisplayedRightAxisRange(zoom.isYCustom,
+                                 zoom.hasRightAxisCustomRange,
+                                 zoom.minYRight,
+                                 zoom.maxYRight,
+                                 minY1Full,
+                                 maxY1Full,
+                                 minY2Full,
+                                 maxY2Full,
+                                 minY1,
+                                 maxY1,
+                                 minY2,
+                                 maxY2);
+
+    double drawMinY2 = 0.0;
+    double drawMaxY2 = 0.0;
+    const bool hasRightDrawRange = TryBuildDrawnAxisRange(minY2, maxY2, drawMinY2, drawMaxY2);
+
+    const double yRangeLeft = (drawMaxY1 - drawMinY1);
+    if (!(yRangeLeft > 0.0)) return;
+    const double yRangeRight = hasRightDrawRange ? (drawMaxY2 - drawMinY2) : 0.0;
 
     // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
     float minTemp = 0.0f, maxTemp = 0.0f;
@@ -4005,7 +4317,12 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         if (n.xIndex < (int)floor(minXData) - 1) continue;
         if (n.xIndex > (int)ceil(maxXData) + 1) continue;
 
-        double yRatio = (drawMaxY1 - n.yLeft) / yRange;
+        const bool anchorOnRightAxis = n.hasYRight && n.anchorAxisGroup == 1 && hasRightDrawRange && yRangeRight > 0.0;
+        const double anchorY = anchorOnRightAxis ? n.yRight : n.yLeft;
+        const double drawMinY = anchorOnRightAxis ? drawMinY2 : drawMinY1;
+        const double drawMaxY = anchorOnRightAxis ? drawMaxY2 : drawMaxY1;
+        const double yRange = anchorOnRightAxis ? yRangeRight : yRangeLeft;
+        double yRatio = (drawMaxY - anchorY) / yRange;
 
         int x = 0;
         if (!TryResolveNoteMarkerScreenX(*dataModule, config.xAxisType, n.xIndex,
@@ -4361,6 +4678,7 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
         double padding = yRange * 0.05;
         zoom->minY = minYData - padding;
         zoom->maxY = maxYData + padding;
+        ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
     }
     
     // В Surf режиме не автозаполняем поля X Range (From/To),

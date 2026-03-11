@@ -16,16 +16,16 @@
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shlwapi.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\shell32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msimg32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\advapi32.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp140.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sechost.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_91a399b0cc88bc24\GdiPlus.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcrypt.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140_1.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.gdiplus_6595b64144ccf1df_1.1.19041.6456_none_91a399b0cc88bc24\GdiPlus.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msimg32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\WinSxS\amd64_microsoft.windows.common-controls_6595b64144ccf1df_5.82.19041.6280_none_792d7c952443c49a\comctl32.dll"
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp140.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\vcruntime140.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\vcruntime140.dll"
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\imm32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\uxtheme.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msctf.dll". Загрузка символов отключена параметром включения и исключения.
@@ -35,8 +35,8 @@
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\bcryptprimitives.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\TextInputFramework.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreMessaging.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ws2_32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\CoreUIComponents.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ws2_32.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntmarta.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WinTypes.dll". Загрузка символов отключена параметром включения и исключения.
@@ -56,8 +56,6 @@
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\WindowsCodecs.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\profapi.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\thumbcache.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\policymanager.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcp110_win.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\DataExchange.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\d3d11.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dcomp.dll". Загрузка символов отключена параметром включения и исключения.
@@ -83,22 +81,21 @@
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\oleacc.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\UIAutomationCore.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sxs.dll". Загрузка символов отключена параметром включения и исключения.
-mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFD25C8A726: (caller: 00007FFD25C89B39) ReturnHr(1) tid(1210) 8002801D Библиотека не зарегистрирована.
+mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFD25C8A726: (caller: 00007FFD25C89B39) ReturnHr(1) tid(8e2c) 8002801D Библиотека не зарегистрирована.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\atlthunk.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\StructuredQuery.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.FileExplorer.Common.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\iertutil.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\srvcli.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\netutils.dll". Загрузка символов отключена параметром включения и исключения.
-Поток 13496 завершился с кодом 0 (0x0).
+Поток 30568 завершился с кодом 0 (0x0).
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.Storage.Search.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\Windows.StateRepositoryPS.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\linkinfo.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\IconCodecService.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wkscli.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cscapi.dll". Загрузка символов отключена параметром включения и исключения.
 Вызвано исключение по адресу 0x00007FFD24915369 (KernelBase.dll) в Amk-Horizon-New-Chart.exe: 0x000006BA: Сервер RPC недоступен.
-Поток 22072 завершился с кодом 0 (0x0).
+Поток 23236 завершился с кодом 0 (0x0).
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\twinapi.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\dlnashext.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\PlayToDevice.dll". Загрузка символов отключена параметром включения и исключения.
@@ -114,16 +111,12 @@ mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFD25C8A726: (call
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorShell.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\EhStorAPI.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wtsapi32.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\coml2.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntshrui.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sspicli.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winmm.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\actxprxy.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Users\Admin\AppData\Local\Microsoft\OneDrive\26.026.0209.0004\FileSyncShell64.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\version.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wininet.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\userenv.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\secur32.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\wininet.dll". Загрузка символов отключена параметром включения и исключения.
-"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\version.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\sspicli.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\cryptbase.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\GROOVEEX.DLL". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\msvcr100.dll". Загрузка символов отключена параметром включения и исключения.
@@ -133,18 +126,34 @@ mincore\com\oleaut32\dispatch\ups.cpp(2122)\OLEAUT32.dll!00007FFD25C8A726: (call
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll"
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\PROGRA~1\MICROS~2\Office15\1049\GrooveIntlResource.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\ntshrui.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\coml2.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\winmm.dll". Загрузка символов отключена параметром включения и исключения.
+"Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\actxprxy.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Загружено "C:\Windows\System32\urlmon.dll". Загрузка символов отключена параметром включения и исключения.
 "Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\msftedit.dll"
 "Amk-Horizon-New-Chart.exe" (Win32). Выгружено "C:\Windows\System32\xmllite.dll"
-Поток 18904 завершился с кодом 0 (0x0).
-[AddNote] chart=1 screen=(536,516) resolved=(x 8543.586 y1 630.288 y2 0.000) dual=0
-[ZoomApply] chart=1 screenRect=[(446,454)-(672,584)] dataRect=[x 6759.543..11239.474 y 306.565..925.447]
-[ZoomApply] chart=1 screenRect=[(467,402)-(861,563)] dataRect=[x 8020.089..9392.655 y 407.755..598.534]
-[ZoomApply] chart=1 screenRect=[(514,197)-(827,319)] dataRect=[x 8456.351..8790.283 y 528.076..572.641]
-[ZoomApply] chart=1 screenRect=[(508,312)-(696,402)] dataRect=[x 8560.667..8609.495 y 549.100..556.780]
-[AddNote] chart=1 screen=(738,490) resolved=(x 8584.119 y1 551.429 y2 0.000) dual=0
-Поток 31956 завершился с кодом 0 (0x0).
-Поток 4764 завершился с кодом 0 (0x0).
-[AddNote] chart=1 screen=(628,387) resolved=(x 10367.275 y1 174.483 y2 0.000) dual=0
-Поток 10684 завершился с кодом 0 (0x0).
-[AddNote] chart=1 screen=(843,394) resolved=(x 14629.157 y1 -4650.344 y2 0.000) dual=0
+Поток 11028 завершился с кодом 0 (0x0).
+[ZoomApply] chart=1 rawRect=[(690,359)-(922,422)] clampedRect=[(690,359)-(922,422)] dataRect=[x 565.894..790.317 y1 -23584.429..19536.456 y2 672.418..859.497 dual=1]
+[ZoomApply] chart=1 rawRect=[(488,259)-(902,447)] clampedRect=[(488,259)-(902,447)] dataRect=[x 632.010..704.444 y1 -6956.692..8565.061 y2 744.557..811.898 dual=1]
+[ZoomApply] chart=1 rawRect=[(427,241)-(997,509)] clampedRect=[(427,241)-(997,509)] dataRect=[x 650.028..681.941 y1 -2813.973..5150.752 y2 762.530..797.085 dual=1]
+[ZoomApply] chart=1 rawRect=[(815,123)-(1152,174)] clampedRect=[(815,123)-(1152,174)] dataRect=[x 686.812..1012.806 y1 146161.275..181068.658 y2 1408.857..1560.302 dual=1]
+[ZoomApply] chart=1 rawRect=[(587,188)-(1022,264)] clampedRect=[(587,188)-(1022,264)] dataRect=[x 808.187..918.459 y1 171852.871..176932.431 y2 1520.320..1542.357 dual=1]
+[ZoomApply] chart=1 rawRect=[(351,132)-(989,231)] clampedRect=[(351,132)-(989,231)] dataRect=[x 829.042..883.614 y1 175912.341..176875.186 y2 1537.932..1542.109 dual=1]
+[ZoomApply] chart=1 rawRect=[(325,160)-(1056,434)] clampedRect=[(325,160)-(1056,434)] dataRect=[x 838.238..868.933 y1 176307.587..176812.716 y2 1539.646..1541.838 dual=1]
+[ZoomApply] chart=1 rawRect=[(254,333)-(764,463)] clampedRect=[(254,333)-(764,463)] dataRect=[x 144.134..637.477 y1 -51647.227..37332.376 y2 550.668..936.704 dual=1]
+[ZoomApply] chart=1 rawRect=[(523,262)-(1278,491)] clampedRect=[(523,262)-(1278,491)] dataRect=[x 304.244..593.680 y1 -24832.175..14181.888 y2 667.004..836.266 dual=1]
+[ZoomApply] chart=1 rawRect=[(302,199)-(356,249)] clampedRect=[(302,199)-(356,249)] dataRect=[x 348.271..360.407 y1 5002.398..8737.362 y2 796.441..812.645 dual=1]
+[ZoomApply] chart=1 rawRect=[(471,338)-(899,385)] clampedRect=[(471,338)-(899,385)] dataRect=[x 351.415..355.409 y1 6886.006..7222.114 y2 804.613..806.071 dual=1]
+[ZoomApply] chart=1 rawRect=[(268,199)-(923,420)] clampedRect=[(268,199)-(923,420)] dataRect=[x 340.631..487.827 y1 -7771.179..8737.362 y2 741.023..812.645 dual=1]
+Поток 35404 завершился с кодом 0 (0x0).
+Поток 37044 завершился с кодом 0 (0x0).
+[ZoomApply] chart=1 rawRect=[(354,235)-(1075,511)] clampedRect=[(354,235)-(1075,511)] dataRect=[x 368.463..450.879 y1 -3428.306..5295.641 y2 759.865..797.713 dual=1]
+[ZoomApply] chart=1 rawRect=[(381,229)-(902,509)] clampedRect=[(381,229)-(902,509)] dataRect=[x 385.599..418.820 y1 -1099.905..3577.083 y2 769.967..790.258 dual=1]
+[AddNote] chart=1 screen=(1013,567) resolved=(x 549.006 y1 -371.013 y2 600.087) dual=1
+[AddNoteFinal] chart=1 preset=0 snap=1 stored=(xIndex 549 y1 -374.390 y2 600.087)
+[AddNote] chart=1 screen=(1062,536) resolved=(x 925.745 y1 -101612.696 y2 333.893) dual=1
+[AddNoteFinal] chart=1 preset=0 snap=1 stored=(xIndex 926 y1 -1153.960 y2 340.128)
+Поток 36640 завершился с кодом 0 (0x0).
+[AddNote] chart=1 screen=(998,532) resolved=(x 863.835 y1 -98874.862 y2 345.771) dual=1
+[AddNoteFinal] chart=1 preset=0 snap=1 stored=(xIndex 864 y1 -50.352 y2 341.294)

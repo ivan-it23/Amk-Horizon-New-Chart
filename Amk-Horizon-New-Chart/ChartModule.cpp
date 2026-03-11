@@ -86,7 +86,10 @@ void ChartModule::DrawTemperatureDualAxisChartShared(HDC hdc,
                                                      double minYData,
                                                      double maxYData,
                                                      bool showAxes,
-                                                     const ChartConfiguration* config) const {
+                                                     const ChartConfiguration* config,
+                                                     bool useExplicitRightAxisRange,
+                                                     double explicitRightMinY,
+                                                     double explicitRightMaxY) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -123,7 +126,10 @@ void ChartModule::DrawTemperatureDualAxisChartShared(HDC hdc,
     double minYRight = rightMinFull, maxYRight = rightMaxFull;
     const double leftFullRange = leftMaxFull - leftMinFull;
     const double rightFullRange = rightMaxFull - rightMinFull;
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+    if (useExplicitRightAxisRange && explicitRightMaxY > explicitRightMinY) {
+        minYRight = explicitRightMinY;
+        maxYRight = explicitRightMaxY;
+    } else if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
         const double minRatio = (minYData - leftMinFull) / leftFullRange;
         const double maxRatio = (maxYData - leftMinFull) / leftFullRange;
         minYRight = rightMinFull + minRatio * rightFullRange;
@@ -140,7 +146,8 @@ void ChartModule::DrawTemperatureDualAxisChartShared(HDC hdc,
 
     if (hasData && !xAxisData.empty()) {
         DrawDualAxisDataWithTemperatureAndZoom(hdc, plotRect, curves, leftAxisData, rightAxisData,
-                                               xAxisData, minXData, maxXData, minYData, maxYData);
+                                               xAxisData, minXData, maxXData,
+                                               minYData, maxYData, minYRight, maxYRight);
     }
 
     if (!curves.empty()) {
@@ -1412,7 +1419,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<std::vector<float>>& rightAxisData,
                                    const std::wstring& title, bool hasData,
                                    double minXData, double maxXData, 
-                                   double minYData, double maxYData, bool showAxes) const {
+                                   double minYData, double maxYData, bool showAxes,
+                                   bool useExplicitRightAxisRange,
+                                   double explicitRightMinY,
+                                   double explicitRightMaxY) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -1459,7 +1469,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     double leftFullRange = leftMaxFull - leftMinFull;
     double rightFullRange = rightMaxFull - rightMinFull;
     
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+    if (useExplicitRightAxisRange && explicitRightMaxY > explicitRightMinY) {
+        minYRight = explicitRightMinY;
+        maxYRight = explicitRightMaxY;
+    } else if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
         // Вычисляем пропорцию zoom от левой оси
         double minRatio = (minYData - leftMinFull) / leftFullRange;
         double maxRatio = (maxYData - leftMinFull) / leftFullRange;
@@ -1499,7 +1512,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::wstring& title, bool hasData,
                                    double minXData, double maxXData, 
                                    double minYData, double maxYData,
-                                   const ChartConfiguration& config, bool showAxes) const {
+                                   const ChartConfiguration& config, bool showAxes,
+                                   bool useExplicitRightAxisRange,
+                                   double explicitRightMinY,
+                                   double explicitRightMaxY) const {
     if (rect.right <= rect.left || rect.bottom <= rect.top)
         return;
 
@@ -1545,7 +1561,10 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
     double leftFullRange = leftMaxFull - leftMinFull;
     double rightFullRange = rightMaxFull - rightMinFull;
     
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
+    if (useExplicitRightAxisRange && explicitRightMaxY > explicitRightMinY) {
+        minYRight = explicitRightMinY;
+        maxYRight = explicitRightMaxY;
+    } else if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
         double minRatio = (minYData - leftMinFull) / leftFullRange;
         double maxRatio = (maxYData - leftMinFull) / leftFullRange;
         minYRight = rightMinFull + minRatio * rightFullRange;
@@ -2922,10 +2941,14 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::wstring& title, bool hasData,
                                    const std::vector<float>& xAxisData,
                                    double minXData, double maxXData,
-                                   double minYData, double maxYData, bool showAxes) const {
+                                   double minYData, double maxYData, bool showAxes,
+                                   bool useExplicitRightAxisRange,
+                                   double explicitRightMinY,
+                                   double explicitRightMaxY) const {
     DrawTemperatureDualAxisChartShared(hdc, rect, curves, leftAxisData, rightAxisData,
                                        title, hasData, xAxisData, minXData, maxXData,
-                                       minYData, maxYData, showAxes, nullptr);
+                                       minYData, maxYData, showAxes, nullptr,
+                                       useExplicitRightAxisRange, explicitRightMinY, explicitRightMaxY);
 }
 
 // v2.15.0: Перегрузка с поддержкой температуры и конфигурации (для пресетов)
@@ -2937,10 +2960,14 @@ void ChartModule::DrawDualAxisChart(HDC hdc, const RECT& rect,
                                    const std::vector<float>& xAxisData,
                                    double minXData, double maxXData,
                                    double minYData, double maxYData,
-                                   const ChartConfiguration& config, bool showAxes) const {
+                                   const ChartConfiguration& config, bool showAxes,
+                                   bool useExplicitRightAxisRange,
+                                   double explicitRightMinY,
+                                   double explicitRightMaxY) const {
     DrawTemperatureDualAxisChartShared(hdc, rect, curves, leftAxisData, rightAxisData,
                                        title, hasData, xAxisData, minXData, maxXData,
-                                       minYData, maxYData, showAxes, &config);
+                                       minYData, maxYData, showAxes, &config,
+                                       useExplicitRightAxisRange, explicitRightMinY, explicitRightMaxY);
 }
 
 
@@ -3294,7 +3321,8 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
                                                          const std::vector<std::vector<float>>& rightAxisData,
                                                          const std::vector<float>& xAxisData,
                                                          double minXData, double maxXData,
-                                                         double minYData, double maxYData) const {
+                                                         double minYData, double maxYData,
+                                                         double minYRight, double maxYRight) const {
     if (xAxisData.empty()) return;
 
     RECT dataRect = plotRect;
@@ -3325,25 +3353,6 @@ void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& pl
         DeleteObject(hClipRegion);
         DeleteObject(hOldClipRegion);
         return;
-    }
-    
-    // Вычисляем полные диапазоны из данных для пропорционального zoom
-    double leftMinFull = 0.0, leftMaxFull = 1.0;
-    GetAxisValueRange(leftAxisData, leftMinFull, leftMaxFull);
-    
-    double rightMinFull = 0.0, rightMaxFull = 1.0;
-    GetAxisValueRange(rightAxisData, rightMinFull, rightMaxFull);
-    
-    // Вычисляем пропорциональный zoom для правой оси
-    double minYRight = rightMinFull, maxYRight = rightMaxFull;
-    double leftFullRange = leftMaxFull - leftMinFull;
-    double rightFullRange = rightMaxFull - rightMinFull;
-    
-    if (leftFullRange > 0.0001 && rightFullRange > 0.0001) {
-        double minRatio = (minYData - leftMinFull) / leftFullRange;
-        double maxRatio = (maxYData - leftMinFull) / leftFullRange;
-        minYRight = rightMinFull + minRatio * rightFullRange;
-        maxYRight = rightMinFull + maxRatio * rightFullRange;
     }
     
     // Добавляем небольшой padding только снизу (2%) для визуального комфорта

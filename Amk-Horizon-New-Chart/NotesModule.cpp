@@ -216,6 +216,7 @@ bool NotesModule::LoadFromDisk() {
         (void)ExtractJsonDoubleField(line, "yLeft", n.yLeft);
         (void)ExtractJsonDoubleField(line, "yRight", n.yRight);
         (void)ExtractJsonBoolField(line, "hasYRight", n.hasYRight);
+        (void)ExtractJsonIntField(line, "anchorAxisGroup", n.anchorAxisGroup);
 
         std::string textUtf8;
         if (ExtractJsonStringField(line, "text", textUtf8)) {
@@ -270,6 +271,7 @@ bool NotesModule::AppendNote(const ChartNote& note) {
     ss << "\"yLeft\":" << note.yLeft << ",";
     ss << "\"hasYRight\":" << (note.hasYRight ? "true" : "false") << ",";
     ss << "\"yRight\":" << note.yRight << ",";
+    ss << "\"anchorAxisGroup\":" << note.anchorAxisGroup << ",";
     ss << "\"text\":\"" << EscapeJsonString(textUtf8) << "\"";
     ss << "}\n";
 
