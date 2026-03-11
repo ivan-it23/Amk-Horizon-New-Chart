@@ -444,6 +444,16 @@ namespace {
         outDrawMinY -= displayRangeY * 0.02;
         return (outDrawMaxY - outDrawMinY) > 0.0;
     }
+
+    bool ShouldSnapNoteToCurve(const ChartConfiguration& config) {
+        switch (config.activePreset) {
+        case PresetType::PHASE_DIFFERENCES:
+        case PresetType::SILENT_PHASE_DIFFERENCE:
+            return false;
+        default:
+            return true;
+        }
+    }
 }
 
  static void AppendDebugLog(const wchar_t* fmt, ...) {
@@ -1071,28 +1081,57 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     ChartConfiguration config = GetChartConfiguration(chartNumber);
     uint64_t cfgKey = NotesModule::ComputeConfigKey(config);
     std::string cfgSnapshot = NotesModule::BuildConfigSnapshot(config);
+    const bool snapNoteToCurve = ShouldSnapNoteToCurve(config);
 
-    // Координаты заметки: X берём из перекрестия, Y привязываем к ближайшей кривой.
-    // Привязка к кривой (snap-to-curve) гарантирует, что заметка всегда отображается
-    // точно на кривой независимо от уровня zoom, полностью исключая любые
-    // расхождения в цепочке screen→data→screen преобразований координат.
-    int xIndex = static_cast<int>(llround(crosshair->dataX));
+    double resolvedDataX = 0.0;
+    double resolvedDataY1 = 0.0;
+    double resolvedDataY2 = 0.0;
+    std::wstring y1Unit, y2Unit;
+    bool hasDualAxis = false;
+    if (!ConvertScreenToChartCoords(chartNumber,
+                                    crosshair->screenX,
+                                    crosshair->screenY,
+                                    resolvedDataX,
+                                    resolvedDataY1,
+                                    resolvedDataY2,
+                                    y1Unit,
+                                    y2Unit,
+                                    hasDualAxis)) {
+        MessageBox(hWnd,
+                   L"Не удалось определить координаты заметки по текущему перекрестию.\n"
+                   L"Выберите точку на графике повторно.",
+                   L"Заметки",
+                   MB_OK | MB_ICONWARNING);
+        return false;
+    }
+
+    AppendDebugLog(L"[AddNote] chart=%d screen=(%d,%d) resolved=(x %.3f y1 %.3f y2 %.3f) dual=%d\r\n",
+                   chartNumber,
+                   crosshair->screenX,
+                   crosshair->screenY,
+                   resolvedDataX,
+                   resolvedDataY1,
+                   resolvedDataY2,
+                   hasDualAxis ? 1 : 0);
+
+    // Координаты заметки: X берём из перекрестия.
+    // Для большинства пресетов дополнительно привязываем Y к ближайшей кривой,
+    // но для phase-difference пресетов сохраняем точные координаты перекрестия:
+    // там много производных/рваных каналов, и snap-to-curve может уводить
+    // заметку далеко от фактической точки, выбранной пользователем.
+    int xIndex = static_cast<int>(llround(resolvedDataX));
     if (xIndex < 0) xIndex = 0;
     if (dataModule->HasData()) {
         int maxIdx = static_cast<int>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
         if (xIndex > maxIdx) xIndex = maxIdx;
     }
 
-    double y1 = crosshair->dataY;
-    double y2 = 0.0;
-    std::wstring y1Unit, y2Unit;
-    bool hasDualAxis = false;
+    double y1 = resolvedDataY1;
+    double y2 = resolvedDataY2;
 
     // Snap-to-curve: вычисляем данные кривых (полный диапазон, без zoom) и находим
-    // ближайшее к crosshair->dataY значение кривой в кадре xIndex.
-    // Это значение и сохраняем как yLeft — оно совпадает с тем, что рисует
-    // DrawDualAxisDataWithZoom, поэтому маркер всегда будет на кривой.
-    if (curveSelectionModule) {
+    // ближайшее к выбранному Y значение кривой в кадре xIndex.
+    if (curveSelectionModule && snapNoteToCurve) {
         const CachedCurveSnapshot* fullRangeSnapshot = nullptr;
         ZoomRange unzoomedRange = {};
         std::vector<std::vector<float>> fallbackLeftAxisData;
@@ -1118,7 +1157,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
             for (const auto& channel : *leftAxisData) {
                 if (xIndex >= 0 && static_cast<size_t>(xIndex) < channel.size()) {
                     double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
-                    double d = fabs(v - crosshair->dataY);
+                    double d = fabs(v - resolvedDataY1);
                     if (d < bestDist) {
                         bestDist = d;
                         bestVal = v;
@@ -1168,6 +1207,14 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
             }
         }
     }
+
+    AppendDebugLog(L"[AddNoteFinal] chart=%d preset=%d snap=%d stored=(xIndex %d y1 %.3f y2 %.3f)\r\n",
+                   chartNumber,
+                   static_cast<int>(config.activePreset),
+                   snapNoteToCurve ? 1 : 0,
+                   xIndex,
+                   y1,
+                   y2);
 
     ChartNote n;
     n.noteId = NotesModule::GenerateNoteId();
@@ -2062,16 +2109,19 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             if (ConvertScreenToChartCoords(activeChart, selectionStart.x, selectionStart.y, 
                                            dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
                 uiModule->UpdateClickCoordinates(activeChart, dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
+                
+                // Сохраняем позицию перекрестия только если screen->chart конвертация успешна.
+                CrosshairPosition* crosshair = (activeChart == 1) ? &chart1Crosshair : &chart2Crosshair;
+                crosshair->screenX = selectionStart.x;
+                crosshair->screenY = selectionStart.y;
+                crosshair->dataX = dataX;
+                crosshair->dataY = dataY1;
+                crosshair->isVisible = true;
+                crosshair->chartNumber = activeChart;
+            } else {
+                CrosshairPosition* crosshair = (activeChart == 1) ? &chart1Crosshair : &chart2Crosshair;
+                crosshair->isVisible = false;
             }
-            
-            // Сохраняем позицию перекрестия для отображения
-            CrosshairPosition* crosshair = (activeChart == 1) ? &chart1Crosshair : &chart2Crosshair;
-            crosshair->screenX = selectionStart.x;
-            crosshair->screenY = selectionStart.y;
-            crosshair->dataX = dataX;
-            crosshair->dataY = dataY1;
-            crosshair->isVisible = true;
-            crosshair->chartNumber = activeChart;
         }
     }
     
