@@ -102,6 +102,75 @@ struct SerialConnectTaskResult {
     std::wstring preloadError;
 };
 
+// --- Запоминание последнего COM-порта ---
+static std::wstring GetAppSettingsPath() {
+    wchar_t userProfile[MAX_PATH] = { 0 };
+    DWORD len = GetEnvironmentVariableW(L"USERPROFILE", userProfile, MAX_PATH);
+    if (len == 0 || len >= MAX_PATH) {
+        return L"";
+    }
+    return std::wstring(userProfile) + L"\\AppData\\Local\\AMK-Horizon-New-Chart\\app_settings.txt";
+}
+
+static std::wstring LoadLastUsedComPort() {
+    std::wstring path = GetAppSettingsPath();
+    if (path.empty()) return L"";
+
+    std::ifstream f(path);
+    if (!f.is_open()) return L"";
+
+    std::string line;
+    const char prefix[] = "lastComPort=";
+    const size_t prefixLen = sizeof(prefix) - 1;
+
+    while (std::getline(f, line)) {
+        if (line.size() >= prefixLen && line.compare(0, prefixLen, prefix) == 0) {
+            std::string value = line.substr(prefixLen);
+            // Trim whitespace
+            size_t start = value.find_first_not_of(" \t\r\n");
+            if (start == std::string::npos) return L"";
+            size_t end = value.find_last_not_of(" \t\r\n");
+            value = value.substr(start, end != std::string::npos ? end - start + 1 : std::string::npos);
+            if (value.empty()) return L"";
+
+            std::wstring result;
+            result.reserve(value.size());
+            for (char c : value) {
+                result += static_cast<wchar_t>(static_cast<unsigned char>(c));
+            }
+            return result;
+        }
+    }
+    return L"";
+}
+
+static void SaveLastUsedComPort(const std::wstring& port) {
+    if (port.empty()) return;
+
+    std::wstring path = GetAppSettingsPath();
+    if (path.empty()) return;
+
+    size_t lastSlash = path.find_last_of(L"\\/");
+    if (lastSlash != std::wstring::npos) {
+        std::wstring dir = path.substr(0, lastSlash);
+        DWORD attrs = GetFileAttributesW(dir.c_str());
+        if (attrs == INVALID_FILE_ATTRIBUTES || !(attrs & FILE_ATTRIBUTE_DIRECTORY)) {
+            CreateDirectoryW(dir.c_str(), nullptr);
+        }
+    }
+
+    std::ofstream f(path, std::ios::out | std::ios::trunc);
+    if (!f.is_open()) return;
+
+    f << "lastComPort=";
+    for (wchar_t wc : port) {
+        if (wc >= 0 && wc < 256) {
+            f << static_cast<char>(wc);
+        }
+    }
+    f << "\n";
+}
+
 static void SetSerialDialogBusyState(HWND hDlg, bool busy) {
     const int controlIds[] = {
         IDC_SERIAL_PORT_COMBO,
@@ -137,7 +206,15 @@ static void PopulateSerialPortsCombo(HWND hDlg, const std::vector<std::wstring>&
         SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
     }
     if (!ports.empty()) {
-        SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+        std::wstring preferred = LoadLastUsedComPort();
+        int sel = 0;
+        if (!preferred.empty()) {
+            int idx = (int)SendMessage(hPortCombo, CB_FINDSTRINGEXACT, -1, (LPARAM)preferred.c_str());
+            if (idx != CB_ERR) {
+                sel = idx;
+            }
+        }
+        SendMessage(hPortCombo, CB_SETCURSEL, sel, 0);
     }
 }
 
@@ -2011,7 +2088,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 }
                             }
 
-                            AsyncTaskQueue::PostUiTask(hDlg, [hDlg, result = std::move(result)]() mutable {
+                            AsyncTaskQueue::PostUiTask(hDlg, [hDlg, selectedPort, result = std::move(result)]() mutable {
                                 if (!IsWindow(hDlg)) {
                                     return;
                                 }
@@ -2029,6 +2106,8 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 }
 
                                 if (result.connectResult == SerialResult::SUCCESS) {
+                                    SaveLastUsedComPort(selectedPort);
+
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Подключено");
                                     EnableWindow(GetDlgItem(hDlg, IDC_SERIAL_START_BTN), FALSE);
                                     EnableWindow(GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN), TRUE);
