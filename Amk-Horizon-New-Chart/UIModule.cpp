@@ -38,6 +38,7 @@ UIModule::UIModule()
     , hXRange2ApplyBtn(nullptr)
     , hXRange2ResetBtn(nullptr)
     , hSaveRange1Btn(nullptr)
+    , hCutRange1Btn(nullptr)
     , hResetZoom1Btn(nullptr)
     , hResetZoom2Btn(nullptr)
     , hCursor1Icon(nullptr)
@@ -157,15 +158,19 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hSaveRange1Btn = CreateWindow(L"BUTTON", L"",
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         xRangeStartX + 176, yPos - 2, 26, 24, hWnd, (HMENU)IDC_SAVE_RANGE1_BTN, hInst, NULL);
+
+    hCutRange1Btn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
+        xRangeStartX + 206, yPos - 2, 26, 24, hWnd, (HMENU)IDC_CUT_RANGE1_BTN, hInst, NULL);
     
     // Кнопка "Reset Zoom" для Chart 1 - Owner-Draw для цветной иконки (увеличен размер)
     hResetZoom1Btn = CreateWindow(L"BUTTON", L"",
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
-        xRangeStartX + 206, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
+        xRangeStartX + 236, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
     // === Элементы управления режимом Surf для Chart 1 (v2.14.0) ===
     // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
-    int surfStartX = xRangeStartX + 275;
+    int surfStartX = xRangeStartX + 305;
     
     // Checkbox "Surf"
     hChart1SurfCheck = CreateWindow(L"BUTTON", L"Surf",
@@ -341,6 +346,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     CreateTooltip(hWnd, hXRangeApplyBtn, L"Применить");
     CreateTooltip(hWnd, hXRangeResetBtn, L"Сбросить");
     CreateTooltip(hWnd, hSaveRange1Btn, L"Загрузить");
+    CreateTooltip(hWnd, hCutRange1Btn, L"Вырезать отрезок");
     CreateTooltip(hWnd, hResetZoom1Btn, L"Сбросить Zoom");
     
     // Создание tooltips для кнопок с иконками (Chart 2)
@@ -1325,6 +1331,7 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
         case IDC_XRANGE_APPLY_BTN:
         case IDC_XRANGE_RESET_BTN:
         case IDC_SAVE_RANGE1_BTN:
+        case IDC_CUT_RANGE1_BTN:
         case IDC_RESET_ZOOM1_BTN:
         case IDC_XRANGE2_APPLY_BTN:
         case IDC_XRANGE2_RESET_BTN:
@@ -1438,6 +1445,9 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
             break;
         case IDC_SAVE_RANGE1_BTN:
             iconText = L"\u2193";          // ↓
+            break;
+        case IDC_CUT_RANGE1_BTN:
+            iconText = L"\u2702";          // ✂
             break;
         case IDC_RESET_ZOOM1_BTN:
         case IDC_RESET_ZOOM2_BTN:

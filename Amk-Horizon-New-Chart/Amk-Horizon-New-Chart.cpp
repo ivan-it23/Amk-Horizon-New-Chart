@@ -1538,6 +1538,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     g_chartManager->HandleSaveRange(hWnd, 1);
                 }
                 break;
+            case IDC_CUT_RANGE1_BTN:
+                if (g_chartManager)
+                {
+                    g_chartManager->HandleCutRange(hWnd, 1);
+                }
+                break;
             
             // === Обработка режима Surf (v2.14.0) ===
             case IDC_CHART1_SURF_CHECK:

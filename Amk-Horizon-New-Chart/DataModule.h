@@ -137,6 +137,7 @@ public:
     
     // Сохранение диапазона данных
     bool SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const;
+    static bool SaveFileExcludingRange(const std::wstring& sourceFilename, const std::wstring& targetFilename, size_t startIndex, size_t endIndex);
 
     // Вычисления данных для графиков (существующие методы для обратной совместимости)
     void CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const;

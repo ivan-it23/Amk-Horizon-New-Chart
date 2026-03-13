@@ -87,6 +87,25 @@ namespace {
         return fileName;
     }
 
+    std::wstring BuildCutRangeSuggestedFileName(const std::wstring& baseFileName,
+                                                size_t startIndex,
+                                                size_t endIndex,
+                                                const SYSTEMTIME& st,
+                                                const std::wstring& extension) {
+        wchar_t fileName[260] = {0};
+        if (!baseFileName.empty()) {
+            swprintf_s(fileName, L"%s_cut_%zu_%zu_%02d_%02d_%04d%s",
+                      baseFileName.c_str(), startIndex, endIndex,
+                      st.wDay, st.wMonth, st.wYear, extension.c_str());
+        } else {
+            swprintf_s(fileName, L"data_cut_%zu_%zu_%02d_%02d_%04d%s",
+                      startIndex, endIndex,
+                      st.wDay, st.wMonth, st.wYear, extension.c_str());
+        }
+
+        return fileName;
+    }
+
     std::wstring BuildRangeExportSuccessMessage(size_t recordCount,
                                                 size_t startIndex,
                                                 size_t endIndex,
@@ -3839,6 +3858,161 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
             MessageBox(hWnd, L"Failed to save data range!", L"Error", MB_OK | MB_ICONERROR);
         }
     }
+}
+
+void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
+    if (!dataModule || !dataModule->HasData()) {
+        MessageBox(hWnd, L"Нет загруженных данных!", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    if (currentDataFilePath.empty()) {
+        MessageBox(hWnd, L"Не найден путь к текущему файлу данных.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    const size_t dataSize = dataModule->GetDataSize();
+    size_t startIndex = 0;
+    size_t endIndex = dataSize - 1;
+
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+
+    if (zoom->isZoomed) {
+        startIndex = static_cast<size_t>(zoom->minX);
+        endIndex = static_cast<size_t>(zoom->maxX);
+    } else {
+        const bool fromEmpty = uiModule->IsXRangeFromEmpty(chartNumber);
+        const bool toEmpty = uiModule->IsXRangeToEmpty(chartNumber);
+
+        if (fromEmpty && toEmpty) {
+            startIndex = 0;
+            endIndex = dataSize - 1;
+        } else {
+            double fromX = 0.0;
+            double toX = 0.0;
+            uiModule->GetXRangeValues(chartNumber, fromX, toX);
+
+            startIndex = fromEmpty ? 0 : static_cast<size_t>(fromX > 0.0 ? fromX : 0.0);
+            endIndex = toEmpty ? (dataSize - 1) : static_cast<size_t>(toX > 0.0 ? toX : 0.0);
+        }
+    }
+
+    if (startIndex >= dataSize) startIndex = dataSize - 1;
+    if (endIndex >= dataSize) endIndex = dataSize - 1;
+
+    if (startIndex > endIndex) {
+        MessageBox(hWnd, L"Значение 'От' должно быть меньше или равно значению 'До'.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    if (startIndex == 0 && endIndex == dataSize - 1) {
+        MessageBox(hWnd, L"Нельзя вырезать весь файл целиком.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    const int cutMode = MessageBox(
+        hWnd,
+        L"Выберите действие для вырезанного отрезка:\n\n"
+        L"Да — Сохранить файл с вырезанным отрезком\n"
+        L"Нет — Создать копию текущего файла с вырезанным отрезком\n"
+        L"Отмена — отменить операцию.",
+        L"Вырезание отрезка",
+        MB_YESNOCANCEL | MB_ICONQUESTION);
+
+    if (cutMode == IDCANCEL) {
+        return;
+    }
+
+    std::wstring extension = L".bin";
+    const size_t dotPos = currentDataFilePath.find_last_of(L'.');
+    if (dotPos != std::wstring::npos) {
+        extension = currentDataFilePath.substr(dotPos);
+    }
+
+    const FileFormat currentFormat = DataModule::DetectFileFormat(currentDataFilePath);
+    const wchar_t* filter = L"Binary Files (*.bin)\0*.bin\0All Files (*.*)\0*.*\0";
+    const wchar_t* dialogTitle = L"Сохранить копию файла с вырезанным отрезком";
+    const wchar_t* defExt = L"bin";
+    if (currentFormat == FileFormat::FORMAT_BIV) {
+        filter = L"BIV Files (*.biv)\0*.biv\0All Files (*.*)\0*.*\0";
+        defExt = L"biv";
+    } else if (currentFormat == FileFormat::FORMAT_DEV) {
+        filter = L"DEV Files (*.DEV)\0*.DEV\0All Files (*.*)\0*.*\0";
+        defExt = L"DEV";
+    }
+
+    if (cutMode == IDYES) {
+        const size_t extensionPos = currentDataFilePath.find_last_of(L'.');
+        const std::wstring tempPath = (extensionPos != std::wstring::npos)
+            ? (currentDataFilePath.substr(0, extensionPos) + L".cut_tmp" + currentDataFilePath.substr(extensionPos))
+            : (currentDataFilePath + L".cut_tmp.bin");
+
+        if (!DataModule::SaveFileExcludingRange(currentDataFilePath, tempPath, startIndex, endIndex)) {
+            DeleteFileW(tempPath.c_str());
+            MessageBox(hWnd, L"Не удалось сохранить файл без выбранного отрезка.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        DataLoadResult reloadedData;
+        std::wstring reloadError;
+        if (!DataModule::LoadDataFromFileResult(tempPath, reloadedData, reloadError)) {
+            DeleteFileW(tempPath.c_str());
+            MessageBox(hWnd,
+                       reloadError.empty() ? L"Не удалось перечитать обновлённый файл." : reloadError.c_str(),
+                       L"Ошибка",
+                       MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        if (!MoveFileExW(tempPath.c_str(), currentDataFilePath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED)) {
+            DeleteFileW(tempPath.c_str());
+            MessageBox(hWnd, L"Не удалось заменить исходный файл обновлённой версией.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        if (!ApplyPreparedSerialDisplayData(hWnd, currentDataFilePath, std::move(reloadedData))) {
+            MessageBox(hWnd, L"Файл обновлён, но не удалось перезагрузить данные в приложении.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        wchar_t message[512] = {0};
+        swprintf_s(message, L"Отрезок [%zu..%zu] успешно вырезан из текущего файла.", startIndex, endIndex);
+        MessageBox(hWnd, message, L"Готово", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+
+    OPENFILENAME ofn = {};
+    wchar_t szFile[260] = {0};
+    SYSTEMTIME st;
+    GetLocalTime(&st);
+    const std::wstring suggestedFileName = BuildCutRangeSuggestedFileName(dataModule->GetLoadedFileName(), startIndex, endIndex, st, extension);
+    wcsncpy_s(szFile, suggestedFileName.c_str(), _TRUNCATE);
+
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = sizeof(szFile) / sizeof(wchar_t);
+    ofn.lpstrFilter = filter;
+    ofn.nFilterIndex = 1;
+    ofn.lpstrDefExt = defExt;
+    ofn.lpstrFileTitle = NULL;
+    ofn.nMaxFileTitle = 0;
+    ofn.lpstrInitialDir = NULL;
+    ofn.lpstrTitle = dialogTitle;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_OVERWRITEPROMPT;
+
+    if (GetSaveFileName(&ofn) != TRUE) {
+        return;
+    }
+
+    if (!DataModule::SaveFileExcludingRange(currentDataFilePath, szFile, startIndex, endIndex)) {
+        MessageBox(hWnd, L"Не удалось создать копию файла без выбранного отрезка.", L"Ошибка", MB_OK | MB_ICONERROR);
+        return;
+    }
+
+    wchar_t message[768] = {0};
+    swprintf_s(message, L"Создана копия файла без отрезка [%zu..%zu]:\n%s", startIndex, endIndex, szFile);
+    MessageBox(hWnd, message, L"Готово", MB_OK | MB_ICONINFORMATION);
 }
 
 // Метод для обработки движения мыши и обновления координат в статусной строке

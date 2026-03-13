@@ -43,6 +43,7 @@ private:
     
     // Кнопки сохранения диапазона
     HWND hSaveRange1Btn;     // Кнопка "Save Range" для Chart 1
+    HWND hCutRange1Btn;
 
     // Кнопки сброса zoom
     HWND hResetZoom1Btn;     // Кнопка "Reset Zoom" для Chart 1

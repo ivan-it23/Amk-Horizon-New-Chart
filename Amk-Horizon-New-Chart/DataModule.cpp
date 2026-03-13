@@ -883,6 +883,81 @@ bool DataModule::SaveDataRange(const std::wstring& filename, size_t startIndex, 
     return true;
 }
 
+bool DataModule::SaveFileExcludingRange(const std::wstring& sourceFilename,
+                                        const std::wstring& targetFilename,
+                                        size_t startIndex,
+                                        size_t endIndex) {
+    if (sourceFilename.empty() || targetFilename.empty() || sourceFilename == targetFilename) {
+        return false;
+    }
+
+    const FileFormat sourceFormat = DetectFileFormat(sourceFilename);
+    const FileFormat targetFormat = DetectFileFormat(targetFilename);
+    if (!IsSupportedDataFileFormat(sourceFormat) || sourceFormat != targetFormat) {
+        return false;
+    }
+
+    std::ifstream sourceFile(sourceFilename, std::ios::binary);
+    if (!sourceFile.is_open()) {
+        return false;
+    }
+
+    sourceFile.seekg(0, std::ios::end);
+    const std::streamsize fileSize = sourceFile.tellg();
+    sourceFile.seekg(0, std::ios::beg);
+    if (fileSize <= 0) {
+        sourceFile.close();
+        return false;
+    }
+
+    const size_t physicalFrameSize = GetPhysicalFrameSize(sourceFormat);
+    if ((static_cast<size_t>(fileSize) % physicalFrameSize) != 0) {
+        sourceFile.close();
+        return false;
+    }
+
+    const size_t frameCount = static_cast<size_t>(fileSize) / physicalFrameSize;
+    if (frameCount == 0 ||
+        startIndex >= frameCount ||
+        endIndex >= frameCount ||
+        startIndex > endIndex ||
+        (startIndex == 0 && endIndex == frameCount - 1)) {
+        sourceFile.close();
+        return false;
+    }
+
+    std::ofstream targetFile(targetFilename, std::ios::binary | std::ios::trunc);
+    if (!targetFile.is_open()) {
+        sourceFile.close();
+        return false;
+    }
+
+    std::vector<char> frameBuffer(physicalFrameSize);
+    for (size_t index = 0; index < frameCount; ++index) {
+        sourceFile.read(frameBuffer.data(), static_cast<std::streamsize>(frameBuffer.size()));
+        if (!sourceFile) {
+            targetFile.close();
+            sourceFile.close();
+            return false;
+        }
+
+        if (index >= startIndex && index <= endIndex) {
+            continue;
+        }
+
+        targetFile.write(frameBuffer.data(), static_cast<std::streamsize>(frameBuffer.size()));
+        if (!targetFile) {
+            targetFile.close();
+            sourceFile.close();
+            return false;
+        }
+    }
+
+    targetFile.close();
+    sourceFile.close();
+    return true;
+}
+
 void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vector<std::vector<float>>& outData) const {
     // Вызываем перегруженную версию без ограничений диапазона
     std::vector<bool> allTransmittersEnabled(static_cast<size_t>(GetAvailableTransmitterCount()), true);

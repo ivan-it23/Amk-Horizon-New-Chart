@@ -229,6 +229,7 @@ public:
     
     // Методы для сохранения диапазона
     void HandleSaveRange(HWND hWnd, int chartNumber);
+    void HandleCutRange(HWND hWnd, int chartNumber);
     
     // Метод для частичной перерисовки конкретного графика
     void InvalidateChart(HWND hWnd, int chartNumber);
