@@ -1682,7 +1682,7 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
                                   currentPresetDisplayName);
             break;
         case IDC_PRESET_SILENT_DPH:
-            // Разность фаз молчащих передатчиков: одна кривая (R2−R1) из ZERO_dPH с нормализацией
+            // Разность фаз молчащих передатчиков: одна кривая (R2−R1) из ZERO_dPH с нормализацией и переводом в mdeg
             currentSelection.silentTx[0] = true;
             currentSelection.silentTx[1] = true;
             ApplyBasicPresetState(currentSelection,

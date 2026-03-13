@@ -249,6 +249,11 @@ float GetMissingPlotValue() {
     return std::numeric_limits<float>::quiet_NaN();
 }
 
+float ConvertNormalizedPhaseToMillidegrees(float normalizedPhaseRadians) {
+    constexpr float kMillidegreePerRadian = 57295.7795f;
+    return normalizedPhaseRadians * kMillidegreePerRadian;
+}
+
 void AppendAlignedPlotValue(std::vector<float>& outData, bool hasValue, float value) {
     outData.push_back(hasValue ? value : GetMissingPlotValue());
 }
@@ -458,7 +463,6 @@ bool DataModule::EnsureDerivedSeriesFamilyCache(DataType type, FrequencyBand fre
 
     const int freqIdx = (freq == FrequencyBand::FREQ_400_KHZ) ? 0 : 1;
     constexpr float kAmplitudeRatioEpsilon = 1e-10f;
-    constexpr float kMillidegreePerRadian = 57295.7795f;
 
     for (size_t i = 0; i < recordCount; ++i) {
         const ToolDataAccessView view = GetDataView(i);
@@ -470,7 +474,7 @@ bool DataModule::EnsureDerivedSeriesFamilyCache(DataType type, FrequencyBand fre
             if (type == DataType::PHASE_DIFFERENCE) {
                 float phaseDiff = 0.0f;
                 if (view.TryGetDeltaPhase(freqIdx, txIdx, phaseDiff)) {
-                    value = NormalizePhase(phaseDiff) * kMillidegreePerRadian;
+                    value = ConvertNormalizedPhaseToMillidegrees(NormalizePhase(phaseDiff));
                     hasValue = true;
                 }
             } else if (type == DataType::AMPLITUDE_RATIO) {
@@ -959,7 +963,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                         break;
                                     }
                                     phaseDiff = NormalizePhase(phaseDiff);
-                                    value = phaseDiff * 57295.7795f; // рад -> мдег
+                                    value = ConvertNormalizedPhaseToMillidegrees(phaseDiff);
                                     hasValue = true;
                                 }
                                 break;
@@ -1001,7 +1005,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                         break;
                                     }
                                     phase = NormalizePhase(phase);
-                                    value = phase * 57295.7795f; // рад -> мдег
+                                    value = ConvertNormalizedPhaseToMillidegrees(phase);
                                     hasValue = true;
                                 }
                                 break;
@@ -1054,7 +1058,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                 if (hasValue) {
                     diff = NormalizePhase(diff);
                 }
-                float value = diff * 57295.7795f; // рад -> мдег
+                float value = ConvertNormalizedPhaseToMillidegrees(diff);
                 AppendAlignedFilteredPlotValue(outData[0], hasValue, value, minY, maxY);
             }
         }
@@ -1360,7 +1364,7 @@ void DataModule::CalculateDifferenceData(int transmitterIndex, FrequencyBand fre
             continue;
         }
         difference = NormalizePhase(difference);
-        AppendAlignedPlotValue(outData, true, difference * 57295.7795f);
+        AppendAlignedPlotValue(outData, true, ConvertNormalizedPhaseToMillidegrees(difference));
     }
 }
 
@@ -1399,7 +1403,7 @@ void DataModule::CalculatePhaseData(int transmitterIndex, int receiverIndex,
             continue;
         }
         phase = NormalizePhase(phase);
-        AppendAlignedPlotValue(outData, true, phase * 57295.7795f);
+        AppendAlignedPlotValue(outData, true, ConvertNormalizedPhaseToMillidegrees(phase));
     }
 }
 
@@ -1437,7 +1441,7 @@ void DataModule::CalculateSilentPhaseDifferenceData(FrequencyBand frequency,
             continue;
         }
         diff = NormalizePhase(diff);
-        AppendAlignedPlotValue(outData, true, diff * 57295.7795f); // рад -> мдег
+        AppendAlignedPlotValue(outData, true, ConvertNormalizedPhaseToMillidegrees(diff));
     }
 }
 
