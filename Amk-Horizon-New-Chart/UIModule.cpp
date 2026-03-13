@@ -58,6 +58,8 @@ UIModule::UIModule()
     , hChart1SurfEdit(nullptr)
     , hChart2SurfCheck(nullptr)
     , hChart2SurfEdit(nullptr)
+    , hChart1UndoZoomBtn(nullptr)
+    , hChart2UndoZoomBtn(nullptr)
     , hChart1ShowNotesCheck(nullptr)
     , hChart2ShowNotesCheck(nullptr)
     , hTooltip(nullptr)
@@ -182,6 +184,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
 
+    hChart1UndoZoomBtn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | WS_DISABLED,
+        0, 0, 22, 20, hWnd, (HMENU)IDC_CHART1_UNDO_ZOOM_BTN, hInst, NULL);
+
     // Чекбокс отображения заметок (Chart 1), компактный и на уровне заголовка графика
     hChart1ShowNotesCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x043A\x0430\x0437\x0430\x0442\x044C \x0437\x0430\x043C\x0435\x0442\x043A\x0438",
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
@@ -277,6 +283,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
 
+    hChart2UndoZoomBtn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW | WS_DISABLED,
+        0, 0, 22, 20, hWnd, (HMENU)IDC_CHART2_UNDO_ZOOM_BTN, hInst, NULL);
+
     // Чекбокс отображения заметок (Chart 2), изначально скрыт
     hChart2ShowNotesCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x043A\x0430\x0437\x0430\x0442\x044C \x0437\x0430\x043C\x0435\x0442\x043A\x0438",
         WS_CHILD | BS_AUTOCHECKBOX,
@@ -348,11 +358,13 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     CreateTooltip(hWnd, hSaveRange1Btn, L"Загрузить");
     CreateTooltip(hWnd, hCutRange1Btn, L"Вырезать отрезок");
     CreateTooltip(hWnd, hResetZoom1Btn, L"Сбросить Zoom");
+    CreateTooltip(hWnd, hChart1UndoZoomBtn, L"Отменить последний zoom");
     
     // Создание tooltips для кнопок с иконками (Chart 2)
     CreateTooltip(hWnd, hXRange2ApplyBtn, L"Применить");
     CreateTooltip(hWnd, hXRange2ResetBtn, L"Сбросить");
     CreateTooltip(hWnd, hResetZoom2Btn, L"Сбросить Zoom");
+    CreateTooltip(hWnd, hChart2UndoZoomBtn, L"Отменить последний zoom");
 
     // Tooltips для осевого undo
     CreateTooltip(hWnd, hChart1HUndoBtn, L"Undo X zoom step");
@@ -402,6 +414,7 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hChart2SurfEdit, showFlag);
 
     // Показываем/скрываем чекбокс отображения заметок для Chart 2
+    ShowWindow(hChart2UndoZoomBtn, showFlag);
     ShowWindow(hChart2ShowNotesCheck, showFlag);
 }
 
@@ -450,8 +463,11 @@ void UIModule::SetChart1TransmitterEnabled(int transmitterIdx, bool enabled) {
 }
 
 void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const RECT& chart2Rect, bool dualMode) {
+    const int BUTTON_WIDTH = 22;
+    const int BUTTON_HEIGHT = 20;
     const int CHECK_WIDTH = 128;
     const int CHECK_HEIGHT = 18;
+    const int BUTTON_GAP = 4;
     const int RIGHT_MARGIN = 10;
     const int TOP_OFFSET = 8;
 
@@ -459,6 +475,9 @@ void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const REC
         int x1 = chart1Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
         int y1 = chart1Rect.top + TOP_OFFSET;
         SetWindowPos(hChart1ShowNotesCheck, HWND_TOP, x1, y1, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+        if (hChart1UndoZoomBtn) {
+            SetWindowPos(hChart1UndoZoomBtn, HWND_TOP, x1 - BUTTON_GAP - BUTTON_WIDTH, y1 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+        }
     }
 
     if (hChart2ShowNotesCheck) {
@@ -466,7 +485,11 @@ void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const REC
             int x2 = chart2Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
             int y2 = chart2Rect.top + TOP_OFFSET;
             SetWindowPos(hChart2ShowNotesCheck, HWND_TOP, x2, y2, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+            if (hChart2UndoZoomBtn) {
+                SetWindowPos(hChart2UndoZoomBtn, HWND_TOP, x2 - BUTTON_GAP - BUTTON_WIDTH, y2 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+            }
         } else {
+            ShowWindow(hChart2UndoZoomBtn, SW_HIDE);
             ShowWindow(hChart2ShowNotesCheck, SW_HIDE);
         }
     }
@@ -496,6 +519,20 @@ void UIModule::SetNotesVisible(int chartNumber, bool visible) {
 
     if (hCheck) {
         SendMessage(hCheck, BM_SETCHECK, visible ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+}
+
+void UIModule::SetUndoZoomStepEnabled(int chartNumber, bool enabled) {
+    HWND hButton = nullptr;
+
+    if (chartNumber == 1) {
+        hButton = hChart1UndoZoomBtn;
+    } else if (chartNumber == 2) {
+        hButton = hChart2UndoZoomBtn;
+    }
+
+    if (hButton) {
+        EnableWindow(hButton, enabled ? TRUE : FALSE);
     }
 }
 
@@ -1332,6 +1369,8 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
         case IDC_XRANGE_RESET_BTN:
         case IDC_SAVE_RANGE1_BTN:
         case IDC_CUT_RANGE1_BTN:
+        case IDC_CHART1_UNDO_ZOOM_BTN:
+        case IDC_CHART2_UNDO_ZOOM_BTN:
         case IDC_RESET_ZOOM1_BTN:
         case IDC_XRANGE2_APPLY_BTN:
         case IDC_XRANGE2_RESET_BTN:
@@ -1448,6 +1487,10 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
             break;
         case IDC_CUT_RANGE1_BTN:
             iconText = L"\u2702";          // ✂
+            break;
+        case IDC_CHART1_UNDO_ZOOM_BTN:
+        case IDC_CHART2_UNDO_ZOOM_BTN:
+            iconText = L"\u21B6";          // ↶
             break;
         case IDC_RESET_ZOOM1_BTN:
         case IDC_RESET_ZOOM2_BTN:

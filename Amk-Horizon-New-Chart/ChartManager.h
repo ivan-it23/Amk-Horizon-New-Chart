@@ -226,6 +226,7 @@ public:
     
     // Метод для сброса zoom (кнопка Reset Zoom)
     void HandleResetZoom(HWND hWnd, int chartNumber);
+    void HandleUndoZoomStep(HWND hWnd, int chartNumber);
     
     // Методы для сохранения диапазона
     void HandleSaveRange(HWND hWnd, int chartNumber);

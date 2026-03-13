@@ -1915,6 +1915,14 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             HandleResetZoom(hWnd, 2);
             return true;
 
+        case IDC_CHART1_UNDO_ZOOM_BTN:
+            HandleUndoZoomStep(hWnd, 1);
+            return true;
+
+        case IDC_CHART2_UNDO_ZOOM_BTN:
+            HandleUndoZoomStep(hWnd, 2);
+            return true;
+
         case IDC_CHART1_HUNDO_BTN:
             HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINELEFT, 0), (LPARAM)uiModule->GetHScrollBar(1));
             return true;
@@ -2382,100 +2390,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
 
 void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
 {
-    // Определяем, на каком графике произошел клик
-    int chartAtPoint = GetChartAtPoint(x, y);
-    bool zoomChanged = false;
-    
-    // v2.12.5: Пошаговый откат zoom из истории
-    // Если есть история — откатываемся на один шаг назад
-    // Если история пуста — сбрасываем к полному виду
-    if (chartAtPoint == 1) {
-        chart1Crosshair.isVisible = false;
-        
-        if (!chart1ZoomHistory.empty()) {
-            // Откатываемся к предыдущему состоянию из истории
-            chart1Zoom = chart1ZoomHistory.back();
-            chart1ZoomHistory.pop_back();
-            AxisZoomRange axisState;
-            PopAxisHistoryX(1, axisState);
-            PopAxisHistoryY(1, axisState);
-            zoomChanged = true;
-        } else {
-            // Без zoom-истории правый клик ничего не сбрасывает:
-            // X Range должен сбрасываться только кнопкой Reset X Range.
-            return;
-        }
-
-        // Surf ON: X фиксирован на последние N точек (откат применяется только к Y)
-        if (uiModule->IsSurfEnabled(1)) {
-            if (dataModule && dataModule->HasData()) {
-                if (!chart1Zoom.isYCustom) {
-                    // Вернуть авто-Y и актуальное Surf-окно
-                    UpdateSurfRange(1);
-                } else {
-                    // Только обновляем X-окно Surf, не трогая Y
-                    size_t dataSize = dataModule->GetDataSize();
-                    int surfWindow = uiModule->GetSurfWindowSize(1);
-                    chart1Zoom.minX = (dataSize > static_cast<size_t>(surfWindow))
-                        ? static_cast<double>(dataSize - surfWindow) : 0.0;
-                    chart1Zoom.maxX = static_cast<double>(dataSize - 1);
-                    chart1Zoom.isZoomed = true;
-                }
-            }
-        }
-
-        UpdateZoomActiveState(1);
-    } else if (chartAtPoint == 2) {
-        chart2Crosshair.isVisible = false;
-        
-        if (!chart2ZoomHistory.empty()) {
-            // Откатываемся к предыдущему состоянию из истории
-            chart2Zoom = chart2ZoomHistory.back();
-            chart2ZoomHistory.pop_back();
-            AxisZoomRange axisState;
-            PopAxisHistoryX(2, axisState);
-            PopAxisHistoryY(2, axisState);
-            zoomChanged = true;
-        } else {
-            // Без zoom-истории правый клик ничего не сбрасывает:
-            // X Range должен сбрасываться только кнопкой Reset X Range.
-            return;
-        }
-
-        // Surf ON: X фиксирован на последние N точек (откат применяется только к Y)
-        if (uiModule->IsSurfEnabled(2)) {
-            if (dataModule && dataModule->HasData()) {
-                if (!chart2Zoom.isYCustom) {
-                    UpdateSurfRange(2);
-                } else {
-                    size_t dataSize = dataModule->GetDataSize();
-                    int surfWindow = uiModule->GetSurfWindowSize(2);
-                    chart2Zoom.minX = (dataSize > static_cast<size_t>(surfWindow))
-                        ? static_cast<double>(dataSize - surfWindow) : 0.0;
-                    chart2Zoom.maxX = static_cast<double>(dataSize - 1);
-                    chart2Zoom.isZoomed = true;
-                }
-            }
-        }
-
-        UpdateZoomActiveState(2);
-    } else {
-        return;
-    }
-
-    if (!zoomChanged) {
-        return;
-    }
-    
-    // Обновляем скроллбары после изменения зума
-    UpdateScrollBars(hWnd);
-    
-    // Перерисовываем только измененный график (избегаем мигания)
-    if (chartAtPoint > 0) {
-        InvalidateChart(hWnd, chartAtPoint);
-    } else {
-        InvalidateRect(hWnd, NULL, FALSE); // Если не определен график, перерисовываем всё (FALSE для double buffering)
-    }
+    (void)hWnd;
+    (void)x;
+    (void)y;
 }
 
 int ChartManager::GetChartAtPoint(int x, int y) const {
@@ -2859,6 +2776,9 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 }
 
 void ChartManager::UpdateScrollBars(HWND hWnd) {
+    uiModule->SetUndoZoomStepEnabled(1, !chart1ZoomHistory.empty());
+    uiModule->SetUndoZoomStepEnabled(2, uiModule->IsDualMode() && !chart2ZoomHistory.empty());
+
     // Обновляем скроллбары для первого графика
     if (chart1Zoom.isZoomed) {
         uiModule->ShowScrollBars(1, true);
@@ -3708,6 +3628,42 @@ void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
     UpdateXRangeUI(hWnd);
     
     // Перерисовываем только измененный график
+    InvalidateChart(hWnd, chartNumber);
+}
+
+void ChartManager::HandleUndoZoomStep(HWND hWnd, int chartNumber) {
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    std::vector<ZoomRange>* zoomHistory = (chartNumber == 1) ? &chart1ZoomHistory : &chart2ZoomHistory;
+    CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
+
+    if (!zoom || !zoomHistory || zoomHistory->empty()) {
+        return;
+    }
+
+    crosshair->isVisible = false;
+    *zoom = zoomHistory->back();
+    zoomHistory->pop_back();
+
+    AxisZoomRange axisState;
+    PopAxisHistoryX(chartNumber, axisState);
+    PopAxisHistoryY(chartNumber, axisState);
+
+    if (uiModule->IsSurfEnabled(chartNumber) && dataModule && dataModule->HasData()) {
+        if (!zoom->isYCustom) {
+            UpdateSurfRange(chartNumber);
+        } else {
+            size_t dataSize = dataModule->GetDataSize();
+            int surfWindow = uiModule->GetSurfWindowSize(chartNumber);
+            zoom->minX = (dataSize > static_cast<size_t>(surfWindow))
+                ? static_cast<double>(dataSize - surfWindow) : 0.0;
+            zoom->maxX = static_cast<double>(dataSize - 1);
+            zoom->isZoomed = true;
+        }
+    }
+
+    UpdateZoomActiveState(chartNumber);
+    UpdateScrollBars(hWnd);
+    UpdateXRangeUI(hWnd);
     InvalidateChart(hWnd, chartNumber);
 }
 

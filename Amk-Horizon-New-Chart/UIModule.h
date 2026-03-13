@@ -86,6 +86,8 @@ private:
     HWND hChart2SurfEdit;    // Поле ввода количества точек для Chart 2
 
     // === Элементы управления отображением заметок на графике ===
+    HWND hChart1UndoZoomBtn;
+    HWND hChart2UndoZoomBtn;
     HWND hChart1ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 1
     HWND hChart2ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 2
 
@@ -156,6 +158,7 @@ public:
     void PositionNotesVisibilityControls(const RECT& chart1Rect, const RECT& chart2Rect, bool dualMode);
     bool IsNotesVisible(int chartNumber) const;
     void SetNotesVisible(int chartNumber, bool visible);
+    void SetUndoZoomStepEnabled(int chartNumber, bool enabled);
 
     // === Управление элементами COM-порта (v2.13.0) ===
     void CreateSerialControls(HWND hWnd, HINSTANCE hInst);
