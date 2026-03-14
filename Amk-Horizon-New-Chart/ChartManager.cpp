@@ -1084,6 +1084,9 @@ bool ChartManager::GetNotesForCurrentSource(std::vector<ChartNote>& outNotes, st
 }
 
 int ChartManager::GetActiveChartNumber() const {
+    if (!uiModule || !uiModule->IsDualMode()) {
+        return 1;
+    }
     return (activeChart == 2) ? 2 : 1;
 }
 
