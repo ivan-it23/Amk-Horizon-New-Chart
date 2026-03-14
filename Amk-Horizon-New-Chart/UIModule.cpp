@@ -836,6 +836,42 @@ void UIModule::SetXRangeValues(int chartNumber, double fromX, double toX) {
     SetWindowText(hToEdit, toText);
 }
 
+void UIModule::SetXRangeFromValue(int chartNumber, double fromX) {
+    HWND hFromEdit = nullptr;
+
+    if (chartNumber == 1) {
+        hFromEdit = hXRangeFromEdit;
+    } else if (chartNumber == 2) {
+        hFromEdit = hXRange2FromEdit;
+    } else {
+        return;
+    }
+
+    if (!hFromEdit) return;
+
+    wchar_t fromText[32];
+    swprintf_s(fromText, L"%.0f", fromX);
+    SetWindowText(hFromEdit, fromText);
+}
+
+void UIModule::SetXRangeToValue(int chartNumber, double toX) {
+    HWND hToEdit = nullptr;
+
+    if (chartNumber == 1) {
+        hToEdit = hXRangeToEdit;
+    } else if (chartNumber == 2) {
+        hToEdit = hXRange2ToEdit;
+    } else {
+        return;
+    }
+
+    if (!hToEdit) return;
+
+    wchar_t toText[32];
+    swprintf_s(toText, L"%.0f", toX);
+    SetWindowText(hToEdit, toText);
+}
+
 void UIModule::SetXRangeResetEnabled(int chartNumber, bool enabled) {
     HWND hResetBtn = nullptr;
 

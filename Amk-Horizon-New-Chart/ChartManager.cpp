@@ -2300,14 +2300,17 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     }
 
     CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
-    const bool canAddNote = crosshair && crosshair->isVisible && crosshair->chartNumber == chartNumber;
+    const bool hasCrosshair = crosshair && crosshair->isVisible && crosshair->chartNumber == chartNumber;
 
     HMENU hMenu = CreatePopupMenu();
     if (!hMenu) {
         return;
     }
 
-    AppendMenuW(hMenu, MF_STRING | (canAddNote ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_FROM, L"Установить как X начальное");
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_TO, L"Установить как X конечное");
+    AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
 
     POINT screenPoint = { x, y };
     ClientToScreen(hWnd, &screenPoint);
@@ -2322,6 +2325,28 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
         NULL);
 
     DestroyMenu(hMenu);
+
+    if (!hasCrosshair) {
+        return;
+    }
+
+    if (selected == IDM_CHART_SET_X_FROM || selected == IDM_CHART_SET_X_TO) {
+        double selectedX = crosshair->dataX;
+        if (dataModule && dataModule->HasData()) {
+            const double maxX = static_cast<double>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
+            if (selectedX < 0.0) selectedX = 0.0;
+            if (selectedX > maxX) selectedX = maxX;
+        }
+
+        const double roundedX = static_cast<double>(llround(selectedX));
+        if (selected == IDM_CHART_SET_X_FROM) {
+            uiModule->SetXRangeFromValue(chartNumber, roundedX);
+        } else {
+            uiModule->SetXRangeToValue(chartNumber, roundedX);
+        }
+        uiModule->SetXRangeResetEnabled(chartNumber, true);
+        return;
+    }
 
     if (selected != IDM_CHART_ADD_NOTE) {
         return;
