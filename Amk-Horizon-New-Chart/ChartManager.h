@@ -48,6 +48,7 @@ private:
         double minYRight, maxYRight;
         bool isZoomed;
         bool isXCustom; // true если пользователь вручную задал диапазон X
+        bool hasXRangeLock; // true если X ограничен через поля X Range, а не обычным zoom/scoll
         bool isXToLatest; // true если пользователь задал только "From", а "To" должен следовать за последним кадром
         bool isYCustom; // true если пользователь вручную задал диапазон Y (важно для Surf)
         bool hasRightAxisCustomRange; // true если для dual-axis явно задан диапазон правой оси
@@ -55,7 +56,7 @@ private:
         ZoomRange()
             : minX(0.0), maxX(0.0), minY(0.0), maxY(0.0),
               minYRight(0.0), maxYRight(0.0),
-              isZoomed(false), isXCustom(false), isXToLatest(false), isYCustom(false),
+              isZoomed(false), isXCustom(false), hasXRangeLock(false), isXToLatest(false), isYCustom(false),
               hasRightAxisCustomRange(false) {}
     };
 
@@ -63,12 +64,13 @@ private:
         double min;
         double max;
         bool isCustom;
+        bool hasXRangeLock;
         double minRight;
         double maxRight;
         bool hasRightAxisRange;
 
         AxisZoomRange()
-            : min(0.0), max(0.0), isCustom(false),
+            : min(0.0), max(0.0), isCustom(false), hasXRangeLock(false),
               minRight(0.0), maxRight(0.0), hasRightAxisRange(false) {}
         AxisZoomRange(double minValue,
                       double maxValue,
@@ -76,7 +78,7 @@ private:
                       double minRightValue = 0.0,
                       double maxRightValue = 0.0,
                       bool hasRightRange = false)
-            : min(minValue), max(maxValue), isCustom(custom),
+            : min(minValue), max(maxValue), isCustom(custom), hasXRangeLock(false),
               minRight(minRightValue), maxRight(maxRightValue), hasRightAxisRange(hasRightRange) {}
     };
     
