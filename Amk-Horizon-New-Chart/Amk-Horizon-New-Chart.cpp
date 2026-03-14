@@ -12,6 +12,7 @@
 #include <cmath>
 #include <vector>
 #include <string>
+#include <utility>
 #include <commdlg.h>
 #include <commctrl.h>
 #include <ctime>
@@ -112,40 +113,99 @@ static std::wstring GetAppSettingsPath() {
     return std::wstring(userProfile) + L"\\AppData\\Local\\AMK-Horizon-New-Chart\\app_settings.txt";
 }
 
-static std::wstring LoadLastUsedComPort() {
+static std::wstring Utf8ToWide(const std::string& value) {
+    if (value.empty()) {
+        return L"";
+    }
+
+    int required = MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0);
+    if (required <= 0) {
+        return L"";
+    }
+
+    std::wstring result(required, L'\0');
+    if (MultiByteToWideChar(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), required) <= 0) {
+        return L"";
+    }
+
+    return result;
+}
+
+static std::string WideToUtf8(const std::wstring& value) {
+    if (value.empty()) {
+        return "";
+    }
+
+    int required = WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), nullptr, 0, nullptr, nullptr);
+    if (required <= 0) {
+        return "";
+    }
+
+    std::string result(required, '\0');
+    if (WideCharToMultiByte(CP_UTF8, 0, value.c_str(), static_cast<int>(value.size()), result.data(), required, nullptr, nullptr) <= 0) {
+        return "";
+    }
+
+    return result;
+}
+
+static std::vector<std::pair<std::string, std::string>> LoadAppSettings() {
+    std::vector<std::pair<std::string, std::string>> settings;
+
     std::wstring path = GetAppSettingsPath();
-    if (path.empty()) return L"";
+    if (path.empty()) return settings;
 
     std::ifstream f(path);
-    if (!f.is_open()) return L"";
+    if (!f.is_open()) return settings;
 
     std::string line;
-    const char prefix[] = "lastComPort=";
-    const size_t prefixLen = sizeof(prefix) - 1;
-
     while (std::getline(f, line)) {
-        if (line.size() >= prefixLen && line.compare(0, prefixLen, prefix) == 0) {
-            std::string value = line.substr(prefixLen);
-            // Trim whitespace
-            size_t start = value.find_first_not_of(" \t\r\n");
-            if (start == std::string::npos) return L"";
-            size_t end = value.find_last_not_of(" \t\r\n");
-            value = value.substr(start, end != std::string::npos ? end - start + 1 : std::string::npos);
-            if (value.empty()) return L"";
+        size_t eqPos = line.find('=');
+        if (eqPos == std::string::npos) {
+            continue;
+        }
 
-            std::wstring result;
-            result.reserve(value.size());
-            for (char c : value) {
-                result += static_cast<wchar_t>(static_cast<unsigned char>(c));
-            }
-            return result;
+        std::string key = line.substr(0, eqPos);
+        std::string value = line.substr(eqPos + 1);
+
+        size_t keyStart = key.find_first_not_of(" \t\r\n");
+        if (keyStart == std::string::npos) {
+            continue;
+        }
+        size_t keyEnd = key.find_last_not_of(" \t\r\n");
+        key = key.substr(keyStart, keyEnd != std::string::npos ? keyEnd - keyStart + 1 : std::string::npos);
+
+        size_t valueStart = value.find_first_not_of(" \t\r\n");
+        if (valueStart == std::string::npos) {
+            value.clear();
+        } else {
+            size_t valueEnd = value.find_last_not_of(" \t\r\n");
+            value = value.substr(valueStart, valueEnd != std::string::npos ? valueEnd - valueStart + 1 : std::string::npos);
+        }
+
+        settings.emplace_back(std::move(key), std::move(value));
+    }
+
+    return settings;
+}
+
+static std::wstring LoadAppSettingValue(const char* key) {
+    if (!key || !*key) {
+        return L"";
+    }
+
+    std::vector<std::pair<std::string, std::string>> settings = LoadAppSettings();
+    for (const auto& entry : settings) {
+        if (entry.first == key) {
+            return Utf8ToWide(entry.second);
         }
     }
+
     return L"";
 }
 
-static void SaveLastUsedComPort(const std::wstring& port) {
-    if (port.empty()) return;
+static void SaveAppSettingValue(const char* key, const std::wstring& value) {
+    if (!key || !*key || value.empty()) return;
 
     std::wstring path = GetAppSettingsPath();
     if (path.empty()) return;
@@ -159,16 +219,44 @@ static void SaveLastUsedComPort(const std::wstring& port) {
         }
     }
 
+    std::vector<std::pair<std::string, std::string>> settings = LoadAppSettings();
+    const std::string utf8Value = WideToUtf8(value);
+    bool updated = false;
+
+    for (auto& entry : settings) {
+        if (entry.first == key) {
+            entry.second = utf8Value;
+            updated = true;
+            break;
+        }
+    }
+
+    if (!updated) {
+        settings.emplace_back(key, utf8Value);
+    }
+
     std::ofstream f(path, std::ios::out | std::ios::trunc);
     if (!f.is_open()) return;
 
-    f << "lastComPort=";
-    for (wchar_t wc : port) {
-        if (wc >= 0 && wc < 256) {
-            f << static_cast<char>(wc);
-        }
+    for (const auto& entry : settings) {
+        f << entry.first << "=" << entry.second << "\n";
     }
-    f << "\n";
+}
+
+static std::wstring LoadLastUsedComPort() {
+    return LoadAppSettingValue("lastComPort");
+}
+
+static void SaveLastUsedComPort(const std::wstring& port) {
+    SaveAppSettingValue("lastComPort", port);
+}
+
+static std::wstring LoadLastRecordFolder() {
+    return LoadAppSettingValue("lastRecordFolder");
+}
+
+static void SaveLastRecordFolder(const std::wstring& folder) {
+    SaveAppSettingValue("lastRecordFolder", folder);
 }
 
 static void SetSerialDialogBusyState(HWND hDlg, bool busy) {
@@ -1320,6 +1408,14 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 
    // Создаем менеджер графиков
    g_chartManager = new ChartManager();
+   if (g_chartManager) {
+       if (SerialModule* serial = g_chartManager->GetSerialModule()) {
+           std::wstring lastRecordFolder = LoadLastRecordFolder();
+           if (!lastRecordFolder.empty()) {
+               serial->SetRecordFolder(lastRecordFolder);
+           }
+       }
+   }
    g_chartManager->CreateControls(hWnd, hInstance);
 
    ShowWindow(hWnd, nCmdShow);
@@ -1443,6 +1539,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         std::wstring folder = SerialModule::BrowseForFolder(hWnd);
                         if (!folder.empty()) {
                             serial->SetRecordFolder(folder);
+                            SaveLastRecordFolder(folder);
                         }
                     }
                 }
@@ -2247,6 +2344,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         std::wstring folder = SerialModule::BrowseForFolder(hDlg);
                         if (!folder.empty()) {
                             serial->SetRecordFolder(folder);
+                            SaveLastRecordFolder(folder);
                         }
                     }
                 }

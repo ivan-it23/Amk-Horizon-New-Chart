@@ -76,8 +76,8 @@ namespace {
                 int id = LOWORD(wParam);
                 if (id == IDC_NOTE_DELETE_BTN) {
                     int res = MessageBox(hDlg,
-                                         L"РЈРґР°Р»РёС‚СЊ СЌС‚Сѓ Р·Р°РјРµС‚РєСѓ?\nР”РµР№СЃС‚РІРёРµ РЅРµР»СЊР·СЏ РѕС‚РјРµРЅРёС‚СЊ.",
-                                         L"РЈРґР°Р»РµРЅРёРµ Р·Р°РјРµС‚РєРё",
+                                         L"Удалить эту заметку?\nДействие нельзя отменить.",
+                                         L"Удаление заметки",
                                          MB_YESNO | MB_ICONWARNING);
                     if (res == IDYES) {
                         NoteViewDialogContext* ctx = reinterpret_cast<NoteViewDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
@@ -1102,8 +1102,8 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
     std::vector<NotesModule::SnapshotCurveItem> parsedCurves;
     if (!NotesModule::ParseConfigSnapshot(note.configSnapshot, parsedXAxis, parsedPreset, parsedCurves)) {
         MessageBox(hWnd,
-                   L"РќРµ СѓРґР°Р»РѕСЃСЊ РїСЂРѕС‡РёС‚Р°С‚СЊ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РєСЂРёРІС‹С… РёР· Р·Р°РјРµС‚РєРё.",
-                   L"Р–СѓСЂРЅР°Р» Р·Р°РјРµС‚РѕРє",
+                   L"Не удалось прочитать конфигурацию кривых из заметки.",
+                   L"Журнал заметок",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1130,8 +1130,8 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
 
     if (config.curves.empty()) {
         MessageBox(hWnd,
-                   L"Р’ С‚РµРєСѓС‰РµРј СЃРѕСЃС‚РѕСЏРЅРёРё РіСЂР°С„РёРєР° РЅРµР»СЊР·СЏ РІРѕСЃСЃС‚Р°РЅРѕРІРёС‚СЊ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ Р·Р°РјРµС‚РєРё.",
-                   L"Р–СѓСЂРЅР°Р» Р·Р°РјРµС‚РѕРє",
+                   L"В текущем состоянии графика нельзя восстановить конфигурацию заметки.",
+                   L"Журнал заметок",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1154,8 +1154,8 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
 
     if (enabledCount <= 0) {
         MessageBox(hWnd,
-                   L"РќРµ РЅР°Р№РґРµРЅРѕ РЅРё РѕРґРЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕР№ РєСЂРёРІРѕР№ РґР»СЏ РїСЂРёРјРµРЅРµРЅРёСЏ Р·Р°РјРµС‚РєРё.",
-                   L"Р–СѓСЂРЅР°Р» Р·Р°РјРµС‚РѕРє",
+                   L"Не найдено ни одной совместимой кривой для применения заметки.",
+                   L"Журнал заметок",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1169,8 +1169,8 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
 
     if (!ValidateChartConfiguration(config)) {
         MessageBox(hWnd,
-                   L"РљРѕРЅС„РёРіСѓСЂР°С†РёСЏ РёР· Р·Р°РјРµС‚РєРё РЅРµ РїСЂРѕС€Р»Р° РїСЂРѕРІРµСЂРєСѓ РІР°Р»РёРґРЅРѕСЃС‚Рё.",
-                   L"Р–СѓСЂРЅР°Р» Р·Р°РјРµС‚РѕРє",
+                   L"Конфигурация из заметки не прошла проверку валидности.",
+                   L"Журнал заметок",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1187,8 +1187,8 @@ bool ChartManager::UpdateNoteTextById(HWND hWnd, const std::string& noteId, cons
     const std::wstring notesPath = ResolveCurrentNotesPath();
     if (notesPath.empty()) {
         MessageBox(hWnd,
-                   L"РќРµС‚ Р°РєС‚РёРІРЅРѕРіРѕ РёСЃС‚РѕС‡РЅРёРєР° Р·Р°РјРµС‚РѕРє РґР»СЏ СЃРѕС…СЂР°РЅРµРЅРёСЏ РёР·РјРµРЅРµРЅРёР№.",
-                   L"Р—Р°РјРµС‚РєРё",
+                   L"Нет активного источника заметок для сохранения изменений.",
+                   L"Заметки",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1196,8 +1196,8 @@ bool ChartManager::UpdateNoteTextById(HWND hWnd, const std::string& noteId, cons
     EnsureNotesLoadedForPath(notesPath);
     if (!notesModule->UpdateNoteTextById(noteId, newText)) {
         MessageBox(hWnd,
-                   L"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ Р·Р°РјРµС‚РєРё.",
-                   L"Р—Р°РјРµС‚РєРё",
+                   L"Не удалось сохранить изменения заметки.",
+                   L"Заметки",
                    MB_OK | MB_ICONERROR);
         return false;
     }
@@ -1207,7 +1207,7 @@ bool ChartManager::UpdateNoteTextById(HWND hWnd, const std::string& noteId, cons
 
 bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text) {
     if (!notesModule || !dataModule || !dataModule->HasData()) {
-        MessageBox(hWnd, L"РќРµС‚ РґР°РЅРЅС‹С… РґР»СЏ СЃРѕР·РґР°РЅРёСЏ Р·Р°РјРµС‚РєРё.", L"Р—Р°РјРµС‚РєРё", MB_OK | MB_ICONWARNING);
+        MessageBox(hWnd, L"Нет данных для создания заметки.", L"Заметки", MB_OK | MB_ICONWARNING);
         return false;
     }
 
@@ -1216,7 +1216,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     else if (chartNumber == 2) crosshair = &chart2Crosshair;
 
     if (!crosshair || !crosshair->isVisible || crosshair->chartNumber != chartNumber) {
-        MessageBox(hWnd, L"РЎРЅР°С‡Р°Р»Р° РІС‹Р±РµСЂРёС‚Рµ С‚РѕС‡РєСѓ РЅР° РіСЂР°С„РёРєРµ (РєР»РёРє РїРѕ РѕР±Р»Р°СЃС‚Рё РіСЂР°С„РёРєР°).", L"Р—Р°РјРµС‚РєРё", MB_OK | MB_ICONINFORMATION);
+        MessageBox(hWnd, L"Сначала выберите точку на графике (клик по области графика).", L"Заметки", MB_OK | MB_ICONINFORMATION);
         return false;
     }
 
@@ -1225,9 +1225,9 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
 
     if (notesPath.empty()) {
         MessageBox(hWnd,
-                   L"РќРµ РЅР°Р№РґРµРЅ С„Р°Р№Р» РґР°РЅРЅС‹С… РґР»СЏ РїСЂРёРІСЏР·РєРё Р·Р°РјРµС‚РѕРє.\n"
-                   L"РћС‚РєСЂРѕР№С‚Рµ С„Р°Р№Р» РґР°РЅРЅС‹С… РёР»Рё РІРєР»СЋС‡РёС‚Рµ Р·Р°РїРёСЃСЊ РїСЂРё СЂР°Р±РѕС‚Рµ С‡РµСЂРµР· COM.",
-                   L"Р—Р°РјРµС‚РєРё",
+                   L"Не найден файл данных для привязки заметок.\n"
+                   L"Откройте файл данных или включите запись при работе через COM.",
+                   L"Заметки",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1253,9 +1253,9 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
                                     y2Unit,
                                     hasDualAxis)) {
         MessageBox(hWnd,
-                   L"РќРµ СѓРґР°Р»РѕСЃСЊ РѕРїСЂРµРґРµР»РёС‚СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ Р·Р°РјРµС‚РєРё РїРѕ С‚РµРєСѓС‰РµРјСѓ РїРµСЂРµРєСЂРµСЃС‚РёСЋ.\n"
-                   L"Р’С‹Р±РµСЂРёС‚Рµ С‚РѕС‡РєСѓ РЅР° РіСЂР°С„РёРєРµ РїРѕРІС‚РѕСЂРЅРѕ.",
-                   L"Р—Р°РјРµС‚РєРё",
+                   L"Не удалось определить координаты заметки по текущему перекрестию.\n"
+                   L"Выберите точку на графике повторно.",
+                   L"Заметки",
                    MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1315,7 +1315,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     n.text = text;
 
     if (!notesModule->AppendNote(n)) {
-        MessageBox(hWnd, L"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р·Р°РјРµС‚РєСѓ РЅР° РґРёСЃРє.", L"Р—Р°РјРµС‚РєРё", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Не удалось сохранить заметку на диск.", L"Заметки", MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -1465,7 +1465,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕРґРєР»СЋС‡РµРЅРёСЏ
     serialModule->SetStateCallback([this, hWnd](ConnectionState state, const std::wstring& error) {
         if (state == ConnectionState::CONNECTION_ERROR && !error.empty()) {
-            MessageBox(hWnd, error.c_str(), L"РћС€РёР±РєР° COM-РїРѕСЂС‚Р°", MB_OK | MB_ICONERROR);
+            MessageBox(hWnd, error.c_str(), L"Ошибка COM-порта", MB_OK | MB_ICONERROR);
         }
     });
 }
@@ -1617,9 +1617,9 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
         AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, filename, loaded, loadedData = std::move(loadedData), loadError = std::move(loadError)]() mutable {
             if (!loaded) {
                 const wchar_t* message = loadError.empty()
-                    ? L"РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» РґР°РЅРЅС‹С…"
+                    ? L"Не удалось открыть файл данных"
                     : loadError.c_str();
-                MessageBox(hWnd, message, L"РћС€РёР±РєР° РѕС‚РєСЂС‹С‚РёСЏ С„Р°Р№Р»Р°", MB_OK | MB_ICONERROR);
+                MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
                 if (uiModule) {
                     uiModule->UpdateStatusBar(L"Ready");
                 }
@@ -1698,9 +1698,9 @@ bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const 
     DataLoadResult loadedData;
     if (!DataModule::LoadDataFromFileResult(filePathForPreload, loadedData, loadError)) {
         const wchar_t* message = loadError.empty()
-            ? L"РќРµ СѓРґР°Р»РѕСЃСЊ РѕС‚РєСЂС‹С‚СЊ С„Р°Р№Р» РґР°РЅРЅС‹С…"
+            ? L"Не удалось открыть файл данных"
             : loadError.c_str();
-        MessageBox(hWnd, message, L"РћС€РёР±РєР° РѕС‚РєСЂС‹С‚РёСЏ С„Р°Р№Р»Р°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
         return false;
     }
 
@@ -2319,10 +2319,10 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
         return;
     }
 
-    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_FROM, L"РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РєР°Рє X РЅР°С‡Р°Р»СЊРЅРѕРµ");
-    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_TO, L"РЈСЃС‚Р°РЅРѕРІРёС‚СЊ РєР°Рє X РєРѕРЅРµС‡РЅРѕРµ");
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_FROM, L"Установить как X начальное");
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_TO, L"Установить как X конечное");
     AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"РЎРѕР·РґР°С‚СЊ Р·Р°РјРµС‚РєСѓ");
+    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
 
     POINT screenPoint = { x, y };
     ClientToScreen(hWnd, &screenPoint);
@@ -3068,7 +3068,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             chartModule->DrawDualAxisBackground(hdc, chartRect);
             chartModule->DrawChartBorder(hdc, chartRect);
             chartModule->DrawChartTitle(hdc, chartRect, title);
-            chartModule->DrawNoDataMessage(hdc, chartRect, L"РџРѕРґРіРѕС‚РѕРІРєР° РіСЂР°С„РёРєР°...");
+            chartModule->DrawNoDataMessage(hdc, chartRect, L"Подготовка графика...");
             return;
         }
     }
@@ -3090,7 +3090,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                 chartModule->DrawDualAxisBackground(hdc, chartRect);
                 chartModule->DrawChartBorder(hdc, chartRect);
                 chartModule->DrawChartTitle(hdc, chartRect, title);
-                chartModule->DrawNoDataMessage(hdc, chartRect, L"РџРѕРґРіРѕС‚РѕРІРєР° РіСЂР°С„РёРєР°...");
+                chartModule->DrawNoDataMessage(hdc, chartRect, L"Подготовка графика...");
                 return;
             }
         }
@@ -3818,12 +3818,12 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
 
 void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
     if (!dataModule || !dataModule->HasData()) {
-        MessageBox(hWnd, L"РќРµС‚ Р·Р°РіСЂСѓР¶РµРЅРЅС‹С… РґР°РЅРЅС‹С…!", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Нет загруженных данных!", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
     }
 
     if (currentDataFilePath.empty()) {
-        MessageBox(hWnd, L"РќРµ РЅР°Р№РґРµРЅ РїСѓС‚СЊ Рє С‚РµРєСѓС‰РµРјСѓ С„Р°Р№Р»Сѓ РґР°РЅРЅС‹С….", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Не найден путь к текущему файлу данных.", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
     }
 
@@ -3857,22 +3857,22 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
     if (endIndex >= dataSize) endIndex = dataSize - 1;
 
     if (startIndex > endIndex) {
-        MessageBox(hWnd, L"Р—РЅР°С‡РµРЅРёРµ 'РћС‚' РґРѕР»Р¶РЅРѕ Р±С‹С‚СЊ РјРµРЅСЊС€Рµ РёР»Рё СЂР°РІРЅРѕ Р·РЅР°С‡РµРЅРёСЋ 'Р”Рѕ'.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Значение 'От' должно быть меньше или равно значению 'До'.", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
     }
 
     if (startIndex == 0 && endIndex == dataSize - 1) {
-        MessageBox(hWnd, L"РќРµР»СЊР·СЏ РІС‹СЂРµР·Р°С‚СЊ РІРµСЃСЊ С„Р°Р№Р» С†РµР»РёРєРѕРј.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Нельзя вырезать весь файл целиком.", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
     }
 
     const int cutMode = MessageBox(
         hWnd,
-        L"Р’С‹Р±РµСЂРёС‚Рµ РґРµР№СЃС‚РІРёРµ РґР»СЏ РІС‹СЂРµР·Р°РЅРЅРѕРіРѕ РѕС‚СЂРµР·РєР°:\n\n"
-        L"Р”Р° вЂ” РЎРѕС…СЂР°РЅРёС‚СЊ С„Р°Р№Р» СЃ РІС‹СЂРµР·Р°РЅРЅС‹Рј РѕС‚СЂРµР·РєРѕРј\n"
-        L"РќРµС‚ вЂ” РЎРѕР·РґР°С‚СЊ РєРѕРїРёСЋ С‚РµРєСѓС‰РµРіРѕ С„Р°Р№Р»Р° СЃ РІС‹СЂРµР·Р°РЅРЅС‹Рј РѕС‚СЂРµР·РєРѕРј\n"
-        L"РћС‚РјРµРЅР° вЂ” РѕС‚РјРµРЅРёС‚СЊ РѕРїРµСЂР°С†РёСЋ.",
-        L"Р’С‹СЂРµР·Р°РЅРёРµ РѕС‚СЂРµР·РєР°",
+        L"Выберите действие для вырезанного отрезка:\n\n"
+        L"Да — Сохранить файл с вырезанным отрезком\n"
+        L"Нет — Создать копию текущего файла с вырезанным отрезком\n"
+        L"Отмена — отменить операцию.",
+        L"Вырезание отрезка",
         MB_YESNOCANCEL | MB_ICONQUESTION);
 
     if (cutMode == IDCANCEL) {
@@ -3887,7 +3887,7 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
 
     const FileFormat currentFormat = DataModule::DetectFileFormat(currentDataFilePath);
     const wchar_t* filter = L"Binary Files (*.bin)\0*.bin\0All Files (*.*)\0*.*\0";
-    const wchar_t* dialogTitle = L"РЎРѕС…СЂР°РЅРёС‚СЊ РєРѕРїРёСЋ С„Р°Р№Р»Р° СЃ РІС‹СЂРµР·Р°РЅРЅС‹Рј РѕС‚СЂРµР·РєРѕРј";
+    const wchar_t* dialogTitle = L"Сохранить копию файла с вырезанным отрезком";
     const wchar_t* defExt = L"bin";
     if (currentFormat == FileFormat::FORMAT_BIV) {
         filter = L"BIV Files (*.biv)\0*.biv\0All Files (*.*)\0*.*\0";
@@ -3905,7 +3905,7 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
 
         if (!DataModule::SaveFileExcludingRange(currentDataFilePath, tempPath, startIndex, endIndex)) {
             DeleteFileW(tempPath.c_str());
-            MessageBox(hWnd, L"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ С„Р°Р№Р» Р±РµР· РІС‹Р±СЂР°РЅРЅРѕРіРѕ РѕС‚СЂРµР·РєР°.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+            MessageBox(hWnd, L"Не удалось сохранить файл без выбранного отрезка.", L"Ошибка", MB_OK | MB_ICONERROR);
             return;
         }
 
@@ -3914,26 +3914,26 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
         if (!DataModule::LoadDataFromFileResult(tempPath, reloadedData, reloadError)) {
             DeleteFileW(tempPath.c_str());
             MessageBox(hWnd,
-                       reloadError.empty() ? L"РќРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµС‡РёС‚Р°С‚СЊ РѕР±РЅРѕРІР»С‘РЅРЅС‹Р№ С„Р°Р№Р»." : reloadError.c_str(),
-                       L"РћС€РёР±РєР°",
+                       reloadError.empty() ? L"Не удалось перечитать обновлённый файл." : reloadError.c_str(),
+                       L"Ошибка",
                        MB_OK | MB_ICONERROR);
             return;
         }
 
         if (!MoveFileExW(tempPath.c_str(), currentDataFilePath.c_str(), MOVEFILE_REPLACE_EXISTING | MOVEFILE_COPY_ALLOWED)) {
             DeleteFileW(tempPath.c_str());
-            MessageBox(hWnd, L"РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РјРµРЅРёС‚СЊ РёСЃС…РѕРґРЅС‹Р№ С„Р°Р№Р» РѕР±РЅРѕРІР»С‘РЅРЅРѕР№ РІРµСЂСЃРёРµР№.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+            MessageBox(hWnd, L"Не удалось заменить исходный файл обновлённой версией.", L"Ошибка", MB_OK | MB_ICONERROR);
             return;
         }
 
         if (!ApplyPreparedSerialDisplayData(hWnd, currentDataFilePath, std::move(reloadedData))) {
-            MessageBox(hWnd, L"Р¤Р°Р№Р» РѕР±РЅРѕРІР»С‘РЅ, РЅРѕ РЅРµ СѓРґР°Р»РѕСЃСЊ РїРµСЂРµР·Р°РіСЂСѓР·РёС‚СЊ РґР°РЅРЅС‹Рµ РІ РїСЂРёР»РѕР¶РµРЅРёРё.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+            MessageBox(hWnd, L"Файл обновлён, но не удалось перезагрузить данные в приложении.", L"Ошибка", MB_OK | MB_ICONERROR);
             return;
         }
 
         wchar_t message[512] = {0};
-        swprintf_s(message, L"РћС‚СЂРµР·РѕРє [%zu..%zu] СѓСЃРїРµС€РЅРѕ РІС‹СЂРµР·Р°РЅ РёР· С‚РµРєСѓС‰РµРіРѕ С„Р°Р№Р»Р°.", startIndex, endIndex);
-        MessageBox(hWnd, message, L"Р“РѕС‚РѕРІРѕ", MB_OK | MB_ICONINFORMATION);
+        swprintf_s(message, L"Отрезок [%zu..%zu] успешно вырезан из текущего файла.", startIndex, endIndex);
+        MessageBox(hWnd, message, L"Готово", MB_OK | MB_ICONINFORMATION);
         return;
     }
 
@@ -3962,13 +3962,13 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
     }
 
     if (!DataModule::SaveFileExcludingRange(currentDataFilePath, szFile, startIndex, endIndex)) {
-        MessageBox(hWnd, L"РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕР·РґР°С‚СЊ РєРѕРїРёСЋ С„Р°Р№Р»Р° Р±РµР· РІС‹Р±СЂР°РЅРЅРѕРіРѕ РѕС‚СЂРµР·РєР°.", L"РћС€РёР±РєР°", MB_OK | MB_ICONERROR);
+        MessageBox(hWnd, L"Не удалось создать копию файла без выбранного отрезка.", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
     }
 
     wchar_t message[768] = {0};
-    swprintf_s(message, L"РЎРѕР·РґР°РЅР° РєРѕРїРёСЏ С„Р°Р№Р»Р° Р±РµР· РѕС‚СЂРµР·РєР° [%zu..%zu]:\n%s", startIndex, endIndex, szFile);
-    MessageBox(hWnd, message, L"Р“РѕС‚РѕРІРѕ", MB_OK | MB_ICONINFORMATION);
+    swprintf_s(message, L"Создана копия файла без отрезка [%zu..%zu]:\n%s", startIndex, endIndex, szFile);
+    MessageBox(hWnd, message, L"Готово", MB_OK | MB_ICONINFORMATION);
 }
 
 // РњРµС‚РѕРґ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё РґРІРёР¶РµРЅРёСЏ РјС‹С€Рё Рё РѕР±РЅРѕРІР»РµРЅРёСЏ РєРѕРѕСЂРґРёРЅР°С‚ РІ СЃС‚Р°С‚СѓСЃРЅРѕР№ СЃС‚СЂРѕРєРµ
