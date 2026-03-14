@@ -102,6 +102,7 @@ private:
         SerialResult result = SerialResult::TIMEOUT;
         ParsedToolFrame parsedFrame = {};
         std::vector<uint8_t> rawPayload;
+        uint32_t connectionSessionId = 0;
     };
 
     DWORD legacyPollInterval;
@@ -109,6 +110,9 @@ private:
     std::atomic<bool> stopLegacyPolling;
     std::mutex pendingPollEventsMutex;
     std::deque<PendingPollEvent> pendingPollEvents;
+    std::atomic<uint32_t> consecutivePollFailures;
+    std::atomic<DWORD> nextReconnectAttemptTick;
+    std::atomic<uint32_t> connectionSessionId;
     
     // Callbacks
     std::function<void(const ParsedToolFrame&)> onParsedDataReceived;
@@ -271,7 +275,10 @@ private:
 
     void LegacyPollingLoop();
     void HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, const std::vector<uint8_t>& rawPayload);
-    void HandleFailedPoll();
+    void HandleFailedPoll(SerialResult result);
+    bool ShouldTriggerAutoReconnect(SerialResult result) const;
+    void InvalidateConnectionForRecovery();
+    bool TryReconnectCurrentPort();
     
     // Очистка буферов COM-порта
     void PurgeBuffers();

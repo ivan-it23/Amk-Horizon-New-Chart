@@ -38,6 +38,56 @@ uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
     return parsedFrame.canonicalData.frame;
 }
 
+constexpr uint32_t kAutoReconnectFailureThreshold = 3;
+constexpr DWORD kAutoReconnectAttemptIntervalMs = 1000;
+
+bool ConfigureOpenedSerialHandle(HANDLE serialHandle,
+                                 DWORD baudRate,
+                                 DWORD readTimeout,
+                                 DWORD writeTimeout,
+                                 std::wstring& outError) {
+    outError.clear();
+
+    DCB dcb = { 0 };
+    dcb.DCBlength = sizeof(DCB);
+    if (!GetCommState(serialHandle, &dcb)) {
+        outError = L"Ошибка получения состояния порта";
+        return false;
+    }
+
+    dcb.BaudRate = baudRate;
+    dcb.ByteSize = 8;
+    dcb.Parity = NOPARITY;
+    dcb.StopBits = ONESTOPBIT;
+    dcb.fBinary = TRUE;
+    dcb.fParity = FALSE;
+    dcb.fOutxCtsFlow = FALSE;
+    dcb.fOutxDsrFlow = FALSE;
+    dcb.fDtrControl = DTR_CONTROL_ENABLE;
+    dcb.fRtsControl = RTS_CONTROL_ENABLE;
+    dcb.fOutX = FALSE;
+    dcb.fInX = FALSE;
+
+    if (!SetCommState(serialHandle, &dcb)) {
+        outError = L"Ошибка настройки параметров порта";
+        return false;
+    }
+
+    COMMTIMEOUTS timeouts = { 0 };
+    timeouts.ReadIntervalTimeout = 50;
+    timeouts.ReadTotalTimeoutConstant = readTimeout;
+    timeouts.ReadTotalTimeoutMultiplier = 10;
+    timeouts.WriteTotalTimeoutConstant = writeTimeout;
+    timeouts.WriteTotalTimeoutMultiplier = 10;
+
+    if (!SetCommTimeouts(serialHandle, &timeouts)) {
+        outError = L"Ошибка настройки таймаутов";
+        return false;
+    }
+
+    return true;
+}
+
 bool OpenAppendBinaryStream(std::ofstream& stream, const std::wstring& path) {
     stream.open(std::filesystem::path(path), std::ios::binary | std::ios::app);
     return stream.is_open();
@@ -328,6 +378,9 @@ SerialModule::SerialModule()
     , lastFrameNumber(0)
     , legacyPollInterval(1000)
     , stopLegacyPolling(false)
+    , consecutivePollFailures(0)
+    , nextReconnectAttemptTick(0)
+    , connectionSessionId(0)
     , existingRecordFilePath(L"")
     , isRecordingEnabled(true)  // v2.15.0: Запись включена по умолчанию
     , appendToExistingFile(false)
@@ -446,55 +499,20 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
         }
     }
     
-    // Настраиваем параметры порта
-    DCB dcb = { 0 };
-    dcb.DCBlength = sizeof(DCB);
-    
-    if (!GetCommState(hSerial, &dcb)) {
+    std::wstring setupError;
+    if (!ConfigureOpenedSerialHandle(hSerial, baudRate, readTimeout, writeTimeout, setupError)) {
         CloseHandle(hSerial);
         hSerial = INVALID_HANDLE_VALUE;
-        SetState(ConnectionState::CONNECTION_ERROR, L"Ошибка получения состояния порта");
-        return SerialResult::CONNECTION_FAILED;
-    }
-    
-    dcb.BaudRate = baudRate;
-    dcb.ByteSize = 8;
-    dcb.Parity = NOPARITY;
-    dcb.StopBits = ONESTOPBIT;
-    dcb.fBinary = TRUE;
-    dcb.fParity = FALSE;
-    dcb.fOutxCtsFlow = FALSE;
-    dcb.fOutxDsrFlow = FALSE;
-    dcb.fDtrControl = DTR_CONTROL_ENABLE;
-    dcb.fRtsControl = RTS_CONTROL_ENABLE;
-    dcb.fOutX = FALSE;
-    dcb.fInX = FALSE;
-    
-    if (!SetCommState(hSerial, &dcb)) {
-        CloseHandle(hSerial);
-        hSerial = INVALID_HANDLE_VALUE;
-        SetState(ConnectionState::CONNECTION_ERROR, L"Ошибка настройки параметров порта");
-        return SerialResult::CONNECTION_FAILED;
-    }
-    
-    // Настраиваем таймауты
-    COMMTIMEOUTS timeouts = { 0 };
-    timeouts.ReadIntervalTimeout = 50;
-    timeouts.ReadTotalTimeoutConstant = readTimeout;
-    timeouts.ReadTotalTimeoutMultiplier = 10;
-    timeouts.WriteTotalTimeoutConstant = writeTimeout;
-    timeouts.WriteTotalTimeoutMultiplier = 10;
-    
-    if (!SetCommTimeouts(hSerial, &timeouts)) {
-        CloseHandle(hSerial);
-        hSerial = INVALID_HANDLE_VALUE;
-        SetState(ConnectionState::CONNECTION_ERROR, L"Ошибка настройки таймаутов");
+        SetState(ConnectionState::CONNECTION_ERROR, setupError);
         return SerialResult::CONNECTION_FAILED;
     }
     
     // Очищаем буферы
     PurgeBuffers();
     protocolMode = DeviceProtocolMode::UNKNOWN;
+    consecutivePollFailures = 0;
+    nextReconnectAttemptTick = 0;
+    ++connectionSessionId;
     
     SetState(ConnectionState::CONNECTED);
     ResetStatistics();
@@ -511,6 +529,9 @@ void SerialModule::Disconnect() {
         hSerial = INVALID_HANDLE_VALUE;
     }
     
+    consecutivePollFailures = 0;
+    nextReconnectAttemptTick = 0;
+    connectionSessionId = 0;
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
     protocolMode = DeviceProtocolMode::UNKNOWN;
@@ -581,10 +602,6 @@ bool SerialModule::IsPolling() const {
 }
 
 void SerialModule::OnTimer() {
-    if (!IsConnected()) {
-        return;
-    }
-
     if (legacyPollingThread.joinable()) {
         FlushPendingPollResults();
     }
@@ -601,19 +618,46 @@ void SerialModule::FlushPendingPollResults() {
         if (event.result == SerialResult::SUCCESS) {
             HandleSuccessfulPoll(event.parsedFrame, event.rawPayload);
         } else {
-            HandleFailedPoll();
+            if (IsConnected() && event.connectionSessionId != connectionSessionId.load()) {
+                continue;
+            }
+            HandleFailedPoll(event.result);
         }
     }
 }
 
 void SerialModule::LegacyPollingLoop() {
     while (!stopLegacyPolling) {
+        const DWORD sleepInterval = (protocolMode == DeviceProtocolMode::LEGACY_4TX)
+            ? legacyPollInterval
+            : pollInterval;
+
         if (!IsConnected()) {
-            break;
+            if (!TryReconnectCurrentPort()) {
+                PendingPollEvent event;
+                event.result = SerialResult::NOT_CONNECTED;
+                event.connectionSessionId = connectionSessionId.load();
+                {
+                    std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+                    pendingPollEvents.push_back(std::move(event));
+                    if (pendingPollEvents.size() > 8) {
+                        pendingPollEvents.pop_front();
+                    }
+                }
+
+                DWORD sleptWhileDisconnected = 0;
+                while (!stopLegacyPolling && sleptWhileDisconnected < sleepInterval) {
+                    const DWORD step = std::min<DWORD>(50, sleepInterval - sleptWhileDisconnected);
+                    Sleep(step);
+                    sleptWhileDisconnected += step;
+                }
+                continue;
+            }
         }
 
         PendingPollEvent event;
         event.result = SerialResult::TIMEOUT;
+        event.connectionSessionId = connectionSessionId.load();
 
         ParsedToolFrame parsedFrame = {};
         std::vector<uint8_t> rawPayload;
@@ -637,9 +681,6 @@ void SerialModule::LegacyPollingLoop() {
         }
 
         DWORD slept = 0;
-        const DWORD sleepInterval = (protocolMode == DeviceProtocolMode::LEGACY_4TX)
-            ? legacyPollInterval
-            : pollInterval;
         while (!stopLegacyPolling && slept < sleepInterval) {
             const DWORD step = std::min<DWORD>(50, sleepInterval - slept);
             Sleep(step);
@@ -649,6 +690,7 @@ void SerialModule::LegacyPollingLoop() {
 }
 
 void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, const std::vector<uint8_t>& rawPayload) {
+    consecutivePollFailures = 0;
     packetsReceived++;
     lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
     DebugLog4Tx("HandleSuccessfulPoll: frame=%u, received=%u, errors=%u, recording=%d, hasMetro=%d",
@@ -677,8 +719,77 @@ void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, cons
     DispatchDataCallbacks(parsedFrame, onParsedDataReceived, onDataReceived);
 }
 
-void SerialModule::HandleFailedPoll() {
+void SerialModule::HandleFailedPoll(SerialResult result) {
     packetsErrors++;
+    const uint32_t failures = ++consecutivePollFailures;
+    if (ShouldTriggerAutoReconnect(result) && failures >= kAutoReconnectFailureThreshold) {
+        InvalidateConnectionForRecovery();
+    }
+}
+
+bool SerialModule::ShouldTriggerAutoReconnect(SerialResult result) const {
+    return result == SerialResult::TIMEOUT ||
+           result == SerialResult::CONNECTION_FAILED ||
+           result == SerialResult::NOT_CONNECTED;
+}
+
+void SerialModule::InvalidateConnectionForRecovery() {
+    if (hSerial != INVALID_HANDLE_VALUE) {
+        CloseHandle(hSerial);
+        hSerial = INVALID_HANDLE_VALUE;
+    }
+
+    hasMetrology = false;
+    metrologyAutoRetryCount = 0;
+    protocolMode = DeviceProtocolMode::UNKNOWN;
+    nextReconnectAttemptTick = GetTickCount() + kAutoReconnectAttemptIntervalMs;
+    SetState(ConnectionState::DISCONNECTED);
+}
+
+bool SerialModule::TryReconnectCurrentPort() {
+    if (stopLegacyPolling || portName.empty()) {
+        return false;
+    }
+
+    const DWORD now = GetTickCount();
+    const DWORD nextAttempt = nextReconnectAttemptTick.load();
+    if (nextAttempt != 0 && static_cast<DWORD>(now - nextAttempt) < 0x80000000UL && now < nextAttempt) {
+        return false;
+    }
+
+    nextReconnectAttemptTick = now + kAutoReconnectAttemptIntervalMs;
+
+    std::wstring fullPortName = L"\\\\.\\" + portName;
+    HANDLE reopened = CreateFileW(
+        fullPortName.c_str(),
+        GENERIC_READ | GENERIC_WRITE,
+        0,
+        nullptr,
+        OPEN_EXISTING,
+        0,
+        nullptr
+    );
+
+    if (reopened == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    std::wstring setupError;
+    if (!ConfigureOpenedSerialHandle(reopened, baudRate, readTimeout, writeTimeout, setupError)) {
+        CloseHandle(reopened);
+        return false;
+    }
+
+    hSerial = reopened;
+    PurgeBuffers();
+    protocolMode = DeviceProtocolMode::UNKNOWN;
+    hasMetrology = false;
+    metrologyAutoRetryCount = 0;
+    consecutivePollFailures = 0;
+    nextReconnectAttemptTick = 0;
+    ++connectionSessionId;
+    SetState(ConnectionState::CONNECTED);
+    return true;
 }
 
 // === Команды прибора ===
@@ -1339,6 +1450,8 @@ void SerialModule::ResetStatistics() {
     packetsErrors = 0;
     lastFrameNumber = 0;
     metrologyAutoRetryCount = 0;
+    consecutivePollFailures = 0;
+    nextReconnectAttemptTick = 0;
 }
 
 // === Вспомогательные методы ===
