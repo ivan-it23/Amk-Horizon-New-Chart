@@ -97,6 +97,8 @@ private:
     uint32_t packetsReceived;
     uint32_t packetsErrors;
     uint32_t lastFrameNumber;
+    uint32_t sessionFirstFrameNumber;
+    bool hasSessionFirstFrameNumber;
 
     struct PendingPollEvent {
         SerialResult result = SerialResult::TIMEOUT;
@@ -210,6 +212,7 @@ public:
     uint32_t GetPacketsReceived() const { return packetsReceived; }
     uint32_t GetPacketsErrors() const { return packetsErrors; }
     uint32_t GetLastFrameNumber() const { return lastFrameNumber; }
+    uint32_t GetDisplayedFrameNumber() const;
     void ResetStatistics();
     
     // === Вспомогательные методы ===

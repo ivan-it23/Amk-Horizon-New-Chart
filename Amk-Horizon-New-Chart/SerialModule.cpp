@@ -376,6 +376,8 @@ SerialModule::SerialModule()
     , packetsReceived(0)
     , packetsErrors(0)
     , lastFrameNumber(0)
+    , sessionFirstFrameNumber(0)
+    , hasSessionFirstFrameNumber(false)
     , legacyPollInterval(1000)
     , stopLegacyPolling(false)
     , consecutivePollFailures(0)
@@ -693,6 +695,10 @@ void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, cons
     consecutivePollFailures = 0;
     packetsReceived++;
     lastFrameNumber = GetCanonicalFrameNumber(parsedFrame);
+    if (!hasSessionFirstFrameNumber) {
+        sessionFirstFrameNumber = lastFrameNumber;
+        hasSessionFirstFrameNumber = true;
+    }
     DebugLog4Tx("HandleSuccessfulPoll: frame=%u, received=%u, errors=%u, recording=%d, hasMetro=%d",
                  lastFrameNumber, packetsReceived, packetsErrors,
                  (int)isRecordingEnabled, (int)hasMetrology);
@@ -1449,9 +1455,19 @@ void SerialModule::ResetStatistics() {
     packetsReceived = 0;
     packetsErrors = 0;
     lastFrameNumber = 0;
+    sessionFirstFrameNumber = 0;
+    hasSessionFirstFrameNumber = false;
     metrologyAutoRetryCount = 0;
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
+}
+
+uint32_t SerialModule::GetDisplayedFrameNumber() const {
+    if (!hasSessionFirstFrameNumber || lastFrameNumber < sessionFirstFrameNumber) {
+        return lastFrameNumber;
+    }
+
+    return (lastFrameNumber - sessionFirstFrameNumber) + 1;
 }
 
 // === Вспомогательные методы ===

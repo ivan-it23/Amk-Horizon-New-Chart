@@ -1769,7 +1769,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 SerialModule* serial = g_chartManager->GetSerialModule();
                 if (serial) {
                     wchar_t frameText[32], packetsText[64];
-                    swprintf_s(frameText, L"%u", serial->GetLastFrameNumber());
+                    swprintf_s(frameText, L"%u", serial->GetDisplayedFrameNumber());
                     swprintf_s(packetsText, L"%u / %u", serial->GetPacketsReceived(), serial->GetPacketsErrors());
                     
                     SetDlgItemText(g_hSerialDialog, IDC_SERIAL_FRAME_LABEL, frameText);
@@ -2380,7 +2380,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             SerialModule* serial = g_chartManager->GetSerialModule();
             if (serial && serial->IsConnected()) {
                 wchar_t frameText[32], packetsText[64];
-                swprintf_s(frameText, L"%u", serial->GetLastFrameNumber());
+                swprintf_s(frameText, L"%u", serial->GetDisplayedFrameNumber());
                 swprintf_s(packetsText, L"%u / %u", serial->GetPacketsReceived(), serial->GetPacketsErrors());
                 
                 SetWindowText(hFrameLabel, frameText);
