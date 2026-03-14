@@ -20,6 +20,47 @@ namespace {
         bool saveRequested = false;
     };
 
+    struct NoteCreateDialogContext {
+        std::wstring text;
+        bool ok = false;
+    };
+
+    static INT_PTR CALLBACK NoteCreateDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
+        switch (message) {
+            case WM_INITDIALOG: {
+                SetWindowLongPtr(hDlg, GWLP_USERDATA, (LONG_PTR)lParam);
+                NoteCreateDialogContext* ctx = reinterpret_cast<NoteCreateDialogContext*>(lParam);
+                if (ctx) {
+                    SetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, ctx->text.c_str());
+                    SendMessage(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT), EM_SETSEL, 0, -1);
+                    SetFocus(GetDlgItem(hDlg, IDC_NOTE_TEXT_EDIT));
+                    return (INT_PTR)FALSE;
+                }
+                return (INT_PTR)TRUE;
+            }
+            case WM_COMMAND: {
+                int id = LOWORD(wParam);
+                if (id == IDOK) {
+                    NoteCreateDialogContext* ctx = reinterpret_cast<NoteCreateDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
+                    if (ctx) {
+                        wchar_t buf[4096];
+                        GetDlgItemText(hDlg, IDC_NOTE_TEXT_EDIT, buf, _countof(buf));
+                        ctx->text = buf;
+                        ctx->ok = true;
+                    }
+                    EndDialog(hDlg, IDOK);
+                    return (INT_PTR)TRUE;
+                }
+                if (id == IDCANCEL) {
+                    EndDialog(hDlg, IDCANCEL);
+                    return (INT_PTR)TRUE;
+                }
+                break;
+            }
+        }
+        return (INT_PTR)FALSE;
+    }
+
     static INT_PTR CALLBACK NoteViewDialogProc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {
         switch (message) {
             case WM_INITDIALOG: {
@@ -557,15 +598,6 @@ namespace {
         return (outDrawMaxY - outDrawMinY) > 0.0;
     }
 
-    bool ShouldSnapNoteToCurve(const ChartConfiguration& config) {
-        switch (config.activePreset) {
-        case PresetType::PHASE_DIFFERENCES:
-        case PresetType::SILENT_PHASE_DIFFERENCE:
-            return false;
-        default:
-            return true;
-        }
-    }
 }
 
  static void AppendDebugLog(const wchar_t* fmt, ...) {
@@ -1199,7 +1231,6 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     ChartConfiguration config = GetChartConfiguration(chartNumber);
     uint64_t cfgKey = NotesModule::ComputeConfigKey(config);
     std::string cfgSnapshot = NotesModule::BuildConfigSnapshot(config);
-    const bool snapNoteToCurve = ShouldSnapNoteToCurve(config);
 
     double resolvedDataX = 0.0;
     double resolvedDataY1 = 0.0;
@@ -1232,11 +1263,6 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
                    resolvedDataY2,
                    hasDualAxis ? 1 : 0);
 
-    // Координаты заметки: X берём из перекрестия.
-    // Для большинства пресетов дополнительно привязываем Y к ближайшей кривой,
-    // но для phase-difference пресетов сохраняем точные координаты перекрестия:
-    // там много производных/рваных каналов, и snap-to-curve может уводить
-    // заметку далеко от фактической точки, выбранной пользователем.
     int xIndex = static_cast<int>(llround(resolvedDataX));
     if (xIndex < 0) xIndex = 0;
     if (dataModule->HasData()) {
@@ -1244,150 +1270,28 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
         if (xIndex > maxIdx) xIndex = maxIdx;
     }
 
-    double y1 = resolvedDataY1;
-    double y2 = resolvedDataY2;
+    const double y1 = resolvedDataY1;
+    const double y2 = resolvedDataY2;
     int anchorAxisGroup = 0;
 
-    double leftDrawMin = 0.0;
-    double leftDrawMax = 0.0;
-    double rightDrawMin = 0.0;
-    double rightDrawMax = 0.0;
-    bool hasLeftDrawRange = false;
-    bool hasRightDrawRange = false;
-
-    {
+    if (hasDualAxis) {
         ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
         const CachedCurveSnapshot* visibleSnapshot = nullptr;
         if (TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), visibleSnapshot)) {
-            double displayMinYLeft = 0.0;
-            double displayMaxYLeft = 0.0;
-            BuildDisplayedLeftAxisRange(zoom.isZoomed, zoom.minY, zoom.maxY,
-                                        visibleSnapshot->minY1, visibleSnapshot->maxY1,
-                                        displayMinYLeft, displayMaxYLeft);
-            hasLeftDrawRange = TryBuildDrawnAxisRange(displayMinYLeft, displayMaxYLeft, leftDrawMin, leftDrawMax);
-
-            if (hasDualAxis && !visibleSnapshot->rightAxisData.empty()) {
-                double displayMinYRight = visibleSnapshot->minY2;
-                double displayMaxYRight = visibleSnapshot->maxY2;
-                BuildDisplayedRightAxisRange(zoom.isYCustom,
-                                             zoom.hasRightAxisCustomRange,
-                                             zoom.minYRight,
-                                             zoom.maxYRight,
-                                             visibleSnapshot->minY1,
-                                             visibleSnapshot->maxY1,
-                                             visibleSnapshot->minY2,
-                                             visibleSnapshot->maxY2,
-                                             displayMinYLeft,
-                                             displayMaxYLeft,
-                                             displayMinYRight,
-                                             displayMaxYRight);
-                hasRightDrawRange = TryBuildDrawnAxisRange(displayMinYRight, displayMaxYRight, rightDrawMin, rightDrawMax);
+            const bool hasRightAxisData = !visibleSnapshot->rightAxisData.empty();
+            if (!hasRightAxisData) {
+                hasDualAxis = false;
             }
         }
     }
 
-    // Snap-to-curve: вычисляем данные кривых (полный диапазон, без zoom) и находим
-    // ближайшее к выбранному Y значение кривой в кадре xIndex.
-    if (curveSelectionModule) {
-        const CachedCurveSnapshot* fullRangeSnapshot = nullptr;
-        ZoomRange unzoomedRange = {};
-        std::vector<std::vector<float>> fallbackLeftAxisData;
-        std::vector<std::vector<float>> fallbackRightAxisData;
-        const std::vector<std::vector<float>>* leftAxisData = nullptr;
-        const std::vector<std::vector<float>>* rightAxisData = nullptr;
-        if (TryGetCurveSnapshot(chartNumber, config, unzoomedRange, true, fullRangeSnapshot)) {
-            leftAxisData = &fullRangeSnapshot->leftAxisData;
-            rightAxisData = &fullRangeSnapshot->rightAxisData;
-        } else {
-            std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
-            curveSelectionModule->CalculateCurveData(config, dataModule.get(),
-                                                     fallbackLeftAxisData, fallbackRightAxisData,
-                                                     leftAxisCurves, rightAxisCurves);
-            leftAxisData = &fallbackLeftAxisData;
-            rightAxisData = &fallbackRightAxisData;
-        }
-
-        bool hasLeftCandidate = false;
-        double bestLeftDist = 1e30;
-        double bestLeftVal = y1;
-        for (const auto& channel : *leftAxisData) {
-            if (xIndex < 0 || static_cast<size_t>(xIndex) >= channel.size()) {
-                continue;
-            }
-            double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
-            if (!std::isfinite(v)) {
-                continue;
-            }
-            double d = fabs(v - resolvedDataY1);
-            if (d < bestLeftDist) {
-                bestLeftDist = d;
-                bestLeftVal = v;
-                hasLeftCandidate = true;
-            }
-        }
-        if (snapNoteToCurve && hasLeftCandidate) {
-            y1 = bestLeftVal;
-        }
-
-        // Правая ось
-        hasDualAxis = rightAxisData && !rightAxisData->empty();
-        bool hasRightCandidate = false;
-        double bestRightDist = 1e30;
-        double bestRightVal = y2;
-        if (hasDualAxis) {
-            for (const auto& channel : *rightAxisData) {
-                if (xIndex < 0 || static_cast<size_t>(xIndex) >= channel.size()) {
-                    continue;
-                }
-                double v = static_cast<double>(channel[static_cast<size_t>(xIndex)]);
-                if (!std::isfinite(v)) {
-                    continue;
-                }
-                double d = fabs(v - resolvedDataY2);
-                if (d < bestRightDist) {
-                    bestRightDist = d;
-                    bestRightVal = v;
-                    hasRightCandidate = true;
-                }
-            }
-            if (snapNoteToCurve && hasRightCandidate) {
-                y2 = bestRightVal;
-            }
-        }
-
-        if (hasDualAxis && hasRightCandidate) {
-            const double leftRange = hasLeftDrawRange ? (leftDrawMax - leftDrawMin) : 1.0;
-            const double rightRange = hasRightDrawRange ? (rightDrawMax - rightDrawMin) : 1.0;
-            const double leftNormDist = hasLeftCandidate ? (bestLeftDist / ((leftRange > 1e-9) ? leftRange : 1.0)) : 1e30;
-            const double rightNormDist = bestRightDist / ((rightRange > 1e-9) ? rightRange : 1.0);
-            if (rightNormDist < leftNormDist) {
-                anchorAxisGroup = 1;
-            }
-        }
-
-        // Единицы измерения
-        if (!config.curves.empty()) {
-            std::string units1 = config.curves[0].units;
-            y1Unit = std::wstring(units1.begin(), units1.end());
-        }
-        if (hasDualAxis) {
-            for (const auto& curve : config.curves) {
-                if (curve.yAxisGroup == 1) {
-                    std::string units2 = curve.units;
-                    y2Unit = std::wstring(units2.begin(), units2.end());
-                    break;
-                }
-            }
-        }
-    }
-
-    AppendDebugLog(L"[AddNoteFinal] chart=%d preset=%d snap=%d stored=(xIndex %d y1 %.3f y2 %.3f anchor=%d)\r\n",
+    AppendDebugLog(L"[AddNoteFinal] chart=%d preset=%d stored=(xIndex %d y1 %.3f y2 %.3f dual=%d anchor=%d)\r\n",
                    chartNumber,
                    static_cast<int>(config.activePreset),
-                   snapNoteToCurve ? 1 : 0,
                    xIndex,
                    y1,
                    y2,
+                   hasDualAxis ? 1 : 0,
                    anchorAxisGroup);
 
     ChartNote n;
@@ -2390,9 +2294,47 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
 
 void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
 {
-    (void)hWnd;
-    (void)x;
-    (void)y;
+    const int chartNumber = GetChartAtPoint(x, y);
+    if (chartNumber == 0) {
+        return;
+    }
+
+    CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
+    const bool canAddNote = crosshair && crosshair->isVisible && crosshair->chartNumber == chartNumber;
+
+    HMENU hMenu = CreatePopupMenu();
+    if (!hMenu) {
+        return;
+    }
+
+    AppendMenuW(hMenu, MF_STRING | (canAddNote ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
+
+    POINT screenPoint = { x, y };
+    ClientToScreen(hWnd, &screenPoint);
+
+    UINT selected = TrackPopupMenu(
+        hMenu,
+        TPM_RETURNCMD | TPM_RIGHTBUTTON | TPM_LEFTALIGN | TPM_TOPALIGN,
+        screenPoint.x,
+        screenPoint.y,
+        0,
+        hWnd,
+        NULL);
+
+    DestroyMenu(hMenu);
+
+    if (selected != IDM_CHART_ADD_NOTE) {
+        return;
+    }
+
+    NoteCreateDialogContext ctx;
+    HINSTANCE hInst = (HINSTANCE)GetWindowLongPtr(hWnd, GWLP_HINSTANCE);
+    DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_DIALOG), hWnd, NoteCreateDialogProc, (LPARAM)&ctx);
+    if (!ctx.ok) {
+        return;
+    }
+
+    AddNoteAtCrosshair(hWnd, chartNumber, ctx.text);
 }
 
 int ChartManager::GetChartAtPoint(int x, int y) const {
@@ -4447,12 +4389,22 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         if (n.xIndex < (int)floor(minXData) - 1) continue;
         if (n.xIndex > (int)ceil(maxXData) + 1) continue;
 
-        const bool anchorOnRightAxis = n.hasYRight && n.anchorAxisGroup == 1 && hasRightDrawRange && yRangeRight > 0.0;
-        const double anchorY = anchorOnRightAxis ? n.yRight : n.yLeft;
-        const double drawMinY = anchorOnRightAxis ? drawMinY2 : drawMinY1;
-        const double drawMaxY = anchorOnRightAxis ? drawMaxY2 : drawMaxY1;
-        const double yRange = anchorOnRightAxis ? yRangeRight : yRangeLeft;
-        double yRatio = (drawMaxY - anchorY) / yRange;
+        const bool preferredRightAxis = n.hasYRight && n.anchorAxisGroup == 1 && hasRightDrawRange && yRangeRight > 0.0;
+
+        auto TryResolveMarkerScreenY = [&](bool useRightAxis, int& outY) -> bool {
+            const bool canUseRightAxis = n.hasYRight && hasRightDrawRange && yRangeRight > 0.0;
+            const double anchorY = (useRightAxis && canUseRightAxis) ? n.yRight : n.yLeft;
+            const double drawMinY = (useRightAxis && canUseRightAxis) ? drawMinY2 : drawMinY1;
+            const double drawMaxY = (useRightAxis && canUseRightAxis) ? drawMaxY2 : drawMaxY1;
+            const double yRange = (useRightAxis && canUseRightAxis) ? yRangeRight : yRangeLeft;
+            if (!(yRange > 0.0)) {
+                return false;
+            }
+
+            double yRatio = (drawMaxY - anchorY) / yRange;
+            outY = dataRect.top + (int)lround(yRatio * dataH);
+            return outY >= dataRect.top && outY <= dataRect.bottom;
+        };
 
         int x = 0;
         if (!TryResolveNoteMarkerScreenX(*dataModule, config.xAxisType, n.xIndex,
@@ -4461,7 +4413,15 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
                                          plotRect, plotW, x)) {
             continue;
         }
-        int y = dataRect.top + (int)lround(yRatio * dataH);
+
+        int y = 0;
+        bool yResolved = TryResolveMarkerScreenY(preferredRightAxis, y);
+        if (!yResolved && n.hasYRight) {
+            yResolved = TryResolveMarkerScreenY(!preferredRightAxis, y);
+        }
+        if (!yResolved) {
+            continue;
+        }
 
         if (x < plotRect.left || x > plotRect.right || y < dataRect.top || y > dataRect.bottom) {
             continue;

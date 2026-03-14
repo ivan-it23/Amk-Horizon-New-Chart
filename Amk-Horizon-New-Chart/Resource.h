@@ -119,6 +119,7 @@
 #define IDM_DEVICE_CLEAR			111
 #define IDM_DEVICE_METROLOGY        114
 #define IDM_NOTES_JOURNAL			115
+#define IDM_CHART_ADD_NOTE         1112
 #define IDD_SERIAL_STATUS			1055
 
 // Элементы диалога статуса COM-порта

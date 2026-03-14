@@ -1646,22 +1646,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_CONTEXTMENU:
-        // v2.16.x: ПКМ по иконке 📍 открывает окно заметки
         if (g_chartManager) {
             HWND hTarget = (HWND)wParam;
             int ctrlId = hTarget ? GetDlgCtrlID(hTarget) : 0;
-            int chartNumber = 0;
-            if (ctrlId == IDC_CURSOR1_ICON) chartNumber = 1;
-            else if (ctrlId == IDC_CURSOR2_ICON) chartNumber = 2;
-
-            if (chartNumber != 0) {
-                NoteDialogContext ctx;
-                ctx.text = L"";
-                ctx.ok = false;
-                DialogBoxParam(hInst, MAKEINTRESOURCE(IDD_NOTE_DIALOG), hWnd, NoteDialogProc, (LPARAM)&ctx);
-                if (ctx.ok) {
-                    g_chartManager->AddNoteAtCrosshair(hWnd, chartNumber, ctx.text);
-                }
+            if (ctrlId == IDC_CURSOR1_ICON || ctrlId == IDC_CURSOR2_ICON) {
                 return 0;
             }
         }
