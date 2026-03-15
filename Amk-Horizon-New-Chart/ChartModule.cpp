@@ -73,6 +73,36 @@ static void AppendDebugLog(const wchar_t* fmt, ...) {
      OutputDebugStringW(buffer);
  }
 
+static int GetAxisLabelPrecision(const std::string& units, double step) {
+    if (units == "mdeg") {
+        return 0;
+    }
+
+    const double absStep = std::fabs(step);
+    if (!(absStep > 0.0)) {
+        return 2;
+    }
+
+    if (absStep >= 1.0) {
+        return 0;
+    }
+
+    const int precision = static_cast<int>(std::ceil(-std::log10(absStep)));
+    return (std::min)(6, (std::max)(0, precision));
+}
+
+static std::wstring FormatAxisLabelValue(const std::string& units, double value, double step) {
+    const int precision = GetAxisLabelPrecision(units, step);
+    double normalizedValue = value;
+    if (std::fabs(normalizedValue) < std::pow(10.0, -((std::max)(precision, 1) + 1))) {
+        normalizedValue = 0.0;
+    }
+
+    std::wstringstream ss;
+    ss << std::fixed << std::setprecision(precision) << normalizedValue;
+    return ss.str();
+}
+
 void ChartModule::DrawTemperatureDualAxisChartShared(HDC hdc,
                                                      const RECT& rect,
                                                      const std::vector<CurveDefinition>& curves,
@@ -1770,6 +1800,7 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
+    std::wstring lastRenderedLabel;
     
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
@@ -1784,14 +1815,12 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldTickPen);
                 DeleteObject(hTickPen);
                 
-                std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
-                if (units == "mdeg") {
-                    ss << std::fixed << std::setprecision(0) << currentYVal;
-                } else {
-                    ss << std::fixed << std::setprecision(2) << currentYVal;
+                std::wstring label = FormatAxisLabelValue(units, currentYVal, niceStepY);
+                if (label == lastRenderedLabel) {
+                    currentYVal += niceStepY;
+                    continue;
                 }
-                std::wstring label = ss.str();
+                lastRenderedLabel = label;
                 
                 // Вычисляем ширину текста для правильного выравнивания
                 SIZE textSize;
@@ -1848,6 +1877,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
+    std::wstring lastRenderedLabel;
     
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
@@ -1862,14 +1892,12 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldTickPen);
                 DeleteObject(hTickPen);
                 
-                std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
-                if (units == "mdeg") {
-                    ss << std::fixed << std::setprecision(0) << currentYVal;
-                } else {
-                    ss << std::fixed << std::setprecision(2) << currentYVal;
+                std::wstring label = FormatAxisLabelValue(units, currentYVal, niceStepY);
+                if (label == lastRenderedLabel) {
+                    currentYVal += niceStepY;
+                    continue;
                 }
-                std::wstring label = ss.str();
+                lastRenderedLabel = label;
                 TextOut(hdc, rightAxisX + TICK_LENGTH + 2, screenY - 7, label.c_str(), (int)label.length());
             }
         }
@@ -3125,6 +3153,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     // Горизонтальные линии сетки (по Y) с учетом zoom
     double niceStepY = CalculateNiceStep(maxYData - minYData, (plotRect.bottom - plotRect.top) / 40);
     double currentYVal = CalculateNiceMin(minYData, niceStepY);
+    std::wstring lastRenderedLabel;
     
     while (currentYVal <= maxYData + niceStepY / 2) {
         if (currentYVal >= minYData - niceStepY / 2 && currentYVal <= maxYData + niceStepY / 2) {
@@ -3144,14 +3173,12 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
                 DeleteObject(hTickPen);
                 SelectObject(hdc, hGridPen);
                 
-                std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
-                if (leftUnits == "mdeg") {
-                    ss << std::fixed << std::setprecision(0) << currentYVal;
-                } else {
-                    ss << std::fixed << std::setprecision(2) << currentYVal;
+                std::wstring label = FormatAxisLabelValue(leftUnits, currentYVal, niceStepY);
+                if (label == lastRenderedLabel) {
+                    currentYVal += niceStepY;
+                    continue;
                 }
-                std::wstring label = ss.str();
+                lastRenderedLabel = label;
                 
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
@@ -3206,6 +3233,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
+    std::wstring lastRenderedLabel;
     
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
@@ -3220,14 +3248,12 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldTickPen);
                 DeleteObject(hTickPen);
                 
-                std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
-                if (units == "mdeg") {
-                    ss << std::fixed << std::setprecision(0) << currentYVal;
-                } else {
-                    ss << std::fixed << std::setprecision(2) << currentYVal;
+                std::wstring label = FormatAxisLabelValue(units, currentYVal, niceStepY);
+                if (label == lastRenderedLabel) {
+                    currentYVal += niceStepY;
+                    continue;
                 }
-                std::wstring label = ss.str();
+                lastRenderedLabel = label;
                 
                 SIZE textSize;
                 GetTextExtentPoint32(hdc, label.c_str(), (int)label.length(), &textSize);
@@ -3280,6 +3306,7 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
     
     // Константа для длины засечки
     const int TICK_LENGTH = 5;
+    std::wstring lastRenderedLabel;
     
     while (currentYVal <= maxVal + niceStepY / 2) {
         if (currentYVal >= minVal - niceStepY / 2 && currentYVal <= maxVal + niceStepY / 2) {
@@ -3294,14 +3321,12 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
                 SelectObject(hdc, hOldTickPen);
                 DeleteObject(hTickPen);
                 
-                std::wstringstream ss;
-                // Для фазовых данных (mdeg) используем целые числа, для остальных - 2 знака после запятой
-                if (units == "mdeg") {
-                    ss << std::fixed << std::setprecision(0) << currentYVal;
-                } else {
-                    ss << std::fixed << std::setprecision(2) << currentYVal;
+                std::wstring label = FormatAxisLabelValue(units, currentYVal, niceStepY);
+                if (label == lastRenderedLabel) {
+                    currentYVal += niceStepY;
+                    continue;
                 }
-                std::wstring label = ss.str();
+                lastRenderedLabel = label;
                 TextOut(hdc, rightAxisX + TICK_LENGTH + 2, screenY - 7, label.c_str(), (int)label.length());
             }
         }
