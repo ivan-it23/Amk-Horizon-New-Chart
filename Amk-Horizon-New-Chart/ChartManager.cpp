@@ -631,6 +631,7 @@ ChartManager::ChartManager()
     
     // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЃРІСЏР·СЊ РјРµР¶РґСѓ РјРѕРґСѓР»СЏРјРё
     schematicModule->SetCurveSelectionModule(curveSelectionModule.get());
+    schematicModule->SetDataModule(dataModule.get());
     curveSelectionModule->SetMetrologyModule(metrologyModule.get());
     
     // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ РіСЂР°С„РёРєР° РїРѕСЃР»Рµ РїСЂРёРјРµРЅРµРЅРёСЏ РЅР°СЃС‚СЂРѕРµРє (v2.9.4)
@@ -3403,6 +3404,14 @@ void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId,
             break;
         default:
             return; // РќРµРёР·РІРµСЃС‚РЅС‹Р№ РїСЂРµСЃРµС‚
+    }
+
+    if (!dataModule || !dataModule->HasData()) {
+        MessageBox(hWnd,
+                   L"Невозможно вывести кривые на график: данные отсутствуют.\nОткройте файл данных или подключите прибор к COM-порту.",
+                   L"Нет данных для отображения",
+                   MB_OK | MB_ICONINFORMATION);
+        return;
     }
     
     // РџСЂРёРјРµРЅСЏРµРј РїСЂРµСЃРµС‚

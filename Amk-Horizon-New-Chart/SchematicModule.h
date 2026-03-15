@@ -150,6 +150,7 @@ private:
     
     // Указатель на модуль выбора кривых (устанавливается извне)
     CurveSelectionModule* curveSelectionModule;
+    DataModule* dataModule;
     
     // Текущие доступные кривые (для работы с ListView)
     std::vector<CurveDefinition> currentAvailableCurves;
@@ -205,6 +206,7 @@ public:
     SchematicSelection GetCurrentSelection() const;
     void SetCurrentSelection(const SchematicSelection& selection);
     void SetCurveSelectionModule(CurveSelectionModule* module);
+    void SetDataModule(DataModule* module);
     
     // Вспомогательные методы
     void InitializeSchematicElements(const RECT& schemaRect);

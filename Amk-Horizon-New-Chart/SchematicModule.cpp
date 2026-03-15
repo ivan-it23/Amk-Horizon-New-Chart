@@ -456,7 +456,7 @@ void ChartConfiguration::UpdateAxisConfiguration() {
 
 // Реализация SchematicModule
 SchematicModule::SchematicModule() 
-    : curveSelectionModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
+    : curveSelectionModule(nullptr), dataModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
       hSchematicDialog(nullptr), hParentWindow(nullptr),
       currentPreset(PresetType::NONE), currentPresetDisplayName(L"") {
 }
@@ -881,6 +881,10 @@ void SchematicModule::SetCurrentSelection(const SchematicSelection& selection) {
 
 void SchematicModule::SetCurveSelectionModule(CurveSelectionModule* module) {
     curveSelectionModule = module;
+}
+
+void SchematicModule::SetDataModule(DataModule* module) {
+    dataModule = module;
 }
 
 void SchematicModule::InitializeSchematicElements(const RECT& schemaRect) {
@@ -1827,6 +1831,14 @@ void SchematicModule::ValidateCurrentCurveConfiguration(HWND hDlg) {
 
 bool SchematicModule::ApplyCurrentCurveConfiguration() {
     if (!curveSelectionModule) return false;
+    if (!dataModule || !dataModule->HasData()) {
+        HWND hMessageOwner = hSchematicDialog ? hSchematicDialog : hParentWindow;
+        MessageBox(hMessageOwner,
+                   L"Невозможно вывести кривые на график: данные отсутствуют.\nОткройте файл данных или подключите прибор к COM-порту.",
+                   L"Нет данных для отображения",
+                   MB_OK | MB_ICONINFORMATION);
+        return false;
+    }
     
     // ОТЛАДКА: Выводим информацию о применяемой конфигурации
     
