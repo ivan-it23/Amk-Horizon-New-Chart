@@ -1423,13 +1423,28 @@ void CurveSelectionModule::RefreshCurveColors(std::vector<CurveDefinition>& curv
     std::vector<CurveDefinition> assignedCurves;
     assignedCurves.reserve(curves.size());
 
+    bool corporateUsed[SchematicSelection::UI_TRANSMITTER_COUNT] = {};
+
     for (auto& curve : curves) {
         if (curve.dataType == DataType::TEMPERATURE) {
             curve.color = TEMPERATURE_COLOR;
         } else {
-            const int colorTransmitterIndex =
+            int colorTransmitterIndex =
                 (curve.sourceElement == ElementType::TRANSMITTER) ? curve.elementIndex : -1;
+
+            if (colorTransmitterIndex >= 0
+                && colorTransmitterIndex < SchematicSelection::UI_TRANSMITTER_COUNT
+                && corporateUsed[colorTransmitterIndex]) {
+                colorTransmitterIndex = -1;
+            }
+
             curve.color = AssignSmartColor(assignedCurves, colorTransmitterIndex, curve.yAxisGroup);
+
+            if (curve.sourceElement == ElementType::TRANSMITTER
+                && curve.elementIndex >= 0
+                && curve.elementIndex < SchematicSelection::UI_TRANSMITTER_COUNT) {
+                corporateUsed[curve.elementIndex] = true;
+            }
         }
 
         assignedCurves.push_back(curve);
