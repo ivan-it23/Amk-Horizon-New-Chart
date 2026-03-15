@@ -2259,8 +2259,8 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
             case ElementType::RECEIVER:
                 return L"R" + std::to_wstring(c->elementIndex + 1);
             case ElementType::SILENT_TX:
-                if (c->dataType == DataType::SILENT_PHASE_DIFFERENCE) return L"R1-R2";
-                return L"R" + std::to_wstring(c->elementIndex + 1);
+                if (c->dataType == DataType::SILENT_PHASE_DIFFERENCE) return L"R1-R2 (молч.)";
+                return L"R" + std::to_wstring(c->elementIndex + 1) + L" (молч.)";
             default:
                 return Utf8ToWide(c->displayName);
         }

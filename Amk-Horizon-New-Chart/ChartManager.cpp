@@ -2174,8 +2174,8 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             double yRange = maxDataY - minDataY;
             if (yRange < MIN_Y_RANGE) {
                 MessageBox(hWnd,
-                    L"Cannot zoom further: Y-axis range must be at least 10 units.\nMinimum range is 10 units.",
-                    L"Zoom Limit Reached",
+                    L"Невозможно увеличить масштаб дальше: диапазон оси Y должен быть не менее 10 единиц.\nМинимальный диапазон — 10 единиц.",
+                    L"Достигнут предел масштаба",
                     MB_OK | MB_ICONINFORMATION);
                 return;
             }
@@ -2222,8 +2222,8 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             double xRange = maxDataX - minDataX;
             if (xRange < MIN_X_RANGE) {
                 MessageBox(hWnd,
-                    L"Cannot zoom further: X-axis labels must be integers with minimum spacing of 1.\nMinimum range is 10 points.",
-                    L"Zoom Limit Reached",
+                    L"Невозможно увеличить масштаб дальше: подписи оси X должны оставаться целыми числами с минимальным шагом 1.\nМинимальный диапазон — 10 точек.",
+                    L"Достигнут предел масштаба",
                     MB_OK | MB_ICONINFORMATION);
                 return;
             }
