@@ -1631,6 +1631,10 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
             InvalidateCachedSnapshots();
             ResetCoordinateTracking();
 
+            if (schematicModule) {
+                schematicModule->CloseSchematicDialog();
+            }
+
             currentDataFilePath = filename;
             if (notesModule) {
                 EnsureNotesLoadedForPath(filename + L".notes.jsonl");
@@ -1718,6 +1722,10 @@ bool ChartManager::ApplyPreparedSerialDisplayData(HWND hWnd,
     dataModule->ApplyLoadedData(std::move(loadedData));
     InvalidateCachedSnapshots();
     ResetCoordinateTracking();
+
+    if (schematicModule) {
+        schematicModule->CloseSchematicDialog();
+    }
 
     currentDataFilePath = filePathForPreload;
     if (notesModule) {
@@ -4691,6 +4699,10 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
     dataModule->ClearData();
     InvalidateCachedSnapshots();
     ResetCoordinateTracking();
+
+    if (schematicModule) {
+        schematicModule->CloseSchematicDialog();
+    }
 
     // v2.16.x: РїСЂРё РїРµСЂРµС…РѕРґРµ Рє COM-СЂРµР¶РёРјСѓ РЅРµ РґРѕР»Р¶РЅС‹ РїРёСЃР°С‚СЊ Р·Р°РјРµС‚РєРё РІ sidecar РїРѕСЃР»РµРґРЅРµРіРѕ РѕС‚РєСЂС‹С‚РѕРіРѕ С„Р°Р№Р»Р°
     currentDataFilePath.clear();
