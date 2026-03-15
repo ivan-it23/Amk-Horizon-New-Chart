@@ -1,62 +1,117 @@
-# AMK Horizon New Chart — Project Status
+# AMK-Horizon-New-Chart — Project Status
 
 ## Текущее состояние
-- Приложение использует adapter-driven parsing pipeline с canonical materialization в `GP_TOOL_DATA` (`240` байт).
-- Поддержаны файловые контейнеры: `.bin`, `.biv`, `.DEV`.
-- При открытии файла выполняется явная валидация: расширение, сигнатура, поддержка контейнера адаптером и кратность физическому размеру кадра.
-- Поддерживаемые сигнатуры данных: `AUTONOM_5Tx (151)`, `AUTONOM_5Tx_SDR (152)`, `LWD_4Tx (241)`.
-- COM-протокол в актуальном формате: `[CMD:1][LEN:2][PAYLOAD][CRC16:2]`.
-- Используемые команды: `0x11`, `0x12`, `0x13`, `0x16`, `0x17`.
 
-## Актуальная архитектурная логика
-- Основной pipeline сейчас выглядит так:
-  - `File/COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> chart/UI logic`
-- Основной realtime in-tree path использует:
-  - `SerialModule::RequestData(ParsedToolFrame& ...)`
-  - `SerialModule::SetParsedDataCallback(...)`
-  - `ChartManager -> DataModule::AddParsedData(...)`
-- Верхний слой постепенно переведён на `MeasurementView` и `ToolDataAccessView` вместо прямого широкого доступа к raw storage.
+Проект находится в стабильном current-state, где:
 
-## Состояние метрологии (AUTONOM 5Tx)
-- Форма метрологии работает как немодальное окно.
-- Реализованы и проверены кнопки:
-  - открыть/сохранить метрологию в `.bin`,
-  - прочитать из зонда,
-  - записать в зонд,
-  - записать `selected_key`.
-- Исправлено декодирование/сборка `signature` (legacy-совместимый формат, `number` до `999`).
-- Поле `D, мм` удалено из UI формы метрологии; `D_sonde_mm` сохранено в структуре для сервисного использования.
+- file и COM ingest уже работают через adapter-driven parsing;
+- данные materialize-ятся в canonical `GP_TOOL_DATA` (`240` байт);
+- рядом с каждой записью хранится `ToolRecordMetadata`;
+- верхний слой частично переведён на `ToolDataAccessView` и `MeasurementView`;
+- UI, графики, метрология, заметки и экспорт работают в одной согласованной модели.
+
+## Поддерживаемые данные и контейнеры
+
+- сигнатуры:
+  - `AUTONOM_5TX (151)`
+  - `AUTONOM_5TX_SDR (152)`
+  - `LWD_4TX (241)`
+- контейнеры:
+  - `.bin`
+  - `.biv`
+  - `.DEV`
+
+## Актуальная архитектурная модель
+
+Основной pipeline:
+
+`File / COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> chart / UI`
+
+Realtime in-tree path:
+
+- `SerialModule::RequestData(ParsedToolFrame& ...)`
+- `SerialModule::SetParsedDataCallback(...)`
+- `ChartManager -> DataModule::AddParsedData(...)`
 
 ## Последние стабильные улучшения
-- Realtime ingest переведён на `ParsedToolFrame` / metadata-backed path без изменения поведения UI.
-- В `DataModule` и `SerialModule` локализованы compatibility conversion seams между `ParsedToolFrame` и `GP_TOOL_DATA`.
-- `CurveSelectionModule` и `SchematicModule` получили серию safe-step локализаций вокруг SMT preset handling и selection-driven curve assembly.
-- Range export flow локализован и подготовлен к будущей adapter-aware export policy без изменения текущего canonical `.bin` поведения.
-- Документация Phase 7 и compatibility boundaries приведена в актуальное состояние.
-- Реализована асинхронная подготовка тяжёлых UI/data path-ов через `AsyncTaskQueue`, что убрало заметные подвисания при загрузке и части COM-операций.
-- Добавлены многоуровневые кеши для больших данных: snapshot cache в `ChartManager`, derived-series cache в `DataModule`, screen-space polyline cache в `ChartModule`.
-- Для больших наборов точек внедрены LOD/downsampling, throttling `WM_MOUSEMOVE`, уменьшение лишних redraw и корректная обработка `NaN` в рендере.
-- Исправлена синхронизация zoom/draw/coordinate mapping для `.DEV` и повторного zoom на больших файлах.
-- Исправлено позиционирование заметок от перекрестия; для пресетов разности фаз отключена некорректная привязка заметки к ближайшей кривой.
+
+- adapter-driven parsing приведён к current-state для файлов и COM;
+- `LWD_4TX` поддерживает различение legacy raw layout и canonical 240-byte frames;
+- `DataModule` получил range-analysis seam:
+  - `DataRangeMetadataSummary`
+  - `TryDescribeRangeMetadata(...)`
+  - `DataRangeExportAnalysis`
+  - `TryAnalyzeExportRange(...)`
+- range export остаётся canonical `.bin`, но mixed-range ситуации уже диагностируются явно;
+- `SchematicModule` синхронизирован с runtime числом передатчиков:
+  - для `4Tx` `T5` недоступен;
+  - пятая кривая/checkbox не показываются;
+- `CurveSelectionModule` централизовал цветовую логику:
+  - `T1` зелёный
+  - `T2` жёлтый
+  - `T3` красный
+  - `T4` синий
+- заметки работают через `NotesModule` и sidecar-модель;
+- X Range / Surf UI-инварианты приведены к стабильному поведению без нежелательного auto-fill.
+
+## Что уже считается стабильным user-visible behavior
+
+- открытие `.bin/.biv/.DEV`;
+- realtime polling по COM;
+- чтение сигнатуры, метрологии и `selected_key`;
+- ручной выбор кривых и пресеты;
+- dual-axis и temperature X-axis;
+- заметки и hit-test marker-ов;
+- canonical range export;
+- runtime `4Tx/5Tx` ограничения в схеме прибора.
+
+## Текущие compatibility boundaries
+
+Наиболее важные оставшиеся границы:
+
+- canonical storage и public compatibility surface по-прежнему построены вокруг `GP_TOOL_DATA`;
+- `SaveDataRange(...)` остаётся главным live persistence boundary;
+- публичные:
+  - `DataModule::GetData()`
+  - `DataModule::ParseRawFrame(...)`
+  - `SerialModule::RequestData(GP_TOOL_DATA& ...)`
+  - `SerialModule::SetDataCallback(...)`
+  сохраняются как compatibility-only API;
+- computer-side `SMT` остаётся legacy-compatible вычислительной веткой, а не полностью general adapter-aware подсистемой.
 
 ## Известные ограничения
-- `GP_TOOL_DATA` всё ещё остаётся основной canonical storage/API shape, поэтому полное отделение format-specific behavior ещё не завершено.
-- `SaveDataRange(...)` остаётся главным live canonical persistence boundary и по-прежнему пишет canonical `.bin`.
-- Публичные `DataModule::GetData()`, `DataModule::ParseRawFrame(...)`, `SerialModule::RequestData(GP_TOOL_DATA& ...)` и `SerialModule::SetDataCallback(...)` сохраняются как compatibility-only surface-ы.
-- Верхний UI и часть SMT-логики всё ещё сохраняют 5Tx-centric contract.
-- Во время цикла измерения прибор может отвечать с задержкой (порядка ~600 мс по методичке).
-- После открытия COM первый запрос к Arduino-эмулятору иногда требует ретрая (reset из-за DTR/RTS).
 
-## Статус текущей миграции
-- Phase 7 adapter/compatibility narrowing практически завершена в текущем scope.
-- Текущая оценка завершённости scoped migration plan: примерно `97-100%`.
-- Основной remaining work сейчас — не очередной безопасный code refactor, а formal compatibility classification публичных GP-level API и будущие policy/API решения.
+- canonical `.bin` export не сохраняет исходный container/layout и не является adapter-aware export policy;
+- UI визуально всё ещё использует 5-слотовую схему передатчиков, хотя runtime доступность уже capability-aware;
+- computer-side `SMT` логика всё ещё опирается на legacy 4-delta-input модель;
+- полное удаление canonical compatibility boundary пока не завершено и не требуется для текущего стабильного behavior.
 
-## Контактные точки в коде
-- Файловая валидация, загрузка, canonical storage и export seams: `Amk-Horizon-New-Chart/DataModule.cpp`
-- Структуры данных, range-analysis и compatibility-facing public API: `Amk-Horizon-New-Chart/DataModule.h`
-- Adapter registry и per-format parsing: `Amk-Horizon-New-Chart/ToolDataAdapters.h/.cpp`
-- Stable access abstractions: `Amk-Horizon-New-Chart/ToolDataAccess.h`
-- Протокол COM, polling, parsed callbacks и запись потока: `Amk-Horizon-New-Chart/SerialModule.cpp`
-- UI orchestration и live ingest flow: `Amk-Horizon-New-Chart/ChartManager.cpp`
-- SMT/preset UI binding и selection logic: `Amk-Horizon-New-Chart/SchematicModule.cpp`, `Amk-Horizon-New-Chart/CurveSelectionModule.cpp`
+## Что считать рекомендуемым current-state подходом
+
+Если вы развиваете код дальше:
+
+- для доступа к данным предпочитайте:
+  - `TryGetRecord(...)`
+  - `TryGetRecordMetadata(...)`
+  - `GetDataView(...)`
+  - `GetMeasurementView(...)`
+- для парсинга предпочитайте `ParseRawFrameDetailed(...)`;
+- для realtime предпочитайте `ParsedToolFrame` callback path;
+- для UI логики учитывайте `ToolCapabilities.transmitterCount`, а не только фиксированные UI-массивы.
+
+## Где искать актуальный контекст
+
+- обзор — `Amk-Horizon-New-Chart/README.md`
+- технические инварианты — `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
+- структуры данных — `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- форматы файлов — `FILE_FORMATS_ANALYSIS.md`
+- файловая валидация — `FILE_VALIDATION_FOR_5TX_MODEL.md`
+- adapter migration / remaining boundaries — `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
+
+## Краткий вывод
+
+Проект сейчас находится не в стадии сырой миграции, а в стадии **стабилизированного adapter-driven current-state**:
+
+- основная архитектура уже сформирована;
+- user-visible поведение стабильно;
+- оставшиеся задачи в основном связаны не с аварийным рефакторингом, а с аккуратным сужением compatibility boundary и дальнейшей эволюцией export / API policy.

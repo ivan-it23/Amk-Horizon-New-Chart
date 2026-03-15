@@ -166,8 +166,8 @@ static std::wstring BuildElementTooltip(ElementType type, int index) {
     return GetElementTooltipText(type, index);
 }
 
-static bool HasAllUiTransmittersSelected(const std::set<int>& uniqueTransmitters) {
-    return uniqueTransmitters.size() == static_cast<size_t>(SchematicSelection::UI_TRANSMITTER_COUNT);
+static bool HasAllUiTransmittersSelected(const std::set<int>& uniqueTransmitters, size_t transmitterCount) {
+    return uniqueTransmitters.size() == transmitterCount;
 }
 
 static void SelectUiReceiver(SchematicSelection& selection, int receiverIndex) {
@@ -228,7 +228,8 @@ static void RestoreSelectedTransmittersFromCurves(const ChartConfiguration& exis
                                                   SchematicSelection& selection) {
     for (const auto& curve : existingConfig.curves) {
         if (curve.sourceElement == ElementType::TRANSMITTER) {
-            if (IsUiTransmitterIndex(curve.elementIndex)) {
+            if (IsUiTransmitterIndex(curve.elementIndex) &&
+                static_cast<size_t>(curve.elementIndex) < selection.transmitters.size()) {
                 selection.transmitters[curve.elementIndex] = true;
             }
         }
@@ -236,7 +237,7 @@ static void RestoreSelectedTransmittersFromCurves(const ChartConfiguration& exis
 }
 
 static void SelectAllUiTransmitters(SchematicSelection& selection) {
-    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; i++) {
+    for (size_t i = 0; i < selection.transmitters.size(); ++i) {
         selection.transmitters[i] = true;
     }
 }
@@ -671,9 +672,15 @@ void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType 
     const COLORREF kWhite = RGB(255, 255, 255);
     const COLORREF kText = RGB(25, 25, 25);
 
+    const bool isSupportedElement = (type != ElementType::TRANSMITTER) || SupportsTransmitterIndex(index);
+    if (!isSupportedElement) {
+        selected = false;
+        hovered = false;
+    }
+
     COLORREF marker = RGB(120, 120, 120);
     switch (type) {
-        case ElementType::TRANSMITTER: marker = TRANSMITTER_COLOR; break;
+        case ElementType::TRANSMITTER: marker = isSupportedElement ? TRANSMITTER_COLOR : RGB(170, 170, 170); break;
         case ElementType::RECEIVER:    marker = RECEIVER_COLOR; break;
         case ElementType::SILENT_TX:   marker = SILENT_TX_COLOR; break;
         default:                       marker = RGB(120, 120, 120); break;
@@ -734,7 +741,7 @@ void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType 
     // 4) Текст (системный шрифт).
     // Важно: для наших "приглушённых" фирменных цветов чёрный читается лучше и стабильнее.
     SetBkMode(hdc, TRANSPARENT);
-    SetTextColor(hdc, kText);
+    SetTextColor(hdc, isSupportedElement ? kText : RGB(95, 95, 95));
 
     // Жирный системный шрифт (чтобы метки T1–T5/R1–R2 выделялись).
     static HFONT s_boldGuiFont = nullptr;
@@ -783,6 +790,10 @@ bool SchematicModule::HandleElementClick(int x, int y) {
     if (!element) {
         return false;
     }
+
+    if (element->type == ElementType::TRANSMITTER && !SupportsTransmitterIndex(element->index)) {
+        return false;
+    }
     
     // ОТЛАДКА: Выводим информацию о клике
     
@@ -823,7 +834,8 @@ bool SchematicModule::HandleElementClick(int x, int y) {
 void SchematicModule::UpdateSelection(ElementType type, int index, bool selected) {
     switch (type) {
         case ElementType::TRANSMITTER:
-            if (IsUiTransmitterIndex(index)) {
+            if (SupportsTransmitterIndex(index) &&
+                static_cast<size_t>(index) < currentSelection.transmitters.size()) {
                 currentSelection.transmitters[index] = selected;
             }
             break;
@@ -872,10 +884,13 @@ SchematicSelection SchematicModule::GetCurrentSelection() const {
 
 void SchematicModule::SetCurrentSelection(const SchematicSelection& selection) {
     currentSelection = selection;
+    NormalizeSelectionToAvailableTransmitters();
     
     // Обновляем состояние элементов схемы
     for (auto& element : schematicElements) {
-        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
+        element.selected = element.type == ElementType::TRANSMITTER && !SupportsTransmitterIndex(element.index)
+            ? false
+            : IsSelectionElementSelected(currentSelection, element.type, element.index);
     }
 }
 
@@ -885,6 +900,28 @@ void SchematicModule::SetCurveSelectionModule(CurveSelectionModule* module) {
 
 void SchematicModule::SetDataModule(DataModule* module) {
     dataModule = module;
+}
+
+int SchematicModule::GetAvailableTransmitterCount() const {
+    if (!dataModule || !dataModule->HasData()) {
+        return SchematicSelection::UI_TRANSMITTER_COUNT;
+    }
+
+    const int transmitterCount = dataModule->GetDataView(0).GetTransmitterCount();
+    if (transmitterCount <= 0) {
+        return SchematicSelection::UI_TRANSMITTER_COUNT;
+    }
+
+    return std::min(transmitterCount, SchematicSelection::UI_TRANSMITTER_COUNT);
+}
+
+bool SchematicModule::SupportsTransmitterIndex(int index) const {
+    return index >= 0 && index < GetAvailableTransmitterCount();
+}
+
+void SchematicModule::NormalizeSelectionToAvailableTransmitters() {
+    const size_t transmitterCount = static_cast<size_t>(GetAvailableTransmitterCount());
+    currentSelection.transmitters.resize(transmitterCount, false);
 }
 
 void SchematicModule::InitializeSchematicElements(const RECT& schemaRect) {
@@ -1066,7 +1103,9 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
     // ИСПРАВЛЕНИЕ: Синхронизируем состояние элементов с currentSelection
     // После создания элементов нужно восстановить их состояние selected
     for (auto& element : schematicElements) {
-        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
+        element.selected = element.type == ElementType::TRANSMITTER && !SupportsTransmitterIndex(element.index)
+            ? false
+            : IsSelectionElementSelected(currentSelection, element.type, element.index);
         if (element.selected) {
         }
     }
@@ -1074,6 +1113,8 @@ void SchematicModule::CalculateSchematicLayout(const RECT& schemaRect) {
 
 // Методы для работы с диалоговым окном
 void SchematicModule::InitializeDialogControls(HWND hDlg) {
+    NormalizeSelectionToAvailableTransmitters();
+
     // Пытаемся восстановить текущую конфигурацию графика
     bool hasExistingConfig = false;
     ChartConfiguration existingConfig; // Объявляем вне блока для использования позже
@@ -1087,6 +1128,7 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
             
             // Очищаем текущий выбор
             currentSelection.Clear();
+            NormalizeSelectionToAvailableTransmitters();
             
             // Восстанавливаем частоту из первой кривой
             if (!existingConfig.curves.empty()) {
@@ -1151,25 +1193,31 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
                     // Выбраны оба приемника R1+R2
                     SelectAllUiReceivers(currentSelection);
                 }
-                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
+                else if (hasRX1Types && !hasRX2Types && hasTransmitterSource &&
+                         HasAllUiTransmittersSelected(uniqueTransmitters, currentSelection.transmitters.size())) {
                     // Выбран только приемник R1 (кривые для ВСЕХ 5 передатчиков с R1)
                     SelectUiReceiver(currentSelection, 0);
                 }
-                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
+                else if (hasRX2Types && !hasRX1Types && hasTransmitterSource &&
+                         HasAllUiTransmittersSelected(uniqueTransmitters, currentSelection.transmitters.size())) {
                     // Выбран только приемник R2 (кривые для ВСЕХ 5 передатчиков с R2)
                     SelectUiReceiver(currentSelection, 1);
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && !HasAllUiTransmittersSelected(uniqueTransmitters)) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource &&
+                         !HasAllUiTransmittersSelected(uniqueTransmitters, currentSelection.transmitters.size())) {
                     // Выбран один или несколько передатчиков (кривые для R1 и R2, но НЕ для всех 5 передатчиков)
                     // Восстанавливаем передатчики из sourceElement
                     RestoreSelectedTransmittersFromCurves(existingConfig, currentSelection);
                 }
-                else if (hasRX1Types && hasRX2Types && hasTransmitterSource && HasAllUiTransmittersSelected(uniqueTransmitters)) {
+                else if (hasRX1Types && hasRX2Types && hasTransmitterSource &&
+                         HasAllUiTransmittersSelected(uniqueTransmitters, currentSelection.transmitters.size())) {
                     // Особый случай: есть кривые для всех 5 передатчиков с обоими приёмниками
                     // Это может быть либо выбор всех 4 передатчиков, либо какая-то другая комбинация
                     // Проверяем количество кривых: если их 16 (4 передатчика × 2 приёмника × 2 типа данных), 
                     // то скорее всего выбраны все передатчики
-                    if (existingConfig.curves.size() >= kAllUiTransmittersDualReceiverCurveThreshold) {
+                    if (existingConfig.curves.size() >=
+                        (currentSelection.transmitters.size() *
+                         static_cast<size_t>(SchematicSelection::UI_RECEIVER_COUNT) * 2)) {
                         // Восстанавливаем все передатчики
                         SelectAllUiTransmitters(currentSelection);
                     } else {
@@ -2075,6 +2123,9 @@ bool SchematicModule::IsSelectionCompatible(ElementType type, int index) const {
     
     // Правило 1: Нельзя одновременно выбирать передатчики и приемники
     if (type == ElementType::TRANSMITTER) {
+        if (!SupportsTransmitterIndex(index)) {
+            return false;
+        }
         return currentSelection.GetSelectedReceiversCount() == 0;
     }
     
@@ -2127,7 +2178,9 @@ void SchematicModule::ClearIncompatibleSelections(ElementType newType) {
 void SchematicModule::SynchronizeElementStates() {
     // Синхронизируем визуальное состояние элементов с логическим состоянием
     for (auto& element : schematicElements) {
-        element.selected = IsSelectionElementSelected(currentSelection, element.type, element.index);
+        element.selected = element.type == ElementType::TRANSMITTER && !SupportsTransmitterIndex(element.index)
+            ? false
+            : IsSelectionElementSelected(currentSelection, element.type, element.index);
     }
 }
 

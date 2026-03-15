@@ -238,6 +238,10 @@ public:
                              const RECT& r1Rect, const RECT& r2Rect);
     
 private:
+    int GetAvailableTransmitterCount() const;
+    bool SupportsTransmitterIndex(int index) const;
+    void NormalizeSelectionToAvailableTransmitters();
+
     // Внутренние методы отрисовки
     void DrawTransmitter(HDC hdc, const RECT& rect, int index, bool selected);
     void DrawReceiver(HDC hdc, const RECT& rect, int index, bool selected);

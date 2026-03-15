@@ -1,105 +1,75 @@
-# Поддержка `.bin`, `.biv`, `.DEV` в модели `_5Tx_DATA`
+# Поддержка `.bin`, `.biv`, `.DEV` в исторической модели `_5Tx_DATA`
 
 ## Назначение документа
 
-Это **краткая историческая справка** о том, как legacy-логика старого приложения соотносится с новой моделью `_5Tx_DATA`.
+Этот файл сохранён как **историко-справочный мост** между старой терминологией `_5Tx_DATA` и текущей adapter-driven архитектурой.
 
-Документ нужен как контекст переноса, но **не является описанием текущей реализации**. Для текущего поведения приложения используйте:
+Он **не является главным документом** по текущей реализации. Для current-state используйте:
 
 - `FILE_FORMATS_ANALYSIS.md`
 - `FILE_VALIDATION_FOR_5TX_MODEL.md`
-- `Amk-Horizon-New-Chart/DataModule.cpp`
+- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
 
----
+## 1. Что из старой модели осталось актуальным
 
-## 1. Что важно из legacy-логики
+Из legacy-контекста по-прежнему важны только три факта:
 
-Старый проект использовал те же базовые правила контейнеров:
+- `.biv` по контейнерной логике эквивалентен `.bin`;
+- `.DEV` добавляет `11` байт заголовка перед payload;
+- тип прибора определяется по `signature`.
 
-- `.biv` читался так же, как `.bin`
-- `.DEV` содержал `11` служебных байт перед полезным кадром
-- тип прибора определялся по сигнатуре, прочитанной с правильного смещения
+Поддерживаемые семейства и сейчас те же:
 
-Правило декодирования типа:
+- `151` -> `AUTONOM_5TX`
+- `152` -> `AUTONOM_5TX_SDR`
+- `241` -> `LWD_4TX`
 
-```text
-toolCode = (((signature << 12) >> 12) / 1000)
-```
+## 2. Как это выглядит в текущем проекте
 
-Поддерживаемые семейства в старом проекте:
+Сейчас проект уже не строится вокруг “одной модели `_5Tx_DATA` для всего”.
 
-- `151` → `AUTONOM_5Tx`
-- `152` → `AUTONOM_5Tx_SDR`
-- `241` → `LWD_4Tx`
+Текущая схема:
 
----
+`container -> signature -> adapter -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata`
 
-## 2. Что означает это для новой архитектуры
+То есть:
 
-Целевая внутренняя структура новой архитектуры:
+- `AUTONOM_5TX` и `AUTONOM_5TX_SDR` adapter-level близки к canonical 5Tx shape;
+- `LWD_4TX` идёт через отдельный adapter path;
+- после чтения все данные materialize-ятся в canonical `GP_TOOL_DATA`.
 
-```cpp
-struct _5Tx_DATA {
-    uint32_t signature;
-    uint32_t condition;
-    uint32_t frame;
-    float temperature;
-    float rho_smt[2][5];
-    float phase_smt[2][5];
-    float AM_RX_1[2][5];
-    float ZERO_AM_RX_1[2];
-    float AM_RX_2[2][5];
-    float ZERO_AM_RX_2[2];
-    float DELTA_PH[2][5];
-    float ZERO_dPH[2];
-};
-```
+## 3. Что в имени файла теперь считать условностью
 
-Практический вывод из старой логики:
+Историческое имя файла может вводить в заблуждение.
 
-- `AUTONOM_5Tx` и `AUTONOM_5Tx_SDR` могут читаться почти напрямую как `_5Tx_DATA`
-- `LWD_4Tx` требует отдельного чтения `_4Tx_DATA` и адаптации в `_5Tx_DATA`
+Фактически текущая поддержка:
 
----
+- относится не только к `5Tx`;
+- охватывает и `4Tx`, и `5Tx`;
+- описывается не `_5Tx_DATA` как основной runtime-моделью, а adapter-driven parsing + canonical shape.
 
-## 3. Что реализовано сейчас, а что нет
+## 4. Практический current-state вывод
 
-### Реализовано сейчас
+Если вам нужен ответ на вопрос “как сейчас реально читаются `.bin/.biv/.DEV`”, этот файл **не должен быть первым источником**.
 
-- чтение `.bin`, `.biv`, `.DEV` как контейнеров для `GP_TOOL_DATA`
-- чтение сигнатуры с корректного смещения
-- adapter-driven валидация и маршрутизация по сигнатурам `151`, `152`, `241`
-- canonical materialization в `GP_TOOL_DATA` после adapter parsing
+Правильный порядок чтения документации:
 
-### Пока не реализовано
+1. `FILE_FORMATS_ANALYSIS.md`
+2. `FILE_VALIDATION_FOR_5TX_MODEL.md`
+3. `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+4. только потом этот файл как исторический комментарий
 
-- полное устранение canonical compatibility boundary после adapter parsing
-- adapter-aware export/persistence path вместо текущего canonical `.bin`
-- устранение оставшихся 5Tx-centric UI/SMT contract assumptions
+## 5. Зачем файл оставлен в репозитории
 
-То есть этот документ сохраняет **исторический контекст**, но не должен читаться как описание текущей реализации без сверки с `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md` и `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`.
+Он полезен, потому что:
 
----
+- объясняет происхождение названий `_5Tx_DATA`, `AUTONOM_5Tx`, `AUTONOM_5Tx_SDR`;
+- помогает понять, почему часть старых обсуждений ссылается именно на `_5Tx_DATA`;
+- связывает старую терминологию с текущим canonical `GP_TOOL_DATA`.
 
-## 4. Если когда-нибудь возвращаться к поддержке `LWD_4Tx`
+## 6. Источники истины
 
-Минимальный план будет таким:
+- current-state — `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md`, `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- исторический контекст — этот файл
 
-1. Описать структуру `_4Tx_DATA`
-2. Реализовать чтение `.bin/.biv/.DEV` для `_4Tx_DATA`
-3. Добавить адаптер `_4Tx_DATA -> _5Tx_DATA`
-4. Определить, нужен ли вообще отдельный post-canonical storage/export path для `241`, или текущая canonical materialization остаётся допустимой compatibility моделью
-5. Обновить `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md` и `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
-
-До этого момента текущий контракт приложения остаётся простым:
-
-валидны файлы, которые поддерживаются текущим adapter-driven parsing path и затем материализуются в canonical `GP_TOOL_DATA`
-
----
-
-## 5. Источники истины
-
-- legacy-контекст — этот документ
-- текущая реализация — `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md`, `DataModule.cpp`
-
-Если между ними есть расхождения, для текущего поведения приложения нужно ориентироваться на код и краткие актуальные документы.
+Если между ними есть расхождения, для текущего поведения приложения нужно ориентироваться на код и current-state документы.

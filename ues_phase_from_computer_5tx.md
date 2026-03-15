@@ -1,32 +1,35 @@
-# Логика расчёта симметризованных фаз и УЭС (режим `from_computer`) с фокусом на `_5Tx_DATA`
+# `FROM_COMPUTER` для фаз и УЭС — current-state summary + historical notes
 
-## 1) Цель документа
+## Важно
 
-Этот документ объясняет, как в исходном проекте реализованы:
+Ниже в файле сохранён большой historical разбор старого проекта.  
+Current-state логика в `AMK-Horizon-New-Chart` должна трактоваться через `CurveSelectionModule`, `MeasurementView` и canonical `GP_TOOL_DATA`.
 
-- отображение `PH_SMT_from_sonde` и `УЭС_from_sonde` (чтение уже готовых значений из структуры);
-- расчёт `PH_SMT_from_computer` и `УЭС_from_computer` (пересчёт в приложении по `DELTA_PH` + метрология).
+## Current-state кратко
 
-Фокус — на целевой структуре:
+В текущем проекте:
 
-```cpp
-struct _5Tx_DATA {
- uint32_t signature;
- uint32_t condition;
- uint32_t frame;
- float temperature;
- float rho_smt[2][5];
- float phase_smt[2][5];
- float AM_RX_1[2][5];
- float ZERO_AM_RX_1[2];
- float AM_RX_2[2][5];
- float ZERO_AM_RX_2[2];
- float DELTA_PH[2][5];
- float ZERO_dPH[2];
-};
-```
+- `FROM_SONDE` использует готовые `phase_smt` и `rho_smt` из canonical данных;
+- `FROM_COMPUTER` остаётся **legacy-compatible branch** внутри `CurveSelectionModule`;
+- вычисление опирается на `DELTA_PH`, метрологию и legacy коэффициенты;
+- эта ветка не является полноценным generic SMT solver.
 
-См. исходное объявление: @AIR_TEMP_1.0/variable.h#393-406.
+## Актуальные ограничения
+
+- вход legacy-компьютерной ветки фактически ориентирован на 4 delta-входа `T1..T4`;
+- выход может формировать до 5 SMT-значений;
+- использование возможно только при наличии метрологии и совпадении `signature`;
+- для runtime/UI нужно учитывать `ToolCapabilities`, а не только фиксированные 5 UI-слотов.
+
+## Где current-state истина
+
+- `Amk-Horizon-New-Chart/CurveSelectionModule.cpp`
+- `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
+- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+
+## Historical notes below
+
+Ниже оставлен старый разбор исходного происхождения формул и коэффициентов. Он полезен как reference по legacy-математике, но не как полное описание текущего приложения.
 
 ---
 

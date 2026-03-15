@@ -96,6 +96,7 @@ private:
     COLORREF GetSpecialDataColor(DataType dataType) const;  // Цвета для специальных типов данных
     COLORREF AssignSmartColor(const std::vector<CurveDefinition>& existingCurves, 
                              int transmitterIndex, int yAxisGroup) const;  // Умное назначение цветов
+    void RefreshCurveColors(std::vector<CurveDefinition>& curves) const;
     int GetLineStyle(int yAxisGroup) const;  // Всегда PS_SOLID (однородные линии)
     
     // Методы для создания пресетов

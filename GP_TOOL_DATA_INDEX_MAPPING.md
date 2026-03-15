@@ -1,29 +1,62 @@
-# Таблица соответствия индексов для `GP_TOOL_DATA`
+# Индексный маппинг `GP_TOOL_DATA` — current-state summary
 
-## Назначение документа
+## Важно
 
-Этот документ является приложением к файлу `GP_TOOL_DATA_LWD_AUTONOM.md` и содержит **только** индексный маппинг полей новой структуры:
+Старое содержимое этого файла ниже больше **не является текущей спецификацией**: оно описывает промежуточную историческую плоскую модель, которая не совпадает с current-state кодом.
+
+Актуальная canonical структура сейчас такая:
 
 ```cpp
 struct GP_TOOL_DATA {
     uint32_t signature;
     uint32_t condition;
-    float Ro_smt[8];
-    float PH_smt[8];
     uint32_t frame;
     float temperature;
-    float AM_RX_1[10];
-    float AM_RX_2[10];
-    float PH_RX_1[10];
-    float PH_RX_2[10];
+    float rho_smt[2][5];
+    float phase_smt[2][5];
+    float AM_RX_1[2][5];
+    float ZERO_AM_RX_1[2];
+    float AM_RX_2[2][5];
+    float ZERO_AM_RX_2[2];
+    float DELTA_PH[2][5];
+    float ZERO_dPH[2];
 };
 ```
 
-Рассматриваются только:
+## Актуальные правила индексации
 
-- `LWD_4Tx`
-- `AUTONOM_5Tx`
-- `AUTONOM_5Tx_SDR`
+- `freqIdx = 0` -> `400 кГц`
+- `freqIdx = 1` -> `2000 кГц`
+- `txIdx = 0..4` -> `T1..T5`
+
+Silent-каналы индексируются отдельно:
+
+- `ZERO_AM_RX_1[freqIdx]`
+- `ZERO_AM_RX_2[freqIdx]`
+- `ZERO_dPH[freqIdx]`
+
+## Runtime-оговорка для `LWD_4TX`
+
+Для `LWD_4TX` canonical shape физически остаётся `[2][5]`, но runtime capabilities задают:
+
+- `transmitterCount = 4`
+- `hasT5 = false`
+
+То есть:
+
+- слоты `txIdx = 0..3` соответствуют `T1..T4`;
+- `txIdx = 4` не должен трактоваться как рабочий канал `LWD_4TX`;
+- верхний слой должен учитывать `ToolCapabilities` / `ToolDataAccessView`, а не просто перебирать все 5 slot-ов.
+
+## Где брать current-state истину
+
+- `Amk-Horizon-New-Chart/ToolDataTypes.h`
+- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- `Amk-Horizon-New-Chart/ToolDataAdapters.cpp`
+
+## Historical appendix
+
+Ниже оставлен старый индексный архив для исторического контекста переноса. Использовать его как спецификацию текущего поведения нельзя.
 
 ---
 

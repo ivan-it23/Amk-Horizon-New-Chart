@@ -1,31 +1,59 @@
-# Документация по логике `GP_TOOL_DATA` для `LWD` и `AUTONOM`
+# `GP_TOOL_DATA`, `LWD_4TX` и `AUTONOM` — current-state summary + historical archive
 
-## Область документа
+## Важно
 
-Этот документ описывает **только** ту логику старого проекта `TEST_SONDE_KARTOGRAF_2.0`, которая относится к переносу в новую структуру:
+Нижняя большая часть этого файла — **исторический архив переноса** из старого проекта.  
+Она больше не должна читаться как current-state спецификация.
+
+## Current-state кратко
+
+Текущий проект использует adapter-driven pipeline:
+
+`raw file / COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata`
+
+Актуальная canonical структура:
 
 ```cpp
 struct GP_TOOL_DATA {
     uint32_t signature;
     uint32_t condition;
-    float Ro_smt[8];
-    float PH_smt[8];
     uint32_t frame;
     float temperature;
-    float AM_RX_1[10];
-    float AM_RX_2[10];
-    float PH_RX_1[10];
-    float PH_RX_2[10];
+    float rho_smt[2][5];
+    float phase_smt[2][5];
+    float AM_RX_1[2][5];
+    float ZERO_AM_RX_1[2];
+    float AM_RX_2[2][5];
+    float ZERO_AM_RX_2[2];
+    float DELTA_PH[2][5];
+    float ZERO_dPH[2];
 };
 ```
 
-Рассматриваются **только приборы**:
+## Что важно сейчас для `LWD_4TX`
 
-- `LWD_4Tx`
-- `AUTONOM_5Tx`
-- `AUTONOM_5Tx_SDR`
+- поддерживается отдельным adapter path;
+- старые `240`-байтные `4Tx` файлы могут быть legacy raw layout;
+- новые `4Tx` файлы могут уже быть canonical `GP_TOOL_DATA`;
+- различение делает `DataModule::ParseRawFrameDetailed(...)`;
+- runtime/UI должны учитывать `ToolCapabilities.transmitterCount = 4`.
 
-`CARTOGRAPH` и связанная с ним логика здесь **не рассматриваются**, кроме редких мест, где он мешает или ограничивает общую реализацию.
+## Что важно сейчас для `AUTONOM_5TX` / `AUTONOM_5TX_SDR`
+
+- для `151` и `152` активны full `5Tx` capabilities;
+- canonical `[2][5]` shape используется напрямую;
+- live COM и file-loading проходят через тот же adapter-driven parsing path.
+
+## Где current-state источник истины
+
+- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
+- `Amk-Horizon-New-Chart/DataModule.cpp`
+- `Amk-Horizon-New-Chart/ToolDataAdapters.cpp`
+
+## Historical archive below
+
+Ниже сохранён старый разбор legacy-происхождения структур и поведения. Он полезен как background, но не как действующая спецификация проекта.
 
 ---
 

@@ -1,36 +1,40 @@
-# GP_TOOL_DATA / METROLOGY_DATA — актуальные структуры, canonical shape и протокол
+# GP_TOOL_DATA / LEGACY_GP_TOOL_DATA / METROLOGY_DATA — актуальная структура данных проекта
 
-Этот документ — **короткая “точка истины”** по структурам данных прибора и тому, как они используются в приложении.
+Этот документ — **основная точка истины** по текущей data-модели приложения.
 
-Источник истины в коде:
-- `DataModule.h`: `GP_TOOL_DATA` (+ `static_assert(sizeof(GP_TOOL_DATA) == 240)`)
-- `SerialModule.h`: `METROLOGY_DATA` (+ `static_assert(sizeof(METROLOGY_DATA) == 240)`)
-- `ToolDataAdapters.h/.cpp`: `ParsedToolFrame`, `ToolDataAdapterRegistry`, adapter-driven parsing
-- `ToolDataAccess.h`: `ToolDataAccessView`, `MeasurementView`, общий compatibility seam `ParsedToolFrame -> GP_TOOL_DATA`
-- методические материалы: `Методичка-фото-1.png`, `Методичка-фото-2.png`
+Он описывает:
 
----
+- canonical `GP_TOOL_DATA`;
+- legacy raw layout `LEGACY_GP_TOOL_DATA`;
+- `METROLOGY_DATA`;
+- adapter-driven parsing;
+- capability metadata;
+- текущие границы между raw layout и canonical in-memory shape.
 
-## 0) Как эти структуры используются сейчас
+## 1. Источники истины в коде
 
-Текущий pipeline данных в коде:
+- `ToolDataTypes.h`
+- `ToolDataAdapters.h/.cpp`
+- `ToolDataAccess.h`
+- `DataModule.h/.cpp`
+- `SerialModule.h`
 
-`File/COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> графики / UI`
+## 2. Актуальный pipeline
 
-Важно понимать текущее разделение ролей:
+Текущее движение данных:
 
-- `ParsedToolFrame` — это adapter-level результат парсинга, который несёт `kind`, `capabilities` и `canonicalData`
-- `GP_TOOL_DATA` — это не единственная «сырой формат прибора» истина, а текущая canonical compatibility shape для хранения, расчётов и части публичных API
-- `ToolRecordMetadata` хранится рядом с canonical записью и даёт верхним слоям capability-aware контекст
-- публичные `DataModule::ParseRawFrame(...)`, `DataModule::GetData()`, `SerialModule::RequestData(GP_TOOL_DATA& ...)` и `SerialModule::SetDataCallback(...)` сейчас следует трактовать как compatibility-only surface-ы
+`File / COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> графики / UI`
 
----
+Практический смысл:
 
-## 1) Структура данных измерений `GP_TOOL_DATA` (240 байт)
+- raw layout и canonical shape — это **не одно и то же**;
+- `ParsedToolFrame` — adapter-level результат парсинга;
+- `GP_TOOL_DATA` — current canonical compatibility shape;
+- `ToolRecordMetadata` и `ToolCapabilities` нужны для capability-aware логики верхних слоёв.
+
+## 3. Canonical структура `GP_TOOL_DATA`
 
 ```cpp
-// DataModule.h
-#pragma pack(push, 1)
 struct GP_TOOL_DATA {
     uint32_t signature;
     uint32_t condition;
@@ -45,44 +49,35 @@ struct GP_TOOL_DATA {
     float DELTA_PH[2][5];
     float ZERO_dPH[2];
 };
-#pragma pack(pop)
 ```
 
-### Индексация
-- **Частоты**: `freqIdx = 0 → 400 kHz`, `freqIdx = 1 → 2000 kHz`
-- **Передатчики**: `txIdx = 0..4 → T1..T5`
-- **Молчащий режим**: это отдельные поля `ZERO_AM_RX_*[2]`, `ZERO_dPH[2]` (не “T0 в массиве”)
+Размер:
 
-Примечание по текущей архитектуре:
+- `sizeof(GP_TOOL_DATA) == 240`
 
-- часть входных данных уже может приходить не из нативной 5Tx raw-структуры, а из адаптера (`LWD_4Tx`) с последующей canonical materialization в `GP_TOOL_DATA`
-- поэтому верхним слоям нельзя безоговорочно считать `GP_TOOL_DATA` синонимом «исходный on-disk/on-wire layout»
+### 3.1 Индексация canonical shape
 
-### Что из чего строится на графиках (логика DataModule)
-- **Амплитуда RX1**: `AM_RX_1[freqIdx][txIdx]`
-- **Амплитуда RX2**: `AM_RX_2[freqIdx][txIdx]`
-- **Разность фаз (R2−R1)**: `DELTA_PH[freqIdx][txIdx]`
-- **Отношение амплитуд (RX2/RX1)**: `AM_RX_2 / AM_RX_1`
-- **Симметризованные данные**:
-  - `phase_smt[freqIdx][txIdx]`
-  - `rho_smt[freqIdx][txIdx]`
-- **Молчащий режим**:
-  - RX1: `ZERO_AM_RX_1[freqIdx]`
-  - RX2: `ZERO_AM_RX_2[freqIdx]`
-  - \(\Delta\varphi\): `ZERO_dPH[freqIdx]`
+- `freqIdx = 0` -> `400 кГц`
+- `freqIdx = 1` -> `2000 кГц`
+- `txIdx = 0..4` -> `T1..T5`
 
-### Единицы и преобразования
-В коде выполняются преобразования для отображения в физических единицах:
-- **амплитуды → мВ**: `value * 4000.0 / 2^24`
-- **фазы (рад) → мдег**: `NormalizePhase(value) * 57295.7795`
+Silent-каналы хранятся **отдельно**, а не как “нулевой передатчик”:
 
-### Legacy 4Tx raw layout и логика отображения кривых
-Для `ToolDataKind::LWD_4TX` важно различать:
+- `ZERO_AM_RX_1[2]`
+- `ZERO_AM_RX_2[2]`
+- `ZERO_dPH[2]`
 
-- **legacy raw on-disk / on-wire layout** — `LEGACY_GP_TOOL_DATA`
-- **canonical in-memory layout** — текущий `GP_TOOL_DATA`
+### 3.2 Что реально читают верхние слои
 
-В legacy 4Tx исходный кадр имеет плоскую раскладку:
+- амплитуда `R1` -> `AM_RX_1[freqIdx][txIdx]`
+- амплитуда `R2` -> `AM_RX_2[freqIdx][txIdx]`
+- разность фаз `R2-R1` -> `DELTA_PH[freqIdx][txIdx]`
+- симметризованные фазы -> `phase_smt[freqIdx][txIdx]`
+- симметризованное УЭС -> `rho_smt[freqIdx][txIdx]`
+- silent-амплитуды -> `ZERO_AM_RX_1`, `ZERO_AM_RX_2`
+- silent-разность фаз -> `ZERO_dPH`
+
+## 4. Legacy raw layout `LEGACY_GP_TOOL_DATA`
 
 ```cpp
 struct LEGACY_GP_TOOL_DATA {
@@ -99,23 +94,125 @@ struct LEGACY_GP_TOOL_DATA {
 };
 ```
 
-#### Индексация legacy 4Tx массивов
-- `0..3` → `freqIdx = 0`, активные TX1..TX4
-- `4..7` → `freqIdx = 1`, активные TX1..TX4
-- `8` → `freqIdx = 0`, молчащий передатчик (`TX0`)
-- `9` → `freqIdx = 1`, молчащий передатчик (`TX0`)
+Размер:
 
-Линейный индекс активного передатчика:
+- `sizeof(LEGACY_GP_TOOL_DATA) == 240`
+
+Этот layout важен **не как основной формат проекта**, а как raw-представление части старых `LWD_4TX` данных.
+
+## 5. Tool kinds и capabilities
+
+Текущие поддерживаемые типы:
+
+- `AUTONOM_5TX`
+- `AUTONOM_5TX_SDR`
+- `LWD_4TX`
+
+### 5.1 `ToolCapabilities`
+
+`ToolCapabilities` сейчас определяют:
+
+- `transmitterCount`
+- `hasT5`
+- `hasSeparatePhaseRx`
+- `hasDeltaPhase`
+- `hasZeroAmplitudeRx1`
+- `hasZeroAmplitudeRx2`
+- `hasZeroDeltaPhase`
+- `hasSondeRhoSmt`
+- `hasSondePhaseSmt`
+- поддержку контейнеров
+- поддержку COM polling
+- поддержку silent-данных
+
+### 5.2 Почему это важно
+
+Верхний слой больше не должен слепо считать, что данных всегда 5 TX.
+
+Например:
+
+- графики используют capability-aware доступ;
+- схема прибора runtime-ограничивает `T5` для `4Tx`;
+- список кривых не должен показывать пятый передатчик там, где его нет в данных.
+
+## 6. Адаптеры
+
+### 6.1 `Autonom5TxAdapter`
+
+Назначение:
+
+- `AUTONOM_5TX`
+- `AUTONOM_5TX_SDR`
+
+Особенности:
+
+- `transmitterCount = 5`
+- `hasT5 = true`
+- raw frame парсится напрямую как canonical `GP_TOOL_DATA`
+
+### 6.2 `Lwd4TxAdapter`
+
+Назначение:
+
+- `LWD_4TX`
+
+Особенности:
+
+- `transmitterCount = 4`
+- `hasT5 = false`
+- raw legacy layout materialize-ится в canonical `GP_TOOL_DATA`
+
+## 7. Важная деталь по `LWD_4TX`: старые и новые 240-байтные файлы
+
+`LWD_4TX` — особый случай.
+
+Сейчас приложение умеет работать с двумя вариантами 240-байтных кадров:
+
+- **legacy raw `LEGACY_GP_TOOL_DATA`**
+- **canonical `GP_TOOL_DATA`**
+
+### 7.1 Как различение происходит в коде
+
+`DataModule::ParseRawFrameDetailed(...)` для `LWD_4TX` использует эвристику:
+
+- сначала смотрит, не содержатся ли в “пятом слоте” canonical view ненулевые значения;
+- затем делает plausibility check по `frame` и `temperature`;
+- если canonical трактовка выглядит плохо, а legacy выглядит правдоподобно, кадр идёт через `Lwd4TxAdapter`;
+- иначе допускается canonical passthrough.
+
+### 7.2 Почему это нужно
+
+Это позволяет одновременно поддерживать:
+
+- старые legacy `4Tx` файлы;
+- уже сохранённые canonical `4Tx` файлы;
+- обычные `5Tx` сценарии.
+
+## 8. Как legacy `LWD_4TX` materialize-ится в canonical shape
+
+### 8.1 Индексация legacy flat-массивов
+
+Для active TX:
+
+- `0..3` -> `400 кГц`, `T1..T4`
+- `4..7` -> `2000 кГц`, `T1..T4`
+
+Для silent:
+
+- `8` -> silent `400 кГц`
+- `9` -> silent `2000 кГц`
+
+Линейный индекс:
 
 ```cpp
 linearIndex = (freqIdx == 0) ? txIdx : (4 + txIdx);
 ```
 
-где `txIdx = 0..3` соответствует `TX1..TX4`.
+где `txIdx = 0..3`.
 
-#### Как legacy 4Tx materialize-ится в canonical `GP_TOOL_DATA`
-В текущей архитектуре верхние слои **не работают напрямую** с `LEGACY_GP_TOOL_DATA`.
-Адаптер `Lwd4TxAdapter` выполняет преобразование raw legacy кадра в canonical shape:
+### 8.2 Mapping
+
+Адаптер materialize-ит legacy raw frame в canonical shape так:
 
 - `rho_smt[freqIdx][txIdx] = Ro_smt[linearIndex]`
 - `phase_smt[freqIdx][txIdx] = PH_smt[linearIndex]`
@@ -124,56 +221,48 @@ linearIndex = (freqIdx == 0) ? txIdx : (4 + txIdx);
 - `ZERO_AM_RX_1[freqIdx] = AM_RX_1[8 + freqIdx]`
 - `ZERO_AM_RX_2[freqIdx] = AM_RX_2[8 + freqIdx]`
 
-Разность фаз строится из отдельных фаз приёмников:
+Разность фаз строится по раздельным фазам приёмников:
 
-- `DELTA_PH[freqIdx][txIdx] = Normalize(PH_RX_2[linearIndex] - PH_RX_1[linearIndex])`, если `abs(diff) < 40`
-- иначе `DELTA_PH[freqIdx][txIdx] = 0`
-- `ZERO_dPH[freqIdx] = Normalize(PH_RX_2[8 + freqIdx] - PH_RX_1[8 + freqIdx])`, если `abs(diff) < 40`
-- иначе `ZERO_dPH[freqIdx] = 0`
+- `DELTA_PH[freqIdx][txIdx] = Normalize(PH_RX_2 - PH_RX_1)`, если `abs(diff) < 40`
+- иначе `0`
 
-#### Что это означает для отображения кривых
-После materialization legacy 4Tx графики строятся теми же canonical access path-ами, что и остальные структуры, но их физический смысл для legacy raw layout такой:
+Silent `ZERO_dPH` строится аналогично по слотам `8 + freqIdx`.
 
-- **AM Z1**:
-  - raw source: `AM_RX_1[linearIndex]`
-  - canonical view: `AM_RX_1[freqIdx][txIdx]`
-- **AM Z2**:
-  - raw source: `AM_RX_2[linearIndex]`
-  - canonical view: `AM_RX_2[freqIdx][txIdx]`
-- **AM Z2/Z1**:
-  - raw source: `AM_RX_2[linearIndex] / (AM_RX_1[linearIndex] + epsilon)`
-  - canonical view: `AM_RX_2[freqIdx][txIdx] / (AM_RX_1[freqIdx][txIdx] + epsilon)`
-- **PH Z2-Z1**:
-  - raw source: `PH_RX_2[linearIndex] - PH_RX_1[linearIndex]` с legacy-нормализацией
-  - canonical view: `DELTA_PH[freqIdx][txIdx]`
-- **PH Z1**:
-  - raw source: `PH_RX_1[linearIndex]`
-  - в текущем canonical `GP_TOOL_DATA` отдельно не хранится; для legacy 4Tx основной phase-based display path опирается на `DELTA_PH`
-- **PH Z2**:
-  - raw source: `PH_RX_2[linearIndex]`
-  - в текущем canonical `GP_TOOL_DATA` отдельно не хранится; для legacy 4Tx основной phase-based display path опирается на `DELTA_PH`
-- **Симметризованные фазы**:
-  - raw source: `PH_smt[linearIndex]`
-  - canonical view: `phase_smt[freqIdx][txIdx]`
-- **Симметризованное УЭС**:
-  - raw source: `Ro_smt[linearIndex]`
-  - canonical view: `rho_smt[freqIdx][txIdx]`
-- **Молчащий передатчик**:
-  - raw source: `AM_RX_1[8 + freqIdx]`, `AM_RX_2[8 + freqIdx]`, `PH_RX_2[8 + freqIdx] - PH_RX_1[8 + freqIdx]`
-  - canonical view: `ZERO_AM_RX_1[freqIdx]`, `ZERO_AM_RX_2[freqIdx]`, `ZERO_dPH[freqIdx]`
+### 8.3 Что важно для верхнего слоя
 
-#### Важная граница ответственности
-- **raw legacy file / COM кадр** для 4Tx может быть `LEGACY_GP_TOOL_DATA`
-- **верхний слой отображения** должен мыслить через `ToolDataAccessView`, `MeasurementView` и canonical `GP_TOOL_DATA`
-- поэтому описание legacy 4Tx кривых нужно трактовать как **семантику источника данных**, а не как рекомендацию обращаться к raw-массивам напрямую из UI / Chart слоя
+После materialization верхние слои **не должны** обращаться к raw `PH_RX_1` / `PH_RX_2`.
 
----
+Они должны мыслить через:
 
-## 2) Метрология `METROLOGY_DATA` (240 байт)
+- `ToolDataAccessView`
+- `MeasurementView`
+- canonical `GP_TOOL_DATA`
+
+## 9. Единицы и преобразования
+
+Верхний слой переводит данные в пользовательские единицы:
+
+- амплитуда -> `mV`
+- фаза -> `mdeg`
+
+Актуальные базовые формулы:
+
+- амплитуда -> `value * 4000.0 / 2^24`
+- фаза -> `NormalizePhase(value) * 57295.7795`
+
+## 10. Runtime `4Tx/5Tx` следствия для UI
+
+Capability metadata влияет не только на расчёты, но и на интерфейс:
+
+- график не должен создавать 5-ю кривую для `4Tx`;
+- схема прибора не должна позволять выбрать `T5` для `4Tx`;
+- список checkbox-ов в окне схемы не должен включать пятую кривую для `4Tx`.
+
+Это уже часть **реальной текущей реализации**, а не только желаемое поведение.
+
+## 11. Метрология `METROLOGY_DATA`
 
 ```cpp
-// SerialModule.h
-#pragma pack(push, 1)
 struct METROLOGY_DATA {
     uint32_t signature;
     uint32_t serial;
@@ -185,65 +274,43 @@ struct METROLOGY_DATA {
     uint32_t D_sonde_mm;
     uint8_t service[164];
 };
-#pragma pack(pop)
 ```
 
-### Что использует приложение
-- **серийный номер**: `serial`
-- **диаметр зонда (мм)**: `D_sonde_mm`
-- **калибровочные поля формы метрологии**: `L1/L2/F/Air_zz/Air_zz_amt`
+Размер:
 
-Эти поля используются для:
-- отображения информации в диалоге подключения
-- **именования файла записи**: `AMK_[serial]_[D_sonde_mm]_[YYYYMMDD]_[HHMMSS].bin`
-- чтения/редактирования/записи в форме метрологии AUTONOM 5Tx
+- `sizeof(METROLOGY_DATA) == 240`
 
-Примечание по UI:
-- поле `D, мм` удалено из формы метрологии,
-- но `D_sonde_mm` сохраняется в структуре и продолжает использоваться в сервисных сценариях (например, имя файла записи потока).
+Ключевые поля, реально используемые приложением:
+
+- `signature`
+- `serial`
+- `L1`
+- `L2`
+- `F`
+- `Air_zz`
+- `Air_zz_amt`
+- `D_sonde_mm`
+
+## 12. Что считать главным практическим выводом
+
+### 12.1 Что **неверно**
+
+Неверно считать, что:
+
+- `GP_TOOL_DATA` = raw on-disk / on-wire format;
+- `LWD_4TX` всегда означает один и тот же бинарный layout;
+- UI всегда должен показывать одинаковое число TX независимо от capabilities.
+
+### 12.2 Что **верно**
+
+Верно считать, что:
+
+- `GP_TOOL_DATA` — canonical in-memory compatibility shape;
+- actual raw parsing идёт через адаптеры;
+- capability metadata определяет runtime поведение графиков и части UI;
+- `LWD_4TX` требует различать legacy raw layout и canonical 240-byte frame.
 
 ---
 
-## 3) Форматы файлов `.bin/.biv/.DEV`
-
-- `.bin` — последовательность `GP_TOOL_DATA` (240 байт на кадр)
-- `.biv` — идентичен `.bin`
-- `.DEV` — **11 байт служебных + 240 байт данных** = 251 байт на кадр  
-  Приложение заголовок пропускает. По методичке эти 11 байт добавляются для внешней совместимости.
-
-С точки зрения текущего кода:
-
-- файловая валидация и выбор структуры идут через `signature` и `ToolDataAdapterRegistry`
-- поддерживаются сигнатуры `151`, `152` и `241`
-- после adapter parsing файл всё ещё материализуется в canonical `GP_TOOL_DATA` + `ToolRecordMetadata`
-- canonical `.bin` export остаётся текущим compatibility persistence contract
-
-Подробности и схемы: `..\FILE_FORMATS_ANALYSIS.md`.
-
----
-
-## 4) Протокол COM (по методичке)
-
-### UART
-- 125000 бод
-
-### Формат пакета
-`[CMD:1][LEN:2][PAYLOAD:(LEN-5)][CRC16:2]`, где `LEN` — общее число байт в пакете.
-
-CRC16 (Modbus) считается по `CMD+LEN+PAYLOAD` (первые `LEN-2` байт).
-
-### Команды
-- `0x11` — запрос измерений (`GP_TOOL_DATA`, 240 байт)
-- `0x13` — запрос метрологии (`METROLOGY_DATA`, 240 байт)
-- `0x16` — запрос сигнатуры (`uint32_t`, 4 байта)
-- `0x12` — запись метрологии (квитанция; используется кнопкой "Записать в зонд")
-- `0x17` — запись `selected_key` (квитанция; используется кнопкой "Записать команду")
-
-С точки зрения runtime path:
-
-- основной realtime in-tree flow сейчас использует `RequestData(ParsedToolFrame& ...)` и `SetParsedDataCallback(...)`
-- GP-level перегрузки `RequestData(GP_TOOL_DATA& ...)` и `SetDataCallback(...)` остаются compatibility wrapper-ами
-
-### Тайминги (почему нужны ретраи)
-В методичке указано, что цикл измерения порядка **600 мс** — в этот момент прибор может не отвечать. Также Arduino-эмулятор часто перезагружается при открытии COM из-за DTR/RTS, поэтому первый запрос метрологии может таймаутиться — в приложении предусмотрены повторные попытки.
+Если какой-либо другой документ расходится с этим файлом, ориентироваться нужно на код и этот документ.
 

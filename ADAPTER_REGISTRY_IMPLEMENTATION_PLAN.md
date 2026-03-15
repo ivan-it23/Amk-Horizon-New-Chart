@@ -1,43 +1,55 @@
-# Adapter Registry Implementation Plan
+# Adapter Registry Migration Status
 
-## Goal
+## Current state summary
 
-Migrate AMK-Horizon-New-Chart from the current mixed raw-frame parsing approach to a long-lived architecture based on:
+Этот файл больше не является “живым пошаговым планом” в исходном смысле.  
+Сейчас он служит как **migration-status / archive** для уже выполненного перехода на adapter-driven архитектуру.
 
-- adapter registry
-- strategy-based per-format processing
-- capability-based feature checks
-- explicit separation of AUTONOM_5Tx and LWD_4Tx logic
-- future-safe extension path for new data structures
+Актуальная архитектурная картина:
 
-## Non-Negotiable Constraints
+`File / COM -> ToolDataAdapterRegistry -> ParsedToolFrame -> canonical GP_TOOL_DATA + ToolRecordMetadata -> ToolDataAccessView / MeasurementView -> chart / UI`
 
-- Existing application functionality must remain intact.
-- Current graph logic and user-visible behavior must not regress during migration.
-- File and COM input must continue working during intermediate stages.
-- Raw data formats must be explicitly separated instead of being mixed too early.
-- This document must be kept up to date during implementation.
-- Project currently targets `stdcpp14`, so the architecture must not depend on C++17-only language features.
-
-## Architecture Target
-
-### Core concepts to introduce
+Что уже считается внедрённым:
 
 - `ToolDataKind`
 - `ToolCapabilities`
-- Typed raw frame structures per format
 - `IToolDataAdapter`
 - `ToolDataAdapterRegistry`
-- Per-format adapters:
-  - `Autonom5TxAdapter`
-  - `Lwd4TxAdapter`
-- Stable access layer for upper-level calculations and charting
+- `Autonom5TxAdapter`
+- `Lwd4TxAdapter`
+- `ParsedToolFrame`
+- `ToolRecordMetadata`
+- `ToolDataAccessView`
+- `MeasurementView`
+- realtime ingest через `ParsedToolFrame`
+- range-analysis seam для будущей export policy
 
-### Long-term direction
+Что остаётся compatibility boundary:
 
-The final architecture should follow this pipeline:
+- canonical storage в `GP_TOOL_DATA`
+- export через `SaveDataRange(...)` в canonical `.bin`
+- публичные compatibility-only surface-ы:
+  - `DataModule::GetData()`
+  - `DataModule::ParseRawFrame(...)`
+  - `SerialModule::RequestData(GP_TOOL_DATA& ...)`
+  - `SerialModule::SetDataCallback(...)`
 
-`File/COM -> signature detection -> adapter registry -> typed adapter -> typed raw frame -> stable data access/view -> chart/calculation logic`
+Практический вывод:
+
+- scoped migration для текущего проекта фактически доведена до стабильного состояния;
+- оставшаяся работа — это не широкая архитектурная миграция, а аккуратное сопровождение compatibility boundaries и будущие policy-решения.
+
+## How to use this document now
+
+Используйте этот файл так:
+
+- **для current-state** — читайте только этот верхний summary и `PROJECT_STATUS.md`;
+- **для исторического контекста** — ниже можно смотреть подробный implementation log;
+- **не используйте** нижний лог как основной источник текущего поведения без сверки с кодом и обновлёнными current-state документами.
+
+## Historical implementation log
+
+Ниже сохранён детальный журнал миграции и безопасных narrowing-изменений. Он полезен как архив решений, но не должен трактоваться как главный current-state reference.
 
 ## Current State
 

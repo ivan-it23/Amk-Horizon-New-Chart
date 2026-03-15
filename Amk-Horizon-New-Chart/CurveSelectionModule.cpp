@@ -7,6 +7,7 @@
 #include <sstream>
 #include <cmath>
 #include <complex>
+#include <limits>
 
 namespace {
 constexpr float kMdegPerRad = 57295.7795f;
@@ -307,6 +308,80 @@ bool TryPrepareFullDataRange(const DataModule* dataModule, double& outMinX, doub
     return true;
 }
 
+bool ContainsColor(const std::vector<COLORREF>& colors, COLORREF color) {
+    return std::find(colors.begin(), colors.end(), color) != colors.end();
+}
+
+double CalculateColorDistance(COLORREF first, COLORREF second) {
+    const double r1 = static_cast<double>(GetRValue(first));
+    const double g1 = static_cast<double>(GetGValue(first));
+    const double b1 = static_cast<double>(GetBValue(first));
+    const double r2 = static_cast<double>(GetRValue(second));
+    const double g2 = static_cast<double>(GetGValue(second));
+    const double b2 = static_cast<double>(GetBValue(second));
+    const double rMean = (r1 + r2) * 0.5;
+    const double dr = r1 - r2;
+    const double dg = g1 - g2;
+    const double db = b1 - b2;
+
+    return std::sqrt((2.0 + rMean / 256.0) * dr * dr +
+                     4.0 * dg * dg +
+                     (2.0 + (255.0 - rMean) / 256.0) * db * db);
+}
+
+double GetMinColorDistance(COLORREF candidate, const std::vector<COLORREF>& usedColors) {
+    if (usedColors.empty()) {
+        return std::numeric_limits<double>::max();
+    }
+
+    double minDistance = std::numeric_limits<double>::max();
+    for (COLORREF usedColor : usedColors) {
+        minDistance = std::min(minDistance, CalculateColorDistance(candidate, usedColor));
+    }
+    return minDistance;
+}
+
+double HueToRgb(double p, double q, double t) {
+    if (t < 0.0) t += 1.0;
+    if (t > 1.0) t -= 1.0;
+    if (t < 1.0 / 6.0) return p + (q - p) * 6.0 * t;
+    if (t < 1.0 / 2.0) return q;
+    if (t < 2.0 / 3.0) return p + (q - p) * (2.0 / 3.0 - t) * 6.0;
+    return p;
+}
+
+COLORREF CreateHslColor(double hueDegrees, double saturation, double lightness) {
+    const double hue = std::fmod(hueDegrees, 360.0) / 360.0;
+
+    double r = lightness;
+    double g = lightness;
+    double b = lightness;
+
+    if (saturation > 0.0) {
+        const double q = lightness < 0.5
+            ? lightness * (1.0 + saturation)
+            : lightness + saturation - lightness * saturation;
+        const double p = 2.0 * lightness - q;
+        r = HueToRgb(p, q, hue + 1.0 / 3.0);
+        g = HueToRgb(p, q, hue);
+        b = HueToRgb(p, q, hue - 1.0 / 3.0);
+    }
+
+    return RGB(static_cast<int>(std::round(r * 255.0)),
+               static_cast<int>(std::round(g * 255.0)),
+               static_cast<int>(std::round(b * 255.0)));
+}
+
+COLORREF GenerateAdaptivePaletteColor(int index) {
+    static const double saturations[] = { 0.36, 0.42, 0.48 };
+    static const double lightnessValues[] = { 0.36, 0.42, 0.47, 0.40 };
+
+    const double hue = std::fmod(29.0 + 137.50776405 * static_cast<double>(index), 360.0);
+    const double saturation = saturations[index % (sizeof(saturations) / sizeof(saturations[0]))];
+    const double lightness = lightnessValues[(index / 3) % (sizeof(lightnessValues) / sizeof(lightnessValues[0]))];
+    return CreateHslColor(hue, saturation, lightness);
+}
+
 ChartConfiguration BuildPresetConfigurationBase(PresetType presetType) {
     ChartConfiguration config;
     config.Clear();
@@ -393,42 +468,40 @@ float InvertPhaseToRho(const METROLOGY_DATA& metrology, float targetPhase, int t
 // Определение стандартных цветов для кривых T1-T5
 // Цвета для левой оси (приоритетные цвета для T1-T5)
 const COLORREF CurveSelectionModule::LEFT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT] = {
-    // Спокойная "офисная" палитра (без неона), хорошо читается при множестве 1px линий.
-    RGB(0, 128, 0),      // T1 - тёмно-зелёный
-    RGB(139, 69, 19),    // T2 - коричневый
-    RGB(200, 50, 50),    // T3 - приглушённый красный
-    RGB(50, 90, 190),    // T4 - приглушённый синий
-    RGB(170, 80, 140)    // T5 - приглушённый пурпурный
+    RGB(64, 132, 92),
+    RGB(184, 160, 74),
+    RGB(168, 82, 82),
+    RGB(60, 108, 160),
+    RGB(122, 94, 146)
 };
 
 // Цвета для правой оси (альтернативные цвета для T1-T5)
 const COLORREF CurveSelectionModule::RIGHT_AXIS_COLORS[SchematicSelection::UI_TRANSMITTER_COUNT] = {
-    // Альтернативные цвета (в целом темнее/спокойнее), чтобы не "кричать" при двойной оси.
-    RGB(0, 110, 110),  // T1 - тёмно-бирюзовый
-    RGB(139, 69, 19),  // T2 - коричневый
-    RGB(160, 60, 60),  // T3 - тёмно-красный
-    RGB(150, 90, 140), // T4 - приглушённый розово-фиолетовый
-    RGB(200, 120, 40)  // T5 - приглушённый оранжево-коричневый
+    RGB(76, 140, 108),
+    RGB(168, 148, 88),
+    RGB(150, 92, 92),
+    RGB(76, 118, 168),
+    RGB(142, 90, 118)
 };
 
 // Специальные цвета для других типов данных
-const COLORREF CurveSelectionModule::SILENT_COLOR = RGB(120, 120, 120);      // Нейтральный серый для "Silent"
-const COLORREF CurveSelectionModule::TEMPERATURE_COLOR = RGB(214, 137, 44);  // Спокойный "оранжевый" для температуры
+const COLORREF CurveSelectionModule::SILENT_COLOR = RGB(123, 123, 123);      // Нейтральный серый для "Silent"
+const COLORREF CurveSelectionModule::TEMPERATURE_COLOR = RGB(176, 124, 68);  // Спокойный "оранжевый" для температуры
 
 // Расширенная палитра для умного назначения цветов (12 уникальных цветов)
 const COLORREF CurveSelectionModule::EXTENDED_PALETTE[12] = {
-    RGB(0, 128, 0),      // 0  - T1 (зелёный)
-    RGB(139, 69, 19),    // 1  - T2 (коричневый)
-    RGB(200, 50, 50),    // 2  - T3 (красный, мягкий)
-    RGB(50, 90, 190),    // 3  - T4 (синий, мягкий)
-    RGB(170, 80, 140),   // 4  - T5 (пурпурный, мягкий)
-    RGB(0, 110, 110),    // 5  - тёмно-бирюзовый
-    RGB(128, 128, 0),    // 6  - оливковый
-    RGB(90, 120, 160),   // 7  - стальной синий
-    RGB(0, 128, 128),    // 8  - бирюзовый
-    RGB(160, 80, 60),    // 9  - кирпичный
-    RGB(90, 70, 150),    // 10 - индиго (приглушённый)
-    RGB(120, 110, 60)    // 11 - хаки
+    RGB(64, 132, 92),
+    RGB(184, 160, 74),
+    RGB(168, 82, 82),
+    RGB(60, 108, 160),
+    RGB(122, 94, 146),
+    RGB(70, 128, 138),
+    RGB(126, 94, 152),
+    RGB(140, 94, 68),
+    RGB(96, 142, 82),
+    RGB(146, 86, 118),
+    RGB(84, 116, 134),
+    RGB(130, 108, 86)
 };
 
 // Старый массив для обратной совместимости (теперь не используется)
@@ -466,6 +539,7 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
         // (selection.silentTx[] используется даже в режиме пресета)
         if (selectedSilent > 0 && selectedReceivers == 0 && selectedTransmitters == 0) {
             AddSilentTransmitterCurves(curves, selection);
+            RefreshCurveColors(curves);
             return curves;
         }
 
@@ -543,15 +617,19 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
     // ИЗМЕНЕНО v2.6.2: Отключена сортировка, чтобы сохранить порядок добавления кривых
     // Теперь фазы добавляются первыми (более важны), затем амплитуды
     // SortCurvesByType(curves);
-    
+    RefreshCurveColors(curves);
     return curves;
 }
 
 void CurveSelectionModule::ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config) {
+    ChartConfiguration normalizedConfig = config;
+    RefreshCurveColors(normalizedConfig.curves);
+    normalizedConfig.UpdateAxisConfiguration();
+
     if (chartNumber == 1) {
-        chart1Config = config;
+        chart1Config = normalizedConfig;
     } else if (chartNumber == 2) {
-        chart2Config = config;
+        chart2Config = normalizedConfig;
     }
 }
 
@@ -1273,54 +1351,89 @@ COLORREF CurveSelectionModule::GetSpecialDataColor(DataType dataType) const {
 
 COLORREF CurveSelectionModule::AssignSmartColor(const std::vector<CurveDefinition>& existingCurves, 
                                                int transmitterIndex, int yAxisGroup) const {
-    // Собираем уже использованные цвета на ОБЕИХ осях
-    // ВАЖНО: Учитываем ВСЕ кривые (включенные и отключенные), чтобы избежать конфликтов
-    // ВАЖНО: Учитываем цвета с обеих осей, чтобы избежать совпадений между осями
     std::vector<COLORREF> usedColors;
+    usedColors.reserve(existingCurves.size());
     for (const auto& curve : existingCurves) {
-        // Собираем цвета со ВСЕХ осей, не только с текущей
         usedColors.push_back(curve.color);
     }
-    
-    // Проверяем, можно ли использовать приоритетный цвет для T1-T5 на левой оси
-    if (yAxisGroup == 0 && IsUiTransmitterIndex(transmitterIndex)) {
-        COLORREF priorityColor = LEFT_AXIS_COLORS[transmitterIndex];
-        
-        // Проверяем, не используется ли уже этот цвет
-        bool colorUsed = false;
-        for (COLORREF usedColor : usedColors) {
-            if (usedColor == priorityColor) {
-                colorUsed = true;
-                break;
-            }
+
+    const bool hasPreferredColor = IsUiTransmitterIndex(transmitterIndex);
+    const COLORREF preferredColor = hasPreferredColor
+        ? GetCurveColorForAxis(transmitterIndex, yAxisGroup)
+        : RGB(0, 0, 0);
+
+    if (hasPreferredColor && !ContainsColor(usedColors, preferredColor)) {
+        return preferredColor;
+    }
+
+    if (usedColors.empty()) {
+        return EXTENDED_PALETTE[0];
+    }
+
+    std::vector<COLORREF> candidates;
+    candidates.reserve(SchematicSelection::UI_TRANSMITTER_COUNT * 2 + 12 + 64);
+    auto appendCandidate = [&candidates](COLORREF color) {
+        if (!ContainsColor(candidates, color)) {
+            candidates.push_back(color);
         }
-        
-        // Если цвет свободен, используем приоритетный
-        if (!colorUsed) {
-            return priorityColor;
+    };
+
+    if (hasPreferredColor) {
+        appendCandidate(preferredColor);
+    }
+
+    for (int i = 0; i < SchematicSelection::UI_TRANSMITTER_COUNT; ++i) {
+        appendCandidate(LEFT_AXIS_COLORS[i]);
+        appendCandidate(RIGHT_AXIS_COLORS[i]);
+    }
+
+    for (int i = 0; i < 12; ++i) {
+        appendCandidate(EXTENDED_PALETTE[i]);
+    }
+
+    for (int i = 0; i < 64; ++i) {
+        appendCandidate(GenerateAdaptivePaletteColor(i));
+    }
+
+    COLORREF bestColor = candidates.empty() ? EXTENDED_PALETTE[0] : candidates.front();
+    double bestScore = -1.0;
+
+    for (COLORREF candidateColor : candidates) {
+        const double minDistance = GetMinColorDistance(candidateColor, usedColors);
+        double score = minDistance;
+
+        if (!ContainsColor(usedColors, candidateColor)) {
+            score += 10.0;
+        }
+
+        if (hasPreferredColor && candidateColor == preferredColor) {
+            score += 18.0;
+        }
+
+        if (score > bestScore) {
+            bestScore = score;
+            bestColor = candidateColor;
         }
     }
-    
-    // Если приоритетный цвет занят или это правая ось, ищем первый свободный из расширенной палитры
-    for (int i = 0; i < 12; i++) {
-        COLORREF candidateColor = EXTENDED_PALETTE[i];
-        
-        // Проверяем, не используется ли этот цвет НА ЛЮБОЙ ИЗ ОСЕЙ
-        bool colorUsed = false;
-        for (COLORREF usedColor : usedColors) {
-            if (usedColor == candidateColor) {
-                colorUsed = true;
-                break;
-            }
+
+    return bestColor;
+}
+
+void CurveSelectionModule::RefreshCurveColors(std::vector<CurveDefinition>& curves) const {
+    std::vector<CurveDefinition> assignedCurves;
+    assignedCurves.reserve(curves.size());
+
+    for (auto& curve : curves) {
+        if (curve.dataType == DataType::TEMPERATURE) {
+            curve.color = TEMPERATURE_COLOR;
+        } else {
+            const int colorTransmitterIndex =
+                (curve.sourceElement == ElementType::TRANSMITTER) ? curve.elementIndex : -1;
+            curve.color = AssignSmartColor(assignedCurves, colorTransmitterIndex, curve.yAxisGroup);
         }
-        
-        if (!colorUsed) {
-            return candidateColor;
-        }
+
+        assignedCurves.push_back(curve);
     }
-    
-    // Если все цвета заняты (маловероятно), возвращаем цвет по модулю
-    return EXTENDED_PALETTE[existingCurves.size() % 12];
 }
 
 int CurveSelectionModule::GetLineStyle(int yAxisGroup) const {
