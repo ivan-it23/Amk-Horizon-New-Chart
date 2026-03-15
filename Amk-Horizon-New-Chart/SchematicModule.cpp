@@ -473,6 +473,10 @@ void SchematicModule::ShowSchematicDialog(HWND parent, int chartNumber) {
     
     // Если окно уже существует, показываем и активируем его
     if (hSchematicDialog && IsWindow(hSchematicDialog)) {
+        // Обновляем заголовок окна в соответствии с текущим номером графика
+        std::wstring title = L"\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430 - \x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(targetChartNumber);
+        SetWindowText(hSchematicDialog, title.c_str());
+
         // Показываем окно (если оно было скрыто)
         ShowWindow(hSchematicDialog, SW_SHOW);
         
