@@ -380,6 +380,7 @@ SerialModule::SerialModule()
     , hasSessionFirstFrameNumber(false)
     , legacyPollInterval(1000)
     , stopLegacyPolling(false)
+    , pausePolling(false)
     , consecutivePollFailures(0)
     , nextReconnectAttemptTick(0)
     , connectionSessionId(0)
@@ -577,6 +578,7 @@ void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
     DebugLog4Tx("=== StartPolling: mode=%d, interval=%lu ms ===",
                 static_cast<int>(protocolMode), legacyPollInterval);
     stopLegacyPolling = false;
+    pausePolling = false;
     timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
     legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
 }
@@ -633,6 +635,12 @@ void SerialModule::LegacyPollingLoop() {
         const DWORD sleepInterval = (protocolMode == DeviceProtocolMode::LEGACY_4TX)
             ? legacyPollInterval
             : pollInterval;
+
+        // Polling приостановлен (метрологическая операция в процессе)
+        if (pausePolling) {
+            Sleep(50);
+            continue;
+        }
 
         if (!IsConnected()) {
             if (!TryReconnectCurrentPort()) {
@@ -972,7 +980,13 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         return SerialResult::NOT_CONNECTED;
     }
 
-    std::lock_guard<std::mutex> lock(ioMutex);
+    // Приостанавливаем polling на время чтения метрологии, чтобы избежать
+    // конфликтов на COM-порте (аналог metro_check в старом приложении).
+    const bool wasPaused = pausePolling.exchange(true);
+
+    SerialResult finalResult = SerialResult::TIMEOUT;
+    {
+        std::lock_guard<std::mutex> lock(ioMutex);
 
     auto applyMetrology = [this, &outData](const METROLOGY_DATA& data) {
         outData = data;
@@ -1079,33 +1093,37 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
     };
 
     if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
-        return requestModernMetrology();
+        finalResult = requestModernMetrology();
+    } else if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+        finalResult = requestLegacyMetrology();
+    } else {
+        DebugLog4Tx("RequestMetrology: protocolMode=UNKNOWN, trying modern first");
+        const SerialResult modernResult = requestModernMetrology();
+        if (modernResult == SerialResult::SUCCESS) {
+            protocolMode = DeviceProtocolMode::MODERN_5TX;
+            finalResult = modernResult;
+        } else {
+            // Modern не удался — сбрасываем буфер устройства (SendPacket отправил 5 байт,
+            // Arduino прочитал 4, 1 остался → отправляем 3 padding → Arduino читает 4 и отбрасывает)
+            DebugLog4Tx("RequestMetrology: modern failed, flushing device buffer");
+            FlushDeviceBufferAfterModernAttempt();
+
+            const SerialResult legacyResult = requestLegacyMetrology();
+            DebugLog4Tx("RequestMetrology: legacy result=%d", static_cast<int>(legacyResult));
+            if (legacyResult == SerialResult::SUCCESS) {
+                protocolMode = DeviceProtocolMode::LEGACY_4TX;
+                finalResult = legacyResult;
+            } else {
+                finalResult = modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
+            }
+        }
     }
+    } // lock scope
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        return requestLegacyMetrology();
+    if (!wasPaused) {
+        pausePolling = false;
     }
-
-    DebugLog4Tx("RequestMetrology: protocolMode=UNKNOWN, trying modern first");
-    const SerialResult modernResult = requestModernMetrology();
-    if (modernResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::MODERN_5TX;
-        return modernResult;
-    }
-
-    // Modern не удался — сбрасываем буфер устройства (SendPacket отправил 5 байт,
-    // Arduino прочитал 4, 1 остался → отправляем 3 padding → Arduino читает 4 и отбрасывает)
-    DebugLog4Tx("RequestMetrology: modern failed, flushing device buffer");
-    FlushDeviceBufferAfterModernAttempt();
-
-    const SerialResult legacyResult = requestLegacyMetrology();
-    DebugLog4Tx("RequestMetrology: legacy result=%d", static_cast<int>(legacyResult));
-    if (legacyResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::LEGACY_4TX;
-        return legacyResult;
-    }
-
-    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
+    return finalResult;
 }
 
 SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
@@ -1113,94 +1131,116 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
         return SerialResult::NOT_CONNECTED;
     }
 
-    std::lock_guard<std::mutex> lock(ioMutex);
+    // Приостанавливаем polling на время записи метрологии (аналог metro_check
+    // + ожидания busy_read_from_sonde + Sleep(2000) в старом стабильном приложении).
+    pausePolling = true;
 
-    // === Legacy 4Tx: использовать legacy протокол для записи ===
-    // Формат: [CMD=0x66][METROLOGY_DATA:240][CRC:2] = 243 байта + 1 padding = 244 (кратно 4)
-    // Arduino читает по 4 байта → 244/4 = 61 чтений, 0 остаток = чистый буфер
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        DebugLog4Tx("WriteMetrology: LEGACY_4TX, using legacy CMD=0x66");
+    SerialResult result;
+    {
+        std::lock_guard<std::mutex> lock(ioMutex);
+
+        // === Legacy 4Tx: использовать legacy протокол для записи ===
+        // Формат: [CMD=0x66][METROLOGY_DATA:240][CRC:2] = 243 байта + 1 padding = 244 (кратно 4)
+        // Arduino читает по 4 байта → 244/4 = 61 чтений, 0 остаток = чистый буфер
+        if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
+            DebugLog4Tx("WriteMetrology: LEGACY_4TX, using legacy CMD=0x66");
+            PurgeBuffers();
+
+            const size_t payloadSize = sizeof(METROLOGY_DATA);
+            // 1(CMD) + 240(METROLOGY) + 2(CRC) + 1(padding) = 244 байт = 4*61
+            std::vector<uint8_t> packet(1 + payloadSize + 2 + 1, 0x00);
+            packet[0] = 0x66; // CMD_WRITE_EE
+            memcpy(packet.data() + 1, &inData, payloadSize);
+            const uint16_t crc = CalculateCRC16(packet.data(), 1 + payloadSize);
+            packet[1 + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
+            packet[2 + payloadSize] = static_cast<uint8_t>(crc >> 8);
+            // packet[3 + payloadSize] = 0x00; // padding (уже 0)
+
+            DebugLog4Tx("WriteMetrology: sending %zu bytes (legacy), header: %s",
+                         packet.size(), HexDump(packet.data(), packet.size(), 8).c_str());
+
+            DWORD bytesWritten = 0;
+            if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr) ||
+                bytesWritten != packet.size()) {
+                DebugLog4Tx("WriteMetrology: WriteFile FAILED");
+                pausePolling = false;
+                return SerialResult::CONNECTION_FAILED;
+            }
+
+            // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
+            Sleep(500);
+
+            // Вычитываем и отбрасываем всё что Arduino мог отправить
+            // (при совпадении 0x67/0x65 в payload Arduino отправляет ответы)
+            PurgeBuffers();
+            DebugLog4Tx("WriteMetrology: legacy write done, buffers purged");
+
+            // Применяем метрологию локально (даже если прибор не подтвердил)
+            memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
+            hasMetrology = true;
+            HandleMetrologyUpdated();
+
+            if (onMetrologyReceived) {
+                onMetrologyReceived(metrology);
+            }
+            pausePolling = false;
+            return SerialResult::SUCCESS;
+        }
+
+        // === Modern 5Tx: стандартный modern протокол ===
         PurgeBuffers();
-
-        const size_t payloadSize = sizeof(METROLOGY_DATA);
-        // 1(CMD) + 240(METROLOGY) + 2(CRC) + 1(padding) = 244 байт = 4*61
-        std::vector<uint8_t> packet(1 + payloadSize + 2 + 1, 0x00);
-        packet[0] = 0x66; // CMD_WRITE_EE
-        memcpy(packet.data() + 1, &inData, payloadSize);
-        const uint16_t crc = CalculateCRC16(packet.data(), 1 + payloadSize);
-        packet[1 + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
-        packet[2 + payloadSize] = static_cast<uint8_t>(crc >> 8);
-        // packet[3 + payloadSize] = 0x00; // padding (уже 0)
-
-        DebugLog4Tx("WriteMetrology: sending %zu bytes (legacy), header: %s",
-                     packet.size(), HexDump(packet.data(), packet.size(), 8).c_str());
-
-        DWORD bytesWritten = 0;
-        if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr) ||
-            bytesWritten != packet.size()) {
-            DebugLog4Tx("WriteMetrology: WriteFile FAILED");
+        if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
+                        reinterpret_cast<const uint8_t*>(&inData),
+                        static_cast<uint16_t>(sizeof(METROLOGY_DATA)))) {
+            pausePolling = false;
             return SerialResult::CONNECTION_FAILED;
         }
 
-        // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
+        // Даём прибору время обработать команду (старое приложение: Sleep(500))
         Sleep(500);
 
-        // Вычитываем и отбрасываем всё что Arduino мог отправить
-        // (при совпадении 0x67/0x65 в payload Arduino отправляет ответы)
-        PurgeBuffers();
-        DebugLog4Tx("WriteMetrology: legacy write done, buffers purged");
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        if (!ReceivePacket(cmd, payload)) {
+            // Команда была отправлена; отсутствие ответа допустимо — применяем
+            // метрологию локально (аналог старого приложения, которое показывало
+            // успех/неудачу, но метрология применялась).
+            DebugLog4Tx("WriteMetrology: modern TIMEOUT, applying locally");
 
-        // Применяем метрологию локально (даже если прибор не подтвердил)
-        memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
-        hasMetrology = true;
-        HandleMetrologyUpdated();
+            memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
+            hasMetrology = true;
+            HandleMetrologyUpdated();
+            if (onMetrologyReceived) {
+                onMetrologyReceived(metrology);
+            }
 
-        if (onMetrologyReceived) {
-            onMetrologyReceived(metrology);
-        }
-        return SerialResult::SUCCESS;
-    }
+            result = SerialResult::SUCCESS;
+        } else if (cmd != SerialCommands::CMD_SET_METROLOGY) {
+            result = SerialResult::INVALID_RESPONSE;
+        } else {
+            METROLOGY_DATA applied = inData;
+            if (!payload.empty()) {
+                if (payload.size() == sizeof(METROLOGY_DATA)) {
+                    memcpy(&applied, payload.data(), sizeof(METROLOGY_DATA));
+                } else if (payload.size() != 1) {
+                    pausePolling = false;
+                    return SerialResult::INVALID_RESPONSE;
+                }
+            }
 
-    // === Modern 5Tx: стандартный modern протокол ===
-    PurgeBuffers();
-    if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
-                    reinterpret_cast<const uint8_t*>(&inData),
-                    static_cast<uint16_t>(sizeof(METROLOGY_DATA)))) {
-        return SerialResult::CONNECTION_FAILED;
-    }
+            memcpy(&metrology, &applied, sizeof(METROLOGY_DATA));
+            hasMetrology = true;
+            HandleMetrologyUpdated();
 
-    uint8_t cmd = 0;
-    std::vector<uint8_t> payload;
-    if (!ReceivePacket(cmd, payload)) {
-        // Modern не удался и protocolMode UNKNOWN — flush буфера
-        if (protocolMode == DeviceProtocolMode::UNKNOWN) {
-            DebugLog4Tx("WriteMetrology: modern TIMEOUT on UNKNOWN, flushing");
-            FlushDeviceBufferAfterModernAttempt();
-        }
-        return SerialResult::TIMEOUT;
-    }
-
-    if (cmd != SerialCommands::CMD_SET_METROLOGY) {
-        return SerialResult::INVALID_RESPONSE;
-    }
-
-    METROLOGY_DATA applied = inData;
-    if (!payload.empty()) {
-        if (payload.size() == sizeof(METROLOGY_DATA)) {
-            memcpy(&applied, payload.data(), sizeof(METROLOGY_DATA));
-        } else if (payload.size() != 1) {
-            return SerialResult::INVALID_RESPONSE;
+            if (onMetrologyReceived) {
+                onMetrologyReceived(metrology);
+            }
+            result = SerialResult::SUCCESS;
         }
     }
 
-    memcpy(&metrology, &applied, sizeof(METROLOGY_DATA));
-    hasMetrology = true;
-    HandleMetrologyUpdated();
-
-    if (onMetrologyReceived) {
-        onMetrologyReceived(metrology);
-    }
-    return SerialResult::SUCCESS;
+    pausePolling = false;
+    return result;
 }
 
 SerialResult SerialModule::SetSelectedKey(uint32_t key) {
@@ -1214,34 +1254,41 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
         return SerialResult::SUCCESS;
     }
 
-    std::lock_guard<std::mutex> lock(ioMutex);
-    PurgeBuffers();
-    if (!SendPacket(SerialCommands::CMD_SET_SELECTED_KEY,
-                    reinterpret_cast<const uint8_t*>(&key),
-                    static_cast<uint16_t>(sizeof(uint32_t)))) {
-        return SerialResult::CONNECTION_FAILED;
-    }
+    // Приостанавливаем polling на время отправки команды (аналог metro_check
+    // + ожидания busy_read_from_sonde в старом стабильном приложении).
+    pausePolling = true;
 
-    uint8_t cmd = 0;
-    std::vector<uint8_t> payload;
-    if (!ReceivePacket(cmd, payload)) {
-        // Modern не удался и protocolMode UNKNOWN — flush буфера
-        if (protocolMode == DeviceProtocolMode::UNKNOWN) {
-            DebugLog4Tx("SetSelectedKey: modern TIMEOUT on UNKNOWN, flushing");
-            FlushDeviceBufferAfterModernAttempt();
+    SerialResult result;
+    {
+        std::lock_guard<std::mutex> lock(ioMutex);
+        PurgeBuffers();
+
+        if (!SendPacket(SerialCommands::CMD_SET_SELECTED_KEY,
+                        reinterpret_cast<const uint8_t*>(&key),
+                        static_cast<uint16_t>(sizeof(uint32_t)))) {
+            pausePolling = false;
+            return SerialResult::CONNECTION_FAILED;
         }
-        return SerialResult::TIMEOUT;
+
+        // Даём прибору время обработать команду (старое приложение: Sleep(150))
+        Sleep(150);
+
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        if (!ReceivePacket(cmd, payload)) {
+            // Команда была отправлена; отсутствие ответа не считается ошибкой
+            // для CMD 0x17 (квитанция — прибор может не отвечать).
+            DebugLog4Tx("SetSelectedKey: no response (timeout), treating as success");
+            result = SerialResult::SUCCESS;
+        } else if (cmd != SerialCommands::CMD_SET_SELECTED_KEY) {
+            result = SerialResult::INVALID_RESPONSE;
+        } else {
+            result = SerialResult::SUCCESS;
+        }
     }
 
-    if (cmd != SerialCommands::CMD_SET_SELECTED_KEY) {
-        return SerialResult::INVALID_RESPONSE;
-    }
-
-    if (!payload.empty() && payload.size() != 1) {
-        return SerialResult::INVALID_RESPONSE;
-    }
-
-    return SerialResult::SUCCESS;
+    pausePolling = false;
+    return result;
 }
 
 SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {

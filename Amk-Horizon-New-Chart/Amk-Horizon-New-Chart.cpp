@@ -1192,9 +1192,9 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                     return (INT_PTR)TRUE;
                 }
                 int res = MessageBox(hDlg,
-                                     L"Записать метрологию в зонд?\nПо умолчанию Cancel.",
+                                     L"Записать метрологию в зонд?",
                                      L"Подтверждение",
-                                     MB_OKCANCEL | MB_ICONWARNING | MB_DEFBUTTON2);
+                                     MB_OKCANCEL | MB_ICONQUESTION);
                 if (res != IDOK) return (INT_PTR)TRUE;
 
                 METROLOGY_DATA tmp = ctx->metro->Get();

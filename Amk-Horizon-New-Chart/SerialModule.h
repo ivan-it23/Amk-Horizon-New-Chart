@@ -110,6 +110,7 @@ private:
     DWORD legacyPollInterval;
     std::thread legacyPollingThread;
     std::atomic<bool> stopLegacyPolling;
+    std::atomic<bool> pausePolling;
     std::mutex pendingPollEventsMutex;
     std::deque<PendingPollEvent> pendingPollEvents;
     std::atomic<uint32_t> consecutivePollFailures;
