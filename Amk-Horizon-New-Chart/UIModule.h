@@ -91,6 +91,10 @@ private:
     HWND hChart1ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 1
     HWND hChart2ShowNotesCheck; // Checkbox "Отображение заметок" для Chart 2
 
+    // === Переключатель цели Y-zoom для dual-axis (v2.18.0) ===
+    HWND hChart1YZoomTargetCombo;  // ComboBox для Chart 1
+    HWND hChart2YZoomTargetCombo;  // ComboBox для Chart 2
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -190,6 +194,12 @@ public:
     
     // Обновление статусной строки с информацией о Surf
     void UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window);
+
+    // === Управление переключателем цели Y-zoom (v2.18.0) ===
+    int GetYZoomTargetIndex(int chartNumber) const;   // 0=Обе, 1=Лево, 2=Право
+    void SetYZoomTargetIndex(int chartNumber, int index);
+    void ShowYZoomTargetCombo(int chartNumber, bool show);
+    HWND GetYZoomTargetCombo(int chartNumber) const;
 
     // Обработка Owner-Draw кнопок
     void DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem);

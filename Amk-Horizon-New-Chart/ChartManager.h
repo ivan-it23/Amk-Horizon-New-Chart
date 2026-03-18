@@ -24,6 +24,13 @@ struct CurveDefinition;
 struct ChartConfiguration;
 enum class PresetType;
 
+// v2.18.0: Цель Y-zoom при dual-axis
+enum class YZoomTarget {
+    BOTH,        // Zoom обеих осей Y (по умолчанию, и для single-axis)
+    LEFT_ONLY,   // Zoom только левой оси Y (амплитуды)
+    RIGHT_ONLY   // Zoom только правой оси Y (фазы)
+};
+
 // Главный класс приложения с модульной архитектурой
 class ChartManager {
 private:
@@ -101,6 +108,10 @@ private:
     // Независимые диапазоны масштабирования для каждого графика
     ZoomRange chart1Zoom;
     ZoomRange chart2Zoom;
+    
+    // v2.18.0: Цель Y-zoom для dual-axis режима (per-chart)
+    YZoomTarget chart1YZoomTarget = YZoomTarget::BOTH;
+    YZoomTarget chart2YZoomTarget = YZoomTarget::BOTH;
     
     // v2.12.5: История zoom для пошагового отката (стек состояний)
     std::vector<ZoomRange> chart1ZoomHistory;
@@ -336,6 +347,12 @@ private:
     void EndSelectionOverlay();
     void RestoreSelectionBackground(HDC hdc, const RECT& screenRect);
     void DrawSelectionOverlay(HDC hdc, const RECT& screenRect);
+
+    // v2.18.0: Получить эффективную цель Y-zoom для графика
+    // Возвращает BOTH для single-axis, иначе — значение из UI
+    YZoomTarget GetEffectiveYZoomTarget(int chartNumber) const;
+    // v2.18.0: Обновить видимость ComboBox Y-zoom target по конфигурации кривых
+    void UpdateYZoomTargetVisibility(int chartNumber);
 
     // Вспомогательные методы для независимого управления zoom по осям
     void PushAxisHistory(int chartNumber);

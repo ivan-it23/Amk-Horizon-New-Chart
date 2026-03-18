@@ -665,6 +665,9 @@ ChartManager::ChartManager()
                     }
                 }
                 
+                // v2.18.0: Обновляем видимость ComboBox Y-zoom target
+                UpdateYZoomTargetVisibility(chartNumber);
+
                 // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёР№ РіСЂР°С„РёРє
                 InvalidateChart(hMainWnd, chartNumber);
             }
@@ -1045,6 +1048,30 @@ void ChartManager::AutoFitYForCurrentX(int chartNumber) {
     zoom->maxY = maxYData + padding;
     zoom->isYCustom = false;
     ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
+}
+
+// v2.18.0: Получить эффективную цель Y-zoom для графика.
+// Для single-axis всегда возвращает BOTH, для dual-axis — значение из UI ComboBox.
+YZoomTarget ChartManager::GetEffectiveYZoomTarget(int chartNumber) const {
+    if (!curveSelectionModule || !uiModule) return YZoomTarget::BOTH;
+
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+    if (!config.hasDualAxis) return YZoomTarget::BOTH;
+
+    int idx = uiModule->GetYZoomTargetIndex(chartNumber);
+    switch (idx) {
+        case 1: return YZoomTarget::LEFT_ONLY;
+        case 2: return YZoomTarget::RIGHT_ONLY;
+        default: return YZoomTarget::BOTH;
+    }
+}
+
+// v2.18.0: Обновить видимость ComboBox Y-zoom target по конфигурации кривых.
+void ChartManager::UpdateYZoomTargetVisibility(int chartNumber) {
+    if (!curveSelectionModule || !uiModule) return;
+
+    ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
+    uiModule->ShowYZoomTargetCombo(chartNumber, config.hasDualAxis);
 }
 
 void ChartManager::EnsureNotesLoadedForPath(const std::wstring& notesPath) {
@@ -1674,6 +1701,10 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
                 UpdateSurfStatusBar();
             }
 
+            // v2.18.0: Обновляем видимость ComboBox Y-zoom target после загрузки файла
+            UpdateYZoomTargetVisibility(1);
+            UpdateYZoomTargetVisibility(2);
+
             ScheduleVisibleChartsWarmup(hWnd);
             UpdateScrollBars(hWnd);
             InvalidateRect(hWnd, nullptr, TRUE);
@@ -1912,7 +1943,26 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
                 InvalidateChart(hWnd, 2);
             }
             return true;
-            
+
+        // === v2.18.0: Переключатель цели Y-zoom ===
+        case IDC_CHART1_YZOOM_TARGET_COMBO:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int idx = uiModule->GetYZoomTargetIndex(1);
+                chart1YZoomTarget = (idx == 1) ? YZoomTarget::LEFT_ONLY
+                                  : (idx == 2) ? YZoomTarget::RIGHT_ONLY
+                                  : YZoomTarget::BOTH;
+            }
+            return true;
+
+        case IDC_CHART2_YZOOM_TARGET_COMBO:
+            if (HIWORD(wParam) == CBN_SELCHANGE) {
+                int idx = uiModule->GetYZoomTargetIndex(2);
+                chart2YZoomTarget = (idx == 1) ? YZoomTarget::LEFT_ONLY
+                                  : (idx == 2) ? YZoomTarget::RIGHT_ONLY
+                                  : YZoomTarget::BOTH;
+            }
+            return true;
+
         default:
             // РџРµСЂРµРґР°РµРј РѕСЃС‚Р°Р»СЊРЅС‹Рµ РєРѕРјР°РЅРґС‹ РІ UIModule
             needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
@@ -2189,19 +2239,27 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 return;
             }
             
+            // v2.18.0: Определяем цель Y-zoom
+            const YZoomTarget yTarget = GetEffectiveYZoomTarget(activeChart);
+            const bool hasDualRightData = minCornerHasDualAxis && maxCornerHasDualAxis;
+
             if (activeChart == 1) {
                 chart1ZoomHistory.push_back(chart1Zoom);
                 PushAxisHistory(1);
                 chart1Zoom.minX = surfMinX;
                 chart1Zoom.maxX = surfMaxX;
-                chart1Zoom.minY = minDataY;
-                chart1Zoom.maxY = maxDataY;
-                SetExplicitRightAxisRange(chart1Zoom.minYRight,
-                                          chart1Zoom.maxYRight,
-                                          chart1Zoom.hasRightAxisCustomRange,
-                                          minCornerHasDualAxis && maxCornerHasDualAxis,
-                                          minDataYRight,
-                                          maxDataYRight);
+                if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                    chart1Zoom.minY = minDataY;
+                    chart1Zoom.maxY = maxDataY;
+                }
+                if (yTarget != YZoomTarget::LEFT_ONLY) {
+                    SetExplicitRightAxisRange(chart1Zoom.minYRight,
+                                              chart1Zoom.maxYRight,
+                                              chart1Zoom.hasRightAxisCustomRange,
+                                              hasDualRightData,
+                                              minDataYRight,
+                                              maxDataYRight);
+                }
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = false;
                 chart1Zoom.hasXRangeLock = false;
@@ -2212,14 +2270,18 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 PushAxisHistory(2);
                 chart2Zoom.minX = surfMinX;
                 chart2Zoom.maxX = surfMaxX;
-                chart2Zoom.minY = minDataY;
-                chart2Zoom.maxY = maxDataY;
-                SetExplicitRightAxisRange(chart2Zoom.minYRight,
-                                          chart2Zoom.maxYRight,
-                                          chart2Zoom.hasRightAxisCustomRange,
-                                          minCornerHasDualAxis && maxCornerHasDualAxis,
-                                          minDataYRight,
-                                          maxDataYRight);
+                if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                    chart2Zoom.minY = minDataY;
+                    chart2Zoom.maxY = maxDataY;
+                }
+                if (yTarget != YZoomTarget::LEFT_ONLY) {
+                    SetExplicitRightAxisRange(chart2Zoom.minYRight,
+                                              chart2Zoom.maxYRight,
+                                              chart2Zoom.hasRightAxisCustomRange,
+                                              hasDualRightData,
+                                              minDataYRight,
+                                              maxDataYRight);
+                }
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = false;
                 chart2Zoom.hasXRangeLock = false;
@@ -2240,19 +2302,27 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             // v2.14.0: РћРіСЂР°РЅРёС‡РёРІР°РµРј zoom РѕР±Р»Р°СЃС‚СЊСЋ Surf, РµСЃР»Рё СЂРµР¶РёРј Surf Р°РєС‚РёРІРµРЅ (РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№)
             // (РІ СЌС‚РѕР№ РІРµС‚РєРµ surfEnabled == false, РЅРѕ РѕСЃС‚Р°РІР»СЏРµРј Р»РѕРіРёРєСѓ Р±СѓРґСѓС‰РµР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
             
+            // v2.18.0: Определяем цель Y-zoom
+            const YZoomTarget yTarget = GetEffectiveYZoomTarget(activeChart);
+            const bool hasDualRightData = minCornerHasDualAxis && maxCornerHasDualAxis;
+
             if (activeChart == 1) {
                 chart1ZoomHistory.push_back(chart1Zoom);
                 PushAxisHistory(1);
                 chart1Zoom.minX = minDataX;
                 chart1Zoom.maxX = maxDataX;
-                chart1Zoom.minY = minDataY;
-                chart1Zoom.maxY = maxDataY;
-                SetExplicitRightAxisRange(chart1Zoom.minYRight,
-                                          chart1Zoom.maxYRight,
-                                          chart1Zoom.hasRightAxisCustomRange,
-                                          minCornerHasDualAxis && maxCornerHasDualAxis,
-                                          minDataYRight,
-                                          maxDataYRight);
+                if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                    chart1Zoom.minY = minDataY;
+                    chart1Zoom.maxY = maxDataY;
+                }
+                if (yTarget != YZoomTarget::LEFT_ONLY) {
+                    SetExplicitRightAxisRange(chart1Zoom.minYRight,
+                                              chart1Zoom.maxYRight,
+                                              chart1Zoom.hasRightAxisCustomRange,
+                                              hasDualRightData,
+                                              minDataYRight,
+                                              maxDataYRight);
+                }
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = true;
                 chart1Zoom.hasXRangeLock = false;
@@ -2262,14 +2332,18 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 PushAxisHistory(2);
                 chart2Zoom.minX = minDataX;
                 chart2Zoom.maxX = maxDataX;
-                chart2Zoom.minY = minDataY;
-                chart2Zoom.maxY = maxDataY;
-                SetExplicitRightAxisRange(chart2Zoom.minYRight,
-                                          chart2Zoom.maxYRight,
-                                          chart2Zoom.hasRightAxisCustomRange,
-                                          minCornerHasDualAxis && maxCornerHasDualAxis,
-                                          minDataYRight,
-                                          maxDataYRight);
+                if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                    chart2Zoom.minY = minDataY;
+                    chart2Zoom.maxY = maxDataY;
+                }
+                if (yTarget != YZoomTarget::LEFT_ONLY) {
+                    SetExplicitRightAxisRange(chart2Zoom.minYRight,
+                                              chart2Zoom.maxYRight,
+                                              chart2Zoom.hasRightAxisCustomRange,
+                                              hasDualRightData,
+                                              minDataYRight,
+                                              maxDataYRight);
+                }
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = true;
                 chart2Zoom.hasXRangeLock = false;
@@ -2687,14 +2761,22 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         // newPos = 0 РѕР·РЅР°С‡Р°РµС‚ РІРµСЂС… (РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ Y)
         // newPos = maxScrollPos РѕР·РЅР°С‡Р°РµС‚ РЅРёР· (РјРёРЅРёРјР°Р»СЊРЅС‹Р№ Y)
         // РЈС‡РёС‚С‹РІР°РµРј, С‡С‚Рѕ РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РїРѕР·РёС†РёСЏ СЃРєСЂРѕР»Р»Р±Р°СЂР° = nMax - nPage + 1
+        // v2.18.0: Определяем цель Y-zoom для раздельного скроллинга осей
+        const YZoomTarget yTarget = GetEffectiveYZoomTarget(chartNumber);
+
         if (totalYRange > viewYRange && totalYRange > 0) {
             int maxScrollPos = si.nMax - (int)si.nPage + 1;
             double scrollRatio = (maxScrollPos > 0) ? (double)(maxScrollPos - newPos) / (double)maxScrollPos : 0.0;
-            double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
-            zoom->minY = newMinY;
-            zoom->maxY = newMinY + viewYRange;
 
-            if (zoom->hasRightAxisCustomRange && maxY2 > minY2) {
+            // v2.18.0: Скроллим левую ось только если цель не RIGHT_ONLY
+            if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
+                zoom->minY = newMinY;
+                zoom->maxY = newMinY + viewYRange;
+            }
+
+            // v2.18.0: Скроллим правую ось только если цель не LEFT_ONLY
+            if (yTarget != YZoomTarget::LEFT_ONLY && zoom->hasRightAxisCustomRange && maxY2 > minY2) {
                 double minYFullRight = minY2;
                 double maxYFullRight = maxY2;
                 double dataYRangeRight = maxYFullRight - minYFullRight;
@@ -3346,6 +3428,9 @@ void ChartManager::UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumbe
 
     uiModule->ResetXRangeControls(chartNumber);
     
+    // v2.18.0: Обновляем видимость ComboBox Y-zoom target
+    UpdateYZoomTargetVisibility(chartNumber);
+
     // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹
     ScheduleAsyncCurveSnapshotWarmup(hWnd, chartNumber, curveSelectionModule->GetChartConfiguration(chartNumber), (chartNumber == 1) ? chart1Zoom : chart2Zoom);
     UpdateScrollBars(hWnd);

@@ -167,6 +167,10 @@
 #define IDC_CHART1_UNDO_ZOOM_BTN   1110
 #define IDC_CHART2_UNDO_ZOOM_BTN   1111
 
+// === Переключатель цели Y-zoom для dual-axis (v2.18.0) ===
+#define IDC_CHART1_YZOOM_TARGET_COMBO  1115
+#define IDC_CHART2_YZOOM_TARGET_COMBO  1116
+
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092
 
