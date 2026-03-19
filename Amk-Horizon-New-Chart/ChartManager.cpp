@@ -2154,16 +2154,6 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                            maxScreenY);
 
         if (maxScreenX - minScreenX <= 10 || maxScreenY - minScreenY <= 10) {
-            AppendDebugLog(L"[ZoomApply] chart=%d ignored rawRect=[(%d,%d)-(%d,%d)] clampedRect=[(%d,%d)-(%d,%d)]\r\n",
-                           activeChart,
-                           rawMinScreenX,
-                           rawMinScreenY,
-                           rawMaxScreenX,
-                           rawMaxScreenY,
-                           minScreenX,
-                           minScreenY,
-                           maxScreenX,
-                           maxScreenY);
             UpdateScrollBars(hWnd);
             if (activeChart > 0) {
                 InvalidateChart(hWnd, activeChart);
@@ -2199,27 +2189,53 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             ConvertScreenToDataCoords(activeChart, maxScreenX, minScreenY, maxDataX, maxDataY);
         }
 
-        AppendDebugLog(L"[ZoomApply] chart=%d rawRect=[(%d,%d)-(%d,%d)] clampedRect=[(%d,%d)-(%d,%d)] dataRect=[x %.3f..%.3f y1 %.3f..%.3f y2 %.3f..%.3f dual=%d]\r\n",
-                       activeChart,
-                       rawMinScreenX,
-                       rawMinScreenY,
-                       rawMaxScreenX,
-                       rawMaxScreenY,
-                       minScreenX,
-                       minScreenY,
-                       maxScreenX,
-                       maxScreenY,
-                       minDataX,
-                       maxDataX,
-                       minDataY,
-                       maxDataY,
-                       minDataYRight,
-                       maxDataYRight,
-                       minCornerHasDualAxis && maxCornerHasDualAxis ? 1 : 0);
-        
         const double MIN_X_RANGE = 10.0;
         const double MIN_Y_RANGE = 10.0;
-        
+
+        // v2.18.0: Определяем цель Y-zoom и вычисляем "заморозку" нецелевой оси
+        const YZoomTarget yTarget = GetEffectiveYZoomTarget(activeChart);
+        const bool hasDualRightData = minCornerHasDualAxis && maxCornerHasDualAxis;
+
+        // При LEFT_ONLY/RIGHT_ONLY zoom нужно "заморозить" нецелевую ось,
+        // иначе BuildDisplayedRightAxisRange пропорционально пересчитает правую ось
+        // по новому диапазону левой (или наоборот).
+        double frozenLeftMin = 0, frozenLeftMax = 0;
+        double frozenRightMin = 0, frozenRightMax = 0;
+        bool needFreezeRight = false, needFreezeLeft = false;
+
+        if (yTarget != YZoomTarget::BOTH) {
+            ZoomRange* currentZoom = (activeChart == 1) ? &chart1Zoom : &chart2Zoom;
+            ChartConfiguration frozenConfig = GetChartConfiguration(activeChart);
+            const CachedCurveSnapshot* frozenSnap = nullptr;
+            if (!frozenConfig.curves.empty() &&
+                TryGetCurveSnapshot(activeChart, frozenConfig, *currentZoom, !ShouldUseAsyncCurveWarmup(), frozenSnap)) {
+
+                if (yTarget == YZoomTarget::LEFT_ONLY && !frozenSnap->rightAxisData.empty()) {
+                    // Вычисляем текущий отображаемый диапазон правой оси и замораживаем его
+                    double padLeftMin = currentZoom->isYCustom ? currentZoom->minY : frozenSnap->minY1;
+                    double padLeftMax = currentZoom->isYCustom ? currentZoom->maxY : frozenSnap->maxY1;
+                    if (currentZoom->isYCustom) ApplyDisplayYPadding(padLeftMin, padLeftMax);
+                    frozenRightMin = frozenSnap->minY2;
+                    frozenRightMax = frozenSnap->maxY2;
+                    BuildDisplayedRightAxisRange(currentZoom->isYCustom,
+                                                 currentZoom->hasRightAxisCustomRange,
+                                                 currentZoom->minYRight, currentZoom->maxYRight,
+                                                 frozenSnap->minY1, frozenSnap->maxY1,
+                                                 frozenSnap->minY2, frozenSnap->maxY2,
+                                                 padLeftMin, padLeftMax,
+                                                 frozenRightMin, frozenRightMax);
+                    needFreezeRight = true;
+                }
+
+                if (yTarget == YZoomTarget::RIGHT_ONLY) {
+                    // Вычисляем текущий отображаемый диапазон левой оси и замораживаем его
+                    frozenLeftMin = currentZoom->isYCustom ? currentZoom->minY : frozenSnap->minY1;
+                    frozenLeftMax = currentZoom->isYCustom ? currentZoom->maxY : frozenSnap->maxY1;
+                    needFreezeLeft = true;
+                }
+            }
+        }
+
         // Surf ON: zoom С‚РѕР»СЊРєРѕ РїРѕ РѕСЃРё Y, X РІСЃРµРіРґР° С„РёРєСЃРёСЂРѕРІР°РЅ РЅР° РѕРєРЅРµ Surf (РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє).
         if (surfEnabled) {
             // Р¤РёРєСЃРёСЂСѓРµРј X РґРёР°РїР°Р·РѕРЅ РЅР° РѕРєРЅРѕ Surf (РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє)
@@ -2239,10 +2255,6 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 return;
             }
             
-            // v2.18.0: Определяем цель Y-zoom
-            const YZoomTarget yTarget = GetEffectiveYZoomTarget(activeChart);
-            const bool hasDualRightData = minCornerHasDualAxis && maxCornerHasDualAxis;
-
             if (activeChart == 1) {
                 chart1ZoomHistory.push_back(chart1Zoom);
                 PushAxisHistory(1);
@@ -2251,6 +2263,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 if (yTarget != YZoomTarget::RIGHT_ONLY) {
                     chart1Zoom.minY = minDataY;
                     chart1Zoom.maxY = maxDataY;
+                } else if (needFreezeLeft) {
+                    chart1Zoom.minY = frozenLeftMin;
+                    chart1Zoom.maxY = frozenLeftMax;
                 }
                 if (yTarget != YZoomTarget::LEFT_ONLY) {
                     SetExplicitRightAxisRange(chart1Zoom.minYRight,
@@ -2259,6 +2274,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                               hasDualRightData,
                                               minDataYRight,
                                               maxDataYRight);
+                } else if (needFreezeRight) {
+                    chart1Zoom.minYRight = frozenRightMin;
+                    chart1Zoom.maxYRight = frozenRightMax;
+                    chart1Zoom.hasRightAxisCustomRange = true;
                 }
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = false;
@@ -2273,6 +2292,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 if (yTarget != YZoomTarget::RIGHT_ONLY) {
                     chart2Zoom.minY = minDataY;
                     chart2Zoom.maxY = maxDataY;
+                } else if (needFreezeLeft) {
+                    chart2Zoom.minY = frozenLeftMin;
+                    chart2Zoom.maxY = frozenLeftMax;
                 }
                 if (yTarget != YZoomTarget::LEFT_ONLY) {
                     SetExplicitRightAxisRange(chart2Zoom.minYRight,
@@ -2281,6 +2303,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                               hasDualRightData,
                                               minDataYRight,
                                               maxDataYRight);
+                } else if (needFreezeRight) {
+                    chart2Zoom.minYRight = frozenRightMin;
+                    chart2Zoom.maxYRight = frozenRightMax;
+                    chart2Zoom.hasRightAxisCustomRange = true;
                 }
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = false;
@@ -2302,10 +2328,6 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             // v2.14.0: РћРіСЂР°РЅРёС‡РёРІР°РµРј zoom РѕР±Р»Р°СЃС‚СЊСЋ Surf, РµСЃР»Рё СЂРµР¶РёРј Surf Р°РєС‚РёРІРµРЅ (РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№)
             // (РІ СЌС‚РѕР№ РІРµС‚РєРµ surfEnabled == false, РЅРѕ РѕСЃС‚Р°РІР»СЏРµРј Р»РѕРіРёРєСѓ Р±СѓРґСѓС‰РµР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
             
-            // v2.18.0: Определяем цель Y-zoom
-            const YZoomTarget yTarget = GetEffectiveYZoomTarget(activeChart);
-            const bool hasDualRightData = minCornerHasDualAxis && maxCornerHasDualAxis;
-
             if (activeChart == 1) {
                 chart1ZoomHistory.push_back(chart1Zoom);
                 PushAxisHistory(1);
@@ -2314,6 +2336,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 if (yTarget != YZoomTarget::RIGHT_ONLY) {
                     chart1Zoom.minY = minDataY;
                     chart1Zoom.maxY = maxDataY;
+                } else if (needFreezeLeft) {
+                    chart1Zoom.minY = frozenLeftMin;
+                    chart1Zoom.maxY = frozenLeftMax;
                 }
                 if (yTarget != YZoomTarget::LEFT_ONLY) {
                     SetExplicitRightAxisRange(chart1Zoom.minYRight,
@@ -2322,6 +2347,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                               hasDualRightData,
                                               minDataYRight,
                                               maxDataYRight);
+                } else if (needFreezeRight) {
+                    chart1Zoom.minYRight = frozenRightMin;
+                    chart1Zoom.maxYRight = frozenRightMax;
+                    chart1Zoom.hasRightAxisCustomRange = true;
                 }
                 chart1Zoom.isZoomed = true;
                 chart1Zoom.isXCustom = true;
@@ -2335,6 +2364,9 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 if (yTarget != YZoomTarget::RIGHT_ONLY) {
                     chart2Zoom.minY = minDataY;
                     chart2Zoom.maxY = maxDataY;
+                } else if (needFreezeLeft) {
+                    chart2Zoom.minY = frozenLeftMin;
+                    chart2Zoom.maxY = frozenLeftMax;
                 }
                 if (yTarget != YZoomTarget::LEFT_ONLY) {
                     SetExplicitRightAxisRange(chart2Zoom.minYRight,
@@ -2343,6 +2375,10 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                               hasDualRightData,
                                               minDataYRight,
                                               maxDataYRight);
+                } else if (needFreezeRight) {
+                    chart2Zoom.minYRight = frozenRightMin;
+                    chart2Zoom.maxYRight = frozenRightMax;
+                    chart2Zoom.hasRightAxisCustomRange = true;
                 }
                 chart2Zoom.isZoomed = true;
                 chart2Zoom.isXCustom = true;
@@ -2757,6 +2793,16 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         double totalYRange = maxYFull - minYFull;
         double viewYRange = zoom->maxY - zoom->minY;
         
+        // v2.18.0: В dual-axis режиме zoom-view может превышать диапазон данных одной оси.
+        // Расширяем scrollable range СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ.
+        if (totalYRange <= viewYRange && viewYRange > 0) {
+            double dataCenter = (minYFull + maxYFull) / 2.0;
+            double expandedHalf = viewYRange * 0.75;
+            minYFull = dataCenter - expandedHalf;
+            maxYFull = dataCenter + expandedHalf;
+            totalYRange = maxYFull - minYFull;
+        }
+        
         // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ РёРЅРІРµСЂС‚РёСЂРѕРІР°РЅ (РІРµСЂС… = 0, РЅРёР· = 100)
         // newPos = 0 РѕР·РЅР°С‡Р°РµС‚ РІРµСЂС… (РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ Y)
         // newPos = maxScrollPos РѕР·РЅР°С‡Р°РµС‚ РЅРёР· (РјРёРЅРёРјР°Р»СЊРЅС‹Р№ Y)
@@ -2786,6 +2832,14 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 
                 double totalYRangeRight = maxYFullRight - minYFullRight;
                 double viewYRangeRight = zoom->maxYRight - zoom->minYRight;
+                // v2.18.0: Расширяем scrollable range правой оси СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ.
+                if (totalYRangeRight <= viewYRangeRight && viewYRangeRight > 0.0) {
+                    double dataCenterR = (minYFullRight + maxYFullRight) / 2.0;
+                    double expandedHalfR = viewYRangeRight * 0.75;
+                    minYFullRight = dataCenterR - expandedHalfR;
+                    maxYFullRight = dataCenterR + expandedHalfR;
+                    totalYRangeRight = maxYFullRight - minYFullRight;
+                }
                 if (totalYRangeRight > viewYRangeRight && totalYRangeRight > 0.0) {
                     double newMinYRight = minYFullRight + scrollRatio * (totalYRangeRight - viewYRangeRight);
                     zoom->minYRight = newMinYRight;
@@ -2793,6 +2847,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
                 }
             }
         }
+
     } else {
         // Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»РёРЅРі (РѕСЃСЊ X)
         double totalRange = xLockMax - xLockMin;
@@ -2941,9 +2996,23 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             ScheduleAsyncCurveSnapshotWarmup(hWnd, 1, config, chart1Zoom);
             uiModule->SetVScrollBarRange(1, 0, 100, 100, 50);
         } else {
-            double minYFull = curveSnapshot->minY1;
-            double maxYFull = curveSnapshot->maxY1;
-            
+            // v2.18.0: Определяем целевую ось для V-скроллбара
+            const YZoomTarget yTarget1 = GetEffectiveYZoomTarget(1);
+            const bool useRightAxis1 = (yTarget1 == YZoomTarget::RIGHT_ONLY)
+                                       && chart1Zoom.hasRightAxisCustomRange
+                                       && !curveSnapshot->rightAxisData.empty();
+
+            double minYFull, maxYFull, viewRangeY;
+            if (useRightAxis1) {
+                minYFull = curveSnapshot->minY2;
+                maxYFull = curveSnapshot->maxY2;
+                viewRangeY = chart1Zoom.maxYRight - chart1Zoom.minYRight;
+            } else {
+                minYFull = curveSnapshot->minY1;
+                maxYFull = curveSnapshot->maxY1;
+                viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
+            }
+
             // Р”РѕР±Р°РІР»СЏРµРј padding 5% Рє РґРёР°РїР°Р·РѕРЅСѓ РґР°РЅРЅС‹С… РґР»СЏ СЃРѕРіР»Р°СЃРѕРІР°РЅРЅРѕСЃС‚Рё СЃ HandleScrollEvent
             double dataYRange = maxYFull - minYFull;
             double padding = dataYRange * 0.05;
@@ -2951,7 +3020,17 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             maxYFull += padding;
             
             double totalYRange = maxYFull - minYFull;
-            double viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
+
+            // v2.18.0: В dual-axis режиме zoom-view может превышать диапазон данных одной оси.
+            // Расширяем scrollable range СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ,
+            // а НЕ относительно текущей позиции zoom (предотвращает runaway expansion).
+            if (totalYRange <= viewRangeY && viewRangeY > 0) {
+                double dataCenter = (minYFull + maxYFull) / 2.0;
+                double expandedHalf = viewRangeY * 0.75;
+                minYFull = dataCenter - expandedHalf;
+                maxYFull = dataCenter + expandedHalf;
+                totalYRange = maxYFull - minYFull;
+            }
             
             // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ РёРЅРІРµСЂС‚РёСЂРѕРІР°РЅ (РІРµСЂС… = 0, РЅРёР· = 100)
             // Р—Р°С‰РёС‚Р° РѕС‚ РґРµР»РµРЅРёСЏ РЅР° РЅРѕР»СЊ
@@ -2963,10 +3042,14 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 
                 // Р’С‹С‡РёСЃР»СЏРµРј РїРѕР·РёС†РёСЋ: 0 = РІРµСЂС… (maxY), maxScrollPos = РЅРёР· (minY)
                 double scrollableRange = totalYRange - viewRangeY;
-                double scrollRatio = (chart1Zoom.minY - minYFull) / scrollableRange;
+                double currentMinY = useRightAxis1 ? chart1Zoom.minYRight : chart1Zoom.minY;
+                double scrollRatio = (currentMinY - minYFull) / scrollableRange;
                 vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                if (vScrollPos < 0) vScrollPos = 0;
+                if (vScrollPos > maxScrollPos) vScrollPos = maxScrollPos;
             }
             uiModule->SetVScrollBarRange(1, 0, 100, vScrollPage, vScrollPos);
+
         }
         }
     } else {
@@ -3052,32 +3135,54 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 ScheduleAsyncCurveSnapshotWarmup(hWnd, 2, config, chart2Zoom);
                 uiModule->SetVScrollBarRange(2, 0, 100, 100, 50);
             } else {
-                double minYFull = curveSnapshot->minY1;
-                double maxYFull = curveSnapshot->maxY1;
-                
-                // Р”РѕР±Р°РІР»СЏРµРј padding 5% Рє РґРёР°РїР°Р·РѕРЅСѓ РґР°РЅРЅС‹С… РґР»СЏ СЃРѕРіР»Р°СЃРѕРІР°РЅРЅРѕСЃС‚Рё СЃ HandleScrollEvent
+                // v2.18.0: Определяем целевую ось для V-скроллбара
+                const YZoomTarget yTarget2 = GetEffectiveYZoomTarget(2);
+                const bool useRightAxis2 = (yTarget2 == YZoomTarget::RIGHT_ONLY)
+                                           && chart2Zoom.hasRightAxisCustomRange
+                                           && !curveSnapshot->rightAxisData.empty();
+
+                double minYFull, maxYFull, viewRangeY;
+                if (useRightAxis2) {
+                    minYFull = curveSnapshot->minY2;
+                    maxYFull = curveSnapshot->maxY2;
+                    viewRangeY = chart2Zoom.maxYRight - chart2Zoom.minYRight;
+                } else {
+                    minYFull = curveSnapshot->minY1;
+                    maxYFull = curveSnapshot->maxY1;
+                    viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
+                }
+
                 double dataYRange = maxYFull - minYFull;
                 double padding = dataYRange * 0.05;
                 minYFull -= padding;
                 maxYFull += padding;
                 
                 double totalYRange = maxYFull - minYFull;
-                double viewRangeY = chart2Zoom.maxY - chart2Zoom.minY;
+
+                // v2.18.0: Расширяем scrollable range СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ.
+                if (totalYRange <= viewRangeY && viewRangeY > 0) {
+                    double dataCenter = (minYFull + maxYFull) / 2.0;
+                    double expandedHalf = viewRangeY * 0.75;
+                    minYFull = dataCenter - expandedHalf;
+                    maxYFull = dataCenter + expandedHalf;
+                    totalYRange = maxYFull - minYFull;
+                }
                 
-                // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ РёРЅРІРµСЂС‚РёСЂРѕРІР°РЅ (РІРµСЂС… = 0, РЅРёР· = 100)
-                // Р—Р°С‰РёС‚Р° РѕС‚ РґРµР»РµРЅРёСЏ РЅР° РЅРѕР»СЊ
                 int vScrollPos = 50;
                 int vScrollPage = 100;
                 if (totalYRange > viewRangeY && totalYRange > 0) {
                     vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
                     int maxScrollPos = 100 - vScrollPage + 1;
                     
-                    // Р’С‹С‡РёСЃР»СЏРµРј РїРѕР·РёС†РёСЋ: 0 = РІРµСЂС… (maxY), maxScrollPos = РЅРёР· (minY)
                     double scrollableRange = totalYRange - viewRangeY;
-                    double scrollRatio = (chart2Zoom.minY - minYFull) / scrollableRange;
+                    double currentMinY = useRightAxis2 ? chart2Zoom.minYRight : chart2Zoom.minY;
+                    double scrollRatio = (currentMinY - minYFull) / scrollableRange;
                     vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                    if (vScrollPos < 0) vScrollPos = 0;
+                    if (vScrollPos > maxScrollPos) vScrollPos = maxScrollPos;
                 }
                 uiModule->SetVScrollBarRange(2, 0, 100, vScrollPage, vScrollPos);
+
             }
             }
         } else {
