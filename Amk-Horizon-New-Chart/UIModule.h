@@ -94,6 +94,8 @@ private:
     // === Переключатель цели Y-zoom для dual-axis (v2.18.0) ===
     HWND hChart1YZoomTargetCombo;  // ComboBox для Chart 1
     HWND hChart2YZoomTargetCombo;  // ComboBox для Chart 2
+    HWND hChart1YZoomLabel;        // Метка "Zoom оси Y:" для Chart 1
+    HWND hChart2YZoomLabel;        // Метка "Zoom оси Y:" для Chart 2
 
     // Состояние элементов управления
     bool dualMode;

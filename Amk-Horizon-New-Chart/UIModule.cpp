@@ -64,6 +64,8 @@ UIModule::UIModule()
     , hChart2ShowNotesCheck(nullptr)
     , hChart1YZoomTargetCombo(nullptr)
     , hChart2YZoomTargetCombo(nullptr)
+    , hChart1YZoomLabel(nullptr)
+    , hChart2YZoomLabel(nullptr)
     , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(UI_TRANSMITTER_COUNT, true);
@@ -187,14 +189,19 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
 
     // === Переключатель цели Y-zoom для Chart 1 (v2.18.0) ===
-    // Размещаем после Surf, изначально скрыт (показывается только при dual-axis)
+    // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)
+    hChart1YZoomLabel = CreateWindow(L"STATIC", L"Zoom \x043E\x0441\x0438 Y:",
+        WS_CHILD | SS_RIGHT,
+        0, 0, 75, 18, hWnd, (HMENU)IDC_CHART1_YZOOM_LABEL, hInst, NULL);
+    SendMessage(hChart1YZoomLabel, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+
     hChart1YZoomTargetCombo = CreateWindow(L"COMBOBOX", L"",
         WS_CHILD | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
-        surfStartX + 105, yPos - 2, 75, 100, hWnd, (HMENU)IDC_CHART1_YZOOM_TARGET_COMBO, hInst, NULL);
-    SendMessage(hChart1YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
-    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041E\x0431\x0435");
-    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041B\x0435\x0432\x043E");
-    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041F\x0440\x0430\x0432\x043E");
+        0, 0, 120, 100, hWnd, (HMENU)IDC_CHART1_YZOOM_TARGET_COMBO, hInst, NULL);
+    SendMessage(hChart1YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x0434\x0432\x0443\x043C \x043E\x0441\x044F\x043C");
+    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043B\x0435\x0432\x043E\x0439 \x043E\x0441\x0438");
+    SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043F\x0440\x0430\x0432\x043E\x0439 \x043E\x0441\x0438");
     SendMessage(hChart1YZoomTargetCombo, CB_SETCURSEL, 0, 0);
 
     hChart1UndoZoomBtn = CreateWindow(L"BUTTON", L"",
@@ -206,12 +213,12 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
         0, 0, 128, 18, hWnd, (HMENU)IDC_CHART1_SHOW_NOTES_CHECK, hInst, NULL);
     SendMessage(hChart1ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
-    SendMessage(hChart1ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
+    SendMessage(hChart1ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
 
     // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursorStartX = surfStartX + 185;  // После Surf + YZoom combo
+    int cursorStartX = surfStartX + 105;  // После Surf (YZoom combo перемещён на график)
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -297,13 +304,19 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
 
     // === Переключатель цели Y-zoom для Chart 2 (v2.18.0) ===
+    // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)
+    hChart2YZoomLabel = CreateWindow(L"STATIC", L"Zoom \x043E\x0441\x0438 Y:",
+        WS_CHILD | SS_RIGHT,
+        0, 0, 75, 18, hWnd, (HMENU)IDC_CHART2_YZOOM_LABEL, hInst, NULL);
+    SendMessage(hChart2YZoomLabel, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+
     hChart2YZoomTargetCombo = CreateWindow(L"COMBOBOX", L"",
         WS_CHILD | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
-        surf2StartX + 105, 298, 75, 100, hWnd, (HMENU)IDC_CHART2_YZOOM_TARGET_COMBO, hInst, NULL);
-    SendMessage(hChart2YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
-    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041E\x0431\x0435");
-    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041B\x0435\x0432\x043E");
-    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"Y: \x041F\x0440\x0430\x0432\x043E");
+        0, 0, 120, 100, hWnd, (HMENU)IDC_CHART2_YZOOM_TARGET_COMBO, hInst, NULL);
+    SendMessage(hChart2YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x0434\x0432\x0443\x043C \x043E\x0441\x044F\x043C");
+    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043B\x0435\x0432\x043E\x0439 \x043E\x0441\x0438");
+    SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043F\x0440\u0430\x0432\x043E\x0439 \x043E\x0441\x0438");
     SendMessage(hChart2YZoomTargetCombo, CB_SETCURSEL, 0, 0);
 
     hChart2UndoZoomBtn = CreateWindow(L"BUTTON", L"",
@@ -315,7 +328,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | BS_AUTOCHECKBOX,
         0, 0, 128, 18, hWnd, (HMENU)IDC_CHART2_SHOW_NOTES_CHECK, hInst, NULL);
     SendMessage(hChart2ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
-    SendMessage(hChart2ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(ANSI_VAR_FONT), TRUE);
+    SendMessage(hChart2ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
 
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
@@ -440,10 +453,11 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     ShowWindow(hChart2UndoZoomBtn, showFlag);
     ShowWindow(hChart2ShowNotesCheck, showFlag);
 
-    // v2.18.0: YZoom target combo для Chart 2 управляется отдельно через ShowYZoomTargetCombo,
-    // но в single-mode должен быть скрыт.
+    // v2.18.0: YZoom target combo и label для Chart 2 управляются отдельно через ShowYZoomTargetCombo,
+    // но в single-mode должны быть скрыты.
     if (!showChart2Controls) {
         ShowWindow(hChart2YZoomTargetCombo, SW_HIDE);
+        if (hChart2YZoomLabel) ShowWindow(hChart2YZoomLabel, SW_HIDE);
     }
 }
 
@@ -470,11 +484,8 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
     SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
     
-    // v2.18.0: Позиционируем ComboBox Y-zoom target для Chart 2
-    SetWindowPos(hChart2YZoomTargetCombo, HWND_TOP, surf2StartX + 105, yPos - 2, 75, 100, SWP_NOSIZE);
-
     // Позиционируем элементы координат курсора для Chart 2 (v2.15.1 - Cursor КРАЙНИЙ СПРАВА)
-    int cursor2StartX = surf2StartX + 185;  // После Surf + YZoom combo
+    int cursor2StartX = surf2StartX + 105;  // После Surf (YZoom combo перемещён на график)
     SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
@@ -499,30 +510,60 @@ void UIModule::PositionNotesVisibilityControls(const RECT& chart1Rect, const REC
     const int BUTTON_HEIGHT = 20;
     const int CHECK_WIDTH = 128;
     const int CHECK_HEIGHT = 18;
+    const int COMBO_WIDTH = 120;
+    const int COMBO_HEIGHT = 20;
+    const int LABEL_WIDTH = 75;
+    const int LABEL_HEIGHT = 18;
     const int BUTTON_GAP = 4;
     const int RIGHT_MARGIN = 10;
     const int TOP_OFFSET = 8;
 
+    // === Chart 1 ===
     if (hChart1ShowNotesCheck) {
         int x1 = chart1Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
         int y1 = chart1Rect.top + TOP_OFFSET;
         SetWindowPos(hChart1ShowNotesCheck, HWND_TOP, x1, y1, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+
+        int undoX1 = x1 - BUTTON_GAP - BUTTON_WIDTH;
         if (hChart1UndoZoomBtn) {
-            SetWindowPos(hChart1UndoZoomBtn, HWND_TOP, x1 - BUTTON_GAP - BUTTON_WIDTH, y1 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+            SetWindowPos(hChart1UndoZoomBtn, HWND_TOP, undoX1, y1 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+        }
+
+        // v2.18.x: Позиционируем ComboBox Y-zoom target и метку слева от кнопки undo
+        if (hChart1YZoomTargetCombo) {
+            int comboX1 = undoX1 - BUTTON_GAP - COMBO_WIDTH;
+            SetWindowPos(hChart1YZoomTargetCombo, HWND_TOP, comboX1, y1 - 2, COMBO_WIDTH, COMBO_HEIGHT, SWP_NOZORDER);
+            if (hChart1YZoomLabel) {
+                SetWindowPos(hChart1YZoomLabel, HWND_TOP, comboX1 - LABEL_WIDTH - 2, y1, LABEL_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+            }
         }
     }
 
+    // === Chart 2 ===
     if (hChart2ShowNotesCheck) {
         if (dualMode) {
             int x2 = chart2Rect.right - RIGHT_MARGIN - CHECK_WIDTH;
             int y2 = chart2Rect.top + TOP_OFFSET;
             SetWindowPos(hChart2ShowNotesCheck, HWND_TOP, x2, y2, CHECK_WIDTH, CHECK_HEIGHT, SWP_NOZORDER);
+
+            int undoX2 = x2 - BUTTON_GAP - BUTTON_WIDTH;
             if (hChart2UndoZoomBtn) {
-                SetWindowPos(hChart2UndoZoomBtn, HWND_TOP, x2 - BUTTON_GAP - BUTTON_WIDTH, y2 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+                SetWindowPos(hChart2UndoZoomBtn, HWND_TOP, undoX2, y2 - 1, BUTTON_WIDTH, BUTTON_HEIGHT, SWP_NOZORDER);
+            }
+
+            // v2.18.x: Позиционируем ComboBox Y-zoom target и метку слева от кнопки undo
+            if (hChart2YZoomTargetCombo) {
+                int comboX2 = undoX2 - BUTTON_GAP - COMBO_WIDTH;
+                SetWindowPos(hChart2YZoomTargetCombo, HWND_TOP, comboX2, y2 - 2, COMBO_WIDTH, COMBO_HEIGHT, SWP_NOZORDER);
+                if (hChart2YZoomLabel) {
+                    SetWindowPos(hChart2YZoomLabel, HWND_TOP, comboX2 - LABEL_WIDTH - 2, y2, LABEL_WIDTH, LABEL_HEIGHT, SWP_NOZORDER);
+                }
             }
         } else {
             ShowWindow(hChart2UndoZoomBtn, SW_HIDE);
             ShowWindow(hChart2ShowNotesCheck, SW_HIDE);
+            if (hChart2YZoomTargetCombo) ShowWindow(hChart2YZoomTargetCombo, SW_HIDE);
+            if (hChart2YZoomLabel) ShowWindow(hChart2YZoomLabel, SW_HIDE);
         }
     }
 }
@@ -1686,8 +1727,9 @@ void UIModule::SetYZoomTargetIndex(int chartNumber, int index) {
 
 void UIModule::ShowYZoomTargetCombo(int chartNumber, bool show) {
     HWND hCombo = (chartNumber == 1) ? hChart1YZoomTargetCombo : hChart2YZoomTargetCombo;
-    if (!hCombo) return;
-    ShowWindow(hCombo, show ? SW_SHOW : SW_HIDE);
+    HWND hLabel = (chartNumber == 1) ? hChart1YZoomLabel : hChart2YZoomLabel;
+    if (hCombo) ShowWindow(hCombo, show ? SW_SHOW : SW_HIDE);
+    if (hLabel) ShowWindow(hLabel, show ? SW_SHOW : SW_HIDE);
 }
 
 HWND UIModule::GetYZoomTargetCombo(int chartNumber) const {
