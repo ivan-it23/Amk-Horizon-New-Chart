@@ -1518,6 +1518,12 @@ void ChartManager::UpdateLayout(HWND hWnd)
     // РЈРїСЂР°РІР»РµРЅРёРµ РІРёРґРёРјРѕСЃС‚СЊСЋ Рё РїРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµРј СЌР»РµРјРµРЅС‚РѕРІ СѓРїСЂР°РІР»РµРЅРёСЏ
     uiModule->UpdateControlsVisibility(dualMode);
     
+    // v2.18.0: Восстанавливаем видимость ComboBox Y-zoom target по конфигурации кривых
+    UpdateYZoomTargetVisibility(1);
+    if (dualMode) {
+        UpdateYZoomTargetVisibility(2);
+    }
+    
     if (dualMode) {
         int panel2Y = layoutModule->GetChart2PanelY();
         uiModule->PositionChart2Controls(panel2Y);
@@ -2784,14 +2790,29 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         double minYFull, maxYFull, minX, maxX, minY2, maxY2;
         chartModule->GetDataRanges(leftAxisData, rightAxisData, minX, maxX, minYFull, maxYFull, minY2, maxY2);
         
-        // Р”РѕР±Р°РІР»СЏРµРј padding 5% Рє РґРёР°РїР°Р·РѕРЅСѓ РґР°РЅРЅС‹С… РґР»СЏ РІРёР·СѓР°Р»СЊРЅРѕРіРѕ РєРѕРјС„РѕСЂС‚Р°
+        // v2.18.x: Определяем цель Y-zoom для раздельного скроллинга осей
+        const YZoomTarget yTarget = GetEffectiveYZoomTarget(chartNumber);
+
+        // v2.18.x: Выбираем данные для scrollable range в зависимости от целевой оси
+        const bool useRightForScroll = (yTarget == YZoomTarget::RIGHT_ONLY)
+                                       && zoom->hasRightAxisCustomRange
+                                       && !rightAxisData.empty();
+
+        if (useRightForScroll) {
+            minYFull = minY2;
+            maxYFull = maxY2;
+        }
+
+        // Добавляем padding 5% к диапазону данных для визуального комфорта
         double dataYRange = maxYFull - minYFull;
         double padding = dataYRange * 0.05;
         minYFull -= padding;
         maxYFull += padding;
         
         double totalYRange = maxYFull - minYFull;
-        double viewYRange = zoom->maxY - zoom->minY;
+        double viewYRange = useRightForScroll
+                            ? (zoom->maxYRight - zoom->minYRight)
+                            : (zoom->maxY - zoom->minY);
         
         // v2.18.0: В dual-axis режиме zoom-view может превышать диапазон данных одной оси.
         // Расширяем scrollable range СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ.
@@ -2803,47 +2824,51 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             totalYRange = maxYFull - minYFull;
         }
         
-        // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ РёРЅРІРµСЂС‚РёСЂРѕРІР°РЅ (РІРµСЂС… = 0, РЅРёР· = 100)
-        // newPos = 0 РѕР·РЅР°С‡Р°РµС‚ РІРµСЂС… (РјР°РєСЃРёРјР°Р»СЊРЅС‹Р№ Y)
-        // newPos = maxScrollPos РѕР·РЅР°С‡Р°РµС‚ РЅРёР· (РјРёРЅРёРјР°Р»СЊРЅС‹Р№ Y)
-        // РЈС‡РёС‚С‹РІР°РµРј, С‡С‚Рѕ РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РїРѕР·РёС†РёСЏ СЃРєСЂРѕР»Р»Р±Р°СЂР° = nMax - nPage + 1
-        // v2.18.0: Определяем цель Y-zoom для раздельного скроллинга осей
-        const YZoomTarget yTarget = GetEffectiveYZoomTarget(chartNumber);
+        // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+        // newPos = 0 означает верх (максимальный Y)
+        // newPos = maxScrollPos означает низ (минимальный Y)
+        // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
 
         if (totalYRange > viewYRange && totalYRange > 0) {
             int maxScrollPos = si.nMax - (int)si.nPage + 1;
             double scrollRatio = (maxScrollPos > 0) ? (double)(maxScrollPos - newPos) / (double)maxScrollPos : 0.0;
 
-            // v2.18.0: Скроллим левую ось только если цель не RIGHT_ONLY
-            if (yTarget != YZoomTarget::RIGHT_ONLY) {
-                double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
-                zoom->minY = newMinY;
-                zoom->maxY = newMinY + viewYRange;
-            }
-
-            // v2.18.0: Скроллим правую ось только если цель не LEFT_ONLY
-            if (yTarget != YZoomTarget::LEFT_ONLY && zoom->hasRightAxisCustomRange && maxY2 > minY2) {
-                double minYFullRight = minY2;
-                double maxYFullRight = maxY2;
-                double dataYRangeRight = maxYFullRight - minYFullRight;
-                double paddingRight = dataYRangeRight * 0.05;
-                minYFullRight -= paddingRight;
-                maxYFullRight += paddingRight;
-
-                double totalYRangeRight = maxYFullRight - minYFullRight;
-                double viewYRangeRight = zoom->maxYRight - zoom->minYRight;
-                // v2.18.0: Расширяем scrollable range правой оси СИММЕТРИЧНО относительно ЦЕНТРА ДАННЫХ.
-                if (totalYRangeRight <= viewYRangeRight && viewYRangeRight > 0.0) {
-                    double dataCenterR = (minYFullRight + maxYFullRight) / 2.0;
-                    double expandedHalfR = viewYRangeRight * 0.75;
-                    minYFullRight = dataCenterR - expandedHalfR;
-                    maxYFullRight = dataCenterR + expandedHalfR;
-                    totalYRangeRight = maxYFullRight - minYFullRight;
+            if (useRightForScroll) {
+                // RIGHT_ONLY: скроллим только правую ось
+                double newMinYRight = minYFull + scrollRatio * (totalYRange - viewYRange);
+                zoom->minYRight = newMinYRight;
+                zoom->maxYRight = newMinYRight + viewYRange;
+            } else {
+                // BOTH или LEFT_ONLY: скроллим левую ось
+                if (yTarget != YZoomTarget::RIGHT_ONLY) {
+                    double newMinY = minYFull + scrollRatio * (totalYRange - viewYRange);
+                    zoom->minY = newMinY;
+                    zoom->maxY = newMinY + viewYRange;
                 }
-                if (totalYRangeRight > viewYRangeRight && totalYRangeRight > 0.0) {
-                    double newMinYRight = minYFullRight + scrollRatio * (totalYRangeRight - viewYRangeRight);
-                    zoom->minYRight = newMinYRight;
-                    zoom->maxYRight = newMinYRight + viewYRangeRight;
+
+                // BOTH: скроллим также правую ось синхронно
+                if (yTarget != YZoomTarget::LEFT_ONLY && zoom->hasRightAxisCustomRange && maxY2 > minY2) {
+                    double minYFullRight = minY2;
+                    double maxYFullRight = maxY2;
+                    double dataYRangeRight = maxYFullRight - minYFullRight;
+                    double paddingRight = dataYRangeRight * 0.05;
+                    minYFullRight -= paddingRight;
+                    maxYFullRight += paddingRight;
+
+                    double totalYRangeRight = maxYFullRight - minYFullRight;
+                    double viewYRangeRight = zoom->maxYRight - zoom->minYRight;
+                    if (totalYRangeRight <= viewYRangeRight && viewYRangeRight > 0.0) {
+                        double dataCenterR = (minYFullRight + maxYFullRight) / 2.0;
+                        double expandedHalfR = viewYRangeRight * 0.75;
+                        minYFullRight = dataCenterR - expandedHalfR;
+                        maxYFullRight = dataCenterR + expandedHalfR;
+                        totalYRangeRight = maxYFullRight - minYFullRight;
+                    }
+                    if (totalYRangeRight > viewYRangeRight && totalYRangeRight > 0.0) {
+                        double newMinYRight = minYFullRight + scrollRatio * (totalYRangeRight - viewYRangeRight);
+                        zoom->minYRight = newMinYRight;
+                        zoom->maxYRight = newMinYRight + viewYRangeRight;
+                    }
                 }
             }
         }
@@ -2880,10 +2905,13 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         const double prevMinY = zoom->minY;
         const double prevMaxY = zoom->maxY;
         const double prevViewRangeY = prevMaxY - prevMinY;
+        const bool prevHasRightCustom = zoom->hasRightAxisCustomRange;
+        const double prevMinYRight = zoom->minYRight;
+        const double prevMaxYRight = zoom->maxYRight;
         AutoFitYForCurrentX(chartNumber);
         if (wasYCustom) {
-            // РЎРѕС…СЂР°РЅСЏРµРј РЅРµР·Р°РІРёСЃРёРјРѕСЃС‚СЊ РѕСЃРµР№: РѕСЃС‚Р°РІР»СЏРµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєСѓСЋ РІС‹СЃРѕС‚Сѓ Y-РѕРєРЅР°,
-            // РЅРѕ Р·Р°Р¶РёРјР°РµРј РµС‘ РІ Р°РєС‚СѓР°Р»СЊРЅС‹Р№ Y-РґРёР°РїР°Р·РѕРЅ РґР»СЏ РЅРѕРІРѕРіРѕ X-СѓС‡Р°СЃС‚РєР°.
+            // Сохраняем независимость осей: оставляем пользовательскую высоту Y-окна,
+            // но зажимаем её в актуальный Y-диапазон для нового X-участка.
             const double autoMinY = zoom->minY;
             const double autoMaxY = zoom->maxY;
             const double autoRangeY = autoMaxY - autoMinY;
@@ -2903,6 +2931,13 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             }
 
             zoom->isYCustom = true;
+
+            // v2.18.x: Восстанавливаем правую ось (AutoFitYForCurrentX её сбрасывает)
+            if (prevHasRightCustom) {
+                zoom->minYRight = prevMinYRight;
+                zoom->maxYRight = prevMaxYRight;
+                zoom->hasRightAxisCustomRange = true;
+            }
         }
     }
 
