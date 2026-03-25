@@ -613,20 +613,47 @@ void SerialModule::OnTimer() {
 
 void SerialModule::FlushPendingPollResults() {
     std::deque<PendingPollEvent> events;
+    size_t queueSizeBefore = 0;
     {
         std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
+        queueSizeBefore = pendingPollEvents.size();
         events.swap(pendingPollEvents);
     }
 
+    if (!events.empty()) {
+        DebugLog4Tx("FlushPendingPollResults: processing %zu events (queue was %zu)",
+                     events.size(), queueSizeBefore);
+    }
+
+    int processedCount = 0;
+    int droppedCount = 0;
     for (const PendingPollEvent& event : events) {
         if (event.result == SerialResult::SUCCESS) {
+            uint32_t frameNum = GetCanonicalFrameNumber(event.parsedFrame);
+            uint32_t currentSession = connectionSessionId.load();
+            if (event.connectionSessionId != currentSession) {
+                DebugLog4Tx("FlushPendingPollResults: DROP frame=%u (session mismatch: event=%u, current=%u)",
+                             frameNum, event.connectionSessionId, currentSession);
+                droppedCount++;
+                continue;
+            }
+            DebugLog4Tx("FlushPendingPollResults: processing frame=%u (session=%u)",
+                         frameNum, event.connectionSessionId);
             HandleSuccessfulPoll(event.parsedFrame, event.rawPayload);
+            processedCount++;
         } else {
             if (IsConnected() && event.connectionSessionId != connectionSessionId.load()) {
+                DebugLog4Tx("FlushPendingPollResults: DROP failed poll (session mismatch)");
+                droppedCount++;
                 continue;
             }
             HandleFailedPoll(event.result);
         }
+    }
+
+    if (events.size() > 0) {
+        DebugLog4Tx("FlushPendingPollResults: done, processed=%d, dropped=%d",
+                     processedCount, droppedCount);
     }
 }
 
@@ -684,9 +711,28 @@ void SerialModule::LegacyPollingLoop() {
 
         {
             std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
-            pendingPollEvents.push_back(std::move(event));
-            if (pendingPollEvents.size() > 8) {
+            size_t queueSizeBefore = pendingPollEvents.size();
+            
+            // Если буфер переполнен (8+ элементов), удаляем самый старый
+            if (queueSizeBefore >= 8) {
+                uint32_t droppedFrame = GetCanonicalFrameNumber(pendingPollEvents.front().parsedFrame);
+                SerialResult droppedResult = pendingPollEvents.front().result;
                 pendingPollEvents.pop_front();
+                queueSizeBefore--;
+                DebugLog4Tx("LegacyPollingLoop: QUEUE OVERFLOW! Dropped frame=%u (result=%d)",
+                             droppedFrame, static_cast<int>(droppedResult));
+            }
+            
+            // Сохраняем frame number до move
+            uint32_t addedFrame = (event.result == SerialResult::SUCCESS) 
+                ? GetCanonicalFrameNumber(event.parsedFrame) 
+                : 0;
+            
+            pendingPollEvents.push_back(std::move(event));
+            
+            if (addedFrame > 0) {
+                DebugLog4Tx("LegacyPollingLoop: queued frame=%u (queue: %zu -> %zu)",
+                             addedFrame, queueSizeBefore, pendingPollEvents.size());
             }
         }
 
@@ -1901,6 +1947,12 @@ void SerialModule::CloseRecordFile() {
     if (recordFile.is_open()) {
         recordFile.flush();
         recordFile.close();
+    }
+}
+
+void SerialModule::FlushRecordFile() {
+    if (recordFile.is_open()) {
+        recordFile.flush();
     }
 }
 

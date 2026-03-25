@@ -58,6 +58,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Папка &записи...",          IDM_DEVICE_RECORD_FOLDER
         MENUITEM "Открыть папку записи",      IDM_DEVICE_OPEN_FOLDER
+        MENUITEM SEPARATOR
+        MENUITEM "Вернуться к &данным прибора", IDM_RETURN_TO_COM
     END
 
     POPUP "&Заметки"

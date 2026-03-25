@@ -1442,6 +1442,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message)
     {
+    case WM_INITMENUPOPUP:
+        {
+            HMENU hMenu = (HMENU)wParam;
+            // v2.19.0: Активируем/деактивируем пункт "Вернуться к данным прибора"
+            if (g_chartManager) {
+                bool bgActive = g_chartManager->IsComRecordingInBackground();
+                EnableMenuItem(hMenu, IDM_RETURN_TO_COM, MF_BYCOMMAND | (bgActive ? MF_ENABLED : MF_GRAYED));
+            }
+        }
+        break;
+
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
@@ -1551,6 +1562,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     if (serial) {
                         serial->OpenRecordFolder();
                     }
+                }
+                break;
+
+            case IDM_RETURN_TO_COM:
+                if (g_chartManager && g_chartManager->IsComRecordingInBackground()) {
+                    g_chartManager->ReturnToComLive(hWnd);
                 }
                 break;
 
@@ -1984,6 +2001,8 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
     static HWND hAppendShowFullCheck = nullptr;
     static HWND hRecordStatus = nullptr;
     static HWND hRecordFrames = nullptr;
+    static HWND hBgRecordStatus = nullptr;
+    static HWND hReturnToComBtn = nullptr;
     static bool isBusy = false;
 
     if (AsyncTaskQueue::TryDispatchUiTask(message, lParam)) {
@@ -2066,6 +2085,29 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 }
             }
             
+            // v2.19.0: Создаём элементы для отображения фоновой записи
+            {
+                RECT dlgRect;
+                GetClientRect(hDlg, &dlgRect);
+                int dlgW = dlgRect.right - dlgRect.left;
+
+                hBgRecordStatus = CreateWindowEx(0, L"STATIC", L"",
+                    WS_CHILD | SS_LEFT,
+                    10, 2, dlgW - 20, 16,
+                    hDlg, (HMENU)IDC_BG_RECORD_STATUS, GetModuleHandle(nullptr), nullptr);
+                if (hBgRecordStatus) {
+                    SendMessage(hBgRecordStatus, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+                }
+
+                hReturnToComBtn = CreateWindowEx(0, L"BUTTON", L"Вернуться к данным прибора",
+                    WS_CHILD | BS_PUSHBUTTON,
+                    10, 20, dlgW - 20, 28,
+                    hDlg, (HMENU)IDC_RETURN_TO_COM_BTN, GetModuleHandle(nullptr), nullptr);
+                if (hReturnToComBtn) {
+                    SendMessage(hReturnToComBtn, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+                }
+            }
+
             // Обновляем состояние кнопок
             if (g_chartManager) {
                 bool connected = g_chartManager->IsSerialConnected();
@@ -2080,6 +2122,11 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 } else {
                     SetWindowText(hStatusLabel, L"Отключено");
                 }
+
+                // v2.19.0: Показываем/скрываем элементы фоновой записи
+                bool bgActive = g_chartManager->IsComRecordingInBackground();
+                if (hBgRecordStatus) ShowWindow(hBgRecordStatus, bgActive ? SW_SHOW : SW_HIDE);
+                if (hReturnToComBtn) ShowWindow(hReturnToComBtn, bgActive ? SW_SHOW : SW_HIDE);
             }
             
             return (INT_PTR)TRUE;
@@ -2255,16 +2302,18 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
         case IDC_SERIAL_STOP_BTN:
             // Кнопка "Отключить"
             if (g_chartManager) {
-                SerialModule* serial = g_chartManager->GetSerialModule();
-                if (serial) {
-                    serial->StopPolling();
-                    serial->Disconnect();
+                HWND hMainWnd = GetParent(hDlg);
+                // v2.19.0: Используем HandleSerialDisconnect для корректного сброса FILE_VIEW
+                g_chartManager->HandleSerialDisconnect(hMainWnd);
                     
-                    SetWindowText(hStatusLabel, L"Отключено");
-                    EnableWindow(hStartBtn, TRUE);
-                    EnableWindow(hStopBtn, FALSE);
-                    SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"");
-                }
+                SetWindowText(hStatusLabel, L"Отключено");
+                EnableWindow(hStartBtn, TRUE);
+                EnableWindow(hStopBtn, FALSE);
+                SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"");
+
+                // Скрываем элементы фоновой записи
+                if (hBgRecordStatus) ShowWindow(hBgRecordStatus, SW_HIDE);
+                if (hReturnToComBtn) ShowWindow(hReturnToComBtn, SW_HIDE);
             }
             return (INT_PTR)TRUE;
             
@@ -2360,6 +2409,19 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 }
             }
             return (INT_PTR)TRUE;
+
+        case IDC_RETURN_TO_COM_BTN:
+            // v2.19.0: Кнопка возврата к данным прибора
+            if (g_chartManager && g_chartManager->IsComRecordingInBackground()) {
+                HWND hMainWnd = GetParent(hDlg);
+                g_chartManager->ReturnToComLive(hMainWnd);
+                // Скрываем элементы фоновой записи
+                if (hBgRecordStatus) ShowWindow(hBgRecordStatus, SW_HIDE);
+                if (hReturnToComBtn) ShowWindow(hReturnToComBtn, SW_HIDE);
+                // Обновляем статус
+                SetWindowText(hStatusLabel, L"Опрос...");
+            }
+            return (INT_PTR)TRUE;
             
         case IDCANCEL:
             // "Закрыть" (и Esc): скрываем окно вместо уничтожения,
@@ -2410,6 +2472,24 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         }
                     }
                 }
+            }
+
+            // v2.19.0: Обновляем статус фоновой записи
+            bool bgActive = g_chartManager->IsComRecordingInBackground();
+            if (hBgRecordStatus) {
+                if (bgActive) {
+                    wchar_t bgText[256];
+                    std::wstring port = serial ? serial->GetConnectedPort() : L"?";
+                    uint32_t recFrames = serial ? serial->GetRecordedFrames() : 0;
+                    swprintf_s(bgText, L"Фоновая запись: %s | %u кадров", port.c_str(), recFrames);
+                    SetWindowText(hBgRecordStatus, bgText);
+                    ShowWindow(hBgRecordStatus, SW_SHOW);
+                } else {
+                    ShowWindow(hBgRecordStatus, SW_HIDE);
+                }
+            }
+            if (hReturnToComBtn) {
+                ShowWindow(hReturnToComBtn, bgActive ? SW_SHOW : SW_HIDE);
             }
         }
         return (INT_PTR)TRUE;

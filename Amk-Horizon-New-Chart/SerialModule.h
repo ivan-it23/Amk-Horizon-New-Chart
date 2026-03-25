@@ -159,6 +159,7 @@ public:
     // Проверка состояния подключения
     bool IsConnected() const;
     ConnectionState GetState() const;
+    std::wstring GetConnectedPort() const { return portName; }
     std::wstring GetLastErrorMessage() const;  // Переименовано из GetLastError для избежания конфликта с Windows API
     
     // === Управление опросом ===
@@ -249,6 +250,9 @@ public:
     std::wstring GetRecordFilePath() const { return recordFilePath; }
     uint32_t GetRecordedFrames() const { return recordedFrames; }
     bool IsRecordingActive() const { return recordFile.is_open(); }
+    
+    // v2.19.0: Принудительный flush записи (для безопасного чтения файла извне)
+    void FlushRecordFile();
     
     // Выбор папки через диалог
     static std::wstring BrowseForFolder(HWND hWnd);

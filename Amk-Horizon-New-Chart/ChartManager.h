@@ -24,6 +24,12 @@ struct CurveDefinition;
 struct ChartConfiguration;
 enum class PresetType;
 
+// v2.19.0: Режим источника данных для параллельной записи COM + просмотр файла
+enum class DataSourceMode {
+    COM_LIVE,    // Данные с прибора отображаются на графиках в реальном времени
+    FILE_VIEW    // Отображается файл, но COM-запись продолжается в фоне
+};
+
 // v2.18.0: Цель Y-zoom при dual-axis
 enum class YZoomTarget {
     BOTH,        // Zoom обеих осей Y (по умолчанию, и для single-axis)
@@ -48,7 +54,12 @@ private:
     // Текущий источник данных для привязки заметок
     std::wstring currentDataFilePath;            // полный путь к открытому файлу (если режим файла)
     std::wstring currentNotesPath;               // текущий путь sidecar заметок (чтобы не перечитывать без нужды)
-    
+
+    // v2.19.0: Режим параллельной записи COM + просмотр файла
+    DataSourceMode dataSourceMode = DataSourceMode::COM_LIVE;
+    bool displayCallbackPaused = false;          // true когда display callback приостановлен (FILE_VIEW)
+    int dbgResumeCallbackCounter = 0;            // DEBUG: счётчик для логирования первых кадров после resume
+
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
         double minX, maxX, minY, maxY;
@@ -88,7 +99,7 @@ private:
             : min(minValue), max(maxValue), isCustom(custom), hasXRangeLock(false),
               minRight(minRightValue), maxRight(maxRightValue), hasRightAxisRange(hasRightRange) {}
     };
-    
+
     // Переменные для масштабирования
     bool isSelecting;
     POINT selectionStart;
@@ -108,11 +119,11 @@ private:
     // Независимые диапазоны масштабирования для каждого графика
     ZoomRange chart1Zoom;
     ZoomRange chart2Zoom;
-    
+
     // v2.18.0: Цель Y-zoom для dual-axis режима (per-chart)
     YZoomTarget chart1YZoomTarget = YZoomTarget::BOTH;
     YZoomTarget chart2YZoomTarget = YZoomTarget::BOTH;
-    
+
     // v2.12.5: История zoom для пошагового отката (стек состояний)
     std::vector<ZoomRange> chart1ZoomHistory;
     std::vector<ZoomRange> chart2ZoomHistory;
@@ -122,17 +133,32 @@ private:
     std::vector<AxisZoomRange> chart1YZoomHistory;
     std::vector<AxisZoomRange> chart2XZoomHistory;
     std::vector<AxisZoomRange> chart2YZoomHistory;
-    
+
+    // v2.19.0: Сохранённый контекст COM-сессии для восстановления при возврате
+    struct ComSessionSnapshot {
+        ZoomRange chart1Zoom;
+        ZoomRange chart2Zoom;
+        std::vector<ZoomRange> chart1ZoomHistory;
+        std::vector<ZoomRange> chart2ZoomHistory;
+        std::vector<AxisZoomRange> chart1XZoomHistory;
+        std::vector<AxisZoomRange> chart1YZoomHistory;
+        std::vector<AxisZoomRange> chart2XZoomHistory;
+        std::vector<AxisZoomRange> chart2YZoomHistory;
+        std::wstring notesPath;
+        bool hasSnapshot = false;
+    };
+    ComSessionSnapshot comSessionSnapshot;
+
     // Структура для хранения позиции перекрестия (crosshair)
     struct CrosshairPosition {
         int screenX, screenY;   // Экранные координаты
         double dataX, dataY;    // Координаты данных
         bool isVisible;         // Видимо ли перекрестие
         int chartNumber;        // На каком графике (1 или 2)
-        
+
         CrosshairPosition() : screenX(0), screenY(0), dataX(0.0), dataY(0.0), isVisible(false), chartNumber(0) {}
     };
-    
+
     // Перекрестие для каждого графика
     CrosshairPosition chart1Crosshair;
     CrosshairPosition chart2Crosshair;
@@ -193,7 +219,7 @@ private:
     DWORD lastChart2CoordinateTick = 0;
     POINT lastChart1CoordinatePoint = { -1, -1 };
     POINT lastChart2CoordinatePoint = { -1, -1 };
-    
+
 public:
     ChartManager();
     ~ChartManager();
@@ -217,7 +243,7 @@ public:
     bool ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int chartNumber);
     bool UpdateNoteTextById(HWND hWnd, const std::string& noteId, const std::wstring& newText);
     int GetActiveChartNumber() const;
-    
+
     // Методы для обработки событий мыши
     void HandleMouseDown(HWND hWnd, int x, int y);
     void HandleMouseMove(HWND hWnd, int x, int y);
@@ -231,54 +257,59 @@ public:
     // Методы для обработки скроллинга
     void HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam);
     void UpdateScrollBars(HWND hWnd);
-    
+
     // Методы для обработки X Range
     void HandleXRangeApply(HWND hWnd, int chartNumber);
     void HandleXRangeReset(HWND hWnd, int chartNumber);
     void UpdateXRangeUI(HWND hWnd);
-    
+
     // Метод для сброса zoom (кнопка Reset Zoom)
     void HandleResetZoom(HWND hWnd, int chartNumber);
     void HandleUndoZoomStep(HWND hWnd, int chartNumber);
-    
+
     // Методы для сохранения диапазона
     void HandleSaveRange(HWND hWnd, int chartNumber);
     void HandleCutRange(HWND hWnd, int chartNumber);
-    
+
     // Метод для частичной перерисовки конкретного графика
     void InvalidateChart(HWND hWnd, int chartNumber);
-    
+
     // Метод для отображения схемы прибора
     void ShowSchematicDialog(HWND hWnd, int chartNumber);
-    
+
     // Методы для работы с конфигурациями кривых
     void ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config);
     ChartConfiguration GetChartConfiguration(int chartNumber) const;
     bool HasCurveConfiguration(int chartNumber) const;
-    
+
     // Методы для копирования настроек между графиками
     void CopyChartSettings(int fromChart, int toChart);
-    
+
     // Методы для применения пресетов
     void ApplyPreset(int chartNumber, PresetType preset, FrequencyBand frequency);
-    
+
     // Методы для обработки событий от диалогового окна схемы
     void HandleSchematicDialogResult(HWND hWnd, int chartNumber, bool applied);
     void HandlePresetCommand(HWND hWnd, int chartNumber, int presetId, FrequencyBand frequency);
     void HandleCopySettingsCommand(HWND hWnd, int fromChart, int toChart);
-    
+
     // Методы для обеспечения совместимости
     void ResetToLegacyMode(int chartNumber);
     bool IsUsingNewCurveSystem(int chartNumber) const;
     void SynchronizeLegacyUIWithNewSystem(int chartNumber);
     void HandleLegacyUIChange(HWND hWnd, int chartNumber);
-    
+
     // === Методы для работы с COM-портом (v2.13.0) ===
-    
+
     // Подключение/отключение от прибора
     void HandleSerialConnect(HWND hWnd);
     void HandleSerialDisconnect(HWND hWnd);
-    
+
+    // v2.19.0: Режим параллельной записи COM + просмотр файла
+    DataSourceMode GetDataSourceMode() const { return dataSourceMode; }
+    bool IsComRecordingInBackground() const;
+    void ReturnToComLive(HWND hWnd);
+
     // Управление режимом реального времени
     void HandleSerialStart(HWND hWnd);
     void HandleSerialStop(HWND hWnd);

@@ -1446,7 +1446,26 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
     // v2.13.0: РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РґР°РЅРЅС‹С… СЃ РїСЂРёР±РѕСЂР°
     // Р­Р»РµРјРµРЅС‚С‹ СѓРїСЂР°РІР»РµРЅРёСЏ COM-РїРѕСЂС‚РѕРј С‚РµРїРµСЂСЊ РІ РјРµРЅСЋ "РџСЂРёР±РѕСЂ" Рё РґРёР°Р»РѕРіРµ IDD_SERIAL_STATUS
     serialModule->SetParsedDataCallback([this, hWnd](const ParsedToolFrame& parsedData) {
-        // v2.16.x: РµСЃР»Рё РёРґС‘С‚ Р·Р°РїРёСЃСЊ РІ С„Р°Р№Р», РїСЂРёРІСЏР·С‹РІР°РµРј Р·Р°РјРµС‚РєРё Рє С‚РµРєСѓС‰РµРјСѓ recordFilePath
+        // v2.19.0: Если display callback приостановлен (режим FILE_VIEW),
+        // не добавляем данные в DataModule и не обновляем графики.
+        // Запись в файл продолжается внутри SerialModule (до этого callback).
+        if (displayCallbackPaused) {
+            return;
+        }
+
+        // DEBUG v2.19.0: Логируем первые 5 кадров после возобновления из FILE_VIEW
+        if (dbgResumeCallbackCounter > 0) {
+            size_t dmSize = dataModule ? dataModule->GetDataSize() : 0;
+            float amVal = parsedData.canonicalData.AM_RX_1[0][0];
+            uint32_t frame = parsedData.canonicalData.frame;
+            wchar_t dbg[256];
+            swprintf_s(dbg, L"[DBG] Callback RESUME #%d: frame#=%u, AM_RX_1[0][0]=%.4f, DataModule.size=%zu (BEFORE AddParsedData)\n",
+                        (6 - dbgResumeCallbackCounter), frame, amVal, dmSize);
+            OutputDebugStringW(dbg);
+            dbgResumeCallbackCounter--;
+        }
+
+        // v2.16.x: РµСЃР»Рё РёРґС'С‚ Р·Р°РїРёСЃСЊ РІ С„Р°Р№Р», РїСЂРёРІСЏР·С‹РІР°РµРј Р·Р°РјРµС‚РєРё Рє С‚РµРєСѓС‰РµРјСѓ recordFilePath
         if (notesModule && serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
             std::wstring recordPath = serialModule->GetRecordFilePath();
             if (!recordPath.empty()) {
@@ -1454,7 +1473,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
             }
         }
 
-        // Р”РѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ РІ DataModule
+        // Р"РѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ РІ DataModule
         dataModule->AddParsedData(parsedData);
         InvalidateCachedSnapshots();
         
@@ -1626,13 +1645,48 @@ void ChartManager::DrawChart2(HDC hdc)
 
 void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
 {
-    // v2.14.1: РџСЂРё РѕС‚РєСЂС‹С‚РёРё С„Р°Р№Р»Р° РѕСЃС‚Р°РЅР°РІР»РёРІР°РµРј РѕРїСЂРѕСЃ COM-РїРѕСЂС‚Р°
-    // Р РµР¶РёРјС‹ СЂР°Р±РѕС‚С‹ СЃ С„Р°Р№Р»РѕРј Рё COM-РїРѕСЂС‚РѕРј РІР·Р°РёРјРѕРёСЃРєР»СЋС‡Р°СЋС‰РёРµ
-    if (serialModule && serialModule->IsPolling()) {
-        serialModule->StopPolling();
-    }
-    if (serialModule && serialModule->IsConnected()) {
-        serialModule->Disconnect();
+    // v2.19.0: Если COM-порт активно записывает данные, не разрываем соединение.
+    // Вместо этого сохраняем контекст COM-сессии и переключаемся в FILE_VIEW.
+    // COM polling и запись в файл продолжаются в фоне.
+    const bool comIsActive = serialModule && serialModule->IsConnected() && serialModule->IsPolling();
+
+    if (comIsActive && serialModule->IsRecordingEnabled()) {
+        // Сохраняем контекст COM-сессии для будущего возврата
+        comSessionSnapshot.chart1Zoom = chart1Zoom;
+        comSessionSnapshot.chart2Zoom = chart2Zoom;
+        comSessionSnapshot.chart1ZoomHistory = chart1ZoomHistory;
+        comSessionSnapshot.chart2ZoomHistory = chart2ZoomHistory;
+        comSessionSnapshot.chart1XZoomHistory = chart1XZoomHistory;
+        comSessionSnapshot.chart1YZoomHistory = chart1YZoomHistory;
+        comSessionSnapshot.chart2XZoomHistory = chart2XZoomHistory;
+        comSessionSnapshot.chart2YZoomHistory = chart2YZoomHistory;
+        comSessionSnapshot.notesPath = currentNotesPath;
+        comSessionSnapshot.hasSnapshot = true;
+
+        // Приостанавливаем отображение COM-данных на графиках
+        displayCallbackPaused = true;
+        dataSourceMode = DataSourceMode::FILE_VIEW;
+
+        // DEBUG v2.19.0: Логируем момент переключения в FILE_VIEW
+        {
+            size_t dmSize = dataModule ? dataModule->GetDataSize() : 0;
+            uint32_t recFrames = serialModule->GetRecordedFrames();
+            wchar_t dbg[256];
+            swprintf_s(dbg, L"[DBG] LoadDataFromFile -> FILE_VIEW: DataModule=%zu frames, RecordFile=%u frames, path=%s\n",
+                        dmSize, recFrames, serialModule->GetRecordFilePath().c_str());
+            OutputDebugStringW(dbg);
+        }
+    } else {
+        // Нет активной фоновой записи — старое поведение: отключаем COM
+        if (serialModule && serialModule->IsPolling()) {
+            serialModule->StopPolling();
+        }
+        if (serialModule && serialModule->IsConnected()) {
+            serialModule->Disconnect();
+        }
+        comSessionSnapshot.hasSnapshot = false;
+        displayCallbackPaused = false;
+        dataSourceMode = DataSourceMode::COM_LIVE;
     }
 
     if (!dataModule || !asyncTaskQueue) {
@@ -4461,8 +4515,16 @@ void ChartManager::UpdateStatusBarFileInfo() {
         swprintf_s(fileInfo, L"Points: %zu  |  %s", dataSize, fileName.c_str());
         SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
         
-        // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј РЅР°С‡Р°Р»СЊРЅРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ
-        uiModule->UpdateStatusBar(L"Ready");
+        // v2.19.0: Показываем индикатор фоновой записи COM
+        if (IsComRecordingInBackground()) {
+            std::wstring port = serialModule ? serialModule->GetConnectedPort() : L"COM?";
+            uint32_t recFrames = serialModule ? serialModule->GetRecordedFrames() : 0;
+            wchar_t bgInfo[128];
+            swprintf_s(bgInfo, L"BG REC: %s (%u)", port.c_str(), recFrames);
+            uiModule->UpdateStatusBar(bgInfo);
+        } else {
+            uiModule->UpdateStatusBar(L"Ready");
+        }
     } else {
         SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"No file loaded");
         uiModule->ClearStatusBarCoordinates();
@@ -4876,7 +4938,13 @@ void ChartManager::HandleSerialConnect(HWND hWnd) {
 void ChartManager::HandleSerialDisconnect(HWND hWnd) {
     if (!serialModule) return;
     
-    // РћСЃС‚Р°РЅР°РІР»РёРІР°РµРј РѕРїСЂРѕСЃ РїРµСЂРµРґ РѕС‚РєР»СЋС‡РµРЅРёРµРј
+    // v2.19.0: Если идёт фоновая запись в FILE_VIEW, сбрасываем режим
+    if (dataSourceMode == DataSourceMode::FILE_VIEW) {
+        dataSourceMode = DataSourceMode::COM_LIVE;
+        displayCallbackPaused = false;
+        comSessionSnapshot.hasSnapshot = false;
+    }
+    
     if (serialModule->IsPolling()) {
         serialModule->StopPolling();
     }
@@ -5092,6 +5160,165 @@ void ChartManager::UpdateSurfStatusBar() {
     int surf2Window = uiModule->GetSurfWindowSize(2);
     
     uiModule->UpdateStatusBarSurfInfo(surf1Enabled, surf1Window, surf2Enabled, surf2Window);
+}
+
+// === v2.19.0: Параллельная запись COM + просмотр файла ===
+
+bool ChartManager::IsComRecordingInBackground() const {
+    return dataSourceMode == DataSourceMode::FILE_VIEW
+        && serialModule
+        && serialModule->IsConnected()
+        && serialModule->IsPolling()
+        && serialModule->IsRecordingEnabled();
+}
+
+void ChartManager::ReturnToComLive(HWND hWnd) {
+    if (!serialModule || !serialModule->IsConnected() || !serialModule->IsPolling()) {
+        // COM больше не активен — просто сбрасываем режим
+        OutputDebugStringW(L"[DBG] ReturnToComLive: COM not active, just resetting mode\n");
+        dataSourceMode = DataSourceMode::COM_LIVE;
+        displayCallbackPaused = false;
+        comSessionSnapshot.hasSnapshot = false;
+        return;
+    }
+
+    // DEBUG: Состояние перед загрузкой файла
+    {
+        size_t dmSizeBefore = dataModule ? dataModule->GetDataSize() : 0;
+        uint32_t recFrames = serialModule->GetRecordedFrames();
+        wchar_t dbg[512];
+        swprintf_s(dbg, L"[DBG] ReturnToComLive: START. DataModule=%zu, RecordedFrames=%u, RecordingActive=%d\n",
+                    dmSizeBefore, recFrames, (int)serialModule->IsRecordingActive());
+        OutputDebugStringW(dbg);
+    }
+
+    // v2.19.0: Принудительный flush буфера записи перед чтением файла,
+    // чтобы все записанные кадры были видны на диске.
+    serialModule->FlushRecordFile();
+    OutputDebugStringW(L"[DBG] ReturnToComLive: FlushRecordFile() done\n");
+
+    // Загружаем записанный файл как источник данных для отображения
+    std::wstring recordPath = serialModule->GetRecordFilePath();
+    bool loadedFromFile = false;
+
+    if (!recordPath.empty() && serialModule->IsRecordingActive()) {
+        // Загружаем данные из recording-файла
+        DataLoadResult loadedData;
+        std::wstring loadError;
+        if (DataModule::LoadDataFromFileResult(recordPath, loadedData, loadError) && loadedData.HasData()) {
+            // DEBUG: Логируем сколько кадров загружено и значения граничных кадров
+            {
+                size_t loadedCount = loadedData.data.size();
+                wchar_t dbg[512];
+                swprintf_s(dbg, L"[DBG] ReturnToComLive: Loaded %zu frames from file\n", loadedCount);
+                OutputDebugStringW(dbg);
+
+                // Значения AM_RX_1[0][0] (400kHz T1 RX1) для первых и последних 3 кадров
+                for (size_t i = 0; i < loadedCount && i < 3; i++) {
+                    float amVal = loadedData.data[i].AM_RX_1[0][0];
+                    uint32_t frame = loadedData.data[i].frame;
+                    swprintf_s(dbg, L"[DBG]   frame[%zu]: frame#=%u, AM_RX_1[0][0]=%.4f\n", i, frame, amVal);
+                    OutputDebugStringW(dbg);
+                }
+                if (loadedCount > 6) {
+                    OutputDebugStringW(L"[DBG]   ...\n");
+                }
+                for (size_t i = (loadedCount > 3 ? loadedCount - 3 : 0); i < loadedCount; i++) {
+                    if (i < 3) continue;
+                    float amVal = loadedData.data[i].AM_RX_1[0][0];
+                    uint32_t frame = loadedData.data[i].frame;
+                    swprintf_s(dbg, L"[DBG]   frame[%zu]: frame#=%u, AM_RX_1[0][0]=%.4f\n", i, frame, amVal);
+                    OutputDebugStringW(dbg);
+                }
+            }
+
+            dataModule->ApplyLoadedData(std::move(loadedData));
+            currentDataFilePath = recordPath;
+            if (notesModule) {
+                EnsureNotesLoadedForPath(recordPath + L".notes.jsonl");
+            }
+            loadedFromFile = true;
+        } else {
+            wchar_t dbg[512];
+            swprintf_s(dbg, L"[DBG] ReturnToComLive: LoadDataFromFileResult FAILED: %s\n", loadError.c_str());
+            OutputDebugStringW(dbg);
+        }
+    }
+
+    if (!loadedFromFile) {
+        // Не удалось загрузить файл — начинаем с чистого листа
+        OutputDebugStringW(L"[DBG] ReturnToComLive: No file loaded, clearing DataModule\n");
+        dataModule->ClearData();
+        currentDataFilePath.clear();
+    }
+
+    InvalidateCachedSnapshots();
+    ResetCoordinateTracking();
+
+    if (schematicModule) {
+        schematicModule->CloseSchematicDialog();
+    }
+
+    // Восстанавливаем контекст COM-сессии если есть снапшот
+    if (comSessionSnapshot.hasSnapshot) {
+        chart1Zoom = comSessionSnapshot.chart1Zoom;
+        chart2Zoom = comSessionSnapshot.chart2Zoom;
+        chart1ZoomHistory = comSessionSnapshot.chart1ZoomHistory;
+        chart2ZoomHistory = comSessionSnapshot.chart2ZoomHistory;
+        chart1XZoomHistory = comSessionSnapshot.chart1XZoomHistory;
+        chart1YZoomHistory = comSessionSnapshot.chart1YZoomHistory;
+        chart2XZoomHistory = comSessionSnapshot.chart2XZoomHistory;
+        chart2YZoomHistory = comSessionSnapshot.chart2YZoomHistory;
+        if (notesModule && !comSessionSnapshot.notesPath.empty()) {
+            EnsureNotesLoadedForPath(comSessionSnapshot.notesPath);
+        }
+    } else {
+        // Сбрасываем zoom
+        chart1Zoom = ZoomRange();
+        chart2Zoom = ZoomRange();
+        chart1ZoomHistory.clear();
+        chart2ZoomHistory.clear();
+        ClearAxisHistory(1);
+        ClearAxisHistory(2);
+    }
+
+    comSessionSnapshot.hasSnapshot = false;
+
+    // Возобновляем display callback и режим COM_LIVE
+    displayCallbackPaused = false;
+    dbgResumeCallbackCounter = 5;  // DEBUG: начать логирование следующих 5 кадров
+    dataSourceMode = DataSourceMode::COM_LIVE;
+
+    // DEBUG: Состояние после возобновления
+    {
+        size_t dmSizeAfter = dataModule ? dataModule->GetDataSize() : 0;
+        wchar_t dbg[256];
+        swprintf_s(dbg, L"[DBG] ReturnToComLive: DONE. DataModule=%zu frames, displayCallbackPaused=false\n", dmSizeAfter);
+        OutputDebugStringW(dbg);
+    }
+
+    // Обновляем UI
+    UpdateStatusBarFileInfo();
+    UpdateYZoomTargetVisibility(1);
+    UpdateYZoomTargetVisibility(2);
+
+    if (dataModule->HasData() && uiModule) {
+        if (uiModule->IsSurfEnabled(1)) {
+            UpdateSurfRange(1);
+        } else {
+            uiModule->ResetXRangeControls(1);
+        }
+        if (uiModule->IsSurfEnabled(2)) {
+            UpdateSurfRange(2);
+        } else {
+            uiModule->ResetXRangeControls(2);
+        }
+        UpdateSurfStatusBar();
+    }
+
+    ScheduleVisibleChartsWarmup(hWnd);
+    UpdateScrollBars(hWnd);
+    InvalidateRect(hWnd, nullptr, TRUE);
 }
 
 

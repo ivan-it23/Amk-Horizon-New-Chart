@@ -266,6 +266,11 @@
 #define IDM_DEVICE_RECORD_FOLDER	112
 #define IDM_DEVICE_OPEN_FOLDER		113
 
+// === v2.19.0: Параллельная запись COM + просмотр файла ===
+#define IDM_RETURN_TO_COM			116
+#define IDC_RETURN_TO_COM_BTN		1290
+#define IDC_BG_RECORD_STATUS		1291
+
 #ifndef IDC_STATIC
 #define IDC_STATIC				-1
 #endif
