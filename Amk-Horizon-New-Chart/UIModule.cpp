@@ -66,6 +66,9 @@ UIModule::UIModule()
     , hChart2YZoomTargetCombo(nullptr)
     , hChart1YZoomLabel(nullptr)
     , hChart2YZoomLabel(nullptr)
+    , hPollingToggleBtn(nullptr)
+    , pollingToggleActive(false)
+    , pollingToggleEnabled(false)
     , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(UI_TRANSMITTER_COUNT, true);
@@ -187,6 +190,13 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart1SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
+
+    // === Кнопка-переключатель Старт/Стоп опроса (панель Chart 1) ===
+    int pollingBtnX = surfStartX + 112;  // 12px зазор после Surf Edit
+    hPollingToggleBtn = CreateWindow(L"BUTTON", L"",
+        WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | WS_DISABLED,
+        pollingBtnX, yPos - 2, 70, 24, hWnd, (HMENU)IDC_POLLING_TOGGLE_BTN, hInst, NULL);
+    CreateTooltip(hWnd, hPollingToggleBtn, L"\u0421\u0442\u0430\u0440\u0442/\u0421\u0442\u043E\u043F \u043E\u043F\u0440\u043E\u0441\u0430 \u043F\u0440\u0438\u0431\u043E\u0440\u0430");
 
     // === Переключатель цели Y-zoom для Chart 1 (v2.18.0) ===
     // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)
@@ -1313,11 +1323,25 @@ std::wstring UIModule::GetSelectedPort() const {
 }
 
 void UIModule::SetSerialConnected(bool connected) {
-    // Реализация перенесена в диалог
+    // Обновляем состояние toggle-кнопки опроса
+    UpdatePollingToggleState(connected, pollingToggleActive);
 }
 
 void UIModule::SetSerialPolling(bool polling) {
-    // Реализация перенесена в диалог
+    // Обновляем состояние toggle-кнопки опроса
+    pollingToggleActive = polling;
+    if (hPollingToggleBtn) {
+        InvalidateRect(hPollingToggleBtn, NULL, TRUE);
+    }
+}
+
+void UIModule::UpdatePollingToggleState(bool connected, bool polling) {
+    pollingToggleActive = polling;
+    pollingToggleEnabled = connected;
+    if (hPollingToggleBtn) {
+        EnableWindow(hPollingToggleBtn, connected ? TRUE : FALSE);
+        InvalidateRect(hPollingToggleBtn, NULL, TRUE);
+    }
 }
 
 void UIModule::UpdateSerialStatus(const std::wstring& status) {
@@ -1486,6 +1510,7 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
         case IDC_RESET_ZOOM2_BTN:
         case IDC_CURSOR1_ICON:  // Иконка маркера для Chart 1
         case IDC_CURSOR2_ICON:  // Иконка маркера для Chart 2
+        case IDC_POLLING_TOGGLE_BTN:  // Кнопка-переключатель Старт/Стоп опроса
             return true;
         default:
             return false;
@@ -1576,7 +1601,15 @@ void UIModule::DrawToolbarGroupBackgrounds(HDC hdc) {
         if (!first) drawZone(bounds);
     }
 
-    // === Группа 4 (Chart 1): Курсор — [📍] [X] : [Y1] | [Y2] ===
+    // === Группа 4 (Chart 1): Опрос — [▶ Старт / ■ Стоп] ===
+    {
+        RECT bounds = {};
+        bool first = true;
+        unionRect(bounds, getControlRect(hPollingToggleBtn), first);
+        if (!first) drawZone(bounds);
+    }
+
+    // === Группа 5 (Chart 1): Курсор — [📍] [X] : [Y1] | [Y2] ===
     {
         RECT bounds = {};
         bool first = true;
@@ -1722,6 +1755,79 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
         SelectObject(hdc, hOld);
         DeleteObject(hPen);
 
+        return;
+    }
+    
+    // === Специальная отрисовка toggle-кнопки Старт/Стоп опроса ===
+    if (ctrlId == IDC_POLLING_TOGGLE_BTN) {
+        const bool isActive = pollingToggleActive;
+        const wchar_t* btnIcon = isActive ? L"\u25A0" : L"\u25B6";  // ■ или ▶
+        const wchar_t* btnText = isActive ? L"\x0421\x0442\x043E\x043F" : L"\x0421\x0442\x0430\x0440\x0442";
+        
+        COLORREF bgColor, textColor, borderColor;
+        if (state & ODS_DISABLED) {
+            bgColor = RGB(240, 240, 240);
+            textColor = RGB(160, 160, 160);
+            borderColor = RGB(200, 200, 200);
+        } else if (state & ODS_SELECTED) {
+            bgColor = isActive ? RGB(180, 50, 50) : RGB(40, 130, 40);
+            textColor = RGB(255, 255, 255);
+            borderColor = isActive ? RGB(140, 30, 30) : RGB(20, 100, 20);
+        } else {
+            bgColor = isActive ? RGB(210, 60, 60) : RGB(50, 160, 50);
+            textColor = RGB(255, 255, 255);
+            borderColor = isActive ? RGB(180, 40, 40) : RGB(30, 130, 30);
+        }
+        
+        // Фон со скруглением
+        HBRUSH hFill = CreateSolidBrush(bgColor);
+        HPEN hPen = CreatePen(PS_SOLID, 1, borderColor);
+        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hFill);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+        RoundRect(hdc, rc.left, rc.top, rc.right, rc.bottom, 6, 6);
+        SelectObject(hdc, hOldBrush);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hFill);
+        DeleteObject(hPen);
+        
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, textColor);
+        
+        int offsetX = (state & ODS_SELECTED) ? 1 : 0;
+        int offsetY = (state & ODS_SELECTED) ? 1 : 0;
+        
+        // Иконка (▶ или ■)
+        HFONT hIconFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI Symbol");
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hIconFont);
+        
+        RECT iconRect = rc;
+        iconRect.right = rc.left + 22;
+        iconRect.left += offsetX;
+        iconRect.top += offsetY;
+        DrawText(hdc, btnIcon, -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        
+        // Текст ("Старт" или "Стоп")
+        HFONT hTextFont = CreateFont(15, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        SelectObject(hdc, hTextFont);
+        
+        RECT textRect = rc;
+        textRect.left = rc.left + 18 + offsetX;
+        textRect.top += offsetY;
+        DrawText(hdc, btnText, -1, &textRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        
+        SelectObject(hdc, hOldFont);
+        DeleteObject(hIconFont);
+        DeleteObject(hTextFont);
+        
+        if (state & ODS_FOCUS) {
+            RECT focusRect = rc;
+            InflateRect(&focusRect, -3, -3);
+            DrawFocusRect(hdc, &focusRect);
+        }
         return;
     }
     

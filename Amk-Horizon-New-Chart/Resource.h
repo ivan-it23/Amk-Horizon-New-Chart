@@ -173,6 +173,9 @@
 #define IDC_CHART1_YZOOM_LABEL         1117
 #define IDC_CHART2_YZOOM_LABEL         1118
 
+// Кнопка-переключатель Старт/Стоп опроса (панель Chart 1)
+#define IDC_POLLING_TOGGLE_BTN         1119
+
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092
 

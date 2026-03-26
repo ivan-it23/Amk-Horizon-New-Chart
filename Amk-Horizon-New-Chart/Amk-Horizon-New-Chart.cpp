@@ -1659,6 +1659,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
             
+            // === Кнопка-переключатель Старт/Стоп опроса ===
+            case IDC_POLLING_TOGGLE_BTN:
+                if (g_chartManager)
+                {
+                    if (g_chartManager->IsSerialPolling()) {
+                        g_chartManager->HandleSerialStop(hWnd);
+                    } else {
+                        g_chartManager->HandleSerialStart(hWnd);
+                    }
+                }
+                break;
+
             // === Обработка режима Surf (v2.14.0) ===
             case IDC_CHART1_SURF_CHECK:
                 if (g_chartManager)
@@ -2290,6 +2302,10 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
 
                                     serial->StartPolling(hMainWnd, 2000);
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Опрос...");
+                                    // Синхронизируем toggle-кнопку Старт/Стоп на панели
+                                    if (UIModule* ui = g_chartManager->GetUIModule()) {
+                                        ui->UpdatePollingToggleState(true, true);
+                                    }
                                 } else {
                                     std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result.connectResult);
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), errorMsg.c_str());

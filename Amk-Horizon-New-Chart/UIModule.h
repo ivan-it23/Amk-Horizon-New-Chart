@@ -97,6 +97,11 @@ private:
     HWND hChart1YZoomLabel;        // Метка "Zoom оси Y:" для Chart 1
     HWND hChart2YZoomLabel;        // Метка "Zoom оси Y:" для Chart 2
 
+    // Кнопка-переключатель Старт/Стоп опроса (панель Chart 1)
+    HWND hPollingToggleBtn;
+    bool pollingToggleActive;  // true = опрос идёт (показываем "Стоп"), false = не идёт ("Старт")
+    bool pollingToggleEnabled; // true = COM подключён, кнопка активна
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -175,6 +180,9 @@ public:
     std::wstring GetSelectedPort() const;
     void SetSerialConnected(bool connected);
     void SetSerialPolling(bool polling);
+    void UpdatePollingToggleState(bool connected, bool polling);
+    HWND GetPollingToggleBtn() const { return hPollingToggleBtn; }
+    bool IsPollingToggleActive() const { return pollingToggleActive; }
     void UpdateSerialStatus(const std::wstring& status);
     void UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors);
     HWND GetSerialPortCombo() const { return hSerialPortCombo; }
