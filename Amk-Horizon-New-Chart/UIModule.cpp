@@ -172,11 +172,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Кнопка "Reset Zoom" для Chart 1 - Owner-Draw для цветной иконки (увеличен размер)
     hResetZoom1Btn = CreateWindow(L"BUTTON", L"",
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
-        xRangeStartX + 236, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
+        xRangeStartX + 244, yPos - 2, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM1_BTN, hInst, NULL);
 
     // === Элементы управления режимом Surf для Chart 1 (v2.14.0) ===
     // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
-    int surfStartX = xRangeStartX + 305;
+    int surfStartX = xRangeStartX + 321;
     
     // Checkbox "Surf"
     hChart1SurfCheck = CreateWindow(L"BUTTON", L"Surf",
@@ -287,11 +287,11 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Кнопка "Reset Zoom" для Chart 2 (изначально скрыта) - Owner-Draw (увеличен размер)
     hResetZoom2Btn = CreateWindow(L"BUTTON", L"",
         WS_CHILD | BS_OWNERDRAW,
-        xRange2StartX + 178, 298, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
+        xRange2StartX + 186, 298, 65, 24, hWnd, (HMENU)IDC_RESET_ZOOM2_BTN, hInst, NULL);
 
     // === Элементы управления режимом Surf для Chart 2 (v2.14.0) ===
     // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
-    int surf2StartX = xRange2StartX + 247;
+    int surf2StartX = xRange2StartX + 263;
     
     // Checkbox "Surf" для Chart 2 (изначально скрыт)
     hChart2SurfCheck = CreateWindow(L"BUTTON", L"Surf",
@@ -477,10 +477,10 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     SetWindowPos(hXRange2ToEdit, HWND_TOP, xRange2StartX + 66, yPos - 2, 50, 22, SWP_NOSIZE);
     SetWindowPos(hXRange2ApplyBtn, HWND_TOP, xRange2StartX + 120, yPos - 2, 26, 24, SWP_NOSIZE);
     SetWindowPos(hXRange2ResetBtn, HWND_TOP, xRange2StartX + 148, yPos - 2, 26, 24, SWP_NOSIZE);
-    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 178, yPos - 2, 65, 24, SWP_NOSIZE);
+    SetWindowPos(hResetZoom2Btn, HWND_TOP, xRange2StartX + 186, yPos - 2, 65, 24, SWP_NOSIZE);
     
     // Позиционируем элементы Surf для Chart 2 (v2.15.1 - Surf ПЕРЕД Cursor)
-    int surf2StartX = xRange2StartX + 247;
+    int surf2StartX = xRange2StartX + 263;
     SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
     SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
     
@@ -1489,6 +1489,149 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
             return true;
         default:
             return false;
+    }
+}
+
+// Отрисовка фоновых зон группировки элементов панели инструментов
+void UIModule::DrawToolbarGroupBackgrounds(HDC hdc) {
+    if (!hdc) return;
+
+    // Вспомогательная лямбда: получить RECT контрола в клиентских координатах родителя
+    auto getControlRect = [](HWND hCtrl) -> RECT {
+        RECT rc = {};
+        if (!hCtrl || !IsWindowVisible(hCtrl)) return rc;
+        GetWindowRect(hCtrl, &rc);
+        MapWindowPoints(HWND_DESKTOP, GetParent(hCtrl), reinterpret_cast<POINT*>(&rc), 2);
+        return rc;
+    };
+
+    // Вспомогательная лямбда: объединить RECT (расширить bounds, если контрол видим)
+    auto unionRect = [](RECT& bounds, const RECT& rc, bool& first) {
+        if (rc.left == 0 && rc.right == 0 && rc.top == 0 && rc.bottom == 0) return;
+        if (first) {
+            bounds = rc;
+            first = false;
+        } else {
+            if (rc.left < bounds.left)     bounds.left = rc.left;
+            if (rc.top < bounds.top)       bounds.top = rc.top;
+            if (rc.right > bounds.right)   bounds.right = rc.right;
+            if (rc.bottom > bounds.bottom) bounds.bottom = rc.bottom;
+        }
+    };
+
+    // Параметры отрисовки зон
+    const COLORREF zoneBg     = RGB(240, 243, 247);
+    const COLORREF zoneBorder = RGB(210, 214, 219);
+    const int padding  = 4;   // Отступ вокруг группы
+    const int radius   = 6;   // Скругление углов
+
+    // Лямбда для отрисовки одной зоны
+    auto drawZone = [&](const RECT& bounds) {
+        if (bounds.left >= bounds.right || bounds.top >= bounds.bottom) return;
+
+        RECT zr = bounds;
+        InflateRect(&zr, padding, padding);
+
+        HBRUSH hFill = CreateSolidBrush(zoneBg);
+        HPEN hPen = CreatePen(PS_SOLID, 1, zoneBorder);
+        HBRUSH hOldBrush = (HBRUSH)SelectObject(hdc, hFill);
+        HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
+
+        RoundRect(hdc, zr.left, zr.top, zr.right, zr.bottom, radius, radius);
+
+        SelectObject(hdc, hOldBrush);
+        SelectObject(hdc, hOldPen);
+        DeleteObject(hFill);
+        DeleteObject(hPen);
+    };
+
+    // === Группа 1 (Chart 1): Отрезок — [From] - [To] [✓] [↺] [↓] [✂] ===
+    {
+        RECT bounds = {};
+        bool first = true;
+        unionRect(bounds, getControlRect(hXRangeFromEdit), first);
+        unionRect(bounds, getControlRect(hXRangeToLabel), first);
+        unionRect(bounds, getControlRect(hXRangeToEdit), first);
+        unionRect(bounds, getControlRect(hXRangeApplyBtn), first);
+        unionRect(bounds, getControlRect(hXRangeResetBtn), first);
+        unionRect(bounds, getControlRect(hSaveRange1Btn), first);
+        unionRect(bounds, getControlRect(hCutRange1Btn), first);
+        if (!first) drawZone(bounds);
+    }
+
+    // === Группа 2 (Chart 1): Навигация — [↺ Zoom] ===
+    {
+        RECT bounds = {};
+        bool first = true;
+        unionRect(bounds, getControlRect(hResetZoom1Btn), first);
+        if (!first) drawZone(bounds);
+    }
+
+    // === Группа 3 (Chart 1): Серф — [Surf] [pts] ===
+    {
+        RECT bounds = {};
+        bool first = true;
+        unionRect(bounds, getControlRect(hChart1SurfCheck), first);
+        unionRect(bounds, getControlRect(hChart1SurfEdit), first);
+        if (!first) drawZone(bounds);
+    }
+
+    // === Группа 4 (Chart 1): Курсор — [📍] [X] : [Y1] | [Y2] ===
+    {
+        RECT bounds = {};
+        bool first = true;
+        unionRect(bounds, getControlRect(hCursor1Icon), first);
+        unionRect(bounds, getControlRect(hCursor1XEdit), first);
+        unionRect(bounds, getControlRect(hCursor1Separator), first);
+        unionRect(bounds, getControlRect(hCursor1Y1Edit), first);
+        unionRect(bounds, getControlRect(hCursor1Y2Separator), first);
+        unionRect(bounds, getControlRect(hCursor1Y2Edit), first);
+        if (!first) drawZone(bounds);
+    }
+
+    // === Chart 2 (только в dual mode) ===
+    if (dualMode) {
+        // Группа 1 (Chart 2): Отрезок — [From] - [To] [✓] [↺]
+        {
+            RECT bounds = {};
+            bool first = true;
+            unionRect(bounds, getControlRect(hXRange2FromEdit), first);
+            unionRect(bounds, getControlRect(hXRange2ToLabel), first);
+            unionRect(bounds, getControlRect(hXRange2ToEdit), first);
+            unionRect(bounds, getControlRect(hXRange2ApplyBtn), first);
+            unionRect(bounds, getControlRect(hXRange2ResetBtn), first);
+            if (!first) drawZone(bounds);
+        }
+
+        // Группа 2 (Chart 2): Навигация — [↺ Zoom]
+        {
+            RECT bounds = {};
+            bool first = true;
+            unionRect(bounds, getControlRect(hResetZoom2Btn), first);
+            if (!first) drawZone(bounds);
+        }
+
+        // Группа 3 (Chart 2): Серф — [Surf] [pts]
+        {
+            RECT bounds = {};
+            bool first = true;
+            unionRect(bounds, getControlRect(hChart2SurfCheck), first);
+            unionRect(bounds, getControlRect(hChart2SurfEdit), first);
+            if (!first) drawZone(bounds);
+        }
+
+        // Группа 4 (Chart 2): Курсор — [📍] [X] : [Y1] | [Y2]
+        {
+            RECT bounds = {};
+            bool first = true;
+            unionRect(bounds, getControlRect(hCursor2Icon), first);
+            unionRect(bounds, getControlRect(hCursor2XEdit), first);
+            unionRect(bounds, getControlRect(hCursor2Separator), first);
+            unionRect(bounds, getControlRect(hCursor2Y1Edit), first);
+            unionRect(bounds, getControlRect(hCursor2Y2Separator), first);
+            unionRect(bounds, getControlRect(hCursor2Y2Edit), first);
+            if (!first) drawZone(bounds);
+        }
     }
 }
 

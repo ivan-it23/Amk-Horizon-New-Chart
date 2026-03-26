@@ -1920,6 +1920,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 HBRUSH hBrush = (HBRUSH)(COLOR_WINDOW + 1);
                 FillRect(hdcMem, &clientRect, hBrush);
                 
+                // Рисуем фоновые зоны группировки элементов панели инструментов
+                if (UIModule* ui = g_chartManager->GetUIModule()) {
+                    ui->DrawToolbarGroupBackgrounds(hdcMem);
+                }
+                
                 // Рисуем графики в буфер
                 g_chartManager->DrawChart1(hdcMem);
                 if (g_chartManager->IsDualMode())

@@ -203,6 +203,9 @@ public:
     void ShowYZoomTargetCombo(int chartNumber, bool show);
     HWND GetYZoomTargetCombo(int chartNumber) const;
 
+    // Отрисовка фоновых зон группировки элементов панели инструментов
+    void DrawToolbarGroupBackgrounds(HDC hdc);
+
     // Обработка Owner-Draw кнопок
     void DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem);
     bool IsIconButton(UINT ctrlId) const;
