@@ -1395,7 +1395,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    icex.dwICC = ICC_BAR_CLASSES | ICC_WIN95_CLASSES; // StatusBar + Tooltip/Button classes
    InitCommonControlsEx(&icex);
 
-   // v2.14.2: Увеличен начальный размер окна (800x600 → 1000x600) для корректного отображения всех элементов
+   // Базовый стартовый размер: окно будет максимизировано на весь экран
+   // без зазоров через ShowWindow(SW_MAXIMIZE).
    HWND hWnd = CreateWindowW(szWindowClass, szTitle, WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
       CW_USEDEFAULT, 0, 1000, 600, nullptr, nullptr, hInstance, nullptr);
 
@@ -1418,7 +1419,8 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    }
    g_chartManager->CreateControls(hWnd, hInstance);
 
-   ShowWindow(hWnd, nCmdShow);
+   // Открываем окно в максимизированном состоянии (заполняет всю рабочую область без зазоров)
+   ShowWindow(hWnd, SW_MAXIMIZE);
    UpdateWindow(hWnd);
 
    return TRUE;
