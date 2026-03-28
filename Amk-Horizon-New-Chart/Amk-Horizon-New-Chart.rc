@@ -47,7 +47,7 @@ BEGIN
 
     POPUP "&Прибор"
     BEGIN
-        MENUITEM "&Подключить...",            IDM_DEVICE_CONNECT
+        MENUITEM "&Настройки подключения...",  IDM_DEVICE_CONNECT
         MENUITEM "&Отключить",                IDM_DEVICE_DISCONNECT
         MENUITEM SEPARATOR
         MENUITEM "&Старт опроса",             IDM_DEVICE_START

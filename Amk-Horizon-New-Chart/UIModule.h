@@ -102,6 +102,11 @@ private:
     bool pollingToggleActive;  // true = опрос идёт (показываем "Стоп"), false = не идёт ("Старт")
     bool pollingToggleEnabled; // true = COM подключён, кнопка активна
 
+    // Кнопка-переключатель Подключить/Отключить прибор (панель Chart 1)
+    HWND hConnectToggleBtn;
+    bool connectToggleActive;  // true = подключено (показываем "Отключить"), false = отключено ("Подключить")
+    bool connectToggleEnabled; // true = есть доступные порты для подключения
+
     // Состояние элементов управления
     bool dualMode;
 
@@ -183,6 +188,9 @@ public:
     void UpdatePollingToggleState(bool connected, bool polling);
     HWND GetPollingToggleBtn() const { return hPollingToggleBtn; }
     bool IsPollingToggleActive() const { return pollingToggleActive; }
+    void UpdateConnectToggleState(bool connected, bool hasAvailablePorts);
+    HWND GetConnectToggleBtn() const { return hConnectToggleBtn; }
+    bool IsConnectToggleActive() const { return connectToggleActive; }
     void UpdateSerialStatus(const std::wstring& status);
     void UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors);
     HWND GetSerialPortCombo() const { return hSerialPortCombo; }

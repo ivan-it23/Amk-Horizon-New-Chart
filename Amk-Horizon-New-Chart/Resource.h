@@ -176,6 +176,9 @@
 // Кнопка-переключатель Старт/Стоп опроса (панель Chart 1)
 #define IDC_POLLING_TOGGLE_BTN         1119
 
+// Кнопка-переключатель Подключить/Отключить прибор (панель Chart 1)
+#define IDC_CONNECT_TOGGLE_BTN         1120
+
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092
 

@@ -4935,6 +4935,94 @@ void ChartManager::HandleSerialConnect(HWND hWnd) {
     // Р’РјРµСЃС‚Рѕ СЌС‚РѕРіРѕ РѕС‚РєСЂС‹РІР°РµС‚СЃСЏ РґРёР°Р»РѕРі С‡РµСЂРµР· IDM_DEVICE_CONNECT
 }
 
+void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
+    // Быстрое подключение с сохранённым портом и настройками
+    if (!serialModule) return;
+    
+    // Загружаем последний использованный порт
+    std::wstring lastPort = LoadLastUsedComPort();
+    if (lastPort.empty()) {
+        MessageBox(hWnd, L"Не найден сохранённый COM-порт.\nОткройте Настройки подключения для выбора порта.", 
+                   L"Быстрое подключение", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
+    
+    // Проверяем, доступен ли порт
+    std::vector<std::wstring> availablePorts = SerialModule::GetAvailablePorts();
+    bool portAvailable = false;
+    for (const auto& port : availablePorts) {
+        if (port == lastPort) {
+            portAvailable = true;
+            break;
+        }
+    }
+    
+    if (!portAvailable) {
+        MessageBox(hWnd, (L"Сохранённый порт " + lastPort + L" не найден.\nПроверьте подключение или откройте Настройки подключения.").c_str(), 
+                   L"Быстрое подключение", MB_OK | MB_ICONWARNING);
+        return;
+    }
+    
+    // Выполняем подключение асинхронно
+    if (asyncTaskQueue) {
+        asyncTaskQueue->PostWorkerTask([hWnd, lastPort]() {
+            SerialResult connectResult = SerialResult::NOT_CONNECTED;
+            METROLOGY_DATA metrology = {};
+            SerialResult metrologyResult = SerialResult::NOT_CONNECTED;
+            
+            if (g_chartManager) {
+                if (SerialModule* serial = g_chartManager->GetSerialModule()) {
+                    connectResult = serial->Connect(lastPort);
+                    if (connectResult == SerialResult::SUCCESS) {
+                        for (int attempt = 0; attempt < 4; ++attempt) {
+                            metrologyResult = serial->RequestMetrology(metrology);
+                            if (metrologyResult == SerialResult::SUCCESS) {
+                                break;
+                            }
+                            Sleep(attempt == 0 ? 1200 : 300);
+                        }
+                    }
+                }
+            }
+            
+            AsyncTaskQueue::PostUiTask(hWnd, [hWnd, lastPort, connectResult, metrology, metrologyResult]() {
+                if (!g_chartManager || !IsWindow(hWnd)) {
+                    return;
+                }
+                
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                UIModule* ui = g_chartManager->GetUIModule();
+                
+                if (connectResult == SerialResult::SUCCESS) {
+                    g_chartManager->PrepareSerialDisplayData(hWnd, false, L"");
+                    
+                    if (serial) {
+                        serial->StartPolling(hWnd, 2000);
+                    }
+                    
+                    if (ui) {
+                        ui->UpdateConnectToggleState(true, true);
+                        ui->UpdatePollingToggleState(true, true);
+                    }
+                    
+                    if (metrologyResult == SerialResult::SUCCESS) {
+                        wchar_t title[256];
+                        swprintf_s(title, L"AMK Horizon - %s (S/N: %u)", lastPort.c_str(), metrology.serial);
+                        SetWindowText(hWnd, title);
+                    }
+                } else {
+                    std::wstring errorMsg = L"Ошибка подключения: " + SerialModule::ResultToString(connectResult);
+                    MessageBox(hWnd, errorMsg.c_str(), L"Быстрое подключение", MB_OK | MB_ICONERROR);
+                    
+                    if (ui) {
+                        ui->UpdateConnectToggleState(false, true);
+                    }
+                }
+            });
+        });
+    }
+}
+
 void ChartManager::HandleSerialDisconnect(HWND hWnd) {
     if (!serialModule) return;
     

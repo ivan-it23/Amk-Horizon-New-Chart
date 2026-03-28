@@ -15,6 +15,11 @@
 #include <memory>
 #include <vector>
 
+// Forward declarations для глобальных функций и переменных
+class ChartManager;
+extern ChartManager* g_chartManager;  // Глобальный указатель на ChartManager
+std::wstring LoadLastUsedComPort();  // Загрузка последнего использованного COM-порта
+
 // Предварительные объявления новых модулей
 class SchematicModule;
 class CurveSelectionModule;
@@ -303,6 +308,7 @@ public:
 
     // Подключение/отключение от прибора
     void HandleSerialConnect(HWND hWnd);
+    void HandleSerialConnectQuick(HWND hWnd); // Быстрое подключение с сохранённым портом
     void HandleSerialDisconnect(HWND hWnd);
 
     // v2.19.0: Режим параллельной записи COM + просмотр файла

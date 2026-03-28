@@ -243,7 +243,7 @@ static void SaveAppSettingValue(const char* key, const std::wstring& value) {
     }
 }
 
-static std::wstring LoadLastUsedComPort() {
+std::wstring LoadLastUsedComPort() {
     return LoadAppSettingValue("lastComPort");
 }
 
@@ -1669,6 +1669,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                         g_chartManager->HandleSerialStop(hWnd);
                     } else {
                         g_chartManager->HandleSerialStart(hWnd);
+                    }
+                }
+                break;
+
+            // === Кнопка-переключатель Подключить/Отключить прибор ===
+            case IDC_CONNECT_TOGGLE_BTN:
+                if (g_chartManager)
+                {
+                    if (g_chartManager->IsSerialConnected()) {
+                        // Отключаем прибор
+                        g_chartManager->HandleSerialDisconnect(hWnd);
+                    } else {
+                        // Быстрое подключение с сохранённым портом
+                        g_chartManager->HandleSerialConnectQuick(hWnd);
                     }
                 }
                 break;
