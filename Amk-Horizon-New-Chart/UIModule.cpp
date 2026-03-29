@@ -11,6 +11,23 @@ void SetTransmitterEnabled(std::vector<bool>& enabledTransmitters, int transmitt
         enabledTransmitters[static_cast<size_t>(transmitterIdx)] = enabled;
     }
 }
+
+// ПКМ по кнопке «Включить» — открыть диалог «Подключение к прибору» (как в меню настроек).
+LRESULT CALLBACK ConnectToggleSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+    UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+    // Owner-draw: ПКМ обрабатываем по WM_RBUTTONUP (иначе возможен дубль с WM_CONTEXTMENU).
+    if (msg == WM_RBUTTONUP) {
+        HWND hParent = reinterpret_cast<HWND>(dwRefData);
+        if (hParent && IsWindow(hParent)) {
+            PostMessage(hParent, WM_APP_OPEN_SERIAL_CONNECTION, 0, 0);
+        }
+        return 0;
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, ConnectToggleSubclassProc, uIdSubclass);
+    }
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
 }
 
 UIModule::UIModule()
@@ -206,7 +223,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hConnectToggleBtn = CreateWindow(L"BUTTON", L"",
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW,
         connectBtnX, yPos - 2, 80, 24, hWnd, (HMENU)IDC_CONNECT_TOGGLE_BTN, hInst, NULL);
-    CreateTooltip(hWnd, hConnectToggleBtn, L"\u0412\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435/\u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043F\u0440\u0438\u0431\u043E\u0440\u0430");
+    SetWindowSubclass(hConnectToggleBtn, ConnectToggleSubclassProc, 1, reinterpret_cast<DWORD_PTR>(hWnd));
+    CreateTooltip(hWnd, hConnectToggleBtn,
+        L"\u0412\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435/\u043E\u0442\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u0435 \u043F\u0440\u0438\u0431\u043E\u0440\u0430. "
+        L"\u041F\u041A\u041C \u2014 \u043D\u0430\u0441\u0442\u0440\u043E\u0439\u043A\u0438 \u043F\u043E\u0434\u043A\u043B\u044E\u0447\u0435\u043D\u0438\u044F.");
 
     // === Переключатель цели Y-zoom для Chart 1 (v2.18.0) ===
     // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)

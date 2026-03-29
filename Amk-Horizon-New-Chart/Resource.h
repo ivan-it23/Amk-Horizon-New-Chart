@@ -179,6 +179,9 @@
 // Кнопка-переключатель Подключить/Отключить прибор (панель Chart 1)
 #define IDC_CONNECT_TOGGLE_BTN         1120
 
+// Сообщение главному окну: открыть диалог «Подключение к прибору» (ПКМ по кнопке «Включить»)
+#define WM_APP_OPEN_SERIAL_CONNECTION    (WM_APP + 27)
+
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092
 

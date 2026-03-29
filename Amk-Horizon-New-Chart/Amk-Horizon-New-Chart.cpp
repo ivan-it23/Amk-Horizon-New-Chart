@@ -16,6 +16,7 @@
 #include <commdlg.h>
 #include <commctrl.h>
 #include <ctime>
+#include <cwchar>
 
 #define MAX_LOADSTRING 100
 
@@ -256,6 +257,37 @@ static void SaveLastRecordFolder(const std::wstring& folder) {
     SaveAppSettingValue("lastRecordFolder", folder);
 }
 
+/** Текст в списке COM-портов, если устройств не найдено (не является именем порта). */
+static const wchar_t kNoComPortsComboLabel[] = L"Нет доступного порта!";
+
+static bool SerialComboHasConnectablePort(HWND hDlg) {
+    HWND hPortCombo = GetDlgItem(hDlg, IDC_SERIAL_PORT_COMBO);
+    if (!hPortCombo) {
+        return false;
+    }
+    const int n = (int)SendMessage(hPortCombo, CB_GETCOUNT, 0, 0);
+    if (n <= 0) {
+        return false;
+    }
+    wchar_t buf[64];
+    if (SendMessage(hPortCombo, CB_GETLBTEXT, 0, (LPARAM)buf) == CB_ERR) {
+        return false;
+    }
+    return wcscmp(buf, kNoComPortsComboLabel) != 0;
+}
+
+static void UpdateSerialDialogConnectButtonState(HWND hDlg) {
+    if (!g_chartManager) {
+        return;
+    }
+    HWND hStart = GetDlgItem(hDlg, IDC_SERIAL_START_BTN);
+    if (!hStart) {
+        return;
+    }
+    const bool connected = g_chartManager->IsSerialConnected();
+    EnableWindow(hStart, !connected && SerialComboHasConnectablePort(hDlg));
+}
+
 static void SetSerialDialogBusyState(HWND hDlg, bool busy) {
     const int controlIds[] = {
         IDC_SERIAL_PORT_COMBO,
@@ -287,10 +319,13 @@ static void PopulateSerialPortsCombo(HWND hDlg, const std::vector<std::wstring>&
     }
 
     SendMessage(hPortCombo, CB_RESETCONTENT, 0, 0);
-    for (const auto& port : ports) {
-        SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
-    }
-    if (!ports.empty()) {
+    if (ports.empty()) {
+        SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)kNoComPortsComboLabel);
+        SendMessage(hPortCombo, CB_SETCURSEL, 0, 0);
+    } else {
+        for (const auto& port : ports) {
+            SendMessage(hPortCombo, CB_ADDSTRING, 0, (LPARAM)port.c_str());
+        }
         std::wstring preferred = LoadLastUsedComPort();
         int sel = 0;
         if (!preferred.empty()) {
@@ -1394,6 +1429,23 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - отправить сообщение о выходе и вернуться
 //
 //
+static void ShowOrActivateSerialConnectionDialog(HWND hWndOwner) {
+    if (!g_hSerialDialog || !IsWindow(g_hSerialDialog)) {
+        g_hSerialDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SERIAL_STATUS),
+                                       hWndOwner, SerialStatusDialogProc);
+        if (g_hSerialDialog) {
+            ShowWindow(g_hSerialDialog, SW_SHOW);
+        }
+    } else {
+        if (IsIconic(g_hSerialDialog)) {
+            ShowWindow(g_hSerialDialog, SW_RESTORE);
+        } else {
+            ShowWindow(g_hSerialDialog, SW_SHOW);
+        }
+        SetForegroundWindow(g_hSerialDialog);
+    }
+}
+
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
     if (AsyncTaskQueue::TryDispatchUiTask(message, lParam)) {
@@ -1402,6 +1454,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
     switch (message)
     {
+    case WM_APP_OPEN_SERIAL_CONNECTION:
+        ShowOrActivateSerialConnectionDialog(hWnd);
+        return 0;
 
     case WM_COMMAND:
         {
@@ -1418,22 +1473,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             
             // === Команды прибора (v2.13.0; "Настройки подключения" и "Метрология" — top-level меню) ===
             case IDM_DEVICE_CONNECT:
-                // Открываем диалог подключения к прибору
-                if (!g_hSerialDialog || !IsWindow(g_hSerialDialog)) {
-                    g_hSerialDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SERIAL_STATUS), 
-                                                   hWnd, SerialStatusDialogProc);
-                    if (g_hSerialDialog) {
-                        ShowWindow(g_hSerialDialog, SW_SHOW);
-                    }
-                } else {
-                    // Диалог уже создан: показываем/восстанавливаем и выводим на передний план
-                    if (IsIconic(g_hSerialDialog)) {
-                        ShowWindow(g_hSerialDialog, SW_RESTORE);
-                    } else {
-                        ShowWindow(g_hSerialDialog, SW_SHOW);
-                    }
-                    SetForegroundWindow(g_hSerialDialog);
-                }
+                ShowOrActivateSerialConnectionDialog(hWnd);
                 break;
                 
             case IDM_DEVICE_DISCONNECT:
@@ -1963,6 +2003,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         PopulateSerialPortsCombo(hDlg, ports);
                         isBusy = false;
                         SetSerialDialogBusyState(hDlg, false);
+                        UpdateSerialDialogConnectButtonState(hDlg);
                         if (g_chartManager) {
                             bool connected = g_chartManager->IsSerialConnected();
                             bool polling = g_chartManager->IsSerialPolling();
@@ -1971,6 +2012,10 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         }
                     });
                 });
+            } else {
+                std::vector<std::wstring> ports = SerialModule::GetAvailablePorts();
+                PopulateSerialPortsCombo(hDlg, ports);
+                UpdateSerialDialogConnectButtonState(hDlg);
             }
             
             // v2.15.0: Инициализация чекбокса записи
@@ -2033,9 +2078,9 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 bool connected = g_chartManager->IsSerialConnected();
                 bool polling = g_chartManager->IsSerialPolling();
                 
-                SetWindowText(hStartBtn, connected ? L"Подключить" : L"Подключить");
-                EnableWindow(hStartBtn, !connected);
+                SetWindowText(hStartBtn, L"Подключить");
                 EnableWindow(hStopBtn, connected);
+                UpdateSerialDialogConnectButtonState(hDlg);
                 
                 if (connected) {
                     SetWindowText(hStatusLabel, polling ? L"Опрос..." : L"Подключено");
@@ -2071,6 +2116,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         PopulateSerialPortsCombo(hDlg, ports);
                         isBusy = false;
                         SetSerialDialogBusyState(hDlg, false);
+                        UpdateSerialDialogConnectButtonState(hDlg);
                         if (g_chartManager) {
                             bool connected = g_chartManager->IsSerialConnected();
                             bool polling = g_chartManager->IsSerialPolling();
@@ -2085,6 +2131,13 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
         case IDC_SERIAL_START_BTN:
             // Кнопка "Подключить"
             if (!isBusy && g_chartManager && hPortCombo) {
+                if (!SerialComboHasConnectablePort(hDlg)) {
+                    MessageBox(hDlg,
+                               L"Нет доступных COM-портов. Подключите кабель или устройство, затем нажмите «Обновить».",
+                               L"Подключение к прибору",
+                               MB_OK | MB_ICONINFORMATION);
+                    return (INT_PTR)TRUE;
+                }
                 // Получаем выбранный порт
                 int sel = (int)SendMessage(hPortCombo, CB_GETCURSEL, 0, 0);
                 if (sel != CB_ERR) {
@@ -2231,7 +2284,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 g_chartManager->HandleSerialDisconnect(hMainWnd);
                     
                 SetWindowText(hStatusLabel, L"Отключено");
-                EnableWindow(hStartBtn, TRUE);
+                UpdateSerialDialogConnectButtonState(hDlg);
                 EnableWindow(hStopBtn, FALSE);
                 SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, L"");
 
