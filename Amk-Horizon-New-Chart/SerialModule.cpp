@@ -583,6 +583,17 @@ void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
     legacyPollingThread = std::thread(&SerialModule::LegacyPollingLoop, this);
 }
 
+void SerialModule::SetPollInterval(DWORD intervalMs) {
+    if (intervalMs < 500) intervalMs = 500;    // минимум 0.5 сек
+    if (intervalMs > 30000) intervalMs = 30000; // максимум 30 сек
+    pollInterval = intervalMs;
+    legacyPollInterval = intervalMs;
+    if (protocolMode == DeviceProtocolMode::LEGACY_4TX &&
+        (legacyPollInterval == 0 || legacyPollInterval > 1000)) {
+        legacyPollInterval = 1000;
+    }
+}
+
 void SerialModule::StopPolling() {
     stopLegacyPolling = true;
 

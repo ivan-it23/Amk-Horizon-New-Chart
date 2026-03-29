@@ -2098,6 +2098,12 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 bool bgActive = g_chartManager->IsComRecordingInBackground();
                 if (hBgRecordStatus) ShowWindow(hBgRecordStatus, bgActive ? SW_SHOW : SW_HIDE);
                 if (hReturnToComBtn) ShowWindow(hReturnToComBtn, bgActive ? SW_SHOW : SW_HIDE);
+
+                // Инициализация поля интервала опроса текущим значением (мс)
+                SerialModule* serialInit = g_chartManager->GetSerialModule();
+                if (serialInit) {
+                    SetDlgItemInt(hDlg, IDC_SERIAL_POLL_INTERVAL_EDIT, serialInit->GetPollInterval(), FALSE);
+                }
             }
             
             return (INT_PTR)TRUE;
@@ -2165,6 +2171,11 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                             (SendMessage(hAppendShowFullCheck, BM_GETCHECK, 0, 0) == BST_CHECKED);
                         const std::wstring preloadPath = showFullFile ? serial->GetExistingRecordFilePath() : L"";
 
+                        // Считываем интервал опроса из поля ввода (мс)
+                        UINT pollMs = GetDlgItemInt(hDlg, IDC_SERIAL_POLL_INTERVAL_EDIT, nullptr, FALSE);
+                        if (pollMs < 500) pollMs = 2000;
+                        const DWORD pollIntervalMs = pollMs;
+
                         isBusy = true;
                         SetSerialDialogBusyState(hDlg, true);
                         SetWindowText(hStatusLabel, L"Подключение...");
@@ -2179,7 +2190,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                         }
 
                         const std::wstring selectedPort = portName;
-                        queue->PostWorkerTask([hDlg, selectedPort, showFullFile, preloadPath]() {
+                        queue->PostWorkerTask([hDlg, selectedPort, showFullFile, preloadPath, pollIntervalMs]() {
                             SerialConnectTaskResult result = {};
                             result.showFullFile = showFullFile;
                             result.preloadPath = preloadPath;
@@ -2205,7 +2216,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 }
                             }
 
-                            AsyncTaskQueue::PostUiTask(hDlg, [hDlg, selectedPort, result = std::move(result)]() mutable {
+                            AsyncTaskQueue::PostUiTask(hDlg, [hDlg, selectedPort, pollIntervalMs, result = std::move(result)]() mutable {
                                 if (!IsWindow(hDlg)) {
                                     return;
                                 }
@@ -2262,7 +2273,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_FRAME_LABEL), L"0");
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_PACKETS_LABEL), L"0 / 0");
 
-                                    serial->StartPolling(hMainWnd, 2000);
+                                    serial->StartPolling(hMainWnd, pollIntervalMs);
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Опрос...");
                                     // Синхронизируем toggle-кнопку Старт/Стоп на панели
                                     if (UIModule* ui = g_chartManager->GetUIModule()) {
@@ -2389,6 +2400,19 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 SerialModule* serial = g_chartManager->GetSerialModule();
                 if (serial) {
                     serial->OpenRecordFolder();
+                }
+            }
+            return (INT_PTR)TRUE;
+
+        case IDC_SERIAL_POLL_INTERVAL_EDIT:
+            // Изменение интервала опроса на лету (мс)
+            if (HIWORD(wParam) == EN_CHANGE && g_chartManager) {
+                SerialModule* serial = g_chartManager->GetSerialModule();
+                if (serial) {
+                    UINT pollMs = GetDlgItemInt(hDlg, IDC_SERIAL_POLL_INTERVAL_EDIT, nullptr, FALSE);
+                    if (pollMs >= 500) {
+                        serial->SetPollInterval(pollMs);
+                    }
                 }
             }
             return (INT_PTR)TRUE;

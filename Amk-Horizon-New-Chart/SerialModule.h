@@ -173,6 +173,10 @@ public:
     // Проверка, запущен ли опрос
     bool IsPolling() const;
     
+    // Получение/установка интервала опроса (мс)
+    DWORD GetPollInterval() const { return pollInterval; }
+    void SetPollInterval(DWORD intervalMs);
+    
     // Обработчик таймера (вызывается из WndProc)
     void OnTimer();
     void FlushPendingPollResults();

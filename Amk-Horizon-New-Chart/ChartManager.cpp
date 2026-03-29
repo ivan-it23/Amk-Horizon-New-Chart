@@ -5017,7 +5017,7 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
                     g_chartManager->PrepareSerialDisplayData(hWnd, false, L"");
                     
                     if (serial) {
-                        serial->StartPolling(hWnd, 2000);
+                        serial->StartPolling(hWnd, serial->GetPollInterval());
                     }
                     
                     if (ui) {
@@ -5074,7 +5074,7 @@ void ChartManager::HandleSerialStart(HWND hWnd) {
     // Запускаем периодический опрос (каждые 2 секунды)
     // Примечание: Очистка данных происходит в диалоге SerialStatusDialogProc
     // перед вызовом StartPolling через HandleSerialClear
-    serialModule->StartPolling(hWnd, 2000);
+    serialModule->StartPolling(hWnd, serialModule->GetPollInterval());
     
     if (uiModule) {
         uiModule->SetSerialPolling(true);
