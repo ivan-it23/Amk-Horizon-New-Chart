@@ -1,4 +1,4 @@
-#include "framework.h"
+﻿#include "framework.h"
 #include "ChartManager.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
@@ -1708,7 +1708,7 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
                     : loadError.c_str();
                 MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
                 if (uiModule) {
-                    uiModule->UpdateStatusBar(L"Ready");
+                    uiModule->UpdateStatusBar(L"Готов");
                 }
                 return;
             }
@@ -4306,10 +4306,16 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
         
         // Обновляем информацию о файле в последней части статусной строки
         std::wstring fileName = dataModule->GetLoadedFileName();
+        // Если имя файла пустое (COM-режим) — показываем файл записи
+        if (fileName.empty() && serialModule && serialModule->IsRecordingActive()) {
+            std::wstring recPath = serialModule->GetRecordFilePath();
+            size_t lastSlash = recPath.find_last_of(L"\\/");
+            fileName = (lastSlash != std::wstring::npos) ? recPath.substr(lastSlash + 1) : recPath;
+        }
         if (!fileName.empty()) {
             size_t dataSize = dataModule->GetDataSize();
             wchar_t fileInfo[256];
-            swprintf_s(fileInfo, L"Points: %zu  |  %s", dataSize, fileName.c_str());
+            swprintf_s(fileInfo, L"Кадров: %zu  |  %s", dataSize, fileName.c_str());
             SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
         }
     } else {
@@ -4508,9 +4514,20 @@ void ChartManager::UpdateStatusBarFileInfo() {
     if (dataModule && dataModule->HasData()) {
         std::wstring fileName = dataModule->GetLoadedFileName();
         size_t dataSize = dataModule->GetDataSize();
+
+        // Если имя файла пустое (COM-режим) — показываем файл записи
+        if (fileName.empty() && serialModule && serialModule->IsRecordingActive()) {
+            std::wstring recPath = serialModule->GetRecordFilePath();
+            size_t lastSlash = recPath.find_last_of(L"\\/");
+            fileName = (lastSlash != std::wstring::npos) ? recPath.substr(lastSlash + 1) : recPath;
+        }
         
         wchar_t fileInfo[256];
-        swprintf_s(fileInfo, L"Points: %zu  |  %s", dataSize, fileName.c_str());
+        if (!fileName.empty()) {
+            swprintf_s(fileInfo, L"Кадров: %zu  |  %s", dataSize, fileName.c_str());
+        } else {
+            swprintf_s(fileInfo, L"Кадров: %zu", dataSize);
+        }
         SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
         
         // v2.19.0: Показываем индикатор фоновой записи COM
@@ -4518,13 +4535,13 @@ void ChartManager::UpdateStatusBarFileInfo() {
             std::wstring port = serialModule ? serialModule->GetConnectedPort() : L"COM?";
             uint32_t recFrames = serialModule ? serialModule->GetRecordedFrames() : 0;
             wchar_t bgInfo[128];
-            swprintf_s(bgInfo, L"BG REC: %s (%u)", port.c_str(), recFrames);
+            swprintf_s(bgInfo, L"Фон. запись: %s (%u)", port.c_str(), recFrames);
             uiModule->UpdateStatusBar(bgInfo);
         } else {
-            uiModule->UpdateStatusBar(L"Ready");
+            uiModule->UpdateStatusBar(L"Готов");
         }
     } else {
-        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"No file loaded");
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"Файл не загружен");
         uiModule->ClearStatusBarCoordinates();
     }
 }

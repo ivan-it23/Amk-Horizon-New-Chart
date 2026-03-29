@@ -45,22 +45,8 @@ BEGIN
         MENUITEM "Вы&ход",                    IDM_EXIT
     END
 
-    POPUP "&Прибор"
-    BEGIN
-        MENUITEM "&Настройки подключения...",  IDM_DEVICE_CONNECT
-        MENUITEM "&Отключить",                IDM_DEVICE_DISCONNECT
-        MENUITEM SEPARATOR
-        MENUITEM "&Старт опроса",             IDM_DEVICE_START
-        MENUITEM "С&топ опроса",              IDM_DEVICE_STOP
-        MENUITEM SEPARATOR
-        MENUITEM "&Очистить данные",          IDM_DEVICE_CLEAR
-        MENUITEM "Метрология...",             IDM_DEVICE_METROLOGY
-        MENUITEM SEPARATOR
-        MENUITEM "Папка &записи...",          IDM_DEVICE_RECORD_FOLDER
-        MENUITEM "Открыть папку записи",      IDM_DEVICE_OPEN_FOLDER
-        MENUITEM SEPARATOR
-        MENUITEM "Вернуться к &данным прибора", IDM_RETURN_TO_COM
-    END
+    MENUITEM "&Настройки подключения",       IDM_DEVICE_CONNECT
+    MENUITEM "&Метрология",                  IDM_DEVICE_METROLOGY
 
     POPUP "&Заметки"
     BEGIN

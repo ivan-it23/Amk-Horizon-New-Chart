@@ -403,10 +403,10 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     SendMessage(hStatusBar, SB_SETPARTS, 4, (LPARAM)statusBarParts);
     
     // Установка начального текста
-    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Готов");
     SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
     SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
-    SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"No file loaded");
+    SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"Файл не загружен");
     
     // Создание tooltips для кнопок с иконками (Chart 1)
     CreateTooltip(hWnd, hXRangeApplyBtn, L"Применить");
@@ -1119,7 +1119,7 @@ void UIModule::UpdateStatusBarCoordinates(double x, double y1, const std::wstrin
 void UIModule::ClearStatusBarCoordinates() {
     if (!hStatusBar) return;
     
-    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Ready");
+    SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Готов");
     SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
     SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
 }
