@@ -1661,11 +1661,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
 
-            // === Кнопка-переключатель Подключить/Отключить прибор ===
+            // === Кнопка-переключатель Подключить/Отключить/→К прибору ===
             case IDC_CONNECT_TOGGLE_BTN:
                 if (g_chartManager)
                 {
-                    if (g_chartManager->IsSerialConnected()) {
+                    UIModule* ui = g_chartManager->GetUIModule();
+                    if (ui && ui->IsConnectToggleReturnMode()) {
+                        // Режим "→К прибору": возвращаемся к данным COM
+                        g_chartManager->ReturnToComLive(hWnd);
+                        ui->SetConnectToggleReturnMode(false);
+                        ui->UpdateConnectToggleState(true, true);
+                    } else if (g_chartManager->IsSerialConnected()) {
                         // Отключаем прибор
                         g_chartManager->HandleSerialDisconnect(hWnd);
                     } else {

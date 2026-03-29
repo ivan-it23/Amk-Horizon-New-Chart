@@ -89,6 +89,7 @@ UIModule::UIModule()
     , hConnectToggleBtn(nullptr)
     , connectToggleActive(false)
     , connectToggleEnabled(false)
+    , connectToggleReturnMode(false)
     , hTooltip(nullptr)
     , dualMode(false) {
     chart1EnabledTransmitters.resize(UI_TRANSMITTER_COUNT, true);
@@ -1380,7 +1381,7 @@ void UIModule::UpdateConnectToggleState(bool connected, bool hasAvailablePorts) 
     connectToggleActive = connected;
     connectToggleEnabled = hasAvailablePorts || connected; // Активна если есть порты или уже подключены
     if (hConnectToggleBtn) {
-        EnableWindow(hConnectToggleBtn, connectToggleEnabled ? TRUE : FALSE);
+        EnableWindow(hConnectToggleBtn, (connectToggleEnabled || connectToggleReturnMode) ? TRUE : FALSE);
         InvalidateRect(hConnectToggleBtn, NULL, TRUE);
     }
     // При подключении также обновляем состояние кнопки опроса
@@ -1388,6 +1389,14 @@ void UIModule::UpdateConnectToggleState(bool connected, bool hasAvailablePorts) 
         UpdatePollingToggleState(true, pollingToggleActive);
     } else {
         UpdatePollingToggleState(false, false);
+    }
+}
+
+void UIModule::SetConnectToggleReturnMode(bool returnMode) {
+    connectToggleReturnMode = returnMode;
+    if (hConnectToggleBtn) {
+        EnableWindow(hConnectToggleBtn, TRUE);
+        InvalidateRect(hConnectToggleBtn, NULL, TRUE);
     }
 }
 
@@ -1814,16 +1823,24 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
         return;
     }
     
-    // === Специальная отрисовка toggle-кнопки Подключить/Отключить прибор ===
+    // === Специальная отрисовка toggle-кнопки Подключить/Отключить/→К прибору ===
     if (ctrlId == IDC_CONNECT_TOGGLE_BTN) {
         const bool isActive = connectToggleActive;
-        const wchar_t* btnText = isActive ? L"\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C" : L"\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C";  // Отключить или Включить
+        const bool isReturn = connectToggleReturnMode;
+        const wchar_t* btnText = isReturn ? L"\u2192\u041A \u043F\u0440\u0438\u0431\u043E\u0440\u0443"
+                               : isActive ? L"\u041E\u0442\u043A\u043B\u044E\u0447\u0438\u0442\u044C"
+                               : L"\u0412\u043A\u043B\u044E\u0447\u0438\u0442\u044C";
         
         COLORREF bgColor, textColor, borderColor;
         if (state & ODS_DISABLED) {
             bgColor = RGB(240, 240, 240);
             textColor = RGB(160, 160, 160);
             borderColor = RGB(200, 200, 200);
+        } else if (isReturn) {
+            // Режим "→К прибору" — синий акцент
+            bgColor = (state & ODS_SELECTED) ? RGB(30, 100, 180) : RGB(40, 120, 210);
+            textColor = RGB(255, 255, 255);
+            borderColor = (state & ODS_SELECTED) ? RGB(20, 80, 150) : RGB(30, 100, 180);
         } else if (state & ODS_SELECTED) {
             bgColor = isActive ? RGB(180, 50, 50) : RGB(40, 130, 40);
             textColor = RGB(255, 255, 255);

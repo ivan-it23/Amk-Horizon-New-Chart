@@ -1666,6 +1666,11 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
         displayCallbackPaused = true;
         dataSourceMode = DataSourceMode::FILE_VIEW;
 
+        // Переключаем кнопку "Включить/Отключить" в режим "→К прибору"
+        if (uiModule) {
+            uiModule->SetConnectToggleReturnMode(true);
+        }
+
         // DEBUG v2.19.0: Логируем момент переключения в FILE_VIEW
         {
             size_t dmSize = dataModule ? dataModule->GetDataSize() : 0;
@@ -5055,6 +5060,7 @@ void ChartManager::HandleSerialDisconnect(HWND hWnd) {
     serialModule->Disconnect();
     
     if (uiModule) {
+        uiModule->SetConnectToggleReturnMode(false);
         uiModule->SetSerialConnected(false);
         uiModule->SetSerialPolling(false);
     }
@@ -5282,6 +5288,9 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
         dataSourceMode = DataSourceMode::COM_LIVE;
         displayCallbackPaused = false;
         comSessionSnapshot.hasSnapshot = false;
+        if (uiModule) {
+            uiModule->SetConnectToggleReturnMode(false);
+        }
         return;
     }
 
@@ -5391,6 +5400,12 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
     displayCallbackPaused = false;
     dbgResumeCallbackCounter = 5;  // DEBUG: начать логирование следующих 5 кадров
     dataSourceMode = DataSourceMode::COM_LIVE;
+
+    // Сбрасываем режим "→К прибору" и восстанавливаем кнопку в "Отключить"
+    if (uiModule) {
+        uiModule->SetConnectToggleReturnMode(false);
+        uiModule->UpdateConnectToggleState(true, true);
+    }
 
     // DEBUG: Состояние после возобновления
     {

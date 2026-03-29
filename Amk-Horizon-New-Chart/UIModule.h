@@ -106,6 +106,7 @@ private:
     HWND hConnectToggleBtn;
     bool connectToggleActive;  // true = подключено (показываем "Отключить"), false = отключено ("Подключить")
     bool connectToggleEnabled; // true = есть доступные порты для подключения
+    bool connectToggleReturnMode; // true = фоновая запись COM, показываем "→К прибору"
 
     // Состояние элементов управления
     bool dualMode;
@@ -191,6 +192,8 @@ public:
     void UpdateConnectToggleState(bool connected, bool hasAvailablePorts);
     HWND GetConnectToggleBtn() const { return hConnectToggleBtn; }
     bool IsConnectToggleActive() const { return connectToggleActive; }
+    bool IsConnectToggleReturnMode() const { return connectToggleReturnMode; }
+    void SetConnectToggleReturnMode(bool returnMode);
     void UpdateSerialStatus(const std::wstring& status);
     void UpdateSerialFrameInfo(uint32_t frameNumber, uint32_t packetsReceived, uint32_t packetsErrors);
     HWND GetSerialPortCombo() const { return hSerialPortCombo; }
