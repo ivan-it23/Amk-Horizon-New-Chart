@@ -1919,8 +1919,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     case WM_GETMINMAXINFO:
         {
             MINMAXINFO* mmi = (MINMAXINFO*)lParam;
-            mmi->ptMinTrackSize.x = 900;  // Минимальная ширина
-            mmi->ptMinTrackSize.y = 400;  // Минимальная высота
+            mmi->ptMinTrackSize.x = 1152;  // Минимальная ширина (по скриншотам одинарного режима)
+            mmi->ptMinTrackSize.y = 670;   // Минимальная высота (по скриншотам двойного режима)
         }
         break;
     
