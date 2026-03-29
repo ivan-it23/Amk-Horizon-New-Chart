@@ -35,6 +35,8 @@ Realtime in-tree path:
 
 ## Последние стабильные улучшения
 
+- quick-connect UI: кнопки "Включить/Отключить" и "▶/■" на панели управления Chart 1;
+- сохранение/восстановление последнего COM-порта и папки записи между сессиями;
 - adapter-driven parsing приведён к current-state для файлов и COM;
 - `LWD_4TX` поддерживает различение legacy raw layout и canonical 240-byte frames;
 - `DataModule` получил range-analysis seam:

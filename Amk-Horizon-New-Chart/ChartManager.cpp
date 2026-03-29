@@ -1,4 +1,4 @@
-﻿#include "framework.h"
+#include "framework.h"
 #include "ChartManager.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
@@ -11,7 +11,7 @@
 #include <cstdio>
 #include <functional>
 
-// === Р—Р°РјРµС‚РєРё: РґРёР°Р»РѕРі РїСЂРѕСЃРјРѕС‚СЂР°/СѓРґР°Р»РµРЅРёСЏ (v2.16.x) ===
+// === Заметки: диалог просмотра/удаления (v2.16.x) ===
 namespace {
     struct NoteViewDialogContext {
         std::wstring text;
@@ -610,7 +610,7 @@ namespace {
      OutputDebugStringW(buffer);
  }
 
-// Р РµР°Р»РёР·Р°С†РёСЏ РєР»Р°СЃСЃР° ChartManager СЃ РјРѕРґСѓР»СЊРЅРѕР№ Р°СЂС…РёС‚РµРєС‚СѓСЂРѕР№
+// Реализация класса ChartManager с модульной архитектурой
 
 ChartManager::ChartManager() 
     : dataModule(std::make_unique<DataModule>())
@@ -629,30 +629,30 @@ ChartManager::ChartManager()
     selectionStart.x = selectionStart.y = 0;
     selectionEnd.x = selectionEnd.y = 0;
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЃРІСЏР·СЊ РјРµР¶РґСѓ РјРѕРґСѓР»СЏРјРё
+    // Связи между модулями схемы, кривых и данных
     schematicModule->SetCurveSelectionModule(curveSelectionModule.get());
     schematicModule->SetDataModule(dataModule.get());
     curveSelectionModule->SetMetrologyModule(metrologyModule.get());
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ РіСЂР°С„РёРєР° РїРѕСЃР»Рµ РїСЂРёРјРµРЅРµРЅРёСЏ РЅР°СЃС‚СЂРѕРµРє (v2.9.4)
+    // Callback обновления графика после применения настроек схемы (v2.9.4)
     schematicModule->SetOnConfigurationAppliedCallback([this](int chartNumber) {
-        // РџРѕР»СѓС‡Р°РµРј handle РіР»Р°РІРЅРѕРіРѕ РѕРєРЅР° РёР· СЂРѕРґРёС‚РµР»СЊСЃРєРѕРіРѕ РѕРєРЅР° РґРёР°Р»РѕРіР°
+        // HWND главного окна — родитель диалога схемы
         HWND hSchematicDlg = schematicModule->GetSchematicDialogHandle();
         if (hSchematicDlg) {
             HWND hMainWnd = GetParent(hSchematicDlg);
             if (hMainWnd) {
-                // РЎР±СЂР°СЃС‹РІР°РµРј X Range РїСЂРё СЃРјРµРЅРµ С„СѓРЅРєС†РёРё/РїСЂРµСЃРµС‚Р°
+                // Сброс полей X Range при смене функции или пресета
                 if (dataModule && dataModule->HasData()) {
                     uiModule->ResetXRangeControls(chartNumber);
                     
-                    // РЎР±СЂР°СЃС‹РІР°РµРј zoom РґР»СЏ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµРіРѕ РіСЂР°С„РёРєР°
+                    // Сброс масштаба и истории для соответствующего графика
                     if (chartNumber == 1) {
                         chart1Zoom.isZoomed = false;
                         chart1Zoom.isXCustom = false;
                         chart1Zoom.hasXRangeLock = false;
                         chart1Zoom.isXToLatest = false;
                         chart1Zoom.isYCustom = false;
-                        chart1ZoomHistory.clear(); // v2.12.5: РћС‡РёС‰Р°РµРј РёСЃС‚РѕСЂРёСЋ zoom
+                        chart1ZoomHistory.clear(); // v2.12.5: очистка истории zoom
                         ClearAxisHistory(1);
                     } else if (chartNumber == 2) {
                         chart2Zoom.isZoomed = false;
@@ -660,15 +660,15 @@ ChartManager::ChartManager()
                         chart2Zoom.hasXRangeLock = false;
                         chart2Zoom.isXToLatest = false;
                         chart2Zoom.isYCustom = false;
-                        chart2ZoomHistory.clear(); // v2.12.5: РћС‡РёС‰Р°РµРј РёСЃС‚РѕСЂРёСЋ zoom
+                        chart2ZoomHistory.clear(); // v2.12.5: очистка истории zoom
                         ClearAxisHistory(2);
                     }
                 }
                 
-                // v2.18.0: Обновляем видимость ComboBox Y-zoom target
+                // v2.18.0: видимость ComboBox цели Y-zoom
                 UpdateYZoomTargetVisibility(chartNumber);
 
-                // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РёР№ РіСЂР°С„РёРє
+                // Перерисовка соответствующего графика
                 InvalidateChart(hMainWnd, chartNumber);
             }
         }
@@ -952,7 +952,7 @@ void ChartManager::PushAxisHistory(int chartNumber) {
     double xLockMin = fullMinX;
     double xLockMax = fullMaxX;
 
-    // Р•СЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°РґР°Р» X Range С‡РµСЂРµР· РїРѕР»СЏ, РЅРµ РїРѕР·РІРѕР»СЏРµРј X-scroll РІС‹С…РѕРґРёС‚СЊ Р·Р° СЌС‚Рё РіСЂР°РЅРёС†С‹.
+    // Если пользователь задал X Range через поля, не позволяем X-scroll выходить за эти границы.
     if (zoom->hasXRangeLock) {
         xLockMin = zoom->minX;
         xLockMax = zoom->maxX;
@@ -1248,7 +1248,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
         return false;
     }
 
-    // РћРїСЂРµРґРµР»СЏРµРј РїСѓС‚СЊ РґР»СЏ Р·Р°РјРµС‚РѕРє: Р»РёР±Рѕ РѕС‚РєСЂС‹С‚ С„Р°Р№Р», Р»РёР±Рѕ Р°РєС‚РёРІРЅР° Р·Р°РїРёСЃСЊ COM
+    // Определяем путь для заметок: либо открыт файл, либо активна запись COM
     std::wstring notesPath = ResolveCurrentNotesPath();
 
     if (notesPath.empty()) {
@@ -1443,8 +1443,8 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
 {
     uiModule->CreateControls(hWnd, hInst);
     
-    // v2.13.0: РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РїРѕР»СѓС‡РµРЅРёСЏ РґР°РЅРЅС‹С… СЃ РїСЂРёР±РѕСЂР°
-    // Р­Р»РµРјРµРЅС‚С‹ СѓРїСЂР°РІР»РµРЅРёСЏ COM-РїРѕСЂС‚РѕРј С‚РµРїРµСЂСЊ РІ РјРµРЅСЋ "РџСЂРёР±РѕСЂ" Рё РґРёР°Р»РѕРіРµ IDD_SERIAL_STATUS
+    // v2.13.0: callback приёма данных с прибора
+    // Элементы управления COM-портом теперь в меню "Прибор" и диалоге IDD_SERIAL_STATUS
     serialModule->SetParsedDataCallback([this, hWnd](const ParsedToolFrame& parsedData) {
         // v2.19.0: Если display callback приостановлен (режим FILE_VIEW),
         // не добавляем данные в DataModule и не обновляем графики.
@@ -1465,7 +1465,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
             dbgResumeCallbackCounter--;
         }
 
-        // v2.16.x: РµСЃР»Рё РёРґС'С‚ Р·Р°РїРёСЃСЊ РІ С„Р°Р№Р», РїСЂРёРІСЏР·С‹РІР°РµРј Р·Р°РјРµС‚РєРё Рє С‚РµРєСѓС‰РµРјСѓ recordFilePath
+        // v2.16.x: при активной записи в файл — привязка заметок к recordFilePath
         if (notesModule && serialModule && serialModule->IsRecordingEnabled() && serialModule->IsRecordingActive()) {
             std::wstring recordPath = serialModule->GetRecordFilePath();
             if (!recordPath.empty()) {
@@ -1473,16 +1473,16 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
             }
         }
 
-        // Р"РѕР±Р°РІР»СЏРµРј РґР°РЅРЅС‹Рµ РІ DataModule
+        // Добавление кадра в DataModule
         dataModule->AddParsedData(parsedData);
         InvalidateCachedSnapshots();
         
-        // v2.14.0: РћР±РЅРѕРІР»СЏРµРј РґРёР°РїР°Р·РѕРЅ РґР»СЏ СЂРµР¶РёРјР° Surf
+        // v2.14.0: диапазон окна Surf при новых точках
         if (dataModule->HasData()) {
-            // Р’РђР–РќРћ: РїСЂРё РїРѕСЃС‚СѓРїР»РµРЅРёРё РЅРѕРІС‹С… С‚РѕС‡РµРє РІ СЂРµР¶РёРјРµ СЂРµР°Р»СЊРЅРѕРіРѕ РІСЂРµРјРµРЅРё
-            // РќР• СЃР±СЂР°СЃС‹РІР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ zoom/РєР°СЃС‚РѕРјРЅС‹Р№ X-range.
+            // ВАЖНО: при поступлении новых точек в режиме реального времени
+            // НЕ сбрасываем пользовательский zoom/кастомный X-range.
             //
-            // Surf (auto-follow) РїРѕ-РїСЂРµР¶РЅРµРјСѓ РѕР±РЅРѕРІР»СЏРµС‚ РґРёР°РїР°Р·РѕРЅ РЅР° РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє.
+            // Surf (auto-follow) по-прежнему обновляет диапазон на последние N точек.
             if (uiModule->IsSurfEnabled(1)) {
                 UpdateSurfRange(1);
             }
@@ -1491,25 +1491,24 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
                 UpdateSurfRange(2);
             }
 
-            // РћР±РЅРѕРІР»СЏРµРј X Range controls РёР· С‚РµРєСѓС‰РµРіРѕ СЃРѕСЃС‚РѕСЏРЅРёСЏ zoom
-            // (РёР»Рё РїРѕР»РЅРѕРіРѕ РґРёР°РїР°Р·РѕРЅР°, РµСЃР»Рё zoom РЅРµ Р°РєС‚РёРІРµРЅ).
+            // Поля X Range из текущего zoom (или полного диапазона)
             UpdateXRangeUI(hWnd);
 
-            // РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃРЅСѓСЋ СЃС‚СЂРѕРєСѓ СЃ РёРЅС„РѕСЂРјР°С†РёРµР№ Рѕ Surf
+            // Статусная строка: режим Surf
             UpdateSurfStatusBar();
 
-            // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹ (total range РјРµРЅСЏРµС‚СЃСЏ РїСЂРё СЂРѕСЃС‚Рµ РґР°РЅРЅС‹С…)
+            // Скроллбары при росте числа точек
             UpdateScrollBars(hWnd);
         }
         
-        // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРєРё
+        // Перерисовка графиков
         InvalidateChart(hWnd, 1);
         if (uiModule->IsDualMode()) {
             InvalidateChart(hWnd, 2);
         }
     });
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј callback РґР»СЏ РёР·РјРµРЅРµРЅРёСЏ СЃРѕСЃС‚РѕСЏРЅРёСЏ РїРѕРґРєР»СЋС‡РµРЅРёСЏ
+    // Callback смены состояния COM-подключения
     serialModule->SetStateCallback([this, hWnd](ConnectionState state, const std::wstring& error) {
         if (state == ConnectionState::CONNECTION_ERROR && !error.empty()) {
             MessageBox(hWnd, error.c_str(), L"Ошибка COM-порта", MB_OK | MB_ICONERROR);
@@ -1527,17 +1526,17 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     bool dualMode = uiModule->IsDualMode();
     
-    // Р’Р°Р»РёРґР°С†РёСЏ РѕРіСЂР°РЅРёС‡РµРЅРёР№ РєРѕРјРїРѕРЅРѕРІРєРё
+    // Валидация ограничений компоновки
     if (!layoutModule->ValidateLayoutConstraints(width, height, dualMode))
         return;
     
-    // Р Р°СЃС‡РµС‚ РєРѕРјРїРѕРЅРѕРІРєРё
+    // Расчет компоновки
     layoutModule->CalculateLayout(width, height, dualMode);
     
-    // РЈРїСЂР°РІР»РµРЅРёРµ РІРёРґРёРјРѕСЃС‚СЊСЋ Рё РїРѕР·РёС†РёРѕРЅРёСЂРѕРІР°РЅРёРµРј СЌР»РµРјРµРЅС‚РѕРІ СѓРїСЂР°РІР»РµРЅРёСЏ
+    // Управление видимостью и позиционированием элементов управления
     uiModule->UpdateControlsVisibility(dualMode);
     
-    // v2.18.0: Восстанавливаем видимость ComboBox Y-zoom target по конфигурации кривых
+    // v2.18.0: видимость ComboBox цели Y-zoom по конфигурации кривых
     UpdateYZoomTargetVisibility(1);
     if (dualMode) {
         UpdateYZoomTargetVisibility(2);
@@ -1546,23 +1545,23 @@ void ChartManager::UpdateLayout(HWND hWnd)
     if (dualMode) {
         int panel2Y = layoutModule->GetChart2PanelY();
         uiModule->PositionChart2Controls(panel2Y);
-        // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј СЌР»РµРјРµРЅС‚С‹ РєРѕРѕСЂРґРёРЅР°С‚ Рє РїСЂР°РІРѕРјСѓ РєСЂР°СЋ РґР»СЏ РѕР±РѕРёС… РіСЂР°С„РёРєРѕРІ
+        // Элементы координат у правого края обоих графиков
         uiModule->PositionCursorControls(width, panel2Y);
     } else {
-        // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј СЌР»РµРјРµРЅС‚С‹ РєРѕРѕСЂРґРёРЅР°С‚ Рє РїСЂР°РІРѕРјСѓ РєСЂР°СЋ С‚РѕР»СЊРєРѕ РґР»СЏ Chart 1
+        // Элементы координат у правого края только у Chart 1
         uiModule->PositionCursorControls(width, 0);
     }
 
-    // РџРѕР·РёС†РёРѕРЅРёСЂСѓРµРј РєРѕРјРїР°РєС‚РЅС‹Рµ С‡РµРєР±РѕРєСЃС‹ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ Р·Р°РјРµС‚РѕРє РІ РїСЂР°РІРѕРј РІРµСЂС…РЅРµРј СѓРіР»Сѓ РіСЂР°С„РёРєРѕРІ
+    // Чекбоксы заметок в правом верхнем углу графиков
     uiModule->PositionNotesVisibilityControls(layoutModule->GetChart1Rect(), layoutModule->GetChart2Rect(), dualMode);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹ РїРѕСЃР»Рµ РёР·РјРµРЅРµРЅРёСЏ РєРѕРјРїРѕРЅРѕРІРєРё
+    // Скроллбары после смены компоновки
     UpdateScrollBars(hWnd);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЌР»РµРјРµРЅС‚С‹ СѓРїСЂР°РІР»РµРЅРёСЏ X Range
+    // Элементы управления X Range
     UpdateXRangeUI(hWnd);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЂР°Р·РјРµСЂ СЃС‚Р°С‚СѓСЃРЅРѕР№ СЃС‚СЂРѕРєРё
+    // Высота статусной строки
     uiModule->ResizeStatusBar();
 }
 
@@ -1573,41 +1572,41 @@ void ChartManager::ToggleDualMode()
 
 void ChartManager::RefreshChart1()
 {
-    // РњРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё API, РЅРѕ Р±РѕР»СЊС€Рµ РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµС‚
-    // РќР°СЃС‚СЂРѕР№РєРё СѓРїСЂР°РІР»СЏСЋС‚СЃСЏ С‡РµСЂРµР· Device Schematic
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Настройки управляются через Device Schematic
 }
 
 void ChartManager::RefreshChart2()
 {
-    // РњРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё API, РЅРѕ Р±РѕР»СЊС€Рµ РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµС‚
-    // РќР°СЃС‚СЂРѕР№РєРё СѓРїСЂР°РІР»СЏСЋС‚СЃСЏ С‡РµСЂРµР· Device Schematic
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Настройки управляются через Device Schematic
 }
 
 void ChartManager::DrawChart1(HDC hdc)
 {
-    // v2.16.x: РЅР°С‡РёРЅР°РµРј РЅРѕРІС‹Р№ РЅР°Р±РѕСЂ РјР°СЂРєРµСЂРѕРІ Р·Р°РјРµС‚РѕРє РЅР° РєР°РґСЂ РѕС‚СЂРёСЃРѕРІРєРё
+    // v2.16.x: новый набор маркеров заметок на кадр
     noteFrameMarkers.clear();
 
     const RECT& chart1Rect = layoutModule->GetChart1Rect();
     
-    // РџСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ РєСЂРёРІС‹С… РґР»СЏ РїРµСЂРІРѕРіРѕ РіСЂР°С„РёРєР°
+    // Проверяем, есть ли конфигурация кривых для первого графика
     if (IsUsingNewCurveSystem(1)) {
-        // РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ РєСЂРёРІС‹С…
+        // Новая система кривых
         DrawChartWithCurves(hdc, chart1Rect, 1);
     } else {
-        // РСЃРїРѕР»СЊР·СѓРµРј СЃС‚Р°СЂСѓСЋ СЃРёСЃС‚РµРјСѓ (РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
+        // Старая система (обратная совместимость)
         DrawChartLegacy(hdc, chart1Rect, 1);
     }
 
-    // v2.16.x: РћС‚СЂРёСЃРѕРІС‹РІР°РµРј С‚РѕС‡РєРё Р·Р°РјРµС‚РѕРє РїРѕРІРµСЂС… РіСЂР°С„РёРєР° (РµСЃР»Рё РІРєР»СЋС‡РµРЅРѕ)
+    // v2.16.x: маркеры заметок поверх графика (если включено)
     if (uiModule->IsNotesVisible(1)) {
         DrawNoteMarkers(hdc, chart1Rect, 1);
     }
 
-    // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј РїРµСЂРµРєСЂРµСЃС‚РёРµ РїРѕРІРµСЂС… РіСЂР°С„РёРєР°
+    // Перекрестие поверх графика
     DrawCrosshair(hdc, chart1Rect, 1);
 
-    // Р•СЃР»Рё РІС‚РѕСЂРѕР№ РіСЂР°С„РёРє РЅРµ СЂРёСЃСѓРµС‚СЃСЏ - С„РёРєСЃРёСЂСѓРµРј РјР°СЂРєРµСЂС‹ РґР»СЏ hit-test
+    // Если второй график не рисуется - фиксируем маркеры для hit-test
     if (!uiModule->IsDualMode() && notesModule) {
         notesModule->SetRenderedMarkers(std::move(noteFrameMarkers));
     }
@@ -1620,24 +1619,24 @@ void ChartManager::DrawChart2(HDC hdc)
         
     const RECT& chart2Rect = layoutModule->GetChart2Rect();
     
-    // РџСЂРѕРІРµСЂСЏРµРј, РµСЃС‚СЊ Р»Рё РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ РєСЂРёРІС‹С… РґР»СЏ РІС‚РѕСЂРѕРіРѕ РіСЂР°С„РёРєР°
+    // Проверяем, есть ли конфигурация кривых для второго графика
     if (IsUsingNewCurveSystem(2)) {
-        // РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ РєСЂРёРІС‹С…
+        // Новая система кривых
         DrawChartWithCurves(hdc, chart2Rect, 2);
     } else {
-        // РСЃРїРѕР»СЊР·СѓРµРј СЃС‚Р°СЂСѓСЋ СЃРёСЃС‚РµРјСѓ (РґР»СЏ РѕР±СЂР°С‚РЅРѕР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
+        // Старая система (обратная совместимость)
         DrawChartLegacy(hdc, chart2Rect, 2);
     }
 
-    // v2.16.x: РћС‚СЂРёСЃРѕРІС‹РІР°РµРј С‚РѕС‡РєРё Р·Р°РјРµС‚РѕРє РїРѕРІРµСЂС… РіСЂР°С„РёРєР° (РµСЃР»Рё РІРєР»СЋС‡РµРЅРѕ)
+    // v2.16.x: маркеры заметок поверх графика (если включено)
     if (uiModule->IsNotesVisible(2)) {
         DrawNoteMarkers(hdc, chart2Rect, 2);
     }
 
-    // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј РїРµСЂРµРєСЂРµСЃС‚РёРµ РїРѕРІРµСЂС… РіСЂР°С„РёРєР°
+    // Перекрестие поверх графика
     DrawCrosshair(hdc, chart2Rect, 2);
 
-    // Р’ dual-mode РїРѕСЃР»Рµ РѕС‚СЂРёСЃРѕРІРєРё РѕР±РѕРёС… РіСЂР°С„РёРєРѕРІ С„РёРєСЃРёСЂСѓРµРј РјР°СЂРєРµСЂС‹ РґР»СЏ hit-test
+    // В dual-mode после отрисовки обоих графиков фиксируем маркеры для hit-test
     if (notesModule) {
         notesModule->SetRenderedMarkers(std::move(noteFrameMarkers));
     }
@@ -1869,7 +1868,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
     int wmId = LOWORD(wParam);
     bool needsRedraw = false;
     
-    // РћР±СЂР°Р±РѕС‚РєР° РєРѕРјР°РЅРґ РѕС‚ РґРёР°Р»РѕРіРѕРІРѕРіРѕ РѕРєРЅР° СЃС…РµРјС‹ РїСЂРёР±РѕСЂР°
+    // Обработка команд от диалогового окна схемы прибора
     switch (wmId) {
         case IDC_CHART1_SCHEMATIC_BTN:
             ShowSchematicDialog(hWnd, 1);
@@ -1880,50 +1879,50 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             return true;
             
         case IDC_APPLY_SETTINGS:
-            // РљРѕРјР°РЅРґР° РїСЂРёРјРµРЅРµРЅРёСЏ РЅР°СЃС‚СЂРѕРµРє РёР· РґРёР°Р»РѕРіРѕРІРѕРіРѕ РѕРєРЅР° СЃС…РµРјС‹
-            // РћР±СЂР°Р±РѕС‚РєР° РїСЂРѕРёСЃС…РѕРґРёС‚ РІ СЃР°РјРѕРј РґРёР°Р»РѕРіРѕРІРѕРј РѕРєРЅРµ
+            // Команда применения настроек из диалогового окна схемы
+            // Обработка происходит в самом диалоговом окне
             return true;
             
         case IDC_PRESET_ALL_AMP_R1:
         case IDC_PRESET_ALL_AMP_R2:
         case IDC_PRESET_RATIOS:
         case IDC_PRESET_DIFFERENCES:
-            // РљРѕРјР°РЅРґС‹ РїСЂРµСЃРµС‚РѕРІ РѕР±СЂР°Р±Р°С‚С‹РІР°СЋС‚СЃСЏ РІ РґРёР°Р»РѕРіРѕРІРѕРј РѕРєРЅРµ СЃС…РµРјС‹
+            // Команды пресетов обрабатываются в диалоговом окне схемы
             return true;
             
         case IDC_DUAL_MODE_CHECK:
-            // РџРµСЂРµРєР»СЋС‡РµРЅРёРµ СЂРµР¶РёРјР° РґРІСѓС… РіСЂР°С„РёРєРѕРІ
+            // Переключение режима двух графиков
             needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
             UpdateLayout(hWnd);
             return needsRedraw;
             
         case IDC_XRANGE_APPLY_BTN:
-            // РџСЂРёРјРµРЅРµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґРёР°РїР°Р·РѕРЅР° X РґР»СЏ Chart 1
+            // Применение пользовательского диапазона X для Chart 1
             HandleXRangeApply(hWnd, 1);
             return true;
             
         case IDC_XRANGE_RESET_BTN:
-            // РЎР±СЂРѕСЃ РґРёР°РїР°Р·РѕРЅР° X Рє РїРѕР»РЅРѕРјСѓ РґР»СЏ Chart 1
+            // Сброс диапазона X к полному для Chart 1
             HandleXRangeReset(hWnd, 1);
             return true;
             
         case IDC_XRANGE2_APPLY_BTN:
-            // РџСЂРёРјРµРЅРµРЅРёРµ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РґРёР°РїР°Р·РѕРЅР° X РґР»СЏ Chart 2
+            // Применение пользовательского диапазона X для Chart 2
             HandleXRangeApply(hWnd, 2);
             return true;
             
         case IDC_XRANGE2_RESET_BTN:
-            // РЎР±СЂРѕСЃ РґРёР°РїР°Р·РѕРЅР° X Рє РїРѕР»РЅРѕРјСѓ РґР»СЏ Chart 2
+            // Сброс диапазона X к полному для Chart 2
             HandleXRangeReset(hWnd, 2);
             return true;
             
         case IDC_RESET_ZOOM1_BTN:
-            // РЎР±СЂРѕСЃ zoom РґР»СЏ Chart 1 (Р°РЅР°Р»РѕРіРёС‡РЅРѕ РїСЂР°РІРѕРјСѓ РєР»РёРєСѓ РјС‹С€Рё)
+            // Сброс zoom для Chart 1 (аналогично правому клику мыши)
             HandleResetZoom(hWnd, 1);
             return true;
             
         case IDC_RESET_ZOOM2_BTN:
-            // РЎР±СЂРѕСЃ zoom РґР»СЏ Chart 2 (Р°РЅР°Р»РѕРіРёС‡РЅРѕ РїСЂР°РІРѕРјСѓ РєР»РёРєСѓ РјС‹С€Рё)
+            // Сброс zoom для Chart 2 (аналогично правому клику мыши)
             HandleResetZoom(hWnd, 2);
             return true;
 
@@ -1951,7 +1950,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINEUP, 0), (LPARAM)uiModule->GetVScrollBar(2));
             return true;
             
-        // === РљРѕРјР°РЅРґС‹ COM-РїРѕСЂС‚Р° (v2.13.0) ===
+        // === Команды COM-порта (v2.13.0) ===
         case IDC_SERIAL_CONNECT_BTN:
             if (serialModule->IsConnected()) {
                 HandleSerialDisconnect(hWnd);
@@ -1972,7 +1971,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             HandleSerialClear(hWnd);
             return true;
             
-        // === РљРѕРјР°РЅРґС‹ СЂРµР¶РёРјР° Surf (v2.14.0) ===
+        // === Команды режима Surf (v2.14.0) ===
         case IDC_CHART1_SURF_CHECK:
             HandleSurfToggle(hWnd, 1);
             return true;
@@ -1983,11 +1982,11 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
 
         case IDC_CHART1_SHOW_NOTES_CHECK:
         case IDC_CHART2_SHOW_NOTES_CHECK:
-            // РџРµСЂРµРєР»СЋС‡РµРЅРёРµ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ РјР°СЂРєРµСЂРѕРІ Р·Р°РјРµС‚РѕРє
+            // Переключение отображения маркеров заметок
             return true;
             
         case IDC_CHART1_SURF_EDIT:
-            // РџСЂРё РёР·РјРµРЅРµРЅРёРё СЂР°Р·РјРµСЂР° РѕРєРЅР° Surf РґР»СЏ Chart 1
+            // При изменении размера окна Surf для Chart 1
             if (HIWORD(wParam) == EN_CHANGE && uiModule->IsSurfEnabled(1)) {
                 UpdateSurfRange(1);
                 UpdateSurfStatusBar();
@@ -1996,7 +1995,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             return true;
             
         case IDC_CHART2_SURF_EDIT:
-            // РџСЂРё РёР·РјРµРЅРµРЅРёРё СЂР°Р·РјРµСЂР° РѕРєРЅР° Surf РґР»СЏ Chart 2
+            // При изменении размера окна Surf для Chart 2
             if (HIWORD(wParam) == EN_CHANGE && uiModule->IsSurfEnabled(2)) {
                 UpdateSurfRange(2);
                 UpdateSurfStatusBar();
@@ -2024,7 +2023,7 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             return true;
 
         default:
-            // РџРµСЂРµРґР°РµРј РѕСЃС‚Р°Р»СЊРЅС‹Рµ РєРѕРјР°РЅРґС‹ РІ UIModule
+            // Остальные команды — в UIModule
             needsRedraw = uiModule->HandleCommand(wParam, lParam, hWnd);
             break;
     }
@@ -2044,18 +2043,18 @@ std::wstring ChartManager::GetChartTitle(int chartNumber, FrequencyBand frequenc
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A ";
     title += std::to_wstring(chartNumber);
     title += L" (";
-    // Р›РѕРєР°Р»РёР·РѕРІР°РЅРЅРѕРµ РѕС‚РѕР±СЂР°Р¶РµРЅРёРµ С‡Р°СЃС‚РѕС‚С‹ РІ Р·Р°РіРѕР»РѕРІРєРµ (РєР“С†)
+    // Локализованное отображение частоты в заголовке (кГц)
     title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L"400 РєР“С†" : L"2000 РєР“С†";
     title += L")";
     return title;
 }
 
 void ChartManager::HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartId) {
-    // РњРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё API, РЅРѕ Р±РѕР»СЊС€Рµ РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµС‚
-    // РЈРїСЂР°РІР»РµРЅРёРµ РєСЂРёРІС‹РјРё РїСЂРѕРёСЃС…РѕРґРёС‚ С‚РѕР»СЊРєРѕ С‡РµСЂРµР· Device Schematic
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Управление кривыми происходит только через Device Schematic
 }
 
-// РћР±СЂР°Р±РѕС‚С‡РёРєРё СЃРѕР±С‹С‚РёР№ РјС‹С€Рё
+// Обработчики событий мыши
 void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     if (!dataModule->HasData())
         return;
@@ -2065,13 +2064,12 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     int clickedChart = GetChartAtPoint(x, y);
 
-    // РќР°С‡РёРЅР°РµРј РІС‹РґРµР»РµРЅРёРµ С‚РѕР»СЊРєРѕ РµСЃР»Рё РєР»РёРє Р±С‹Р» РїРѕ РіСЂР°С„РёРєСѓ
+    // Выделение области — только по области графика
     if (clickedChart == 0) {
         return;
     }
 
-    // v2.16.x: РµСЃР»Рё РєР»РёРєРЅСѓР»Рё РїРѕ РјР°СЂРєРµСЂСѓ Р·Р°РјРµС‚РєРё вЂ” РѕС‚РєСЂС‹РІР°РµРј Р·Р°РјРµС‚РєСѓ (СЃ РІРѕР·РјРѕР¶РЅРѕСЃС‚СЊСЋ СѓРґР°Р»РµРЅРёСЏ)
-    // Рё РЅРµ РЅР°С‡РёРЅР°РµРј zoom/selection
+    // v2.16.x: клик по маркеру заметки — диалог заметки, без zoom/выделения
     if (notesModule) {
         const ChartNote* note = notesModule->HitTestRenderedMarkers(clickedChart, x, y, 6);
         if (note) {
@@ -2097,8 +2095,8 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     }
 
     activeChart = clickedChart;
-    // v2.14.2: РљРѕРѕСЂРґРёРЅР°С‚С‹ Рё РїРµСЂРµРєСЂРµСЃС‚РёРµ РѕР±РЅРѕРІР»СЏСЋС‚СЃСЏ РІ HandleMouseUp,
-    // С‚РѕР»СЊРєРѕ РµСЃР»Рё СЌС‚Рѕ Р±С‹Р» РєР»РёРє, Р° РЅРµ drag (РІС‹РґРµР»РµРЅРёРµ РѕР±Р»Р°СЃС‚Рё РґР»СЏ zoom)
+    // v2.14.2: Координаты и перекрестие обновляются в HandleMouseUp,
+    // только если это был клик, а не drag (выделение области для zoom)
 
     isSelecting = true;
     selectionStart.x = x;
@@ -2106,7 +2104,7 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
     selectionEnd.x = x;
     selectionEnd.y = y;
 
-    // Р“РѕС‚РѕРІРёРј Р±С‹СЃС‚СЂС‹Р№ РѕРІРµСЂР»РµР№ РІС‹РґРµР»РµРЅРёСЏ (СЃРЅРёРјРѕРє РѕР±Р»Р°СЃС‚Рё РіСЂР°С„РёРєР°)
+    // Готовим быстрый оверлей выделения (снимок области графика)
     RECT chartRect = (activeChart == 2) ? layoutModule->GetChart2Rect() : layoutModule->GetChart1Rect();
     BeginSelectionOverlay(hWnd, chartRect);
 
@@ -2118,12 +2116,12 @@ void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
     if (!isSelecting)
         return;
 
-    // Р‘С‹СЃС‚СЂР°СЏ РѕС‚СЂРёСЃРѕРІРєР° РІС‹РґРµР»РµРЅРёСЏ РїРѕРІРµСЂС… СѓР¶Рµ РЅР°СЂРёСЃРѕРІР°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР° (Р±РµР· РїРѕР»РЅРѕРіРѕ WM_PAINT)
+    // Быстрая отрисовка выделения поверх уже нарисованного графика (без полного WM_PAINT)
     HDC hdc = GetDC(hWnd);
     if (!hdc)
         return;
 
-    // РћР±РЅРѕРІР»СЏРµРј РєРѕРЅРµС‡РЅСѓСЋ С‚РѕС‡РєСѓ РІС‹РґРµР»РµРЅРёСЏ
+    // Обновляем конечную точку выделения
     selectionEnd.x = x;
     selectionEnd.y = y;
 
@@ -2133,14 +2131,14 @@ void ChartManager::HandleMouseMove(HWND hWnd, int x, int y)
     newRect.right = (std::max)(selectionStart.x, selectionEnd.x);
     newRect.bottom = (std::max)(selectionStart.y, selectionEnd.y);
 
-    // РћР±Р»Р°СЃС‚СЊ РѕР±РЅРѕРІР»РµРЅРёСЏ = union(РїСЂРµРґС‹РґСѓС‰РµРіРѕ РЅР°СЂРёСЃРѕРІР°РЅРЅРѕРіРѕ rect, РЅРѕРІРѕРіРѕ rect)
+    // Область обновления = union(предыдущего нарисованного rect, нового rect)
     RECT updateRect = newRect;
     if (hasLastSelectionDrawRect) {
         UnionRect(&updateRect, &lastSelectionDrawRect, &newRect);
     }
     InflateRect(&updateRect, 2, 2);
 
-    // Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј С„РѕРЅ РїРѕ "СЃРЅРёРјРєСѓ" Рё СЂРёСЃСѓРµРј РЅРѕРІС‹Р№ РѕРІРµСЂР»РµР№
+    // Восстанавливаем фон по "снимку" и рисуем новый оверлей
     RestoreSelectionBackground(hdc, updateRect);
     DrawSelectionOverlay(hdc, newRect);
 
@@ -2158,7 +2156,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     selectionEnd.x = x;
     selectionEnd.y = y;
 
-    // РЈР±РёСЂР°РµРј РѕРІРµСЂР»РµР№: РІРѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј С„РѕРЅ Рё РѕСЃРІРѕР±РѕР¶РґР°РµРј СЂРµСЃСѓСЂСЃС‹
+    // Убираем оверлей: восстанавливаем фон и освобождаем ресурсы
     if (hasSelectionBase) {
         HDC hdc = GetDC(hWnd);
         if (hdc) {
@@ -2169,7 +2167,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     }
     EndSelectionOverlay();
     
-    // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РІС‹РґРµР»РµРЅР° РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ Р±РѕР»СЊС€Р°СЏ РѕР±Р»Р°СЃС‚СЊ
+    // Проверяем, что выделена достаточно большая область
     int deltaX = abs(selectionEnd.x - selectionStart.x);
     int deltaY = abs(selectionEnd.y - selectionStart.y);
     
@@ -2177,14 +2175,14 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
     const bool isZoomGesture = surfEnabled ? (deltaY > 10) : (deltaX > 10 && deltaY > 10);
     
     if (isZoomGesture) {
-        // Р­С‚Рѕ zoom вЂ” СЃРєСЂС‹РІР°РµРј РїРµСЂРµРєСЂРµСЃС‚РёРµ
+        // Это zoom — скрываем перекрестие
         if (activeChart == 1) {
             chart1Crosshair.isVisible = false;
         } else if (activeChart == 2) {
             chart2Crosshair.isVisible = false;
         }
         
-        // РџСЂРµРѕР±СЂР°Р·СѓРµРј СЌРєСЂР°РЅРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РґР°РЅРЅС‹С…
+        // Преобразуем экранные координаты в координаты данных
         double minDataX, minDataY, maxDataX, maxDataY;
         double minDataYRight = 0.0;
         double maxDataYRight = 0.0;
@@ -2296,16 +2294,16 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             }
         }
 
-        // Surf ON: zoom С‚РѕР»СЊРєРѕ РїРѕ РѕСЃРё Y, X РІСЃРµРіРґР° С„РёРєСЃРёСЂРѕРІР°РЅ РЅР° РѕРєРЅРµ Surf (РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє).
+        // Surf ON: zoom только по оси Y, X всегда фиксирован на окне Surf (последние N точек).
         if (surfEnabled) {
-            // Р¤РёРєСЃРёСЂСѓРµРј X РґРёР°РїР°Р·РѕРЅ РЅР° РѕРєРЅРѕ Surf (РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє)
+            // Фиксируем X диапазон на окно Surf (последние N точек)
             size_t dataSize = dataModule->GetDataSize();
             int surfWindow = uiModule->GetSurfWindowSize(activeChart);
             double surfMinX = (dataSize > static_cast<size_t>(surfWindow))
                 ? static_cast<double>(dataSize - surfWindow) : 0.0;
             double surfMaxX = (dataSize > 0) ? static_cast<double>(dataSize - 1) : 0.0;
             
-            // РџСЂРѕРІРµСЂСЏРµРј РјРёРЅРёРјР°Р»СЊРЅС‹Р№ РґРёР°РїР°Р·РѕРЅ РґР»СЏ Y (С‡С‚РѕР±С‹ РЅРµ СѓС…РѕРґРёС‚СЊ РІ "Р±РµСЃРєРѕРЅРµС‡РЅС‹Р№" zoom)
+            // Проверяем минимальный диапазон для Y (чтобы не уходить в "бесконечный" zoom)
             double yRange = maxDataY - minDataY;
             if (yRange < MIN_Y_RANGE) {
                 MessageBox(hWnd,
@@ -2375,7 +2373,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 chart2Zoom.isYCustom = true;
             }
         } else {
-            // РћР±С‹С‡РЅС‹Р№ СЂРµР¶РёРј: zoom РїРѕ X Рё Y
+            // Обычный режим: zoom по X и Y
             double xRange = maxDataX - minDataX;
             if (xRange < MIN_X_RANGE) {
                 MessageBox(hWnd,
@@ -2385,8 +2383,8 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                 return;
             }
             
-            // v2.14.0: РћРіСЂР°РЅРёС‡РёРІР°РµРј zoom РѕР±Р»Р°СЃС‚СЊСЋ Surf, РµСЃР»Рё СЂРµР¶РёРј Surf Р°РєС‚РёРІРµРЅ (РЅР° РІСЃСЏРєРёР№ СЃР»СѓС‡Р°Р№)
-            // (РІ СЌС‚РѕР№ РІРµС‚РєРµ surfEnabled == false, РЅРѕ РѕСЃС‚Р°РІР»СЏРµРј Р»РѕРіРёРєСѓ Р±СѓРґСѓС‰РµР№ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё)
+            // v2.14.0: Ограничиваем zoom областью Surf, если режим Surf активен (на всякий случай)
+            // (в этой ветке surfEnabled == false, но оставляем логику будущей совместимости)
             
             if (activeChart == 1) {
                 chart1ZoomHistory.push_back(chart1Zoom);
@@ -2447,7 +2445,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             }
         }
     } else {
-        // v2.14.2: Р­С‚Рѕ РєР»РёРє (РЅРµ drag) вЂ” РѕР±РЅРѕРІР»СЏРµРј РєРѕРѕСЂРґРёРЅР°С‚С‹ Рё РїРµСЂРµРєСЂРµСЃС‚РёРµ
+        // v2.14.2: Это клик (не drag) — обновляем координаты и перекрестие
         if (activeChart != 0) {
             double dataX, dataY1, dataY2;
             std::wstring y1Unit, y2Unit;
@@ -2457,7 +2455,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
                                            dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
                 uiModule->UpdateClickCoordinates(activeChart, dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
                 
-                // РЎРѕС…СЂР°РЅСЏРµРј РїРѕР·РёС†РёСЋ РїРµСЂРµРєСЂРµСЃС‚РёСЏ С‚РѕР»СЊРєРѕ РµСЃР»Рё screen->chart РєРѕРЅРІРµСЂС‚Р°С†РёСЏ СѓСЃРїРµС€РЅР°.
+                // Сохраняем позицию перекрестия только если screen->chart конвертация успешна.
                 CrosshairPosition* crosshair = (activeChart == 1) ? &chart1Crosshair : &chart2Crosshair;
                 crosshair->screenX = selectionStart.x;
                 crosshair->screenY = selectionStart.y;
@@ -2472,14 +2470,14 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
         }
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹ РїРѕСЃР»Рµ РёР·РјРµРЅРµРЅРёСЏ Р·СѓРјР°
+    // Обновляем скроллбары после изменения зума
     UpdateScrollBars(hWnd);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј С‚РѕР»СЊРєРѕ РёР·РјРµРЅРµРЅРЅС‹Р№ РіСЂР°С„РёРє (РёР·Р±РµРіР°РµРј РјРёРіР°РЅРёСЏ)
+    // Перерисовываем только измененный график (избегаем мигания)
     if (activeChart > 0) {
         InvalidateChart(hWnd, activeChart);
     } else {
-        InvalidateRect(hWnd, NULL, FALSE); // Р•СЃР»Рё РЅРµ РѕРїСЂРµРґРµР»РµРЅ РіСЂР°С„РёРє, РїРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РІСЃС‘ (FALSE РґР»СЏ double buffering)
+        InvalidateRect(hWnd, NULL, FALSE); // Если не определен график, перерисовываем всё (FALSE для double buffering)
     }
 }
 
@@ -2582,12 +2580,12 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
         return;
     }
 
-    // РџРѕР»СѓС‡Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РіСЂР°С„РёРєР° РґР»СЏ РѕРїСЂРµРґРµР»РµРЅРёСЏ С‚РёРїР° РѕСЃРё X
+    // Получаем конфигурацию графика для определения типа оси X
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNum);
     
-    // Р’С‹С‡РёСЃР»СЏРµРј РѕР±Р»Р°СЃС‚СЊ РіСЂР°С„РёРєР° (plotRect) СЃ СѓС‡С‘С‚РѕРј РѕС‚СЃС‚СѓРїРѕРІ
-    // Р’РђР–РќРћ: Р’СЃРµРіРґР° РёСЃРїРѕР»СЊР·СѓРµРј РѕС‚СЃС‚СѓРїС‹ РґР»СЏ РґРІРѕР№РЅС‹С… РѕСЃРµР№, РїРѕС‚РѕРјСѓ С‡С‚Рѕ DrawDualAxisChart
-    // РІС‹Р·С‹РІР°РµС‚СЃСЏ РґР»СЏ РІСЃРµС… РіСЂР°С„РёРєРѕРІ (РґР°Р¶Рµ СЃ РѕРґРЅРѕР№ РѕСЃСЊСЋ) Рё РёСЃРїРѕР»СЊР·СѓРµС‚ CalculateDualAxisPlotRect
+    // Вычисляем область графика (plotRect) с учётом отступов
+    // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
+    // вызывается для всех графиков (даже с одной осью) и использует CalculateDualAxisPlotRect
     DualAxisChartGeometry geometry = {};
     if (!TryBuildDualAxisChartGeometry(*chartRect, geometry)) {
         dataX = 0.0;
@@ -2599,8 +2597,8 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     const RECT& dataRect = geometry.dataRect;
     double plotWidth = static_cast<double>(geometry.plotWidth);
 
-    // Р’РђР–РќРћ: СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј Y-РіРµРѕРјРµС‚СЂРёСЋ СЃ СЂРµР°Р»СЊРЅРѕР№ РѕС‚СЂРёСЃРѕРІРєРѕР№ РІ DrawDualAxisDataWithZoom,
-    // РіРґРµ РґР°РЅРЅС‹Рµ СЂРёСЃСѓСЋС‚СЃСЏ РЅРµ РїРѕ РІСЃРµРјСѓ plotRect, Р° РїРѕ dataRect СЃ РІРµСЂС‚РёРєР°Р»СЊРЅС‹РјРё margin.
+    // ВАЖНО: синхронизируем Y-геометрию с реальной отрисовкой в DrawDualAxisDataWithZoom,
+    // где данные рисуются не по всему plotRect, а по dataRect с вертикальными margin.
     double dataHeight = static_cast<double>(geometry.dataHeight);
     if (!(dataHeight > 0.0)) {
         dataX = 0.0;
@@ -2612,21 +2610,21 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     if (xRatio < 0.0) xRatio = 0.0;
     if (xRatio > 1.0) xRatio = 1.0;
 
-    // v2.10.0: Р”Р»СЏ РєСЂРѕСЃСЃРїР»РѕС‚Р° (С‚РµРјРїРµСЂР°С‚СѓСЂР° РЅР° РѕСЃРё X) РЅСѓР¶РЅРѕ РїСЂРµРѕР±СЂР°Р·РѕРІР°С‚СЊ РєРѕРѕСЂРґРёРЅР°С‚С‹ РїРѕ-РґСЂСѓРіРѕРјСѓ
+    // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
     VisibleFrameAxisRange visibleXRange = {};
     BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
     const double linearDataX = visibleXRange.minX + xRatio * (visibleXRange.maxX - visibleXRange.minX);
     if (config.xAxisType == XAxisType::TEMPERATURE) {
-        // Р’ СЂРµР¶РёРјРµ РєСЂРѕСЃСЃРїР»РѕС‚Р° СЌРєСЂР°РЅРЅР°СЏ X РєРѕРѕСЂРґРёРЅР°С‚Р° СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓРµС‚ С‚РµРјРїРµСЂР°С‚СѓСЂРµ
-        // РќРѕ zoom РІСЃС‘ СЂР°РІРЅРѕ СЂР°Р±РѕС‚Р°РµС‚ СЃ РёРЅРґРµРєСЃР°РјРё РєР°РґСЂРѕРІ
+        // В режиме кроссплота экранная X координата соответствует температуре
+        // Но zoom всё равно работает с индексами кадров
         dataX = ResolveTemperatureAxisDataX(chartNum, *zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
     } else {
-        // РћР±С‹С‡РЅС‹Р№ СЂРµР¶РёРј: РЅРѕРјРµСЂ РєР°РґСЂР° РЅР° РѕСЃРё X
+        // Обычный режим: номер кадра на оси X
         dataX = linearDataX;
     }
     
-    // Y РєРѕРѕСЂРґРёРЅР°С‚Р° РѕР±СЂР°Р±Р°С‚С‹РІР°РµС‚СЃСЏ РѕРґРёРЅР°РєРѕРІРѕ РґР»СЏ РѕР±РѕРёС… СЂРµР¶РёРјРѕРІ
-    // РџРѕР»СѓС‡Р°РµРј СЂРµР°Р»СЊРЅС‹Р№ РґРёР°РїР°Р·РѕРЅ Y РёР· РґР°РЅРЅС‹С…
+    // Y координата обрабатывается одинаково для обоих режимов
+    // Получаем реальный диапазон Y из данных
     ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
     const CachedCurveSnapshot* curveSnapshot = nullptr;
     ZoomRange fullRangeSnapshot = {};
@@ -2639,7 +2637,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     double displayMaxY = 0.0;
     BuildDisplayedLeftAxisRange(zoom->isYCustom, zoom->minY, zoom->maxY, curveSnapshot->minY1, curveSnapshot->maxY1, displayMinY, displayMaxY);
 
-    // Р’ DrawDualAxisDataWithZoom РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РїСЂРёРјРµРЅСЏРµС‚СЃСЏ РЅРёР¶РЅРёР№ padding 2%.
+    // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
     double drawMinY = 0.0;
     double drawMaxY = 0.0;
     if (!TryBuildDrawnAxisRange(displayMinY, displayMaxY, drawMinY, drawMaxY)) {
@@ -2658,12 +2656,12 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 }
 
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё СЃРєСЂРѕР»Р»РёРЅРіР°
+// Методы для обработки скроллинга
 void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     HWND hScrollBar = (HWND)lParam;
     int scrollCode = LOWORD(wParam);
     
-    // РћРїСЂРµРґРµР»СЏРµРј, РєР°РєРѕР№ СЃРєСЂРѕР»Р»Р±Р°СЂ Р±С‹Р» РёСЃРїРѕР»СЊР·РѕРІР°РЅ
+    // Определяем, какой скроллбар был использован
     int chartNumber = 0;
     bool isVertical = false;
     
@@ -2680,10 +2678,10 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         chartNumber = 2;
         isVertical = true;
     } else {
-        return; // РќРµРёР·РІРµСЃС‚РЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ
+        return; // Неизвестный скроллбар
     }
 
-    // Surf ON: X-СЃРєСЂРѕР»Р» РѕС‚РєР»СЋС‡С‘РЅ (X РІСЃРµРіРґР° Р°РІС‚Рѕ-СЃР»РµРґРёС‚ Р·Р° РїРѕСЃР»РµРґРЅРёРјРё N С‚РѕС‡РєР°РјРё).
+    // Surf ON: X-скролл отключён (X всегда авто-следит за последними N точками).
     if (!isVertical && uiModule->IsSurfEnabled(chartNumber)) {
         return;
     }
@@ -2696,7 +2694,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     double xLockMin = fullMinX;
     double xLockMax = fullMaxX;
 
-    // Р•СЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°РґР°Р» X Range С‡РµСЂРµР· РїРѕР»СЏ, РЅРµ РїРѕР·РІРѕР»СЏРµРј X-scroll РІС‹С…РѕРґРёС‚СЊ Р·Р° СЌС‚Рё РіСЂР°РЅРёС†С‹.
+    // Если пользователь задал X Range через поля, не позволяем X-scroll выходить за эти границы.
     if (zoom->hasXRangeLock) {
         xLockMin = zoom->minX;
         xLockMax = zoom->maxX;
@@ -2717,8 +2715,8 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         xLockMax = fullMaxX;
     }
 
-    // РћСЃРµРІРѕР№ undo: РєРЅРѕРїРєР° "-" РЅР° СЃРєСЂРѕР»Р»Р±Р°СЂРµ РѕС‚РєР°С‚С‹РІР°РµС‚ zoom С‚РѕР»СЊРєРѕ РїРѕ СЃРѕРѕС‚РІРµС‚СЃС‚РІСѓСЋС‰РµР№ РѕСЃРё.
-    // Р”Р»СЏ H-СЃРєСЂРѕР»Р»Р° СЌС‚Рѕ Р»РµРІР°СЏ СЃС‚СЂРµР»РєР°, РґР»СЏ V-СЃРєСЂРѕР»Р»Р° вЂ” РІРµСЂС…РЅСЏСЏ СЃС‚СЂРµР»РєР°.
+    // Осевой undo: кнопка "-" на скроллбаре откатывает zoom только по соответствующей оси.
+    // Для H-скролла это левая стрелка, для V-скролла — верхняя стрелка.
     if ((!isVertical && scrollCode == SB_LINELEFT) || (isVertical && scrollCode == SB_LINEUP)) {
         AxisZoomRange prevAxis;
 
@@ -2757,8 +2755,8 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
                     zoom->isXCustom = true;
                     zoom->hasXRangeLock = prevAxis.hasXRangeLock;
                 } else if (dataModule && dataModule->HasData()) {
-                    // Р”Р»СЏ non-custom СЃРѕСЃС‚РѕСЏРЅРёСЏ РѕС‚РєР°С‚С‹РІР°РµРјСЃСЏ Рє СЂР°Р·СЂРµС€РµРЅРЅРѕРјСѓ X-РґРёР°РїР°Р·РѕРЅСѓ
-                    // (РїРѕР»РЅС‹Р№ РґРёР°РїР°Р·РѕРЅ РёР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ X Range, РµСЃР»Рё РѕРЅ Р±С‹Р» Р·Р°РґР°РЅ).
+                    // Для non-custom состояния откатываемся к разрешенному X-диапазону
+                    // (полный диапазон или пользовательский X Range, если он был задан).
                     zoom->minX = xLockMin;
                     zoom->maxX = xLockMax;
                     zoom->isXCustom = false;
@@ -2785,7 +2783,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         return;
     }
     
-    // РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰СѓСЋ РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ СЃРєСЂРѕР»Р»Р±Р°СЂРµ
+    // Получаем текущую информацию о скроллбаре
     SCROLLINFO si = {};
     si.cbSize = sizeof(SCROLLINFO);
     si.fMask = SIF_ALL;
@@ -2793,7 +2791,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     
     int newPos = si.nPos;
     
-    // РћР±СЂР°Р±Р°С‚С‹РІР°РµРј СЂР°Р·Р»РёС‡РЅС‹Рµ РєРѕРјР°РЅРґС‹ СЃРєСЂРѕР»Р»РёРЅРіР°
+    // Обрабатываем различные команды скроллинга
     switch (scrollCode) {
         case SB_LINEUP:
             newPos = (std::max)(si.nMin, si.nPos - 1);
@@ -2815,28 +2813,28 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
             return;
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј РїРѕР·РёС†РёСЋ СЃРєСЂРѕР»Р»Р±Р°СЂР°
+    // Обновляем позицию скроллбара
     si.nPos = newPos;
     SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
     
-    // РћР±РЅРѕРІР»СЏРµРј РґРёР°РїР°Р·РѕРЅ Р·СѓРјР° РЅР° РѕСЃРЅРѕРІРµ РЅРѕРІРѕР№ РїРѕР·РёС†РёРё СЃРєСЂРѕР»Р»Р±Р°СЂР°
+    // Обновляем диапазон зума на основе новой позиции скроллбара
     if (isVertical) {
-        // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»РёРЅРі (РѕСЃСЊ Y)
+        // Вертикальный скроллинг (ось Y)
         if (!zoom->isZoomed) {
-            // Р•СЃР»Рё РіСЂР°С„РёРє РЅРµ РІ СЂРµР¶РёРјРµ zoom, РІРµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»РёРЅРі РЅРµ СЂР°Р±РѕС‚Р°РµС‚
+            // Если график не в режиме zoom, вертикальный скроллинг не работает
             return;
         }
 
-        // РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РІР·Р°РёРјРѕРґРµР№СЃС‚РІСѓРµС‚ СЃ Y: С„РёРєСЃРёСЂСѓРµРј, С‡С‚Рѕ Y-zoom РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ (С‡С‚РѕР±С‹ Surf РЅРµ РїРµСЂРµР·Р°С‚РёСЂР°Р»)
+        // Пользователь взаимодействует с Y: фиксируем, что Y-zoom пользовательский (чтобы Surf не перезатирал)
         zoom->isYCustom = true;
         
-        // РџРѕР»СѓС‡Р°РµРј Y РґРёР°РїР°Р·РѕРЅ РґР»СЏ РўР•РљРЈР©Р•Р“Рћ X СѓС‡Р°СЃС‚РєР° (РЅРµ РІСЃРµС… РґР°РЅРЅС‹С…)
-        // Р­С‚Рѕ РїРѕР·РІРѕР»СЏРµС‚ СЃРєСЂРѕР»Р»РёС‚СЊ РІ РїСЂРµРґРµР»Р°С… РґР°РЅРЅС‹С… С‚РµРєСѓС‰РµРіРѕ РІРёРґРёРјРѕРіРѕ X РґРёР°РїР°Р·РѕРЅР°
+        // Получаем Y диапазон для ТЕКУЩЕГО X участка (не всех данных)
+        // Это позволяет скроллить в пределах данных текущего видимого X диапазона
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
         std::vector<std::vector<float>> leftAxisData, rightAxisData;
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
         
-        // РџРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ С‚РµРєСѓС‰РµРіРѕ X РґРёР°РїР°Р·РѕРЅР°
+        // Получаем данные для текущего X диапазона
         curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData,
                                                  leftAxisCurves, rightAxisCurves,
                                                  zoom->minX, zoom->maxX, -1e10, 1e10);
@@ -2928,16 +2926,16 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         }
 
     } else {
-        // Р“РѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»РёРЅРі (РѕСЃСЊ X)
+        // Горизонтальный скроллинг (ось X)
         double totalRange = xLockMax - xLockMin;
         double viewRange = zoom->maxX - zoom->minX;
         if (viewRange > totalRange) {
             viewRange = totalRange;
         }
         
-        // РЈС‡РёС‚С‹РІР°РµРј, С‡С‚Рѕ РјР°РєСЃРёРјР°Р»СЊРЅР°СЏ РїРѕР·РёС†РёСЏ СЃРєСЂРѕР»Р»Р±Р°СЂР° = nMax - nPage + 1
+        // Учитываем, что максимальная позиция скроллбара = nMax - nPage + 1
         // nMax = 100, nPage = (viewRange / totalRange) * 100
-        // РџРѕСЌС‚РѕРјСѓ СЂРµР°Р»СЊРЅС‹Р№ РјР°РєСЃРёРјСѓРј = 100 - page + 1
+        // Поэтому реальный максимум = 100 - page + 1
         int maxScrollPos = si.nMax - (int)si.nPage + 1;
         double scrollRatio = (maxScrollPos > 0) ? (double)newPos / (double)maxScrollPos : 0.0;
         double newMinX = xLockMin + scrollRatio * (totalRange - viewRange);
@@ -2999,7 +2997,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     UpdateScrollBars(hWnd);
     UpdateXRangeUI(hWnd);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј С‚РѕР»СЊРєРѕ РЅСѓР¶РЅС‹Р№ РіСЂР°С„РёРє (РёР·Р±РµРіР°РµРј РјРёРіР°РЅРёСЏ)
+    // Перерисовываем только нужный график (избегаем мигания)
     InvalidateChart(hWnd, chartNumber);
 }
 
@@ -3007,7 +3005,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
     uiModule->SetUndoZoomStepEnabled(1, !chart1ZoomHistory.empty());
     uiModule->SetUndoZoomStepEnabled(2, uiModule->IsDualMode() && !chart2ZoomHistory.empty());
 
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹ РґР»СЏ РїРµСЂРІРѕРіРѕ РіСЂР°С„РёРєР°
+    // Обновляем скроллбары для первого графика
     if (chart1Zoom.isZoomed) {
         uiModule->ShowScrollBars(1, true);
         uiModule->UpdateScrollBarPositions(1, layoutModule->GetChart1Rect());
@@ -3022,7 +3020,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         }
         uiModule->ShowAxisUndoButtons(1, showHScroll1, showVScroll1);
 
-        // Surf ON: РїСЂСЏС‡РµРј РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ Рё РЅРµ РЅР°СЃС‚СЂР°РёРІР°РµРј X-СЃРєСЂРѕР»Р»
+        // Surf ON: прячем горизонтальный скроллбар и не настраиваем X-скролл
         if (uiModule->IsSurfEnabled(1)) {
             if (HWND hH = uiModule->GetHScrollBar(1)) {
                 ShowWindow(hH, SW_HIDE);
@@ -3054,14 +3052,14 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 xLockMax = fullMaxX;
             }
 
-            // РќР°СЃС‚СЂР°РёРІР°РµРј РґРёР°РїР°Р·РѕРЅ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРіРѕ СЃРєСЂРѕР»Р»Р±Р°СЂР° (РѕСЃСЊ X)
+            // Настраиваем диапазон горизонтального скроллбара (ось X)
             double totalDataRange = xLockMax - xLockMin;
             double viewRangeX = chart1Zoom.maxX - chart1Zoom.minX;
             if (viewRangeX > totalDataRange) {
                 viewRangeX = totalDataRange;
             }
             
-            // Р’С‹С‡РёСЃР»СЏРµРј page size Рё РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РїРѕР·РёС†РёСЋ СЃРєСЂРѕР»Р»Р±Р°СЂР°
+            // Вычисляем page size и максимальную позицию скроллбара
             int pageSize = (totalDataRange > 0.0)
                 ? static_cast<int>((viewRangeX / totalDataRange) * 100)
                 : 100;
@@ -3069,7 +3067,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             if (pageSize > 100) pageSize = 100;
             int maxScrollPos = 100 - pageSize + 1;
             
-            // Р’С‹С‡РёСЃР»СЏРµРј РїРѕР·РёС†РёСЋ СЃРєСЂРѕР»Р»Р±Р°СЂР° РїСЂРѕРїРѕСЂС†РёРѕРЅР°Р»СЊРЅРѕ
+            // Вычисляем позицию скроллбара пропорционально
             double scrollableRange = totalDataRange - viewRangeX;
             int hScrollPos = (scrollableRange > 0)
                 ? static_cast<int>(((chart1Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos)
@@ -3077,7 +3075,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             uiModule->SetScrollBarRange(1, 0, 100, pageSize, hScrollPos);
         }
         
-        // РќР°СЃС‚СЂР°РёРІР°РµРј РґРёР°РїР°Р·РѕРЅ РІРµСЂС‚РёРєР°Р»СЊРЅРѕРіРѕ СЃРєСЂРѕР»Р»Р±Р°СЂР° (РѕСЃСЊ Y)
+        // Настраиваем диапазон вертикального скроллбара (ось Y)
         if (showVScroll1) {
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
         const CachedCurveSnapshot* curveSnapshot = nullptr;
@@ -3102,7 +3100,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 viewRangeY = chart1Zoom.maxY - chart1Zoom.minY;
             }
 
-            // Р”РѕР±Р°РІР»СЏРµРј padding 5% Рє РґРёР°РїР°Р·РѕРЅСѓ РґР°РЅРЅС‹С… РґР»СЏ СЃРѕРіР»Р°СЃРѕРІР°РЅРЅРѕСЃС‚Рё СЃ HandleScrollEvent
+            // Добавляем padding 5% к диапазону данных для согласованности с HandleScrollEvent
             double dataYRange = maxYFull - minYFull;
             double padding = dataYRange * 0.05;
             minYFull -= padding;
@@ -3121,15 +3119,15 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 totalYRange = maxYFull - minYFull;
             }
             
-            // Р’РµСЂС‚РёРєР°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ РёРЅРІРµСЂС‚РёСЂРѕРІР°РЅ (РІРµСЂС… = 0, РЅРёР· = 100)
-            // Р—Р°С‰РёС‚Р° РѕС‚ РґРµР»РµРЅРёСЏ РЅР° РЅРѕР»СЊ
+            // Вертикальный скроллбар инвертирован (верх = 0, низ = 100)
+            // Защита от деления на ноль
             int vScrollPos = 50;
             int vScrollPage = 100;
             if (totalYRange > viewRangeY && totalYRange > 0) {
                 vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
                 int maxScrollPos = 100 - vScrollPage + 1;
                 
-                // Р’С‹С‡РёСЃР»СЏРµРј РїРѕР·РёС†РёСЋ: 0 = РІРµСЂС… (maxY), maxScrollPos = РЅРёР· (minY)
+                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
                 double scrollableRange = totalYRange - viewRangeY;
                 double currentMinY = useRightAxis1 ? chart1Zoom.minYRight : chart1Zoom.minY;
                 double scrollRatio = (currentMinY - minYFull) / scrollableRange;
@@ -3145,7 +3143,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         uiModule->ShowScrollBars(1, false);
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹ РґР»СЏ РІС‚РѕСЂРѕРіРѕ РіСЂР°С„РёРєР° (РµСЃР»Рё РІ СЂРµР¶РёРјРµ РґРІСѓС… РіСЂР°С„РёРєРѕРІ)
+    // Обновляем скроллбары для второго графика (если в режиме двух графиков)
     if (uiModule->IsDualMode()) {
         if (chart2Zoom.isZoomed) {
             uiModule->ShowScrollBars(2, true);
@@ -3161,7 +3159,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             }
             uiModule->ShowAxisUndoButtons(2, showHScroll2, showVScroll2);
 
-            // Surf ON: РїСЂСЏС‡РµРј РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅС‹Р№ СЃРєСЂРѕР»Р»Р±Р°СЂ Рё РЅРµ РЅР°СЃС‚СЂР°РёРІР°РµРј X-СЃРєСЂРѕР»Р»
+            // Surf ON: прячем горизонтальный скроллбар и не настраиваем X-скролл
             if (uiModule->IsSurfEnabled(2)) {
                 if (HWND hH = uiModule->GetHScrollBar(2)) {
                     ShowWindow(hH, SW_HIDE);
@@ -3193,14 +3191,14 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                     xLockMax = fullMaxX;
                 }
 
-                // РќР°СЃС‚СЂР°РёРІР°РµРј РґРёР°РїР°Р·РѕРЅ РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅРѕРіРѕ СЃРєСЂРѕР»Р»Р±Р°СЂР° (РѕСЃСЊ X)
+                // Настраиваем диапазон горизонтального скроллбара (ось X)
                 double totalDataRange = xLockMax - xLockMin;
                 double viewRangeX = chart2Zoom.maxX - chart2Zoom.minX;
                 if (viewRangeX > totalDataRange) {
                     viewRangeX = totalDataRange;
                 }
                 
-                // Р’С‹С‡РёСЃР»СЏРµРј page size Рё РјР°РєСЃРёРјР°Р»СЊРЅСѓСЋ РїРѕР·РёС†РёСЋ СЃРєСЂРѕР»Р»Р±Р°СЂР°
+                // Вычисляем page size и максимальную позицию скроллбара
                 int pageSize = (totalDataRange > 0.0)
                     ? static_cast<int>((viewRangeX / totalDataRange) * 100)
                     : 100;
@@ -3208,7 +3206,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 if (pageSize > 100) pageSize = 100;
                 int maxScrollPos = 100 - pageSize + 1;
                 
-                // Р’С‹С‡РёСЃР»СЏРµРј РїРѕР·РёС†РёСЋ СЃРєСЂРѕР»Р»Р±Р°СЂР° РїСЂРѕРїРѕСЂС†РёРѕРЅР°Р»СЊРЅРѕ
+                // Вычисляем позицию скроллбара пропорционально
                 double scrollableRange = totalDataRange - viewRangeX;
                 int hScrollPos = (scrollableRange > 0)
                     ? static_cast<int>(((chart2Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos)
@@ -3216,7 +3214,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 uiModule->SetScrollBarRange(2, 0, 100, pageSize, hScrollPos);
             }
             
-            // РќР°СЃС‚СЂР°РёРІР°РµРј РґРёР°РїР°Р·РѕРЅ РІРµСЂС‚РёРєР°Р»СЊРЅРѕРіРѕ СЃРєСЂРѕР»Р»Р±Р°СЂР° (РѕСЃСЊ Y)
+            // Настраиваем диапазон вертикального скроллбара (ось Y)
             if (showVScroll2) {
             ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
             const CachedCurveSnapshot* curveSnapshot = nullptr;
@@ -3284,7 +3282,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
     }
 }
 
-// РњРµС‚РѕРґ РґР»СЏ С‡Р°СЃС‚РёС‡РЅРѕР№ РїРµСЂРµСЂРёСЃРѕРІРєРё РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ РіСЂР°С„РёРєР°
+// Метод для частичной перерисовки конкретного графика
 void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     RECT chartRect;
     
@@ -3293,7 +3291,7 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
     } else if (chartNumber == 2) {
         chartRect = layoutModule->GetChart2Rect();
     } else {
-        return; // РќРµРІРµСЂРЅС‹Р№ РЅРѕРјРµСЂ РіСЂР°С„РёРєР°
+        return; // Неверный номер графика
     }
 
     if (IsUsingNewCurveSystem(chartNumber) && curveSelectionModule) {
@@ -3304,43 +3302,43 @@ void ChartManager::InvalidateChart(HWND hWnd, int chartNumber) {
             (chartNumber == 1) ? chart1Zoom : chart2Zoom);
     }
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј С‚РѕР»СЊРєРѕ РѕР±Р»Р°СЃС‚СЊ РєРѕРЅРєСЂРµС‚РЅРѕРіРѕ РіСЂР°С„РёРєР°
-    // FALSE - РЅРµ СЃС‚РёСЂР°РµРј С„РѕРЅ, С‚.Рє. РёСЃРїРѕР»СЊР·СѓРµРј double buffering РґР»СЏ СѓСЃС‚СЂР°РЅРµРЅРёСЏ РјРёРіР°РЅРёСЏ
+    // Перерисовываем только область конкретного графика
+    // FALSE - не стираем фон, т.к. используем double buffering для устранения мигания
     InvalidateRect(hWnd, &chartRect, FALSE);
 }
 
-// РњРµС‚РѕРґ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ СЃС…РµРјС‹ РїСЂРёР±РѕСЂР° (v2.9.4: РЅРµРјРѕРґР°Р»СЊРЅРѕРµ РѕРєРЅРѕ)
+// Метод для отображения схемы прибора (v2.9.4: немодальное окно)
 void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
     if (!schematicModule || !curveSelectionModule) {
         return;
     }
     
-    // РџРѕРєР°Р·С‹РІР°РµРј РЅРµРјРѕРґР°Р»СЊРЅРѕРµ РґРёР°Р»РѕРіРѕРІРѕРµ РѕРєРЅРѕ СЃС…РµРјС‹ РїСЂРёР±РѕСЂР°
-    // РћРєРЅРѕ РѕСЃС‚Р°С‘С‚СЃСЏ РѕС‚РєСЂС‹С‚С‹Рј РїРѕСЃР»Рµ Apply, РїРѕСЌС‚РѕРјСѓ РЅРµ РЅСѓР¶РЅРѕ РѕР±СЂР°Р±Р°С‚С‹РІР°С‚СЊ РІРѕР·РІСЂР°С‰Р°РµРјРѕРµ Р·РЅР°С‡РµРЅРёРµ
+    // Показываем немодальное диалоговое окно схемы прибора
+    // Окно остаётся открытым после Apply, поэтому не нужно обрабатывать возвращаемое значение
     schematicModule->ShowSchematicDialog(hWnd, chartNumber);
     
-    // РџСЂРёРјРµС‡Р°РЅРёРµ: РџСЂРёРјРµРЅРµРЅРёРµ РєРѕРЅС„РёРіСѓСЂР°С†РёРё С‚РµРїРµСЂСЊ РїСЂРѕРёСЃС…РѕРґРёС‚ РІРЅСѓС‚СЂРё SchematicModule
-    // РїСЂРё РЅР°Р¶Р°С‚РёРё РєРЅРѕРїРєРё Apply, Рё РѕРєРЅРѕ РѕСЃС‚Р°С‘С‚СЃСЏ РѕС‚РєСЂС‹С‚С‹Рј РґР»СЏ Р±С‹СЃС‚СЂРѕРіРѕ РїРµСЂРµРєР»СЋС‡РµРЅРёСЏ РєСЂРёРІС‹С…
+    // Примечание: Применение конфигурации теперь происходит внутри SchematicModule
+    // при нажатии кнопки Apply, и окно остаётся открытым для быстрого переключения кривых
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РЅРѕРІРѕР№ СЃРёСЃС‚РµРјС‹ РєСЂРёРІС‹С…
+// Методы для новой системы кривых
 void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber) {
     if (!curveSelectionModule || !dataModule) return;
     
-    // РџРѕР»СѓС‡Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РєСЂРёРІС‹С…
+    // Получаем конфигурацию кривых
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
     if (config.curves.empty()) return;
     
-    // РџРѕР»СѓС‡Р°РµРј РїР°СЂР°РјРµС‚СЂС‹ zoom
+    // Получаем параметры zoom
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
 
     const CachedCurveSnapshot* curveSnapshot = nullptr;
     const CachedCurveSnapshot* staleCurveCache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
-    // Р¤РѕСЂРјРёСЂСѓРµРј Р·Р°РіРѕР»РѕРІРѕРє СЃ С‡Р°СЃС‚РѕС‚РѕР№
-    // "Р“СЂР°С„РёРє " РІ Unicode escape
+    // Формируем заголовок с частотой
+    // "График " в Unicode escape
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
     
-    // Р”РѕР±Р°РІР»СЏРµРј С‡Р°СЃС‚РѕС‚Сѓ, РµСЃР»Рё РµСЃС‚СЊ РєСЂРёРІС‹Рµ
+    // Добавляем частоту, если есть кривые
     if (!config.curves.empty()) {
         FrequencyBand frequency = config.curves[0].frequency;
         title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L" (400 kHz)" : L" (2000 kHz)";
@@ -3362,9 +3360,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     auto& leftAxisCurves = curveSnapshot->leftAxisCurves;
     auto& rightAxisCurves = curveSnapshot->rightAxisCurves;
     
-    // v2.10.0: РџСЂРѕРІРµСЂСЏРµРј С‚РёРї РѕСЃРё X
+    // v2.10.0: Проверяем тип оси X
     if (config.xAxisType == XAxisType::TEMPERATURE) {
-        // Р РµР¶РёРј РєСЂРѕСЃСЃРїР»РѕС‚Р°: С‚РµРјРїРµСЂР°С‚СѓСЂР° РЅР° РѕСЃРё X
+        // Режим кроссплота: температура на оси X
 
         const CachedTemperatureAxisData* temperatureAxis = nullptr;
         const CachedTemperatureAxisData* staleTemperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
@@ -3380,7 +3378,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
             }
         }
 
-        // РџРѕР»СѓС‡Р°РµРј РґРёР°РїР°Р·РѕРЅС‹ Y РёР· РґР°РЅРЅС‹С…
+        // Получаем диапазоны Y из данных
         const double minYFull = curveSnapshot->minY1;
         const double maxYFull = curveSnapshot->maxY1;
         
@@ -3407,8 +3405,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                          displayMaxYRight);
         }
 
-        // Р’С‹Р·С‹РІР°РµРј РЅРѕРІС‹Р№ РјРµС‚РѕРґ РѕС‚СЂРёСЃРѕРІРєРё СЃ С‚РµРјРїРµСЂР°С‚СѓСЂРѕР№ Рё РїСЂР°РІРёР»СЊРЅРѕР№ Р»РµРіРµРЅРґРѕР№
-        // v2.15.0: РџРµСЂРµРґР°С‘Рј config РґР»СЏ РїРѕРґРґРµСЂР¶РєРё РєРѕРјРїР°РєС‚РЅРѕР№ Р»РµРіРµРЅРґС‹ РїСЂРµСЃРµС‚РѕРІ
+        // Вызываем новый метод отрисовки с температурой и правильной легендой
+        // v2.15.0: Передаём config для поддержки компактной легенды пресетов
         chartModule->DrawDualAxisChart(hdc, chartRect, config.curves,
                                        leftAxisData, rightAxisData,
                                        title, true, temperatureAxis->temperatureData,
@@ -3418,18 +3416,18 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                        displayMinYRight,
                                        displayMaxYRight);
     } else {
-        // РћР±С‹С‡РЅС‹Р№ СЂРµР¶РёРј: РЅРѕРјРµСЂ РєР°РґСЂР° РЅР° РѕСЃРё X
+        // Обычный режим: номер кадра на оси X
         
-        // РџРѕР»СѓС‡Р°РµРј РґРёР°РїР°Р·РѕРЅС‹ Y РёР· РґР°РЅРЅС‹С…
+        // Получаем диапазоны Y из данных
         const double minYData = curveSnapshot->minY1;
         const double maxYData = curveSnapshot->maxY1;
         VisibleFrameAxisRange visibleXRange = {};
         BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
         
-        // РџСЂРѕРІРµСЂСЏРµРј, РЅСѓР¶РЅС‹ Р»Рё РґРІРѕР№РЅС‹Рµ РѕСЃРё
+        // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
-            // РСЃРїРѕР»СЊР·СѓРµРј РЅРѕРІС‹Р№ РјРµС‚РѕРґ РґР»СЏ РґРІРѕР№РЅС‹С… РѕСЃРµР№ СЃ РїРѕРґРґРµСЂР¶РєРѕР№ zoom
-            // Р’СЃРµРіРґР° РїРѕРєР°Р·С‹РІР°РµРј РѕСЃРё (РІРєР»СЋС‡Р°СЏ РѕСЃСЊ X)
+            // Двойная ось: DrawFrameAxisChart с учётом zoom
+            // Всегда показываем оси (включая ось X)
             bool showAxes = true;
             
             double displayMinY = 0.0;
@@ -3461,10 +3459,10 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
                                displayMinYRight,
                                displayMaxYRight);
         } else {
-            // РСЃРїРѕР»СЊР·СѓРµРј РѕР±С‹С‡РЅС‹Р№ РјРµС‚РѕРґ РґР»СЏ РѕРґРЅРѕР№ РѕСЃРё
+            // Одна ось: стандартная ветка
             if (!leftAxisData.empty()) {
-                // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРє СЃ РєР°СЃС‚РѕРјРЅС‹РјРё РєСЂРёРІС‹РјРё
-                // РСЃРїРѕР»СЊР·СѓРµРј РјРµС‚РѕРґ DrawDualAxisChart РґР°Р¶Рµ РґР»СЏ РѕРґРЅРѕР№ РѕСЃРё, С‡С‚РѕР±С‹ РїСЂР°РІРёР»СЊРЅРѕ РѕС‚РѕР±СЂР°Р·РёС‚СЊ Р»РµРіРµРЅРґСѓ
+                // Отрисовываем график с кастомными кривыми
+                // DrawDualAxisChart и для одной оси — корректная легенда и отступы
                 bool showAxes = true;
                 
                 double displayMinY = 0.0;
@@ -3483,34 +3481,34 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 }
 
 void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumber) {
-    // РџСЂРѕРІРµСЂСЏРµРј, Р·Р°РіСЂСѓР¶РµРЅС‹ Р»Рё РґР°РЅРЅС‹Рµ
+    // Проверяем, загружены ли данные
     bool hasData = dataModule && dataModule->HasData();
     
-    // "Р“СЂР°С„РёРє " РІ Unicode escape
+    // "График " в Unicode escape
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
     
-    // РћС‚СЂРёСЃРѕРІС‹РІР°РµРј С„РѕРЅ Рё СЂР°РјРєСѓ РіСЂР°С„РёРєР° РІСЂСѓС‡РЅСѓСЋ (Р±РµР· РїРѕРґРїРёСЃРµР№ РѕСЃРµР№)
+    // Отрисовываем фон и рамку графика вручную (без подписей осей)
     chartModule->DrawChartBackground(hdc, chartRect);
     chartModule->DrawChartBorder(hdc, chartRect);
     chartModule->DrawChartTitle(hdc, chartRect, title);
     
-    // Р Р°СЃС‡РµС‚ РѕР±Р»Р°СЃС‚Рё РґР»СЏ РіСЂР°С„РёРєР°
-    // Р’РђР–РќРћ: РСЃРїРѕР»СЊР·СѓРµРј С‚Рµ Р¶Рµ РѕС‚СЃС‚СѓРїС‹, С‡С‚Рѕ Рё РІ DrawDualAxisChart (CalculateDualAxisPlotRect)
+    // Расчет области для графика
+    // ВАЖНО: те же отступы, что и в DrawDualAxisChart (CalculateDualAxisPlotRect)
     RECT plotRect = chartRect;
     plotRect.left += 60;
     plotRect.top += 45;
     plotRect.right -= 140;
     plotRect.bottom -= 50;
     
-    // Р РёСЃСѓРµРј РѕСЃРё
+    // Рисуем оси
     chartModule->DrawChartAxes(hdc, plotRect, true);
     
-    // Р•СЃР»Рё РґР°РЅРЅС‹Рµ Р·Р°РіСЂСѓР¶РµРЅС‹, СЂРёСЃСѓРµРј С‚РѕР»СЊРєРѕ СЃРµС‚РєСѓ Р‘Р•Р— РїРѕРґРїРёСЃРµР№ РѕСЃРµР№
+    // Если данные загружены, рисуем только сетку БЕЗ подписей осей
     if (hasData) {
         chartModule->DrawGridOnly(hdc, plotRect);
     }
     
-    // Р РёСЃСѓРµРј С‚РµРєСЃС‚ СЃ РёРЅСЃС‚СЂСѓРєС†РёРµР№
+    // Рисуем текст с инструкцией
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(100, 100, 100));
     HFONT hFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
@@ -3518,13 +3516,13 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
                             DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     
-    // Р’С‹Р±РёСЂР°РµРј СЃРѕРѕР±С‰РµРЅРёРµ РІ Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РѕС‚ РЅР°Р»РёС‡РёСЏ РґР°РЅРЅС‹С…
+    // Выбираем сообщение в зависимости от наличия данных
     std::wstring message;
     if (hasData) {
-        // "РќР°Р¶РјРёС‚Рµ 'РЎС…РµРјР° РїСЂРёР±РѕСЂР°' РґР»СЏ РЅР°СЃС‚СЂРѕР№РєРё РіСЂР°С„РёРєР°" РІ Unicode
+        // "Нажмите 'Схема прибора' для настройки графика" в Unicode
         message = L"\x041D\x0430\x0436\x043C\x0438\x0442\x0435 '\x0421\x0445\x0435\x043C\x0430 \x043F\x0440\x0438\x0431\x043E\x0440\x0430' \x0434\x043B\x044F \x043D\x0430\x0441\x0442\x0440\x043E\x0439\x043A\x0438 \x0433\x0440\x0430\x0444\x0438\x043A\x0430";
     } else {
-        // "РЎРЅР°С‡Р°Р»Р° РѕС‚РєСЂРѕР№С‚Рµ С„Р°Р№Р» РґР°РЅРЅС‹С…" РІ Unicode
+        // "Сначала откройте файл данных" в Unicode
         message = L"\x0421\x043D\x0430\x0447\x0430\x043B\x0430 \x043E\x0442\x043A\x0440\x043E\x0439\x0442\x0435 \x0444\x0430\x0439\x043B \x0434\x0430\x043D\x043D\x044B\x0445";
     }
     
@@ -3535,19 +3533,19 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     DeleteObject(hFont);
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ РєРѕРЅС„РёРіСѓСЂР°С†РёСЏРјРё РєСЂРёРІС‹С…
+// Методы для работы с конфигурациями кривых
 void ChartManager::ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config) {
     if (!curveSelectionModule) return;
     
-    // Р’Р°Р»РёРґРёСЂСѓРµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
+    // Валидируем конфигурацию
     if (!ValidateChartConfiguration(config)) {
         return;
     }
     
-    // РџСЂРёРјРµРЅСЏРµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
+    // Применяем конфигурацию
     curveSelectionModule->ApplyCurveConfiguration(chartNumber, config);
     
-    // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј UI СЃ РЅРѕРІРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРµР№
+    // Синхронизируем UI с новой конфигурацией
     SynchronizeUIWithConfiguration(chartNumber);
 }
 
@@ -3567,48 +3565,48 @@ bool ChartManager::HasCurveConfiguration(int chartNumber) const {
     return curveSelectionModule->HasConfiguration(chartNumber);
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РєРѕРїРёСЂРѕРІР°РЅРёСЏ РЅР°СЃС‚СЂРѕРµРє РјРµР¶РґСѓ РіСЂР°С„РёРєР°РјРё
+// Методы для копирования настроек между графиками
 void ChartManager::CopyChartSettings(int fromChart, int toChart) {
     if (!curveSelectionModule) return;
     
-    // РџСЂРѕРІРµСЂСЏРµРј РІР°Р»РёРґРЅРѕСЃС‚СЊ РЅРѕРјРµСЂРѕРІ РіСЂР°С„РёРєРѕРІ
+    // Проверяем валидность номеров графиков
     if (fromChart < 1 || fromChart > 2 || toChart < 1 || toChart > 2 || fromChart == toChart) {
         return;
     }
     
-    // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РёСЃС…РѕРґРЅС‹Р№ РіСЂР°С„РёРє РёРјРµРµС‚ РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
+    // Проверяем, что исходный график имеет конфигурацию
     if (!curveSelectionModule->HasConfiguration(fromChart)) {
         return;
     }
     
-    // РљРѕРїРёСЂСѓРµРј РЅР°СЃС‚СЂРѕР№РєРё
+    // Копируем настройки
     curveSelectionModule->CopySettings(fromChart, toChart);
     
-    // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј UI СЃ РЅРѕРІРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРµР№
+    // Синхронизируем UI с новой конфигурацией
     SynchronizeUIWithConfiguration(toChart);
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РїСЂРёРјРµРЅРµРЅРёСЏ РїСЂРµСЃРµС‚РѕРІ
+// Методы для применения пресетов
 void ChartManager::ApplyPreset(int chartNumber, PresetType preset, FrequencyBand frequency) {
     if (!curveSelectionModule) return;
     
-    // РџСЂРёРјРµРЅСЏРµРј РїСЂРµСЃРµС‚
+    // Применяем пресет
     curveSelectionModule->ApplyPreset(preset, chartNumber, frequency);
     
-    // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј UI СЃ РЅРѕРІРѕР№ РєРѕРЅС„РёРіСѓСЂР°С†РёРµР№
+    // Синхронизируем UI с новой конфигурацией
     SynchronizeUIWithConfiguration(chartNumber);
 }
 
-// Р’СЃРїРѕРјРѕРіР°С‚РµР»СЊРЅС‹Рµ РјРµС‚РѕРґС‹ РґР»СЏ РёРЅС‚РµРіСЂР°С†РёРё
+// Вспомогательные методы для интеграции
 void ChartManager::UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumber) {
-    // РЎР±СЂР°СЃС‹РІР°РµРј РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёРµ РїСЂРё РёР·РјРµРЅРµРЅРёРё РєРѕРЅС„РёРіСѓСЂР°С†РёРё
+    // Сбрасываем масштабирование при изменении конфигурации
     if (chartNumber == 1) {
         chart1Zoom.isZoomed = false;
         chart1Zoom.isXCustom = false;
         chart1Zoom.hasXRangeLock = false;
         chart1Zoom.isXToLatest = false;
         chart1Zoom.isYCustom = false;
-        chart1ZoomHistory.clear(); // v2.12.5: РћС‡РёС‰Р°РµРј РёСЃС‚РѕСЂРёСЋ zoom
+        chart1ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
         ClearAxisHistory(1);
     } else if (chartNumber == 2) {
         chart2Zoom.isZoomed = false;
@@ -3616,7 +3614,7 @@ void ChartManager::UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumbe
         chart2Zoom.hasXRangeLock = false;
         chart2Zoom.isXToLatest = false;
         chart2Zoom.isYCustom = false;
-        chart2ZoomHistory.clear(); // v2.12.5: РћС‡РёС‰Р°РµРј РёСЃС‚РѕСЂРёСЋ zoom
+        chart2ZoomHistory.clear(); // v2.12.5: Очищаем историю zoom
         ClearAxisHistory(2);
     }
 
@@ -3625,57 +3623,57 @@ void ChartManager::UpdateChartAfterConfigurationChange(HWND hWnd, int chartNumbe
     // v2.18.0: Обновляем видимость ComboBox Y-zoom target
     UpdateYZoomTargetVisibility(chartNumber);
 
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹
+    // Обновляем скроллбары
     ScheduleAsyncCurveSnapshotWarmup(hWnd, chartNumber, curveSelectionModule->GetChartConfiguration(chartNumber), (chartNumber == 1) ? chart1Zoom : chart2Zoom);
     UpdateScrollBars(hWnd);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРє
+    // Перерисовываем график
     InvalidateChart(hWnd, chartNumber);
 }
 
 void ChartManager::SynchronizeUIWithConfiguration(int chartNumber) {
     if (!curveSelectionModule) return;
     
-    // РџРѕР»СѓС‡Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ
+    // Получаем конфигурацию
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
     
-    // Р•СЃР»Рё РєРѕРЅС„РёРіСѓСЂР°С†РёСЏ РїСѓСЃС‚Р°, РІРѕР·РІСЂР°С‰Р°РµРјСЃСЏ Рє СЃС‚Р°РЅРґР°СЂС‚РЅРѕРјСѓ UI
+    // Если конфигурация пуста, возвращаемся к стандартному UI
     if (config.curves.empty()) {
         return;
     }
     
-    // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј СЃС‚Р°СЂС‹Рµ СЌР»РµРјРµРЅС‚С‹ UI СЃ РЅРѕРІРѕР№ СЃРёСЃС‚РµРјРѕР№, РµСЃР»Рё РІРѕР·РјРѕР¶РЅРѕ
+    // Синхронизируем старые элементы UI с новой системой, если возможно
     SynchronizeLegacyUIWithNewSystem(chartNumber);
     
-    // РќРѕРІР°СЏ СЃРёСЃС‚РµРјР° СЂР°Р±РѕС‚Р°РµС‚ РЅРµР·Р°РІРёСЃРёРјРѕ РѕС‚ СЃС‚Р°СЂС‹С… СЌР»РµРјРµРЅС‚РѕРІ UI,
-    // РЅРѕ РјС‹ СЃС‚Р°СЂР°РµРјСЃСЏ РїРѕРґРґРµСЂР¶РёРІР°С‚СЊ РёС… РІ СЃРёРЅС…СЂРѕРЅРёР·РёСЂРѕРІР°РЅРЅРѕРј СЃРѕСЃС‚РѕСЏРЅРёРё
-    // РґР»СЏ Р»СѓС‡С€РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРіРѕ РѕРїС‹С‚Р°
+    // Новая система работает независимо от старых элементов UI,
+    // но мы стараемся поддерживать их в синхронизированном состоянии
+    // для лучшего пользовательского опыта
 }
 
 bool ChartManager::ValidateChartConfiguration(const ChartConfiguration& config) const {
     if (!curveSelectionModule) return false;
     
-    // РСЃРїРѕР»СЊР·СѓРµРј РІР°Р»РёРґР°С†РёСЋ РёР· CurveSelectionModule
+    // Валидация конфигурации в CurveSelectionModule
     return curveSelectionModule->ValidateConfiguration(config);
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё СЃРѕР±С‹С‚РёР№ РѕС‚ РґРёР°Р»РѕРіРѕРІРѕРіРѕ РѕРєРЅР° СЃС…РµРјС‹
+// Методы для обработки событий от диалогового окна схемы
 void ChartManager::HandleSchematicDialogResult(HWND hWnd, int chartNumber, bool applied) {
     if (!applied) {
-        return; // РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РѕС‚РјРµРЅРёР» РёР·РјРµРЅРµРЅРёСЏ
+        return; // Пользователь отменил изменения
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј РіСЂР°С„РёРє РїРѕСЃР»Рµ РїСЂРёРјРµРЅРµРЅРёСЏ РЅР°СЃС‚СЂРѕРµРє
+    // Обновляем график после применения настроек
     UpdateChartAfterConfigurationChange(hWnd, chartNumber);
     
-    // РћС‚РїСЂР°РІР»СЏРµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРѕРµ СЃРѕРѕР±С‰РµРЅРёРµ РіР»Р°РІРЅРѕРјСѓ РѕРєРЅСѓ РґР»СЏ РѕР±РЅРѕРІР»РµРЅРёСЏ
+    // Отправляем пользовательское сообщение главному окну для обновления
     PostMessage(hWnd, WM_USER + 100, static_cast<WPARAM>(chartNumber), 0);
 }
 
 void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId, FrequencyBand frequency) {
     PresetType preset;
     
-    // РћРїСЂРµРґРµР»СЏРµРј С‚РёРї РїСЂРµСЃРµС‚Р° РїРѕ ID РєРѕРјР°РЅРґС‹
+    // Определяем тип пресета по ID команды
     switch (presetId) {
         case IDC_PRESET_ALL_AMP_R1:
             preset = PresetType::ALL_AMPLITUDES_R1;
@@ -3690,7 +3688,7 @@ void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId,
             preset = PresetType::PHASE_DIFFERENCES;
             break;
         default:
-            return; // РќРµРёР·РІРµСЃС‚РЅС‹Р№ РїСЂРµСЃРµС‚
+            return; // Неизвестный пресет
     }
 
     if (!dataModule || !dataModule->HasData()) {
@@ -3701,30 +3699,30 @@ void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId,
         return;
     }
     
-    // РџСЂРёРјРµРЅСЏРµРј РїСЂРµСЃРµС‚
+    // Применяем пресет
     ApplyPreset(chartNumber, preset, frequency);
     
-    // РћР±РЅРѕРІР»СЏРµРј РіСЂР°С„РёРє
+    // Обновляем график
     UpdateChartAfterConfigurationChange(hWnd, chartNumber);
 }
 
 void ChartManager::HandleCopySettingsCommand(HWND hWnd, int fromChart, int toChart) {
-    // РљРѕРїРёСЂСѓРµРј РЅР°СЃС‚СЂРѕР№РєРё РјРµР¶РґСѓ РіСЂР°С„РёРєР°РјРё
+    // Копируем настройки между графиками
     CopyChartSettings(fromChart, toChart);
     
-    // РћР±РЅРѕРІР»СЏРµРј С†РµР»РµРІРѕР№ РіСЂР°С„РёРє
+    // Обновляем целевой график
     UpdateChartAfterConfigurationChange(hWnd, toChart);
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РѕР±РµСЃРїРµС‡РµРЅРёСЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё
+// Методы для обеспечения совместимости
 void ChartManager::ResetToLegacyMode(int chartNumber) {
     if (!curveSelectionModule) return;
     
-    // РћС‡РёС‰Р°РµРј РєРѕРЅС„РёРіСѓСЂР°С†РёСЋ РєСЂРёРІС‹С… РґР»СЏ РІРѕР·РІСЂР°С‚Р° Рє СЃС‚Р°СЂРѕР№ СЃРёСЃС‚РµРјРµ
+    // Очищаем конфигурацию кривых для возврата к старой системе
     ChartConfiguration emptyConfig;
     curveSelectionModule->ApplyCurveConfiguration(chartNumber, emptyConfig);
     
-    // РЎРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј UI
+    // Синхронизируем UI
     SynchronizeUIWithConfiguration(chartNumber);
 }
 
@@ -3735,22 +3733,22 @@ bool ChartManager::IsUsingNewCurveSystem(int chartNumber) const {
 }
 
 void ChartManager::SynchronizeLegacyUIWithNewSystem(int chartNumber) {
-    // РњРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё API, РЅРѕ Р±РѕР»СЊС€Рµ РЅРёС‡РµРіРѕ РЅРµ РґРµР»Р°РµС‚
-    // Р’СЃРµ СѓРїСЂР°РІР»СЏРµС‚СЃСЏ С‚РѕР»СЊРєРѕ С‡РµСЂРµР· Device Schematic
+    // Метод оставлен для совместимости API, но больше ничего не делает
+    // Все управляется только через Device Schematic
 }
 
 void ChartManager::HandleLegacyUIChange(HWND hWnd, int chartNumber) {
-    // Р•СЃР»Рё РїРѕР»СЊР·РѕРІР°С‚РµР»СЊ РёР·РјРµРЅРёР» РЅР°СЃС‚СЂРѕР№РєРё С‡РµСЂРµР· СЃС‚Р°СЂС‹Рµ СЌР»РµРјРµРЅС‚С‹ UI,
-    // СЃР±СЂР°СЃС‹РІР°РµРј РЅРѕРІСѓСЋ СЃРёСЃС‚РµРјСѓ РєСЂРёРІС‹С… РґР»СЏ СЌС‚РѕРіРѕ РіСЂР°С„РёРєР°
+    // Если пользователь изменил настройки через старые элементы UI,
+    // сбрасываем новую систему кривых для этого графика
     if (IsUsingNewCurveSystem(chartNumber)) {
         ResetToLegacyMode(chartNumber);
         
-        // РћР±РЅРѕРІР»СЏРµРј РіСЂР°С„РёРє
+        // Обновляем график
         InvalidateChart(hWnd, chartNumber);
     }
 }
 
-// РњРµС‚РѕРґС‹ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё X Range
+// Методы для обработки X Range
 void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     if (!dataModule || !dataModule->HasData()) {
         wchar_t message[256];
@@ -3759,7 +3757,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
 
-    // Surf ON: X РґРёР°РїР°Р·РѕРЅ С„РёРєСЃРёСЂРѕРІР°РЅ РЅР° РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє
+    // Surf ON: X диапазон фиксирован на последние N точек
     if (uiModule->IsSurfEnabled(chartNumber)) {
         MessageBox(hWnd,
             L"X Range is locked in Surf mode.\nDisable Surf to change X range.",
@@ -3768,20 +3766,20 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
     
-    // РџРѕР»СѓС‡Р°РµРј РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РґР°РЅРЅС‹С…
+    // Получаем максимальное значение данных
     double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
     
-    // РџРѕР»СѓС‡Р°РµРј Р·РЅР°С‡РµРЅРёСЏ РёР· РїРѕР»РµР№ РІРІРѕРґР° РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР°
+    // Получаем значения из полей ввода для указанного графика
     double fromX, toX;
     uiModule->GetXRangeValues(chartNumber, fromX, toX);
     const bool isToEmpty = uiModule->IsXRangeToEmpty(chartNumber);
     
-    // Р•СЃР»Рё РїРѕР»Рµ "To" РїСѓСЃС‚РѕРµ, РёСЃРїРѕР»СЊР·СѓРµРј РјР°РєСЃРёРјР°Р»СЊРЅРѕРµ Р·РЅР°С‡РµРЅРёРµ РґР°РЅРЅС‹С…
+    // Если поле "To" пустое, используем максимальное значение данных
     if (isToEmpty) {
         toX = dataSize;
     }
     
-    // Р’Р°Р»РёРґР°С†РёСЏ РІС…РѕРґРЅС‹С… РґР°РЅРЅС‹С…
+    // Валидация входных данных
     if (fromX >= toX) {
         wchar_t message[256];
         swprintf_s(message, L"Chart %d: 'From' value must be less than 'To' value", chartNumber);
@@ -3796,7 +3794,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
     
-    // РџСЂРѕРІРµСЂСЏРµРј РјРёРЅРёРјР°Р»СЊРЅС‹Р№ РґРёР°РїР°Р·РѕРЅ: РїРѕРґРїРёСЃРё РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ С†РµР»С‹РјРё Рё РѕС‚Р»РёС‡Р°С‚СЊСЃСЏ РјРёРЅРёРјСѓРј РЅР° 10
+    // Проверяем минимальный диапазон: подписи должны быть целыми и отличаться минимум на 10
     const double MIN_X_RANGE = 10.0;
     double xRange = toX - fromX;
     
@@ -3808,7 +3806,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         return;
     }
     
-    // РџСЂРёРјРµРЅСЏРµРј РґРёР°РїР°Р·РѕРЅ Рє СѓРєР°Р·Р°РЅРЅРѕРјСѓ РіСЂР°С„РёРєСѓ
+    // Применяем диапазон к указанному графику
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     std::vector<ZoomRange>* zoomHistory = (chartNumber == 1) ? &chart1ZoomHistory : &chart2ZoomHistory;
     zoomHistory->clear();
@@ -3821,7 +3819,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     zoom->isXCustom = true;
     zoom->hasXRangeLock = true;
     zoom->isXToLatest = isToEmpty;
-    zoom->isYCustom = false; // Y РїРѕРґРѕР±СЂР°РЅ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РїРѕРґ РІС‹Р±СЂР°РЅРЅС‹Р№ X РґРёР°РїР°Р·РѕРЅ
+    zoom->isYCustom = false; // Y подобран автоматически под выбранный X диапазон
     ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
 
     const CachedCurveSnapshot* curveSnapshot = nullptr;
@@ -3832,23 +3830,23 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
         zoom->maxY = curveSnapshot->maxY1 + padding;
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹
+    // Обновляем скроллбары
     ScheduleAsyncCurveSnapshotWarmup(hWnd, chartNumber, config, *zoom);
     UpdateScrollBars(hWnd);
 
-    // РџРѕСЃР»Рµ Apply РїРѕР»Рµ To РјРѕР¶РµС‚ Р±С‹С‚СЊ РЅР°РјРµСЂРµРЅРЅРѕ РїСѓСЃС‚С‹Рј (СЂРµР¶РёРј From..latest),
-    // РїРѕСЌС‚РѕРјСѓ РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµРј РїРѕР»СЏ РІРІРѕРґР° Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё.
+    // После Apply поле To может быть намеренно пустым (режим From..latest),
+    // поэтому не перезаписываем поля ввода автоматически.
     uiModule->SetXRangeResetEnabled(chartNumber, true);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРєРё (FALSE РґР»СЏ double buffering)
+    // Перерисовываем графики (FALSE для double buffering)
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
 void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     
-    // Surf ON: Reset С‚СЂР°РєС‚СѓРµРј РєР°Рє "СЃР±СЂРѕСЃРёС‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ Y-zoom" Рё РІРµСЂРЅСѓС‚СЊ Р°РІС‚Рѕ-Y,
-    // РїСЂРё СЌС‚РѕРј X РѕСЃС‚Р°С‘С‚СЃСЏ С„РёРєСЃРёСЂРѕРІР°РЅРЅС‹Рј РЅР° РѕРєРЅРµ Surf.
+    // Surf ON: Reset трактуем как "сбросить пользовательский Y-zoom" и вернуть авто-Y,
+    // при этом X остаётся фиксированным на окне Surf.
     if (uiModule->IsSurfEnabled(chartNumber)) {
         zoom->isXCustom = false;
         zoom->hasXRangeLock = false;
@@ -3856,7 +3854,7 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
         zoom->isYCustom = false;
         UpdateSurfRange(chartNumber);
     } else {
-        // РЎР±СЂР°СЃС‹РІР°РµРј РјР°СЃС€С‚Р°Р±РёСЂРѕРІР°РЅРёРµ РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР°
+        // Сбрасываем масштабирование для указанного графика
         zoom->isZoomed = false;
         zoom->isXCustom = false;
         zoom->hasXRangeLock = false;
@@ -3868,25 +3866,25 @@ void ChartManager::HandleXRangeReset(HWND hWnd, int chartNumber) {
 
     uiModule->ResetXRangeControls(chartNumber);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹
+    // Обновляем скроллбары
     if (curveSelectionModule && IsUsingNewCurveSystem(chartNumber)) {
         ScheduleAsyncCurveSnapshotWarmup(hWnd, chartNumber, curveSelectionModule->GetChartConfiguration(chartNumber), *zoom);
     }
     UpdateScrollBars(hWnd);
     
-    // РћР±РЅРѕРІР»СЏРµРј UI
+    // Обновляем UI
     UpdateXRangeUI(hWnd);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРєРё (FALSE РґР»СЏ double buffering)
+    // Перерисовываем графики (FALSE для double buffering)
     InvalidateRect(hWnd, NULL, FALSE);
 }
 
 void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
-    // РЎР±СЂР°СЃС‹РІР°РµРј zoom РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР° (РїРѕР»РЅС‹Р№ СЃР±СЂРѕСЃ, РЅРµ РїРѕС€Р°РіРѕРІС‹Р№)
+    // Сбрасываем zoom для указанного графика (полный сброс, не пошаговый)
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     
-    // Surf ON: Reset Zoom СЃР±СЂР°СЃС‹РІР°РµС‚ С‚РѕР»СЊРєРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ Y-zoom,
-    // РЅРѕ РЅРµ РІС‹РєР»СЋС‡Р°РµС‚ Surf-РѕРєРЅРѕ РїРѕ X.
+    // Surf ON: Reset Zoom сбрасывает только пользовательский Y-zoom,
+    // но не выключает Surf-окно по X.
     if (uiModule->IsSurfEnabled(chartNumber)) {
         zoom->isXCustom = false;
         zoom->hasXRangeLock = false;
@@ -3903,7 +3901,7 @@ void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
         ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
     }
     
-    // v2.12.5: РћС‡РёС‰Р°РµРј РёСЃС‚РѕСЂРёСЋ zoom РїСЂРё РїРѕР»РЅРѕРј СЃР±СЂРѕСЃРµ С‡РµСЂРµР· РєРЅРѕРїРєСѓ
+    // v2.12.5: Очищаем историю zoom при полном сбросе через кнопку
     if (chartNumber == 1) {
         chart1ZoomHistory.clear();
         ClearAxisHistory(1);
@@ -3914,16 +3912,16 @@ void ChartManager::HandleResetZoom(HWND hWnd, int chartNumber) {
 
     uiModule->ResetXRangeControls(chartNumber);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃРєСЂРѕР»Р»Р±Р°СЂС‹
+    // Обновляем скроллбары
     if (curveSelectionModule && IsUsingNewCurveSystem(chartNumber)) {
         ScheduleAsyncCurveSnapshotWarmup(hWnd, chartNumber, curveSelectionModule->GetChartConfiguration(chartNumber), *zoom);
     }
     UpdateScrollBars(hWnd);
     
-    // РћР±РЅРѕРІР»СЏРµРј UI (X Range controls)
+    // Обновляем UI (X Range controls)
     UpdateXRangeUI(hWnd);
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј С‚РѕР»СЊРєРѕ РёР·РјРµРЅРµРЅРЅС‹Р№ РіСЂР°С„РёРє
+    // Перерисовываем только измененный график
     InvalidateChart(hWnd, chartNumber);
 }
 
@@ -3977,7 +3975,7 @@ void ChartManager::UpdateXRangeUI(HWND hWnd) {
         const bool surfEnabled = uiModule->IsSurfEnabled(chartNumber);
 
         if (surfEnabled) {
-            // Р’ Surf СЂРµР¶РёРјРµ РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµРј РїРѕР»СЏ From/To.
+            // В Surf режиме не перезаписываем поля From/To.
             uiModule->SetXRangeResetEnabled(chartNumber, false);
             return;
         }
@@ -3996,8 +3994,8 @@ void ChartManager::UpdateXRangeUI(HWND hWnd) {
             return;
         }
 
-        // COM realtime + РЅРµС‚ РїСЂРёРјРµРЅС‘РЅРЅРѕРіРѕ РєР°СЃС‚РѕРјРЅРѕРіРѕ РґРёР°РїР°Р·РѕРЅР°:
-        // РЅРµ РїРµСЂРµР·Р°РїРёСЃС‹РІР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ СЂСѓС‡РЅРѕР№ РІРІРѕРґ РІ РїРѕР»СЏС… X Range.
+        // COM realtime + нет применённого кастомного диапазона:
+        // не перезаписываем пользовательский ручной ввод в полях X Range.
         if (isSerialRealtime) {
             return;
         }
@@ -4005,10 +4003,10 @@ void ChartManager::UpdateXRangeUI(HWND hWnd) {
         uiModule->SetXRangeResetEnabled(chartNumber, false);
     };
     
-    // РћР±РЅРѕРІР»СЏРµРј СЌР»РµРјРµРЅС‚С‹ СѓРїСЂР°РІР»РµРЅРёСЏ РґР»СЏ Chart 1
+    // Обновляем элементы управления для Chart 1
     updateChartXRange(1, chart1Zoom);
     
-    // РћР±РЅРѕРІР»СЏРµРј СЌР»РµРјРµРЅС‚С‹ СѓРїСЂР°РІР»РµРЅРёСЏ РґР»СЏ Chart 2 (РµСЃР»Рё РІ Dual Mode)
+    // Обновляем элементы управления для Chart 2 (если в Dual Mode)
     if (uiModule->IsDualMode()) {
         updateChartXRange(2, chart2Zoom);
     }
@@ -4024,20 +4022,20 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
     size_t startIndex = 0;
     size_t endIndex = dataSize - 1;
     
-    // РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰РёР№ РґРёР°РїР°Р·РѕРЅ РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР°
+    // Получаем текущий диапазон для указанного графика
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     
     if (zoom->isZoomed) {
-        // Zoom РїСЂРёРјРµРЅС‘РЅ С‡РµСЂРµР· Apply вЂ” РёСЃРїРѕР»СЊР·СѓРµРј РµРіРѕ РґРёР°РїР°Р·РѕРЅ
+        // Zoom применён через Apply — используем его диапазон
         startIndex = static_cast<size_t>(zoom->minX);
         endIndex = static_cast<size_t>(zoom->maxX);
     } else {
-        // Zoom РЅРµ РїСЂРёРјРµРЅС‘РЅ вЂ” С‡РёС‚Р°РµРј From/To РёР· РїРѕР»РµР№ РІРІРѕРґР° РЅР°РїСЂСЏРјСѓСЋ
+        // Zoom не применён — читаем From/To из полей ввода напрямую
         const bool fromEmpty = uiModule->IsXRangeFromEmpty(chartNumber);
         const bool toEmpty = uiModule->IsXRangeToEmpty(chartNumber);
         
         if (fromEmpty && toEmpty) {
-            // РћР±Р° РїРѕР»СЏ РїСѓСЃС‚С‹ вЂ” СЃРѕС…СЂР°РЅСЏРµРј Р’РЎР• РґР°РЅРЅС‹Рµ (0 .. dataSize-1)
+            // Оба поля пусты — сохраняем ВСЕ данные (0 .. dataSize-1)
             startIndex = 0;
             endIndex = dataSize - 1;
         } else {
@@ -4058,25 +4056,25 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
         }
     }
     
-    // Clamp РёРЅРґРµРєСЃРѕРІ Рє РіСЂР°РЅРёС†Р°Рј РґР°РЅРЅС‹С…
+    // Clamp индексов к границам данных
     if (startIndex >= dataSize) startIndex = dataSize - 1;
     if (endIndex >= dataSize) endIndex = dataSize - 1;
     
-    // РџСЂРѕРІРµСЂСЏРµРј РєРѕСЂСЂРµРєС‚РЅРѕСЃС‚СЊ РґРёР°РїР°Р·РѕРЅР°
+    // Проверяем корректность диапазона
     if (startIndex > endIndex) {
         MessageBox(hWnd, L"'From' value must be less than or equal to 'To' value!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
     
-    // РћС‚РєСЂС‹РІР°РµРј РґРёР°Р»РѕРі СЃРѕС…СЂР°РЅРµРЅРёСЏ С„Р°Р№Р»Р°
+    // Открываем диалог сохранения файла
     OPENFILENAME ofn;
     wchar_t szFile[260] = {0};
     
-    // Р¤РѕСЂРјРёСЂСѓРµРј РїСЂРµРґР»РѕР¶РµРЅРЅРѕРµ РёРјСЏ С„Р°Р№Р»Р°
-    // Р¤РѕСЂРјР°С‚: [РёСЃС…РѕРґРЅРѕРµ_РёРјСЏ]_range_[РЅР°С‡Р°Р»Рѕ]_[РєРѕРЅРµС†]_[Р”Р”_РњРњ_Р“Р“Р“Р“].bin
+    // Формируем предложенное имя файла
+    // Формат: [исходное_имя]_range_[начало]_[конец]_[ДД_ММ_ГГГГ].bin
     std::wstring baseFileName = dataModule->GetLoadedFileName();
     
-    // РџРѕР»СѓС‡Р°РµРј С‚РµРєСѓС‰СѓСЋ РґР°С‚Сѓ
+    // Получаем текущую дату
     SYSTEMTIME st;
     GetLocalTime(&st);
     
@@ -4100,9 +4098,9 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
         DataRangeExportAnalysis exportAnalysis = {};
         const bool hasExportAnalysis = dataModule->TryAnalyzeExportRange(startIndex, endIndex, exportAnalysis);
 
-        // РЎРѕС…СЂР°РЅСЏРµРј РґРёР°РїР°Р·РѕРЅ РґР°РЅРЅС‹С…
+        // Сохраняем диапазон данных
         if (dataModule->SaveDataRange(szFile, startIndex, endIndex)) {
-            // Р¤РѕСЂРјРёСЂСѓРµРј СЃРѕРѕР±С‰РµРЅРёРµ РѕР± СѓСЃРїРµС…Рµ
+            // Формируем сообщение об успехе
             size_t recordCount = endIndex - startIndex + 1;
             const std::wstring successMessage = BuildRangeExportSuccessMessage(recordCount, startIndex, endIndex, szFile, hasExportAnalysis, exportAnalysis);
             MessageBox(hWnd, successMessage.c_str(), L"Success", MB_OK | MB_ICONINFORMATION);
@@ -4267,7 +4265,7 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
     MessageBox(hWnd, message, L"Готово", MB_OK | MB_ICONINFORMATION);
 }
 
-// РњРµС‚РѕРґ РґР»СЏ РѕР±СЂР°Р±РѕС‚РєРё РґРІРёР¶РµРЅРёСЏ РјС‹С€Рё Рё РѕР±РЅРѕРІР»РµРЅРёСЏ РєРѕРѕСЂРґРёРЅР°С‚ РІ СЃС‚Р°С‚СѓСЃРЅРѕР№ СЃС‚СЂРѕРєРµ
+// Метод для обработки движения мыши и обновления координат в статусной строке
 void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
     if (!dataModule || !dataModule->HasData()) {
         uiModule->ClearStatusBarCoordinates();
@@ -4275,11 +4273,11 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
         return;
     }
 
-    // РћРїСЂРµРґРµР»СЏРµРј, РЅР°Рґ РєР°РєРёРј РіСЂР°С„РёРєРѕРј РЅР°С…РѕРґРёС‚СЃСЏ РєСѓСЂСЃРѕСЂ
+    // Определяем, над каким графиком находится курсор
     int chartNum = GetChartAtPoint(x, y);
     
     if (chartNum == 0) {
-        // РљСѓСЂСЃРѕСЂ РІРЅРµ РіСЂР°С„РёРєРѕРІ
+        // Курсор вне графиков
         uiModule->ClearStatusBarCoordinates();
         ResetCoordinateTracking();
         return;
@@ -4297,16 +4295,16 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
     *lastPoint = currentPoint;
     *lastTick = now;
 
-    // РџСЂРµРѕР±СЂР°Р·СѓРµРј СЌРєСЂР°РЅРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РґР°РЅРЅС‹С…
+    // Преобразуем экранные координаты в координаты данных
     double dataX, dataY1, dataY2;
     std::wstring y1Unit, y2Unit;
     bool hasDualAxis;
     
     if (ConvertScreenToChartCoords(chartNum, x, y, dataX, dataY1, dataY2, y1Unit, y2Unit, hasDualAxis)) {
-        // РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃРЅСѓСЋ СЃС‚СЂРѕРєСѓ СЃ РєРѕРѕСЂРґРёРЅР°С‚Р°РјРё
+        // Обновляем статусную строку с координатами
         uiModule->UpdateStatusBarCoordinates(dataX, dataY1, y1Unit, dataY2, y2Unit, hasDualAxis);
         
-        // РћР±РЅРѕРІР»СЏРµРј РёРЅС„РѕСЂРјР°С†РёСЋ Рѕ С„Р°Р№Р»Рµ РІ РїРѕСЃР»РµРґРЅРµР№ С‡Р°СЃС‚Рё СЃС‚Р°С‚СѓСЃРЅРѕР№ СЃС‚СЂРѕРєРё
+        // Обновляем информацию о файле в последней части статусной строки
         std::wstring fileName = dataModule->GetLoadedFileName();
         if (!fileName.empty()) {
             size_t dataSize = dataModule->GetDataSize();
@@ -4319,7 +4317,7 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
     }
 }
 
-// РџСЂРµРѕР±СЂР°Р·РѕРІР°РЅРёРµ СЌРєСЂР°РЅРЅС‹С… РєРѕРѕСЂРґРёРЅР°С‚ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РіСЂР°С„РёРєР°
+// Преобразование экранных координат в координаты графика
 bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int screenY,
                                               double& dataX, double& dataY1, double& dataY2,
                                               std::wstring& y1Unit, std::wstring& y2Unit,
@@ -4328,30 +4326,30 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         return false;
     }
 
-    // РџРѕР»СѓС‡Р°РµРј РѕР±Р»Р°СЃС‚СЊ РіСЂР°С„РёРєР°
+    // Получаем область графика
     RECT chartRect = (chartNum == 1) ? layoutModule->GetChart1Rect() : layoutModule->GetChart2Rect();
     
-    // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РєСѓСЂСЃРѕСЂ РІРЅСѓС‚СЂРё РѕР±Р»Р°СЃС‚Рё РіСЂР°С„РёРєР°
+    // Проверяем, что курсор внутри области графика
     if (screenX < chartRect.left || screenX > chartRect.right ||
         screenY < chartRect.top || screenY > chartRect.bottom) {
         return false;
     }
 
-    // РћРїСЂРµРґРµР»СЏРµРј, РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ Р»Рё РЅРѕРІР°СЏ СЃРёСЃС‚РµРјР° РєСЂРёРІС‹С…
+    // Определяем, используется ли новая система кривых
     bool usingNewSystem = IsUsingNewCurveSystem(chartNum);
     
     if (usingNewSystem) {
-        // РќРѕРІР°СЏ СЃРёСЃС‚РµРјР° РєСЂРёРІС‹С… СЃ РІРѕР·РјРѕР¶РЅС‹РјРё РґРІРѕР№РЅС‹РјРё РѕСЃСЏРјРё
+        // Новая система кривых с возможными двойными осями
         ChartConfiguration config = GetChartConfiguration(chartNum);
         
         if (config.curves.empty()) {
             return false;
         }
 
-        // РџРѕР»СѓС‡Р°РµРј РїР°СЂР°РјРµС‚СЂС‹ zoom
+        // Получаем параметры zoom
         ZoomRange zoom = (chartNum == 1) ? chart1Zoom : chart2Zoom;
 
-        // РџРѕР»СѓС‡Р°РµРј РґР°РЅРЅС‹Рµ РґР»СЏ РєСЂРёРІС‹С… СЃ СѓС‡РµС‚РѕРј zoom РїРѕ X (РєР°Рє РІ DrawChartWithCurves)
+        // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
         const CachedCurveSnapshot* curveSnapshot = nullptr;
         if (!TryGetCurveSnapshot(chartNum, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
             return false;
@@ -4365,17 +4363,17 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         double minY2Full = curveSnapshot->minY2;
         double maxY2Full = curveSnapshot->maxY2;
         
-        // РўРµРєСѓС‰РёРµ РґРёР°РїР°Р·РѕРЅС‹ РґР»СЏ РѕС‚РѕР±СЂР°Р¶РµРЅРёСЏ (РјРѕРіСѓС‚ Р±С‹С‚СЊ РёР·РјРµРЅРµРЅС‹ zoom РїРѕ Y)
+        // Текущие диапазоны для отображения (могут быть изменены zoom по Y)
         double minY1 = minY1Full, maxY1 = maxY1Full;
         double minY2 = minY2Full, maxY2 = maxY2Full;
         
-        // РџСЂРёРјРµРЅСЏРµРј zoom РїРѕ Y РµСЃР»Рё РµСЃС‚СЊ (zoom РїРѕ X СѓР¶Рµ РїСЂРёРјРµРЅС‘РЅ РїСЂРё РїРѕР»СѓС‡РµРЅРёРё РґР°РЅРЅС‹С…)
+        // Применяем zoom по Y если есть (zoom по X уже применён при получении данных)
         if (zoom.isZoomed) {
             minY1 = zoom.minY;
             maxY1 = zoom.maxY;
 
-            // Р’РђР–РќРћ: СЃРёРЅС…СЂРѕРЅРёР·Р°С†РёСЏ СЃ С„Р°РєС‚РёС‡РµСЃРєРѕР№ РѕС‚СЂРёСЃРѕРІРєРѕР№ (DrawChartWithCurves),
-            // РіРґРµ РїСЂРё zoom РґРѕР±Р°РІР»СЏРµС‚СЃСЏ display padding +/-5%.
+            // ВАЖНО: синхронизация с фактической отрисовкой (DrawChartWithCurves),
+            // где при zoom добавляется display padding +/-5%.
             ApplyDisplayYPadding(minY1, maxY1);
         }
 
@@ -4392,15 +4390,15 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
                                      minY2,
                                      maxY2);
         
-        // РџСЂРµРѕР±СЂР°Р·СѓРµРј СЌРєСЂР°РЅРЅС‹Рµ РєРѕРѕСЂРґРёРЅР°С‚С‹ РІ РєРѕРѕСЂРґРёРЅР°С‚С‹ РґР°РЅРЅС‹С…
-        // Р’РђР–РќРћ: РСЃРїРѕР»СЊР·СѓРµРј С‚Рµ Р¶Рµ РѕС‚СЃС‚СѓРїС‹, С‡С‚Рѕ Рё РІ CalculateDualAxisPlotRect
+        // Преобразуем экранные координаты в координаты данных
+        // ВАЖНО: те же отступы, что и в CalculateDualAxisPlotRect
         DualAxisChartGeometry geometry = {};
         if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
             return false;
         }
 
-        // Р’РђР–РќРћ: РєР°Рє РІ DrawDualAxisDataWithZoom вЂ” РґР°РЅРЅС‹Рµ СЂРёСЃСѓСЋС‚СЃСЏ РІРЅСѓС‚СЂРё dataRect,
-        // Р° РЅРµ РїРѕ РІСЃРµР№ РІС‹СЃРѕС‚Рµ plotRect.
+        // ВАЖНО: как в DrawDualAxisDataWithZoom — данные рисуются внутри dataRect,
+        // а не по всей высоте plotRect.
         const RECT& dataRect = geometry.dataRect;
         const int plotWidth = geometry.plotWidth;
         const int dataHeight = geometry.dataHeight;
@@ -4413,9 +4411,9 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         if (xRatio < 0.0) xRatio = 0.0;
         if (xRatio > 1.0) xRatio = 1.0;
 
-        // X РєРѕРѕСЂРґРёРЅР°С‚Р°
-        // Р’ СЂРµР¶РёРјРµ TEMPERATURE РѕСЃСЊ X РЅРµР»РёРЅРµР№РЅР° РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕ РёРЅРґРµРєСЃР° РєР°РґСЂР°,
-        // РїРѕСЌС‚РѕРјСѓ РЅСѓР¶РЅР° РїСЂРёРІСЏР·РєР° Рє Р±Р»РёР¶Р°Р№С€РµРјСѓ РёРЅРґРµРєСЃСѓ РїРѕ С‚РµРјРїРµСЂР°С‚СѓСЂРµ.
+        // X координата
+        // В режиме TEMPERATURE ось X нелинейна относительно индекса кадра,
+        // поэтому нужна привязка к ближайшему индексу по температуре.
         const double linearDataX = minX + xRatio * (maxX - minX);
         if (config.xAxisType == XAxisType::TEMPERATURE) {
             dataX = ResolveTemperatureAxisDataX(chartNum, zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
@@ -4433,12 +4431,12 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
             leftDrawMax = maxY1;
         }
         
-        // Y РєРѕРѕСЂРґРёРЅР°С‚С‹
+        // Y координаты
         hasDualAxis = !rightAxisData.empty();
         
         if (hasDualAxis) {
-            // Р”РІРѕР№РЅС‹Рµ РѕСЃРё
-            dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin); // Р›РµРІР°СЏ РѕСЃСЊ
+            // Двойные оси
+            dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin); // Левая ось
 
             double rightDrawMin = 0.0;
             double rightDrawMax = 0.0;
@@ -4446,10 +4444,10 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
                 rightDrawMin = minY2;
                 rightDrawMax = maxY2;
             }
-            dataY2 = rightDrawMin + yRatio * (rightDrawMax - rightDrawMin); // РџСЂР°РІР°СЏ РѕСЃСЊ
+            dataY2 = rightDrawMin + yRatio * (rightDrawMax - rightDrawMin); // Правая ось
             
-            // РћРїСЂРµРґРµР»СЏРµРј РµРґРёРЅРёС†С‹ РёР·РјРµСЂРµРЅРёСЏ РёР· РїРµСЂРІС‹С… РєСЂРёРІС‹С… РєР°Р¶РґРѕР№ РѕСЃРё
-            // РџСЂРµРѕР±СЂР°Р·СѓРµРј std::string РІ std::wstring
+            // Определяем единицы измерения из первых кривых каждой оси
+            // Преобразуем std::string в std::wstring
             std::string units1 = config.curves[0].units;
             y1Unit = std::wstring(units1.begin(), units1.end());
             
@@ -4461,7 +4459,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
                 }
             }
         } else {
-            // РћРґРЅР° РѕСЃСЊ
+            // Одна ось
             dataY1 = leftDrawMin + yRatio * (leftDrawMax - leftDrawMin);
             std::string units1 = config.curves[0].units;
             y1Unit = std::wstring(units1.begin(), units1.end());
@@ -4471,14 +4469,14 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         return true;
         
     } else {
-        // РЎС‚Р°СЂР°СЏ СЃРёСЃС‚РµРјР° (legacy mode)
-        // Р—РґРµСЃСЊ РјРѕР¶РЅРѕ РґРѕР±Р°РІРёС‚СЊ РїРѕРґРґРµСЂР¶РєСѓ СЃС‚Р°СЂРѕР№ СЃРёСЃС‚РµРјС‹, РµСЃР»Рё РЅСѓР¶РЅРѕ
-        // РџРѕРєР° РІРѕР·РІСЂР°С‰Р°РµРј false
+        // Старая система (legacy mode)
+        // Здесь можно добавить поддержку старой системы, если нужно
+        // Пока возвращаем false
         return false;
     }
 }
 
-// РџРѕР»СѓС‡РµРЅРёРµ РµРґРёРЅРёС† РёР·РјРµСЂРµРЅРёСЏ РґР»СЏ С‚РёРїР° РґР°РЅРЅС‹С…
+// Получение единиц измерения для типа данных
 std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
     switch (dataType) {
         case DataType::PHASE_DIFFERENCE:
@@ -4503,7 +4501,7 @@ std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
     }
 }
 
-// РћР±РЅРѕРІР»РµРЅРёРµ РёРЅС„РѕСЂРјР°С†РёРё Рѕ С„Р°Р№Р»Рµ РІ СЃС‚Р°С‚СѓСЃРЅРѕР№ СЃС‚СЂРѕРєРµ
+// Обновление информации о файле в статусной строке
 void ChartManager::UpdateStatusBarFileInfo() {
     if (!uiModule) return;
     
@@ -4531,49 +4529,49 @@ void ChartManager::UpdateStatusBarFileInfo() {
     }
 }
 
-// РћС‚СЂРёСЃРѕРІРєР° РїРµСЂРµРєСЂРµСЃС‚РёСЏ (crosshair) РЅР° РіСЂР°С„РёРєРµ
+// Отрисовка перекрестия (crosshair) на графике
 void ChartManager::DrawCrosshair(HDC hdc, const RECT& chartRect, int chartNumber) const {
-    // РџРѕР»СѓС‡Р°РµРј РїРµСЂРµРєСЂРµСЃС‚РёРµ РґР»СЏ СѓРєР°Р·Р°РЅРЅРѕРіРѕ РіСЂР°С„РёРєР°
+    // Получаем перекрестие для указанного графика
     const CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
     
-    // РџСЂРѕРІРµСЂСЏРµРј, РЅСѓР¶РЅРѕ Р»Рё РѕС‚РѕР±СЂР°Р¶Р°С‚СЊ РїРµСЂРµРєСЂРµСЃС‚РёРµ
+    // Проверяем, нужно ли отображать перекрестие
     if (!crosshair->isVisible || crosshair->chartNumber != chartNumber) {
         return;
     }
     
-    // Р’С‹С‡РёСЃР»СЏРµРј РѕР±Р»Р°СЃС‚СЊ РіСЂР°С„РёРєР° (plotRect) СЃ СѓС‡С‘С‚РѕРј РѕС‚СЃС‚СѓРїРѕРІ
-    // Р’РђР–РќРћ: Р’СЃРµРіРґР° РёСЃРїРѕР»СЊР·СѓРµРј РѕС‚СЃС‚СѓРїС‹ РґР»СЏ РґРІРѕР№РЅС‹С… РѕСЃРµР№, РїРѕС‚РѕРјСѓ С‡С‚Рѕ DrawDualAxisChart
-    // РІС‹Р·С‹РІР°РµС‚СЃСЏ РґР»СЏ РІСЃРµС… РіСЂР°С„РёРєРѕРІ Рё РёСЃРїРѕР»СЊР·СѓРµС‚ CalculateDualAxisPlotRect
+    // Вычисляем область графика (plotRect) с учётом отступов
+    // ВАЖНО: Всегда используем отступы для двойных осей, потому что DrawDualAxisChart
+    // вызывается для всех графиков и использует CalculateDualAxisPlotRect
     DualAxisChartGeometry geometry = {};
     if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
         return;
     }
     const RECT& plotRect = geometry.plotRect;
     
-    // РџСЂРѕРІРµСЂСЏРµРј, С‡С‚Рѕ РїРµСЂРµРєСЂРµСЃС‚РёРµ РЅР°С…РѕРґРёС‚СЃСЏ РІРЅСѓС‚СЂРё РѕР±Р»Р°СЃС‚Рё РіСЂР°С„РёРєР°
+    // Проверяем, что перекрестие находится внутри области графика
     if (crosshair->screenX < plotRect.left || crosshair->screenX > plotRect.right ||
         crosshair->screenY < plotRect.top || crosshair->screenY > plotRect.bottom) {
         return;
     }
     
-    // РЎРѕР·РґР°С‘Рј РєСЂР°СЃРЅРѕРµ РїРµСЂРѕ РґР»СЏ РїРµСЂРµРєСЂРµСЃС‚РёСЏ
+    // Создаём красное перо для перекрестия
     HPEN hCrosshairPen = CreatePen(PS_SOLID, 1, RGB(255, 0, 0));
     HPEN hOldPen = (HPEN)SelectObject(hdc, hCrosshairPen);
     
-    // Р РёСЃСѓРµРј РІРµСЂС‚РёРєР°Р»СЊРЅСѓСЋ Р»РёРЅРёСЋ (РѕС‚ РІРµСЂС…Р° РґРѕ РЅРёР·Р° plotRect)
+    // Рисуем вертикальную линию (от верха до низа plotRect)
     MoveToEx(hdc, crosshair->screenX, plotRect.top, NULL);
     LineTo(hdc, crosshair->screenX, plotRect.bottom);
     
-    // Р РёСЃСѓРµРј РіРѕСЂРёР·РѕРЅС‚Р°Р»СЊРЅСѓСЋ Р»РёРЅРёСЋ (РѕС‚ Р»РµРІРѕРіРѕ РґРѕ РїСЂР°РІРѕРіРѕ РєСЂР°СЏ plotRect)
+    // Рисуем горизонтальную линию (от левого до правого края plotRect)
     MoveToEx(hdc, plotRect.left, crosshair->screenY, NULL);
     LineTo(hdc, plotRect.right, crosshair->screenY);
     
-    // Р’РѕСЃСЃС‚Р°РЅР°РІР»РёРІР°РµРј СЃС‚Р°СЂРѕРµ РїРµСЂРѕ Рё СѓРґР°Р»СЏРµРј СЃРѕР·РґР°РЅРЅРѕРµ
+    // Восстанавливаем старое перо и удаляем созданное
     SelectObject(hdc, hOldPen);
     DeleteObject(hCrosshairPen);
 }
 
-// v2.14.2: РЎР±СЂРѕСЃ РїРµСЂРµРєСЂРµСЃС‚РёСЏ (РІС‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РєР»РёРєРµ РЅР° РёРєРѕРЅРєСѓ рџ“Ќ)
+// v2.14.2: Сброс перекрестия (вызывается при клике на иконку 📍)
 void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
     if (chartNumber == 1) {
         chart1Crosshair.isVisible = false;
@@ -4583,7 +4581,7 @@ void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
         uiModule->ClearClickCoordinates(2);
     }
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РѕРєРЅРѕ
+    // Перерисовываем окно
     InvalidateRect(hWnd, NULL, TRUE);
 }
 
@@ -4599,7 +4597,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     std::vector<size_t> noteIdx = notesModule->GetNotesForConfig(cfgKey);
     if (noteIdx.empty()) return;
 
-    // Plot rect (РґРѕР»Р¶РµРЅ СЃРѕРІРїР°РґР°С‚СЊ СЃ CalculateDualAxisPlotRect/ConvertScreenToChartCoords)
+    // Plot rect (должен совпадать с CalculateDualAxisPlotRect/ConvertScreenToChartCoords)
     DualAxisChartGeometry geometry = {};
     if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) return;
     const RECT& plotRect = geometry.plotRect;
@@ -4617,7 +4615,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     const double xRange = (maxXData - minXData);
     if (!(xRange > 0.0)) return;
 
-    // РџРѕР»СѓС‡Р°РµРј РґРёР°РїР°Р·РѕРЅС‹ Y (РєР°Рє РІ ConvertScreenToChartCoords / DrawChartWithCurves)
+    // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
     const CachedCurveSnapshot* curveSnapshot = nullptr;
     if (!TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
         return;
@@ -4632,10 +4630,10 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     double minY1 = zoom.isYCustom ? zoom.minY : minY1Full;
     double maxY1 = zoom.isYCustom ? zoom.maxY : maxY1Full;
 
-    // v2.15.x: РїСЂРё zoom РґРѕР±Р°РІР»СЏРµРј padding РєР°Рє РІ DrawChartWithCurves
+    // v2.15.x: при zoom добавляем padding как в DrawChartWithCurves
     BuildDisplayedLeftAxisRange(zoom.isYCustom, zoom.minY, zoom.maxY, minY1Full, maxY1Full, minY1, maxY1);
 
-    // Р’ DrawDualAxisDataWithZoom РґРѕРїРѕР»РЅРёС‚РµР»СЊРЅРѕ РїСЂРёРјРµРЅСЏРµС‚СЃСЏ РЅРёР¶РЅРёР№ padding 2%.
+    // В DrawDualAxisDataWithZoom дополнительно применяется нижний padding 2%.
     double drawMinY1 = 0.0;
     double drawMaxY1 = 0.0;
     if (!TryBuildDrawnAxisRange(minY1, maxY1, drawMinY1, drawMaxY1)) return;
@@ -4663,7 +4661,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     if (!(yRangeLeft > 0.0)) return;
     const double yRangeRight = hasRightDrawRange ? (drawMaxY2 - drawMinY2) : 0.0;
 
-    // Р”Р»СЏ TEMPERATURE РЅСѓР¶РЅС‹ minTemp/maxTemp РїРѕ РІРёРґРёРјРѕРјСѓ РґРёР°РїР°Р·РѕРЅСѓ РёРЅРґРµРєСЃРѕРІ
+    // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
     float minTemp = 0.0f, maxTemp = 0.0f;
     bool hasTempRange = false;
     const size_t dataSize = dataModule->GetDataSize();
@@ -4736,7 +4734,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     std::vector<NoteLabelCandidate> labelCandidates;
     labelCandidates.reserve(8);
 
-    // Р§РµСЂРЅР°СЏ С‚РѕС‡РєР°
+    // Черная точка
     HPEN hPen = CreatePen(PS_SOLID, 1, RGB(0, 0, 0));
     HBRUSH hBrush = (HBRUSH)GetStockObject(BLACK_BRUSH);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
@@ -4746,7 +4744,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     for (size_t idx : noteIdx) {
         const auto& n = notesModule->GetAllNotes()[idx];
 
-        // РћС‚СЃРµРєР°РµРј РїРѕ X РґРёР°РїР°Р·РѕРЅСѓ (РёРЅРґРµРєСЃ РєР°РґСЂР°)
+        // Отсекаем по X диапазону (индекс кадра)
         if (n.xIndex < 0) continue;
         if (n.xIndex < (int)floor(minXData) - 1) continue;
         if (n.xIndex > (int)ceil(maxXData) + 1) continue;
@@ -4815,7 +4813,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         return;
     }
 
-    // РљРѕРјРїР°РєС‚РЅС‹Рµ С‚РµРєСЃС‚РѕРІС‹Рµ РїР»Р°С€РєРё РІРѕР·Р»Рµ С‚РѕС‡РµРє Р·Р°РјРµС‚РѕРє (С‚РѕР»СЊРєРѕ РїРµСЂРІС‹Рµ 8).
+    // Компактные текстовые плашки возле точек заметок (только первые 8).
     constexpr int kLabelWidth = 130;
     constexpr int kLabelHeight = 18;
     constexpr int kOffsetX = 7;
@@ -4853,13 +4851,13 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
         labelRect.bottom = candidate.anchorY - kOffsetY;
         labelRect.top = labelRect.bottom - kLabelHeight;
 
-        // Р•СЃР»Рё РЅРµ РїРѕРјРµС‰Р°РµС‚СЃСЏ СЃРІРµСЂС…Сѓ вЂ” РїРµСЂРµРЅРѕСЃРёРј РІРЅРёР· РѕС‚ РјР°СЂРєРµСЂР°.
+        // Если не помещается сверху — переносим вниз от маркера.
         if (labelRect.top < dataRect.top) {
             labelRect.top = candidate.anchorY + kOffsetY;
             labelRect.bottom = labelRect.top + kLabelHeight;
         }
 
-        // РћРіСЂР°РЅРёС‡РёРІР°РµРј РїСЂСЏРјРѕСѓРіРѕР»СЊРЅРёРє РѕР±Р»Р°СЃС‚СЊСЋ РґР°РЅРЅС‹С…, С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµРєСЂС‹РІР°С‚СЊ РѕСЃРё/Р»РµРіРµРЅРґСѓ.
+        // Ограничиваем прямоугольник областью данных, чтобы не перекрывать оси/легенду.
         if (labelRect.right > dataRect.right) {
             int dx = labelRect.right - dataRect.right;
             labelRect.left -= dx;
@@ -4876,7 +4874,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
             labelRect.bottom -= dy;
         }
 
-        // РџСЂРѕСЃС‚РµР№С€Р°СЏ Р·Р°С‰РёС‚Р° РѕС‚ РЅР°Р»РѕР¶РµРЅРёСЏ: СЃРґРІРёРіР°РµРј РІРЅРёР· РїРѕ С€Р°РіСѓ, РёРЅР°С‡Рµ РїСЂРѕРїСѓСЃРєР°РµРј.
+        // Простейшая защита от наложения: сдвигаем вниз по шагу, иначе пропускаем.
         bool placed = false;
         for (int attempt = 0; attempt < 4 && !placed; ++attempt) {
             RECT testRect = labelRect;
@@ -4927,12 +4925,12 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
 }
 
 
-// === РњРµС‚РѕРґС‹ РґР»СЏ СЂР°Р±РѕС‚С‹ СЃ COM-РїРѕСЂС‚РѕРј (v2.13.0) ===
+// === Методы для работы с COM-портом (v2.13.0) ===
 
 void ChartManager::HandleSerialConnect(HWND hWnd) {
-    // v2.13.0: РџРѕРґРєР»СЋС‡РµРЅРёРµ С‚РµРїРµСЂСЊ РїСЂРѕРёСЃС…РѕРґРёС‚ С‡РµСЂРµР· РґРёР°Р»РѕРі IDD_SERIAL_STATUS
-    // Р­С‚РѕС‚ РјРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃ РјРµРЅСЋ, РЅРѕ РЅРµ РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ РЅР°РїСЂСЏРјСѓСЋ
-    // Р’РјРµСЃС‚Рѕ СЌС‚РѕРіРѕ РѕС‚РєСЂС‹РІР°РµС‚СЃСЏ РґРёР°Р»РѕРі С‡РµСЂРµР· IDM_DEVICE_CONNECT
+    // v2.13.0: Подключение теперь происходит через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости с меню, но не используется напрямую
+    // Вместо этого открывается диалог через IDM_DEVICE_CONNECT
 }
 
 void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
@@ -5050,9 +5048,9 @@ void ChartManager::HandleSerialDisconnect(HWND hWnd) {
 void ChartManager::HandleSerialStart(HWND hWnd) {
     if (!serialModule || !serialModule->IsConnected()) return;
     
-    // Р—Р°РїСѓСЃРєР°РµРј РїРµСЂРёРѕРґРёС‡РµСЃРєРёР№ РѕРїСЂРѕСЃ (РєР°Р¶РґС‹Рµ 2 СЃРµРєСѓРЅРґС‹)
-    // РџСЂРёРјРµС‡Р°РЅРёРµ: РћС‡РёСЃС‚РєР° РґР°РЅРЅС‹С… РїСЂРѕРёСЃС…РѕРґРёС‚ РІ РґРёР°Р»РѕРіРµ SerialStatusDialogProc
-    // РїРµСЂРµРґ РІС‹Р·РѕРІРѕРј StartPolling С‡РµСЂРµР· HandleSerialClear
+    // Запускаем периодический опрос (каждые 2 секунды)
+    // Примечание: Очистка данных происходит в диалоге SerialStatusDialogProc
+    // перед вызовом StartPolling через HandleSerialClear
     serialModule->StartPolling(hWnd, 2000);
     
     if (uiModule) {
@@ -5069,14 +5067,14 @@ void ChartManager::HandleSerialStop(HWND hWnd) {
         uiModule->SetSerialPolling(false);
     }
 
-    // РџРѕСЃР»Рµ РѕСЃС‚Р°РЅРѕРІРєРё realtime СЃРёРЅС…СЂРѕРЅРёР·РёСЂСѓРµРј X Range СЃ С‚РµРєСѓС‰РёРј РїРѕР»РЅС‹Рј РґРёР°РїР°Р·РѕРЅРѕРј.
+    // После остановки realtime синхронизируем X Range с текущим полным диапазоном.
     UpdateXRangeUI(hWnd);
 }
 
 void ChartManager::HandleSerialClear(HWND hWnd) {
     if (!dataModule) return;
     
-    // РћС‡РёС‰Р°РµРј РґР°РЅРЅС‹Рµ
+    // Очищаем данные
     dataModule->ClearData();
     InvalidateCachedSnapshots();
     ResetCoordinateTracking();
@@ -5085,15 +5083,15 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
         schematicModule->CloseSchematicDialog();
     }
 
-    // v2.16.x: РїСЂРё РїРµСЂРµС…РѕРґРµ Рє COM-СЂРµР¶РёРјСѓ РЅРµ РґРѕР»Р¶РЅС‹ РїРёСЃР°С‚СЊ Р·Р°РјРµС‚РєРё РІ sidecar РїРѕСЃР»РµРґРЅРµРіРѕ РѕС‚РєСЂС‹С‚РѕРіРѕ С„Р°Р№Р»Р°
+    // v2.16.x: при переходе к COM-режиму не должны писать заметки в sidecar последнего открытого файла
     currentDataFilePath.clear();
     
-    // РЎР±СЂР°СЃС‹РІР°РµРј СЃС‚Р°С‚РёСЃС‚РёРєСѓ
+    // Сбрасываем статистику
     if (serialModule) {
         serialModule->ResetStatistics();
     }
     
-    // РЎР±СЂР°СЃС‹РІР°РµРј zoom
+    // Сбрасываем zoom
     chart1Zoom.isZoomed = false;
     chart2Zoom.isZoomed = false;
     chart1Zoom.isXCustom = false;
@@ -5109,14 +5107,14 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
     ClearAxisHistory(1);
     ClearAxisHistory(2);
     
-    // РћР±РЅРѕРІР»СЏРµРј UI
+    // Обновляем UI
     if (uiModule) {
         uiModule->UpdateSerialFrameInfo(0, 0, 0);
         uiModule->ResetXRangeControls(1);
         uiModule->ResetXRangeControls(2);
     }
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРєРё
+    // Перерисовываем графики
     InvalidateRect(hWnd, nullptr, TRUE);
     
     UpdateStatusBarFileInfo();
@@ -5125,18 +5123,18 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
 void ChartManager::HandleSerialTimer(HWND hWnd) {
     if (!serialModule) return;
     
-    // Р’С‹Р·С‹РІР°РµРј РѕР±СЂР°Р±РѕС‚С‡РёРє С‚Р°Р№РјРµСЂР° РІ SerialModule
+    // Вызываем обработчик таймера в SerialModule
     serialModule->OnTimer();
 }
 
 void ChartManager::UpdateSerialUI(HWND hWnd) {
-    // v2.13.0: UI РѕР±РЅРѕРІР»СЏРµС‚СЃСЏ С‡РµСЂРµР· РґРёР°Р»РѕРі IDD_SERIAL_STATUS
-    // Р­С‚РѕС‚ РјРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё, РЅРѕ РЅРµ РІС‹РїРѕР»РЅСЏРµС‚ РґРµР№СЃС‚РІРёР№
+    // v2.13.0: UI обновляется через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости, но не выполняет действий
 }
 
 void ChartManager::RefreshPortList(HWND hWnd) {
-    // v2.13.0: РЎРїРёСЃРѕРє РїРѕСЂС‚РѕРІ РѕР±РЅРѕРІР»СЏРµС‚СЃСЏ С‡РµСЂРµР· РґРёР°Р»РѕРі IDD_SERIAL_STATUS
-    // Р­С‚РѕС‚ РјРµС‚РѕРґ РѕСЃС‚Р°РІР»РµРЅ РґР»СЏ СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё, РЅРѕ РЅРµ РІС‹РїРѕР»РЅСЏРµС‚ РґРµР№СЃС‚РІРёР№
+    // v2.13.0: Список портов обновляется через диалог IDD_SERIAL_STATUS
+    // Этот метод оставлен для совместимости, но не выполняет действий
 }
 
 bool ChartManager::IsSerialConnected() const {
@@ -5147,7 +5145,7 @@ bool ChartManager::IsSerialPolling() const {
     return serialModule && serialModule->IsPolling();
 }
 
-// === РњРµС‚РѕРґС‹ РґР»СЏ СЂРµР¶РёРјР° Surf (v2.14.0) ===
+// === Методы для режима Surf (v2.14.0) ===
 
 void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
     if (!dataModule || !dataModule->HasData()) {
@@ -5157,8 +5155,8 @@ void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
     bool surfEnabled = uiModule->IsSurfEnabled(chartNumber);
     
     if (surfEnabled) {
-        // Surf РІРєР»СЋС‡С‘РЅ - СѓСЃС‚Р°РЅР°РІР»РёРІР°РµРј РґРёР°РїР°Р·РѕРЅ РЅР° РїРѕСЃР»РµРґРЅРёРµ N С‚РѕС‡РµРє
-        // Рё СЃР±СЂР°СЃС‹РІР°РµРј РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ Y-zoom (Surf РЅР°С‡РёРЅР°РµС‚ СЃ Р°РІС‚Рѕ-РјР°СЃС€С‚Р°Р±Р° РїРѕ Y)
+        // Surf включён - устанавливаем диапазон на последние N точек
+        // и сбрасываем пользовательский Y-zoom (Surf начинает с авто-масштаба по Y)
         ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
         zoom->isXCustom = false;
         zoom->hasXRangeLock = false;
@@ -5166,7 +5164,7 @@ void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
         zoom->isYCustom = false;
         UpdateSurfRange(chartNumber);
     } else {
-        // Surf РІС‹РєР»СЋС‡С‘РЅ - СЃР±СЂР°СЃС‹РІР°РµРј zoom Рє РїРѕР»РЅРѕРјСѓ РґРёР°РїР°Р·РѕРЅСѓ
+        // Surf выключён - сбрасываем zoom к полному диапазону
         ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
         zoom->isZoomed = false;
         zoom->isXCustom = false;
@@ -5175,14 +5173,14 @@ void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
         zoom->isYCustom = false;
         ClearAxisHistory(chartNumber);
         
-        // РќРµ Р·Р°РїРѕР»РЅСЏРµРј РїРѕР»СЏ X Range Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё вЂ” С‚РѕР»СЊРєРѕ РѕС‡РёС‰Р°РµРј РёС…
+        // Не заполняем поля X Range автоматически — только очищаем их
         uiModule->ResetXRangeControls(chartNumber);
     }
     
-    // РћР±РЅРѕРІР»СЏРµРј СЃС‚Р°С‚СѓСЃРЅСѓСЋ СЃС‚СЂРѕРєСѓ
+    // Обновляем статусную строку
     UpdateSurfStatusBar();
     
-    // РџРµСЂРµСЂРёСЃРѕРІС‹РІР°РµРј РіСЂР°С„РёРє
+    // Перерисовываем график
     InvalidateChart(hWnd, chartNumber);
     UpdateScrollBars(hWnd);
 }
@@ -5203,7 +5201,7 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
         ? static_cast<double>(dataSize - surfWindow) : 0.0;
     double surfMaxX = static_cast<double>(dataSize - 1);
     
-    // РЈСЃС‚Р°РЅР°РІР»РёРІР°РµРј zoom РЅР° РѕР±Р»Р°СЃС‚СЊ Surf (С‚РѕР»СЊРєРѕ РїРѕ X)
+    // Устанавливаем zoom на область Surf (только по X)
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     zoom->minX = surfMinX;
     zoom->maxX = surfMaxX;
@@ -5212,15 +5210,15 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
     zoom->isXToLatest = false;
     zoom->isZoomed = true;
     
-    // Surf ON + РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ Y-zoom:
-    // X РѕРєРЅРѕ РґРІРёРіР°РµС‚СЃСЏ, РЅРѕ Y РґРёР°РїР°Р·РѕРЅ РЅРµ РїРµСЂРµР·Р°С‚РёСЂР°РµРј РїСЂРё РїСЂРёС…РѕРґРµ РЅРѕРІС‹С… С‚РѕС‡РµРє.
+    // Surf ON + пользовательский Y-zoom:
+    // X окно двигается, но Y диапазон не перезатираем при приходе новых точек.
     if (!zoom->isYCustom) {
-        // Р’С‹С‡РёСЃР»СЏРµРј РґРёР°РїР°Р·РѕРЅ Y РґР»СЏ РґР°РЅРЅС‹С… РІ РѕРєРЅРµ Surf (Р°РІС‚Рѕ-РјР°СЃС€С‚Р°Р±)
+        // Вычисляем диапазон Y для данных в окне Surf (авто-масштаб)
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
         std::vector<std::vector<float>> leftAxisData, rightAxisData;
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
         
-        // РџРµСЂРµРґР°С‘Рј Р±РѕР»СЊС€РѕР№ РґРёР°РїР°Р·РѕРЅ Y, С‡С‚РѕР±С‹ РЅРµ С„РёР»СЊС‚СЂРѕРІР°С‚СЊ РїРѕ Y
+        // Передаём большой диапазон Y, чтобы не фильтровать по Y
         curveSelectionModule->CalculateCurveData(config, dataModule.get(),
                                                 leftAxisData, rightAxisData,
                                                 leftAxisCurves, rightAxisCurves,
@@ -5236,8 +5234,8 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
         ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
     }
     
-    // Р’ Surf СЂРµР¶РёРјРµ РЅРµ Р°РІС‚РѕР·Р°РїРѕР»РЅСЏРµРј РїРѕР»СЏ X Range (From/To),
-    // С‡С‚РѕР±С‹ РЅРµ РїРµСЂРµС‚РёСЂР°С‚СЊ РїРѕР»СЊР·РѕРІР°С‚РµР»СЊСЃРєРёР№ РІРІРѕРґ.
+    // В Surf режиме не автозаполняем поля X Range (From/To),
+    // чтобы не перетирать пользовательский ввод.
     uiModule->SetXRangeResetEnabled(chartNumber, false);
 }
 
