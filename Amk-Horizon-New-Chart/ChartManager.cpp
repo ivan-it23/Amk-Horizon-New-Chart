@@ -1,7 +1,8 @@
-﻿#include "framework.h"
+#include "framework.h"
 #include "ChartManager.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
+#include <shellapi.h>
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -4321,7 +4322,8 @@ void ChartManager::HandleMouseMoveForCoordinates(HWND hWnd, int x, int y) {
             size_t dataSize = dataModule->GetDataSize();
             wchar_t fileInfo[256];
             swprintf_s(fileInfo, L"Кадров: %zu  |  %s", dataSize, fileName.c_str());
-            SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
+            SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 4, (LPARAM)fileInfo);
+            SyncStatusBarFolderIcon();
         }
     } else {
         uiModule->ClearStatusBarCoordinates();
@@ -4512,6 +4514,45 @@ std::wstring ChartManager::GetUnitForDataType(DataType dataType) const {
     }
 }
 
+std::wstring ChartManager::GetFullPathForContainingFolder() const {
+    if (!currentDataFilePath.empty()) {
+        return currentDataFilePath;
+    }
+    if (serialModule && serialModule->IsRecordingActive()) {
+        std::wstring rec = serialModule->GetRecordFilePath();
+        if (!rec.empty()) {
+            return rec;
+        }
+    }
+    return L"";
+}
+
+void ChartManager::SyncStatusBarFolderIcon() {
+    if (!uiModule) {
+        return;
+    }
+    uiModule->SetStatusBarFolderIconVisible(!GetFullPathForContainingFolder().empty());
+}
+
+void ChartManager::OpenContainingFolderForCurrentData(HWND hWnd) {
+    std::wstring full = GetFullPathForContainingFolder();
+    if (full.empty()) {
+        return;
+    }
+    size_t pos = full.find_last_of(L"\\/");
+    if (pos == std::wstring::npos) {
+        return;
+    }
+    std::wstring dir = full.substr(0, pos);
+    if (dir.empty()) {
+        return;
+    }
+    HINSTANCE shellRet = ShellExecuteW(hWnd, L"open", dir.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
+    if (reinterpret_cast<INT_PTR>(shellRet) <= 32) {
+        MessageBoxW(hWnd, L"Не удалось открыть папку в проводнике.", L"Папка", MB_OK | MB_ICONWARNING);
+    }
+}
+
 // Обновление информации о файле в статусной строке
 void ChartManager::UpdateStatusBarFileInfo() {
     if (!uiModule) return;
@@ -4533,7 +4574,8 @@ void ChartManager::UpdateStatusBarFileInfo() {
         } else {
             swprintf_s(fileInfo, L"Кадров: %zu", dataSize);
         }
-        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)fileInfo);
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 4, (LPARAM)fileInfo);
+        SyncStatusBarFolderIcon();
         
         // v2.19.0: Показываем индикатор фоновой записи COM
         if (IsComRecordingInBackground()) {
@@ -4546,7 +4588,8 @@ void ChartManager::UpdateStatusBarFileInfo() {
             uiModule->UpdateStatusBar(L"Готов");
         }
     } else {
-        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 3, (LPARAM)L"Файл не загружен");
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 4, (LPARAM)L"Файл не загружен");
+        uiModule->SetStatusBarFolderIconVisible(false);
         uiModule->ClearStatusBarCoordinates();
     }
 }

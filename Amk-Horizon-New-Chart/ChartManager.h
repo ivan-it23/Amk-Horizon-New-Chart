@@ -239,6 +239,7 @@ public:
     void DrawChart2(HDC hdc);
     void LoadDataFromFile(HWND hWnd, const std::wstring& filename);
     void UpdateStatusBarFileInfo(); // Обновление информации о файле в статусной строке
+    void OpenContainingFolderForCurrentData(HWND hWnd); // Проводник: папка текущего файла данных
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
     bool IsDualMode() const;
 
@@ -420,4 +421,7 @@ private:
                                           const ZoomRange& zoom);
     void ScheduleVisibleChartsWarmup(HWND hWnd);
     void ResetCoordinateTracking();
+
+    std::wstring GetFullPathForContainingFolder() const;
+    void SyncStatusBarFolderIcon();
 };

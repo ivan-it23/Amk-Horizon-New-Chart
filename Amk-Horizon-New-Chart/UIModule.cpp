@@ -1,7 +1,35 @@
 #include "framework.h"
 #include "UIModule.h"
+#include <shellapi.h>
 
 namespace {
+
+constexpr int kStatusPartFolder = 3;
+constexpr UINT_PTR kStatusFolderSubclassId = 2;
+
+LRESULT CALLBACK StatusBarFolderSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
+    UINT_PTR uIdSubclass, DWORD_PTR dwRefData) {
+    if (msg == WM_LBUTTONUP) {
+        int x = LOWORD(lParam);
+        int y = HIWORD(lParam);
+        RECT rc;
+        if (SendMessage(hwnd, SB_GETRECT, kStatusPartFolder, (LPARAM)&rc)) {
+            POINT pt = { x, y };
+            if (PtInRect(&rc, pt)) {
+                HWND hMain = reinterpret_cast<HWND>(dwRefData);
+                if (hMain && IsWindow(hMain)) {
+                    PostMessage(hMain, WM_APP_OPEN_CURRENT_FILE_FOLDER, 0, 0);
+                }
+                return 0;
+            }
+        }
+    }
+    if (msg == WM_NCDESTROY) {
+        RemoveWindowSubclass(hwnd, StatusBarFolderSubclassProc, uIdSubclass);
+    }
+    return DefSubclassProc(hwnd, msg, wParam, lParam);
+}
+
 bool IsUiTransmitterIndex(int transmitterIdx) {
     return transmitterIdx >= 0 && transmitterIdx < UIModule::UI_TRANSMITTER_COUNT;
 }
@@ -71,6 +99,7 @@ UIModule::UIModule()
     , hCursor2Y2Separator(nullptr)
     , hCursor2Y2Edit(nullptr)
     , hStatusBar(nullptr)
+    , hStatusBarFolderIcon(nullptr)
     , hChart1SurfCheck(nullptr)
     , hChart1SurfEdit(nullptr)
     , hChart2SurfCheck(nullptr)
@@ -97,6 +126,10 @@ UIModule::UIModule()
 }
 
 UIModule::~UIModule() {
+    if (hStatusBarFolderIcon) {
+        DestroyIcon(hStatusBarFolderIcon);
+        hStatusBarFolderIcon = nullptr;
+    }
 }
 
 void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
@@ -419,15 +452,18 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         hInst,                          // Instance
         NULL);                          // Дополнительные параметры
 
-    // Настройка частей статусной строки (4 части)
-    int statusBarParts[4] = { 150, 350, 550, -1 }; // -1 означает "до конца"
-    SendMessage(hStatusBar, SB_SETPARTS, 4, (LPARAM)statusBarParts);
+    // Части статусной строки: координаты (0–2), иконка папки (3), путь/имя файла (4)
+    int statusBarParts[5] = { 150, 350, 550, 574, -1 };
+    SendMessage(hStatusBar, SB_SETPARTS, 5, (LPARAM)statusBarParts);
     
-    // Установка начального текста
     SendMessage(hStatusBar, SB_SETTEXT, 0, (LPARAM)L"Готов");
     SendMessage(hStatusBar, SB_SETTEXT, 1, (LPARAM)L"");
     SendMessage(hStatusBar, SB_SETTEXT, 2, (LPARAM)L"");
-    SendMessage(hStatusBar, SB_SETTEXT, 3, (LPARAM)L"Файл не загружен");
+    SendMessage(hStatusBar, SB_SETTEXT, kStatusPartFolder, (LPARAM)L"");
+    SendMessage(hStatusBar, SB_SETTEXT, 4, (LPARAM)L"Файл не загружен");
+    SetWindowSubclass(hStatusBar, StatusBarFolderSubclassProc, kStatusFolderSubclassId,
+                      reinterpret_cast<DWORD_PTR>(hWnd));
+    SetStatusBarFolderIconVisible(false);
     
     // Создание tooltips для кнопок с иконками (Chart 1)
     CreateTooltip(hWnd, hXRangeApplyBtn, L"Применить");
@@ -1150,6 +1186,26 @@ void UIModule::ResizeStatusBar() {
     if (hStatusBar) {
         // Отправляем сообщение WM_SIZE статусной строке для автоматического изменения размера
         SendMessage(hStatusBar, WM_SIZE, 0, 0);
+    }
+}
+
+void UIModule::SetStatusBarFolderIconVisible(bool visible) {
+    if (!hStatusBar) {
+        return;
+    }
+    if (visible) {
+        if (!hStatusBarFolderIcon) {
+            SHSTOCKICONINFO sii = {};
+            sii.cbSize = sizeof(sii);
+            if (SUCCEEDED(SHGetStockIconInfo(SIID_FOLDER, SHGFI_ICON | SHGFI_SMALLICON, &sii))) {
+                hStatusBarFolderIcon = sii.hIcon;
+            }
+        }
+        SendMessage(hStatusBar, SB_SETICON, kStatusPartFolder, (LPARAM)hStatusBarFolderIcon);
+        SendMessage(hStatusBar, SB_SETTEXT, kStatusPartFolder, (LPARAM)L"");
+    } else {
+        SendMessage(hStatusBar, SB_SETICON, kStatusPartFolder, (LPARAM)nullptr);
+        SendMessage(hStatusBar, SB_SETTEXT, kStatusPartFolder, (LPARAM)L"");
     }
 }
 

@@ -68,6 +68,7 @@ private:
 
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
+    HICON hStatusBarFolderIcon; // SIID_FOLDER для части «открыть папку» (освобождается в ~UIModule)
 
     // === Элементы управления COM-портом (v2.13.0) ===
     HWND hSerialPortCombo;   // Выпадающий список COM-портов
@@ -166,6 +167,7 @@ public:
     void ClearStatusBarCoordinates();
     void ResizeStatusBar(); // Обновление размера статусной строки при изменении размера окна
     HWND GetStatusBar() const { return hStatusBar; }
+    void SetStatusBarFolderIconVisible(bool visible);
 
     // Управление отображением координат курсора при клике (v2.15.1 - поддержка двойных осей)
     void UpdateClickCoordinates(int chartNumber, double x, double y1, const std::wstring& y1Unit,

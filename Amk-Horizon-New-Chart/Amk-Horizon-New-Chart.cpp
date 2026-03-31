@@ -1458,6 +1458,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         ShowOrActivateSerialConnectionDialog(hWnd);
         return 0;
 
+    case WM_APP_OPEN_CURRENT_FILE_FOLDER:
+        if (g_chartManager) {
+            g_chartManager->OpenContainingFolderForCurrentData(hWnd);
+        }
+        return 0;
+
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
