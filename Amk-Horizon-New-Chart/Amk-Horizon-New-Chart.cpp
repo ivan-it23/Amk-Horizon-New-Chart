@@ -1088,9 +1088,41 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
 
             HWND hRxPos = GetDlgItem(hDlg, IDC_METRO_RX_POSITION_COMBO);
             if (hRxPos) {
-                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"0 — R1\u2192T1 (стандартная)");
-                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"1 — R1\u2192T2 (обратная)");
+                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"0 \u2014 R1\u2192T1");
+                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"1 \u2014 R1\u2192T2");
                 SendMessage(hRxPos, CB_SETCURSEL, 0, 0);
+            }
+
+            // Центрируем окно по центру экрана монитора
+            {
+                RECT rc;
+                GetWindowRect(hDlg, &rc);
+                int dlgW = rc.right - rc.left;
+                int dlgH = rc.bottom - rc.top;
+                int scrW = GetSystemMetrics(SM_CXSCREEN);
+                int scrH = GetSystemMetrics(SM_CYSCREEN);
+                SetWindowPos(hDlg, nullptr, (scrW - dlgW) / 2, (scrH - dlgH) / 2,
+                             0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+            }
+
+            // Жирный шрифт для кнопок (+2pt от базового шрифта диалога 9pt)
+            {
+                HFONT hBoldFont = CreateFont(
+                    -MulDiv(11, GetDeviceCaps(GetDC(hDlg), LOGPIXELSY), 72),
+                    0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+                    CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+                if (hBoldFont) {
+                    static const int btnIds[] = {
+                        IDC_METRO_BTN_READ_SONDE, IDC_METRO_BTN_WRITE_SONDE,
+                        IDC_METRO_BTN_WRITE_CMD, IDC_METRO_BTN_OPEN_FILE,
+                        IDC_METRO_BTN_SAVE_FILE, IDOK
+                    };
+                    for (int id : btnIds) {
+                        HWND hBtn = GetDlgItem(hDlg, id);
+                        if (hBtn) SendMessage(hBtn, WM_SETFONT, (WPARAM)hBoldFont, TRUE);
+                    }
+                }
             }
 
             CheckDlgButton(hDlg, IDC_METRO_READONLY_CHECK, BST_CHECKED);
@@ -1257,6 +1289,13 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
 
         case WM_DESTROY:
             {
+                // Освобождаем жирный шрифт кнопок (берём с любой кнопки)
+                HWND hBtn = GetDlgItem(hDlg, IDC_METRO_BTN_READ_SONDE);
+                if (hBtn) {
+                    HFONT hBtnFont = (HFONT)SendMessage(hBtn, WM_GETFONT, 0, 0);
+                    if (hBtnFont) DeleteObject(hBtnFont);
+                }
+
                 MetrologyDialogContext* ctx = reinterpret_cast<MetrologyDialogContext*>(GetWindowLongPtr(hDlg, GWLP_USERDATA));
                 if (ctx) {
                     SetWindowLongPtr(hDlg, GWLP_USERDATA, 0);
