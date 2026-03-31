@@ -236,6 +236,17 @@ bool NotesModule::LoadFromDisk() {
         return a.createdUtcMs < b.createdUtcMs;
     });
 
+    // Migrate configKey: recompute from snapshot so that activePreset
+    // is excluded from the hash (matching fix v2.17+).
+    for (auto& note : notes) {
+        if (!note.configSnapshot.empty()) {
+            uint64_t newKey = RecomputeConfigKeyFromSnapshot(note.configSnapshot);
+            if (newKey != 0) {
+                note.configKey = newKey;
+            }
+        }
+    }
+
     return true;
 }
 
@@ -362,8 +373,52 @@ const ChartNote* NotesModule::HitTestRenderedMarkers(int chartNumber, int x, int
 }
 
 uint64_t NotesModule::ComputeConfigKey(const ChartConfiguration& config) {
-    const std::string snapshot = BuildConfigSnapshot(config);
-    return Fnv1a64(reinterpret_cast<const uint8_t*>(snapshot.data()), snapshot.size());
+    // Build key string from xAxisType + sorted enabled curves ONLY.
+    // activePreset is intentionally excluded: it is metadata about how the config
+    // was created, not about which curves are displayed. Two configs with the same
+    // curves but different activePreset values must match for note display purposes.
+    std::vector<std::pair<std::string, int>> enabled;
+    enabled.reserve(config.curves.size());
+    for (const auto& c : config.curves) {
+        if (!c.enabled) continue;
+        enabled.emplace_back(c.id, c.yAxisGroup);
+    }
+    std::sort(enabled.begin(), enabled.end(), [](const auto& a, const auto& b) {
+        if (a.first != b.first) return a.first < b.first;
+        return a.second < b.second;
+    });
+
+    std::ostringstream ss;
+    ss << "xAxisType=" << (config.xAxisType == XAxisType::TEMPERATURE ? "TEMPERATURE" : "FRAME_NUMBER");
+    ss << ";curves=";
+    for (size_t i = 0; i < enabled.size(); i++) {
+        if (i) ss << ",";
+        ss << enabled[i].first << "@" << enabled[i].second;
+    }
+    const std::string keyStr = ss.str();
+    return Fnv1a64(reinterpret_cast<const uint8_t*>(keyStr.data()), keyStr.size());
+}
+
+uint64_t NotesModule::RecomputeConfigKeyFromSnapshot(const std::string& snapshot) {
+    XAxisType xAxis;
+    PresetType preset;
+    std::vector<SnapshotCurveItem> curves;
+    if (!ParseConfigSnapshot(snapshot, xAxis, preset, curves)) return 0;
+
+    std::sort(curves.begin(), curves.end(), [](const SnapshotCurveItem& a, const SnapshotCurveItem& b) {
+        if (a.curveId != b.curveId) return a.curveId < b.curveId;
+        return a.yAxisGroup < b.yAxisGroup;
+    });
+
+    std::ostringstream ss;
+    ss << "xAxisType=" << (xAxis == XAxisType::TEMPERATURE ? "TEMPERATURE" : "FRAME_NUMBER");
+    ss << ";curves=";
+    for (size_t i = 0; i < curves.size(); i++) {
+        if (i) ss << ",";
+        ss << curves[i].curveId << "@" << curves[i].yAxisGroup;
+    }
+    const std::string keyStr = ss.str();
+    return Fnv1a64(reinterpret_cast<const uint8_t*>(keyStr.data()), keyStr.size());
 }
 
 std::string NotesModule::BuildConfigSnapshot(const ChartConfiguration& config) {

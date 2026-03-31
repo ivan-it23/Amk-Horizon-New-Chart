@@ -693,6 +693,95 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
     }
 }
 
+ChartConfiguration CurveSelectionModule::BuildFullCurveSet(FrequencyBand frequency) const {
+    ChartConfiguration config;
+    const int txCount = SchematicSelection::UI_TRANSMITTER_COUNT; // 5
+
+    // Phase differences (left axis)
+    for (int tx = 0; tx < txCount; ++tx) {
+        CurveDefinition c = CreateDifferenceCurve(tx, frequency);
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, tx, 0);
+        config.curves.push_back(c);
+    }
+
+    // Amplitudes for both receivers (right axis)
+    for (int tx = 0; tx < txCount; ++tx) {
+        for (int rx = 0; rx < 2; ++rx) {
+            CurveDefinition c = CreateAmplitudeCurve(tx, rx, frequency);
+            c.yAxisGroup = 1;
+            c.enabled = false;
+            c.color = AssignSmartColor(config.curves, tx, 1);
+            config.curves.push_back(c);
+        }
+    }
+
+    // Amplitude ratios (left axis)
+    for (int tx = 0; tx < txCount; ++tx) {
+        CurveDefinition c = CreateRatioCurve(tx, frequency);
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, tx, 0);
+        config.curves.push_back(c);
+    }
+
+    // Phase SMT (left axis)
+    for (int tx = 0; tx < txCount; ++tx) {
+        CurveDefinition c = CreatePhaseSmtCurve(tx, frequency);
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, tx, 0);
+        config.curves.push_back(c);
+    }
+
+    // Rho SMT (left axis)
+    for (int tx = 0; tx < txCount; ++tx) {
+        CurveDefinition c = CreateRhoSmtCurve(tx, frequency);
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, tx, 0);
+        config.curves.push_back(c);
+    }
+
+    // Silent amplitudes
+    for (int rx = 0; rx < 2; ++rx) {
+        CurveDefinition c = CreateSilentAmplitudeCurve(rx, frequency);
+        c.yAxisGroup = 1;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, rx, 1);
+        config.curves.push_back(c);
+    }
+
+    // Silent phase difference
+    {
+        CurveDefinition c = CreateSilentPhaseDifferenceCurve(frequency);
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = AssignSmartColor(config.curves, 0, 0);
+        config.curves.push_back(c);
+    }
+
+    // Temperature
+    {
+        CurveDefinition c;
+        c.id = "TEMPERATURE";
+        c.displayName = "Температура";
+        c.units = "degC";
+        c.yAxisGroup = 0;
+        c.enabled = false;
+        c.color = TEMPERATURE_COLOR;
+        c.lineStyle = PS_SOLID;
+        c.sourceElement = ElementType::TRANSMITTER;
+        c.elementIndex = 0;
+        c.dataType = DataType::TEMPERATURE;
+        c.frequency = frequency;
+        config.curves.push_back(c);
+    }
+
+    return config;
+}
+
 void CurveSelectionModule::CopySettings(int fromChart, int toChart) {
     if (fromChart == 1 && toChart == 2) {
         chart2Config = chart1Config.Copy();

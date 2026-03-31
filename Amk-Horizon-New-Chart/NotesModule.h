@@ -58,6 +58,7 @@ public:
     const ChartNote* HitTestRenderedMarkers(int chartNumber, int x, int y, int radiusPx) const;
 
     static uint64_t ComputeConfigKey(const ChartConfiguration& config);
+    static uint64_t RecomputeConfigKeyFromSnapshot(const std::string& snapshot);
     static std::string BuildConfigSnapshot(const ChartConfiguration& config);
     static bool ParseConfigSnapshot(const std::string& snapshot,
                                     XAxisType& outXAxisType,

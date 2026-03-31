@@ -41,6 +41,7 @@ public:
     // Управление пресетами
     void ApplyPreset(PresetType preset, int chartNumber, FrequencyBand frequency);
     ChartConfiguration CreatePresetConfiguration(PresetType preset, FrequencyBand frequency) const;
+    ChartConfiguration BuildFullCurveSet(FrequencyBand frequency) const;
     
     // Копирование настроек между графиками
     void CopySettings(int fromChart, int toChart);

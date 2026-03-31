@@ -1138,24 +1138,31 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
         return false;
     }
 
-    ChartConfiguration config = GetChartConfiguration(chartNumber);
+    // Detect frequency from parsed curves
+    FrequencyBand targetFrequency = FrequencyBand::FREQ_400_KHZ;
+    for (const auto& c : parsedCurves) {
+        if (c.curveId.find("2000") != std::string::npos) {
+            targetFrequency = FrequencyBand::FREQ_2000_KHZ;
+            break;
+        }
+        if (c.curveId.find("400") != std::string::npos) {
+            targetFrequency = FrequencyBand::FREQ_400_KHZ;
+            break;
+        }
+    }
+
+    ChartConfiguration config;
 
     if (parsedPreset != PresetType::NONE && parsedPreset != PresetType::CUSTOM) {
-        FrequencyBand targetFrequency = FrequencyBand::FREQ_400_KHZ;
-        if (!config.curves.empty()) {
-            targetFrequency = config.curves[0].frequency;
-        }
-        for (const auto& c : parsedCurves) {
-            if (c.curveId.find("_2000") != std::string::npos) {
-                targetFrequency = FrequencyBand::FREQ_2000_KHZ;
-                break;
-            }
-            if (c.curveId.find("_400") != std::string::npos) {
-                targetFrequency = FrequencyBand::FREQ_400_KHZ;
-                break;
-            }
-        }
         config = curveSelectionModule->CreatePresetConfiguration(parsedPreset, targetFrequency);
+    } else {
+        // For custom / no-preset notes: try current chart config first
+        config = GetChartConfiguration(chartNumber);
+    }
+
+    if (config.curves.empty()) {
+        // Current chart has no config — build comprehensive curve set as fallback
+        config = curveSelectionModule->BuildFullCurveSet(targetFrequency);
     }
 
     if (config.curves.empty()) {
@@ -1179,6 +1186,25 @@ bool ChartManager::ApplyNoteConfiguration(HWND hWnd, const ChartNote& note, int 
             it->enabled = true;
             it->yAxisGroup = parsed.yAxisGroup;
             enabledCount++;
+        }
+    }
+
+    // Fallback: if current config didn't have matching curves, try full curve set
+    if (enabledCount <= 0) {
+        config = curveSelectionModule->BuildFullCurveSet(targetFrequency);
+        for (auto& c : config.curves) {
+            c.enabled = false;
+        }
+        enabledCount = 0;
+        for (const auto& parsed : parsedCurves) {
+            auto it = std::find_if(config.curves.begin(), config.curves.end(), [&](const CurveDefinition& c) {
+                return c.id == parsed.curveId;
+            });
+            if (it != config.curves.end()) {
+                it->enabled = true;
+                it->yAxisGroup = parsed.yAxisGroup;
+                enabledCount++;
+            }
         }
     }
 
