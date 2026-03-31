@@ -943,8 +943,13 @@ static void Metro_FillFormFromStruct(HWND hDlg, const METROLOGY_DATA& m) {
         IDC_METRO_MIN_6, IDC_METRO_MIN_7, IDC_METRO_MIN_8, IDC_METRO_MIN_9, IDC_METRO_MIN_10
     };
     for (int i = 0; i < 10; ++i) {
-        Metro_SetEditInt(hDlg, airIds[i], m.Air_zz[i]);
-        Metro_SetEditInt(hDlg, minIds[i], m.Air_zz_amt[i]);
+        Metro_SetEditInt(hDlg, airIds[i], m.Air_zz[i / 5][i % 5]);
+        Metro_SetEditInt(hDlg, minIds[i], m.Air_zz_amt[i / 5][i % 5]);
+    }
+
+    HWND hRxPos = GetDlgItem(hDlg, IDC_METRO_RX_POSITION_COMBO);
+    if (hRxPos) {
+        SendMessage(hRxPos, CB_SETCURSEL, (m.Rx_Position <= 1) ? m.Rx_Position : 0, 0);
     }
 
     Metro_UpdateSignaturePanel(hDlg, m);
@@ -1002,13 +1007,13 @@ static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstrin
             outError = L"Некорректное значение AIR.";
             return false;
         }
-        if (hasValue) out.Air_zz[i] = (int16_t)v;
+        if (hasValue) out.Air_zz[i / 5][i % 5] = (int16_t)v;
 
         if (!Metro_GetEditIntOptional(hDlg, minIds[i], v, hasValue) || (hasValue && (v < -32768 || v > 32767))) {
             outError = L"Некорректное значение MIN.";
             return false;
         }
-        if (hasValue) out.Air_zz_amt[i] = (int16_t)v;
+        if (hasValue) out.Air_zz_amt[i / 5][i % 5] = (int16_t)v;
     }
 
     int serial = 0;
@@ -1018,6 +1023,9 @@ static bool Metro_FillStructFromForm(HWND hDlg, METROLOGY_DATA& out, std::wstrin
         return false;
     }
     if (hasSerial) out.serial = (uint32_t)serial;
+
+    int rxPosSel = (int)SendMessage(GetDlgItem(hDlg, IDC_METRO_RX_POSITION_COMBO), CB_GETCURSEL, 0, 0);
+    out.Rx_Position = (rxPosSel == 1) ? 1u : 0u;
 
     // signature: we build only AUTONOM 5Tx (151) by UI mod+number, preserving high 12 bits.
     int modSel = (int)SendMessage(GetDlgItem(hDlg, IDC_METRO_MOD_COMBO), CB_GETCURSEL, 0, 0);
@@ -1076,6 +1084,13 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                     SendMessage(hMod, CB_ADDSTRING, 0, (LPARAM)b);
                 }
                 SendMessage(hMod, CB_SETCURSEL, 0, 0);
+            }
+
+            HWND hRxPos = GetDlgItem(hDlg, IDC_METRO_RX_POSITION_COMBO);
+            if (hRxPos) {
+                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"0 — R1\u2192T1 (стандартная)");
+                SendMessage(hRxPos, CB_ADDSTRING, 0, (LPARAM)L"1 — R1\u2192T2 (обратная)");
+                SendMessage(hRxPos, CB_SETCURSEL, 0, 0);
             }
 
             CheckDlgButton(hDlg, IDC_METRO_READONLY_CHECK, BST_CHECKED);

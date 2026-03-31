@@ -1,4 +1,4 @@
-#include "framework.h"
+﻿#include "framework.h"
 #include "ChartManager.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
@@ -633,6 +633,7 @@ ChartManager::ChartManager()
     // Связи между модулями схемы, кривых и данных
     schematicModule->SetCurveSelectionModule(curveSelectionModule.get());
     schematicModule->SetDataModule(dataModule.get());
+    schematicModule->SetMetrologyModule(metrologyModule.get());
     curveSelectionModule->SetMetrologyModule(metrologyModule.get());
     
     // Callback обновления графика после применения настроек схемы (v2.9.4)

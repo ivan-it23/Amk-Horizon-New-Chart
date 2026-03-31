@@ -1,6 +1,7 @@
 #include "framework.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
+#include "MetrologyModule.h"
 #include "ToolPresentation.h"
 #include "Resource.h"
 #include <sstream>
@@ -457,7 +458,7 @@ void ChartConfiguration::UpdateAxisConfiguration() {
 
 // Реализация SchematicModule
 SchematicModule::SchematicModule() 
-    : curveSelectionModule(nullptr), dataModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
+    : curveSelectionModule(nullptr), dataModule(nullptr), metrologyModule(nullptr), targetChartNumber(1), hoveredElement(nullptr),
       hSchematicDialog(nullptr), hParentWindow(nullptr),
       currentPreset(PresetType::NONE), currentPresetDisplayName(L"") {
 }
@@ -906,6 +907,16 @@ void SchematicModule::SetDataModule(DataModule* module) {
     dataModule = module;
 }
 
+void SchematicModule::SetMetrologyModule(MetrologyModule* module) {
+    metrologyModule = module;
+}
+
+bool SchematicModule::IsRxPositionReversed() const {
+    if (!metrologyModule) return false;
+    if (!metrologyModule->HasData()) return false;
+    return metrologyModule->Get().Rx_Position == 1;
+}
+
 int SchematicModule::GetAvailableTransmitterCount() const {
     if (!dataModule || !dataModule->HasData()) {
         return SchematicSelection::UI_TRANSMITTER_COUNT;
@@ -964,10 +975,26 @@ SchematicModule::ElementRect* SchematicModule::FindElementAt(int x, int y) {
 }
 
 std::wstring SchematicModule::GetElementLabel(ElementType type, int index) const {
+    if (IsRxPositionReversed()) {
+        if (type == ElementType::RECEIVER) {
+            return BuildElementLabel(type, 1 - index);
+        }
+        if (type == ElementType::SILENT_TX) {
+            return BuildElementLabel(type, 1 - index);
+        }
+    }
     return BuildElementLabel(type, index);
 }
 
 std::wstring SchematicModule::GetElementTooltip(ElementType type, int index) const {
+    if (IsRxPositionReversed()) {
+        if (type == ElementType::RECEIVER) {
+            return BuildElementTooltip(type, 1 - index);
+        }
+        if (type == ElementType::SILENT_TX) {
+            return BuildElementTooltip(type, 1 - index);
+        }
+    }
     return BuildElementTooltip(type, index);
 }
 
@@ -977,12 +1004,12 @@ void SchematicModule::DrawTransmitter(HDC hdc, const RECT& rect, int index, bool
 }
 
 void SchematicModule::DrawReceiver(HDC hdc, const RECT& rect, int index, bool selected) {
-    std::wstring label = BuildElementLabel(ElementType::RECEIVER, index);
+    std::wstring label = GetElementLabel(ElementType::RECEIVER, index);
     DrawElement(hdc, rect, ElementType::RECEIVER, index, selected, false, label);
 }
 
 void SchematicModule::DrawSilentTransmitter(HDC hdc, const RECT& rect, int index, bool selected) {
-    std::wstring label = BuildElementLabel(ElementType::SILENT_TX, index);
+    std::wstring label = GetElementLabel(ElementType::SILENT_TX, index);
     DrawElement(hdc, rect, ElementType::SILENT_TX, index, selected, false, label);
 }
 
@@ -1576,13 +1603,13 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
             std::wstring groupHeader;
             switch (elementType) {
                 case ElementType::TRANSMITTER:
-                    groupHeader = BuildElementLabel(ElementType::TRANSMITTER, elementIndex);
+                    groupHeader = GetElementLabel(ElementType::TRANSMITTER, elementIndex);
                     break;
                 case ElementType::RECEIVER:
-                    groupHeader = BuildElementLabel(ElementType::RECEIVER, elementIndex);
+                    groupHeader = GetElementLabel(ElementType::RECEIVER, elementIndex);
                     break;
                 case ElementType::SILENT_TX:
-                    groupHeader = BuildSilentGroupHeaderLabel(elementIndex);
+                    groupHeader = GetElementLabel(ElementType::SILENT_TX, elementIndex);
                     break;
                 default:
                     // "Группа" в Unicode

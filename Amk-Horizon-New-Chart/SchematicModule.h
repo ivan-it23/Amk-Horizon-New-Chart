@@ -10,6 +10,7 @@
 
 // Forward declarations
 class CurveSelectionModule;
+class MetrologyModule;
 
 // Типы элементов схемы прибора
 enum class ElementType {
@@ -125,9 +126,6 @@ struct ChartConfiguration {
     bool IsPresetActive() const { return activePreset != PresetType::NONE && activePreset != PresetType::CUSTOM; }
 };
 
-// Типы быстрых пресетов (перенесено выше в ChartConfiguration)
-// enum class PresetType определён выше
-
 // Класс для управления интерактивной схемой прибора
 class SchematicModule {
 private:
@@ -151,6 +149,7 @@ private:
     // Указатель на модуль выбора кривых (устанавливается извне)
     CurveSelectionModule* curveSelectionModule;
     DataModule* dataModule;
+    MetrologyModule* metrologyModule;
     
     // Текущие доступные кривые (для работы с ListView)
     std::vector<CurveDefinition> currentAvailableCurves;
@@ -207,6 +206,8 @@ public:
     void SetCurrentSelection(const SchematicSelection& selection);
     void SetCurveSelectionModule(CurveSelectionModule* module);
     void SetDataModule(DataModule* module);
+    void SetMetrologyModule(MetrologyModule* module);
+    bool IsRxPositionReversed() const;
     
     // Вспомогательные методы
     void InitializeSchematicElements(const RECT& schemaRect);

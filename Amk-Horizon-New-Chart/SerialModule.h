@@ -30,10 +30,12 @@ struct METROLOGY_DATA {
     uint16_t L1[5];
     uint16_t L2[5];
     uint16_t F[2];
-    int16_t Air_zz[10];
-    int16_t Air_zz_amt[10];
+    int16_t Air_zz[2][5];       // [freqIdx][txIdx]
+    int16_t Air_zz_amt[2][5];   // [freqIdx][txIdx]
     uint32_t D_sonde_mm;
-    uint8_t service[164];
+    uint32_t work_type;
+    uint32_t Rx_Position;        // 0 = R1→T1 (default), 1 = R1→T2
+    uint16_t service[78];
 };
 #pragma pack(pop)
 

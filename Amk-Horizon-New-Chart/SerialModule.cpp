@@ -316,11 +316,13 @@ void ConvertLegacyLwd4TxMetrology(const LEGACY_LWD_METROLOGY_DATA& legacyData, M
         outData.F[freqIdx] = legacyData.F[freqIdx * 4];
         for (int txIdx = 0; txIdx < 4; ++txIdx) {
             const int legacyIndex = txIdx + freqIdx * 4;
-            const int canonicalIndex = txIdx + freqIdx * 5;
-            outData.Air_zz[canonicalIndex] = legacyData.Air_zz[legacyIndex];
-            outData.Air_zz_amt[canonicalIndex] = legacyData.Air_zz_amt[legacyIndex];
+            outData.Air_zz[freqIdx][txIdx] = legacyData.Air_zz[legacyIndex];
+            outData.Air_zz_amt[freqIdx][txIdx] = legacyData.Air_zz_amt[legacyIndex];
         }
     }
+
+    outData.work_type = 0;
+    outData.Rx_Position = 0;
 }
 }
 
