@@ -297,8 +297,7 @@ static void SetSerialDialogBusyState(HWND hDlg, bool busy) {
         IDC_SERIAL_APPEND_CHECK,
         IDC_SERIAL_APPEND_SHOW_FULL_CHECK,
         IDC_SERIAL_BROWSE_BTN,
-        IDC_SERIAL_OPEN_FOLDER_BTN,
-        IDC_SERIAL_CLEAR_BTN
+        IDC_SERIAL_OPEN_FOLDER_BTN
     };
 
     for (int controlId : controlIds) {
@@ -1483,11 +1482,36 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 //  WM_DESTROY  - отправить сообщение о выходе и вернуться
 //
 //
+static void CenterDialogOnOwnerMonitor(HWND hDlg, HWND hOwner) {
+    if (!hDlg || !IsWindow(hDlg)) {
+        return;
+    }
+    RECT rcWnd = {};
+    if (!GetWindowRect(hDlg, &rcWnd)) {
+        return;
+    }
+    const int width = rcWnd.right - rcWnd.left;
+    const int height = rcWnd.bottom - rcWnd.top;
+
+    HWND hRef = (hOwner && IsWindow(hOwner)) ? hOwner : hDlg;
+    HMONITOR hMon = MonitorFromWindow(hRef, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = {};
+    mi.cbSize = sizeof(mi);
+    if (!hMon || !GetMonitorInfo(hMon, &mi)) {
+        return;
+    }
+    const RECT& work = mi.rcWork;
+    const int x = work.left + (work.right - work.left - width) / 2;
+    const int y = work.top + (work.bottom - work.top - height) / 2;
+    SetWindowPos(hDlg, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
 static void ShowOrActivateSerialConnectionDialog(HWND hWndOwner) {
     if (!g_hSerialDialog || !IsWindow(g_hSerialDialog)) {
         g_hSerialDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_SERIAL_STATUS),
                                        hWndOwner, SerialStatusDialogProc);
         if (g_hSerialDialog) {
+            CenterDialogOnOwnerMonitor(g_hSerialDialog, hWndOwner);
             ShowWindow(g_hSerialDialog, SW_SHOW);
         }
     } else {
@@ -2029,6 +2053,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
     static HWND hRecordFrames = nullptr;
     static HWND hBgRecordStatus = nullptr;
     static HWND hReturnToComBtn = nullptr;
+    static HFONT s_serialDialogBoldBtnFont = nullptr;
     static bool isBusy = false;
 
     if (AsyncTaskQueue::TryDispatchUiTask(message, lParam)) {
@@ -2163,6 +2188,35 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 SerialModule* serialInit = g_chartManager->GetSerialModule();
                 if (serialInit) {
                     SetDlgItemInt(hDlg, IDC_SERIAL_POLL_INTERVAL_EDIT, serialInit->GetPollInterval(), FALSE);
+                }
+            }
+
+            // Полужирный шрифт для основных кнопок диалога (заметнее для пользователя)
+            {
+                HFONT hBase = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
+                if (!hBase) {
+                    hBase = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+                }
+                LOGFONTW lf = {};
+                if (hBase && GetObjectW(hBase, sizeof(lf), &lf) != 0) {
+                    lf.lfWeight = FW_BOLD;
+                    if (s_serialDialogBoldBtnFont) {
+                        DeleteObject(s_serialDialogBoldBtnFont);
+                        s_serialDialogBoldBtnFont = nullptr;
+                    }
+                    s_serialDialogBoldBtnFont = CreateFontIndirectW(&lf);
+                }
+                if (s_serialDialogBoldBtnFont) {
+                    const HWND actionButtons[] = {
+                        GetDlgItem(hDlg, IDC_SERIAL_START_BTN),
+                        GetDlgItem(hDlg, IDC_SERIAL_STOP_BTN),
+                        GetDlgItem(hDlg, IDCANCEL)
+                    };
+                    for (HWND hBtn : actionButtons) {
+                        if (hBtn) {
+                            SendMessage(hBtn, WM_SETFONT, (WPARAM)s_serialDialogBoldBtnFont, TRUE);
+                        }
+                    }
                 }
             }
             
@@ -2370,16 +2424,6 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 if (hReturnToComBtn) ShowWindow(hReturnToComBtn, SW_HIDE);
             }
             return (INT_PTR)TRUE;
-            
-        case IDC_SERIAL_CLEAR_BTN:
-            // Кнопка "Очистить данные"
-            if (g_chartManager) {
-                HWND hMainWnd = GetParent(hDlg);
-                g_chartManager->HandleSerialClear(hMainWnd);
-                SetWindowText(hFrameLabel, L"0");
-                SetWindowText(hPacketsLabel, L"0 / 0");
-            }
-            return (INT_PTR)TRUE;
         
         // v2.15.0: Обработка элементов записи в файл
         case IDC_SERIAL_RECORD_CHECK:
@@ -2562,6 +2606,10 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
         return (INT_PTR)TRUE;
         
     case WM_DESTROY:
+        if (s_serialDialogBoldBtnFont) {
+            DeleteObject(s_serialDialogBoldBtnFont);
+            s_serialDialogBoldBtnFont = nullptr;
+        }
         g_hSerialDialog = nullptr;
         return (INT_PTR)TRUE;
     }

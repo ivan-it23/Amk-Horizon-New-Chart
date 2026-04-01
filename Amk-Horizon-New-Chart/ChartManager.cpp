@@ -1,4 +1,4 @@
-﻿#include "framework.h"
+#include "framework.h"
 #include "ChartManager.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
@@ -1998,10 +1998,6 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             
         case IDC_SERIAL_STOP_BTN:
             HandleSerialStop(hWnd);
-            return true;
-            
-        case IDC_SERIAL_CLEAR_BTN:
-            HandleSerialClear(hWnd);
             return true;
             
         // === Команды режима Surf (v2.14.0) ===
