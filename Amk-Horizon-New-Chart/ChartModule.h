@@ -218,6 +218,11 @@ public:
                            const std::vector<CurveDefinition>& curves,
                            const ChartConfiguration& config) const;
 
+    // Единый шрифт для отрисовки текста на графиках (Segoe UI, системный размер)
+    HFONT hDrawFont = nullptr;
+    // Жирный вариант для подписей осей
+    HFONT hDrawFontBold = nullptr;
+
 private:
     // Вспомогательные методы для расчетов
     RECT CalculatePlotRect(const RECT& chartRect) const;

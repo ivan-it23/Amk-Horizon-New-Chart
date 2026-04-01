@@ -1104,13 +1104,25 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                              0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
             }
 
-            // Жирный шрифт для кнопок (+2pt от базового шрифта диалога 9pt)
+            // Жирный шрифт для кнопок на базе единого системного шрифта
             {
-                HFONT hBoldFont = CreateFont(
-                    -MulDiv(11, GetDeviceCaps(GetDC(hDlg), LOGPIXELSY), 72),
-                    0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
-                    DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                    CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
+                LOGFONT lfMetroBold = {};
+                HFONT hDlgBase = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
+                if (hDlgBase && GetObject(hDlgBase, sizeof(lfMetroBold), &lfMetroBold)) {
+                    // база — шрифт диалога
+                } else {
+                    NONCLIENTMETRICS ncmDlg = {};
+                    ncmDlg.cbSize = sizeof(ncmDlg);
+                    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncmDlg), &ncmDlg, 0)) {
+                        lfMetroBold = ncmDlg.lfMessageFont;
+                    } else {
+                        wcscpy_s(lfMetroBold.lfFaceName, L"Segoe UI");
+                        lfMetroBold.lfHeight = -MulDiv(11, GetDeviceCaps(GetDC(hDlg), LOGPIXELSY), 72);
+                        lfMetroBold.lfQuality = CLEARTYPE_QUALITY;
+                    }
+                }
+                lfMetroBold.lfWeight = FW_BOLD;
+                HFONT hBoldFont = CreateFontIndirect(&lfMetroBold);
                 if (hBoldFont) {
                     static const int btnIds[] = {
                         IDC_METRO_BTN_READ_SONDE, IDC_METRO_BTN_WRITE_SONDE,
@@ -2152,7 +2164,10 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                     10, 2, dlgW - 20, 16,
                     hDlg, (HMENU)IDC_BG_RECORD_STATUS, GetModuleHandle(nullptr), nullptr);
                 if (hBgRecordStatus) {
-                    SendMessage(hBgRecordStatus, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+                    HFONT hDlgFont = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
+                    if (hDlgFont) {
+                        SendMessage(hBgRecordStatus, WM_SETFONT, (WPARAM)hDlgFont, TRUE);
+                    }
                 }
 
                 hReturnToComBtn = CreateWindowEx(0, L"BUTTON", L"Вернуться к данным прибора",
@@ -2160,7 +2175,10 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                     10, 20, dlgW - 20, 28,
                     hDlg, (HMENU)IDC_RETURN_TO_COM_BTN, GetModuleHandle(nullptr), nullptr);
                 if (hReturnToComBtn) {
-                    SendMessage(hReturnToComBtn, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
+                    HFONT hDlgFont = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
+                    if (hDlgFont) {
+                        SendMessage(hReturnToComBtn, WM_SETFONT, (WPARAM)hDlgFont, TRUE);
+                    }
                 }
             }
 
@@ -2195,7 +2213,13 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
             {
                 HFONT hBase = (HFONT)SendMessage(hDlg, WM_GETFONT, 0, 0);
                 if (!hBase) {
-                    hBase = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+                    // Единый fallback на системный шрифт
+                    NONCLIENTMETRICS ncmSerial = {};
+                    ncmSerial.cbSize = sizeof(ncmSerial);
+                    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncmSerial), &ncmSerial, 0)) {
+                        hBase = CreateFontIndirect(&ncmSerial.lfMessageFont);
+                    }
+                    if (!hBase) hBase = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
                 }
                 LOGFONTW lf = {};
                 if (hBase && GetObjectW(hBase, sizeof(lf), &lf) != 0) {

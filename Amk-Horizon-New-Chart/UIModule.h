@@ -235,4 +235,13 @@ private:
     // Вспомогательные методы
     void CreateTooltip(HWND hWnd, HWND hControl, const wchar_t* text);
     HWND hTooltip;  // Общий tooltip для всех элементов
+
+    // Единый шрифт приложения (Segoe UI, системный размер) — применяется ко всем контролам
+    HFONT hAppFont = nullptr;
+    // Жирный вариант единого шрифта (для акцентных контролов)
+    HFONT hAppFontBold = nullptr;
+public:
+    // Получение единого шрифта приложения (для owner-draw и внешних модулей)
+    HFONT GetAppFont() const { return hAppFont; }
+    HFONT GetAppFontBold() const { return hAppFontBold; }
 };

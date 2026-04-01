@@ -3540,9 +3540,17 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Рисуем текст с инструкцией
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, RGB(100, 100, 100));
-    HFONT hFont = CreateFont(16, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                            DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+    LOGFONT lfMsg = {};
+    NONCLIENTMETRICS ncmMsg = {};
+    ncmMsg.cbSize = sizeof(ncmMsg);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncmMsg), &ncmMsg, 0)) {
+        lfMsg = ncmMsg.lfMessageFont;
+    } else {
+        wcscpy_s(lfMsg.lfFaceName, L"Segoe UI");
+        lfMsg.lfHeight = 16;
+        lfMsg.lfQuality = CLEARTYPE_QUALITY;
+    }
+    HFONT hFont = CreateFontIndirect(&lfMsg);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     
     // Выбираем сообщение в зависимости от наличия данных
@@ -4908,17 +4916,17 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     constexpr int kOffsetY = 8;
     constexpr int kInnerPadX = 5;
 
-    HFONT hLabelFont = CreateFont(
-        -11, 0, 0, 0,
-        FW_NORMAL,
-        FALSE, FALSE, FALSE,
-        DEFAULT_CHARSET,
-        OUT_DEFAULT_PRECIS,
-        CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY,
-        DEFAULT_PITCH | FF_DONTCARE,
-        L"Segoe UI"
-    );
+    LOGFONT lfNote = {};
+    NONCLIENTMETRICS ncmNote = {};
+    ncmNote.cbSize = sizeof(ncmNote);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncmNote), &ncmNote, 0)) {
+        lfNote = ncmNote.lfMessageFont;
+    } else {
+        wcscpy_s(lfNote.lfFaceName, L"Segoe UI");
+        lfNote.lfHeight = -11;
+        lfNote.lfQuality = CLEARTYPE_QUALITY;
+    }
+    HFONT hLabelFont = CreateFontIndirect(&lfNote);
     HFONT hOldFont = (HFONT)SelectObject(hdc, hLabelFont);
 
     SetBkMode(hdc, TRANSPARENT);

@@ -130,9 +130,40 @@ UIModule::~UIModule() {
         DestroyIcon(hStatusBarFolderIcon);
         hStatusBarFolderIcon = nullptr;
     }
+    if (hAppFont) {
+        DeleteObject(hAppFont);
+        hAppFont = nullptr;
+    }
+    if (hAppFontBold) {
+        DeleteObject(hAppFontBold);
+        hAppFontBold = nullptr;
+    }
 }
 
 void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
+    // === Единый шрифт приложения (Segoe UI, системный размер) ===
+    {
+        NONCLIENTMETRICS ncm = {};
+        ncm.cbSize = sizeof(ncm);
+        if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0)) {
+            hAppFont = CreateFontIndirect(&ncm.lfMessageFont);
+        }
+        if (!hAppFont) {
+            hAppFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        }
+    }
+    // === Жирный вариант единого шрифта (для акцентных контролов) ===
+    {
+        LOGFONT lfBold = {};
+        if (hAppFont && GetObject(hAppFont, sizeof(lfBold), &lfBold)) {
+            lfBold.lfWeight = FW_SEMIBOLD;
+            hAppFontBold = CreateFontIndirect(&lfBold);
+        }
+        if (!hAppFontBold) {
+            hAppFontBold = hAppFont;
+        }
+    }
+
     // Создание чекбокса Dual Mode (Двойной режим)
     hDualModeCheck = CreateWindow(L"BUTTON", L"\x0414\x0432\x043E\x0439\x043D\x043E\x0439 \x0440\x0435\x0436\x0438\x043C", 
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
@@ -267,12 +298,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart1YZoomLabel = CreateWindow(L"STATIC", L"Zoom \x043E\x0441\x0438 Y:",
         WS_CHILD | SS_RIGHT,
         0, 0, 75, 18, hWnd, (HMENU)IDC_CHART1_YZOOM_LABEL, hInst, NULL);
-    SendMessage(hChart1YZoomLabel, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-
     hChart1YZoomTargetCombo = CreateWindow(L"COMBOBOX", L"",
         WS_CHILD | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
         0, 0, 120, 100, hWnd, (HMENU)IDC_CHART1_YZOOM_TARGET_COMBO, hInst, NULL);
-    SendMessage(hChart1YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
     SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x0434\x0432\x0443\x043C \x043E\x0441\x044F\x043C");
     SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043B\x0435\x0432\x043E\x0439 \x043E\x0441\x0438");
     SendMessage(hChart1YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043F\x0440\x0430\x0432\x043E\x0439 \x043E\x0441\x0438");
@@ -287,7 +315,6 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
         0, 0, 128, 18, hWnd, (HMENU)IDC_CHART1_SHOW_NOTES_CHECK, hInst, NULL);
     SendMessage(hChart1ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
-    SendMessage(hChart1ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
 
     // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
@@ -382,12 +409,9 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     hChart2YZoomLabel = CreateWindow(L"STATIC", L"Zoom \x043E\x0441\x0438 Y:",
         WS_CHILD | SS_RIGHT,
         0, 0, 75, 18, hWnd, (HMENU)IDC_CHART2_YZOOM_LABEL, hInst, NULL);
-    SendMessage(hChart2YZoomLabel, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
-
     hChart2YZoomTargetCombo = CreateWindow(L"COMBOBOX", L"",
         WS_CHILD | CBS_DROPDOWNLIST | CBS_HASSTRINGS,
         0, 0, 120, 100, hWnd, (HMENU)IDC_CHART2_YZOOM_TARGET_COMBO, hInst, NULL);
-    SendMessage(hChart2YZoomTargetCombo, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
     SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x0434\x0432\x0443\x043C \x043E\x0441\x044F\x043C");
     SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043B\x0435\x0432\x043E\x0439 \x043E\x0441\x0438");
     SendMessage(hChart2YZoomTargetCombo, CB_ADDSTRING, 0, (LPARAM)L"\x041F\x043E \x043F\x0440\u0430\x0432\x043E\x0439 \x043E\x0441\x0438");
@@ -402,7 +426,6 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | BS_AUTOCHECKBOX,
         0, 0, 128, 18, hWnd, (HMENU)IDC_CHART2_SHOW_NOTES_CHECK, hInst, NULL);
     SendMessage(hChart2ShowNotesCheck, BM_SETCHECK, BST_CHECKED, 0);
-    SendMessage(hChart2ShowNotesCheck, WM_SETFONT, (WPARAM)GetStockObject(DEFAULT_GUI_FONT), TRUE);
 
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
@@ -488,6 +511,48 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Tooltip для иконки перекрестия (клик сбрасывает перекрестие на графике)
     CreateTooltip(hWnd, hCursor1Icon, L"Clear crosshair");
     CreateTooltip(hWnd, hCursor2Icon, L"Clear crosshair");
+
+    // === Применяем единый шрифт ко ВСЕМ контролам главного окна ===
+    {
+        const HWND allControls[] = {
+            hDualModeCheck,
+            hChart1SchematicBtn, hChart2SchematicBtn,
+            hXRangeFromEdit, hXRangeToLabel, hXRangeToEdit,
+            hXRangeApplyBtn, hXRangeResetBtn,
+            hSaveRange1Btn, hCutRange1Btn,
+            hResetZoom1Btn, hResetZoom2Btn,
+            hXRange2FromEdit, hXRange2ToLabel, hXRange2ToEdit,
+            hXRange2ApplyBtn, hXRange2ResetBtn,
+            hChart1SurfCheck, hChart1SurfEdit,
+            hChart2SurfCheck, hChart2SurfEdit,
+            hChart1HUndoBtn, hChart1VUndoBtn,
+            hChart2HUndoBtn, hChart2VUndoBtn,
+            hChart1YZoomLabel, hChart1YZoomTargetCombo,
+            hChart2YZoomLabel, hChart2YZoomTargetCombo,
+            hChart1UndoZoomBtn, hChart2UndoZoomBtn,
+            hChart1ShowNotesCheck, hChart2ShowNotesCheck,
+            hCursor1XEdit, hCursor1Separator, hCursor1Y1Edit,
+            hCursor1Y2Separator, hCursor1Y2Edit,
+            hCursor2XEdit, hCursor2Separator, hCursor2Y1Edit,
+            hCursor2Y2Separator, hCursor2Y2Edit,
+            hPollingToggleBtn, hConnectToggleBtn,
+        };
+        for (HWND hCtrl : allControls) {
+            if (hCtrl) SendMessage(hCtrl, WM_SETFONT, (WPARAM)hAppFont, TRUE);
+        }
+    }
+
+    // === Жирный шрифт для акцентных контролов ===
+    {
+        const HWND boldControls[] = {
+            hDualModeCheck,
+            hChart1SchematicBtn, hChart2SchematicBtn,
+            hChart1SurfCheck, hChart2SurfCheck,
+        };
+        for (HWND hCtrl : boldControls) {
+            if (hCtrl) SendMessage(hCtrl, WM_SETFONT, (WPARAM)hAppFontBold, TRUE);
+        }
+    }
 
     // Инициализируем "пустое" состояние координат
     ClearClickCoordinates(1);
@@ -1924,10 +1989,17 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
         int offsetX = (state & ODS_SELECTED) ? 1 : 0;
         int offsetY = (state & ODS_SELECTED) ? 1 : 0;
         
-        // Текст ("Подключить" или "Отключить")
-        HFONT hTextFont = CreateFont(13, 0, 0, 0, FW_SEMIBOLD, FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, CLEARTYPE_QUALITY,
-            DEFAULT_PITCH | FF_DONTCARE, L"Segoe UI");
+        // Текст ("Подключить" или "Отключить") — на базе единого шрифта, полужирный
+        LOGFONT lfBtn = {};
+        if (hAppFont && GetObject(hAppFont, sizeof(lfBtn), &lfBtn)) {
+            lfBtn.lfWeight = FW_SEMIBOLD;
+        } else {
+            wcscpy_s(lfBtn.lfFaceName, L"Segoe UI");
+            lfBtn.lfHeight = 13;
+            lfBtn.lfWeight = FW_SEMIBOLD;
+            lfBtn.lfQuality = CLEARTYPE_QUALITY;
+        }
+        HFONT hTextFont = CreateFontIndirect(&lfBtn);
         HFONT hOldFont = (HFONT)SelectObject(hdc, hTextFont);
         
         RECT textRect = rc;
@@ -2091,19 +2163,17 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
         iconRect.top += offsetY;
         DrawText(hdc, iconText, -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
         
-        // Создаём шрифт для текста "Zoom" — жирный, как у других элементов панели
-        HFONT hTextFont = CreateFont(
-            15,                        // Высота шрифта (как у стандартных кнопок)
-            0, 0, 0,
-            FW_SEMIBOLD,               // Полужирный — как у стандартных элементов
-            FALSE, FALSE, FALSE,
-            DEFAULT_CHARSET,
-            OUT_DEFAULT_PRECIS,
-            CLIP_DEFAULT_PRECIS,
-            CLEARTYPE_QUALITY,
-            DEFAULT_PITCH | FF_DONTCARE,
-            L"Segoe UI"
-        );
+        // Текст "Zoom" — на базе единого шрифта приложения, полужирный
+        LOGFONT lfZoom = {};
+        if (hAppFont && GetObject(hAppFont, sizeof(lfZoom), &lfZoom)) {
+            lfZoom.lfWeight = FW_SEMIBOLD;
+        } else {
+            wcscpy_s(lfZoom.lfFaceName, L"Segoe UI");
+            lfZoom.lfHeight = 15;
+            lfZoom.lfWeight = FW_SEMIBOLD;
+            lfZoom.lfQuality = CLEARTYPE_QUALITY;
+        }
+        HFONT hTextFont = CreateFontIndirect(&lfZoom);
         SelectObject(hdc, hTextFont);
         
         RECT textRect = rc;

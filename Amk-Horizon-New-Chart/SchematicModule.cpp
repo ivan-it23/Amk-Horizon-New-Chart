@@ -748,18 +748,25 @@ void SchematicModule::DrawElement(HDC hdc, const RECT& elementRect, ElementType 
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, isSupportedElement ? kText : RGB(95, 95, 95));
 
-    // Жирный системный шрифт (чтобы метки T1–T5/R1–R2 выделялись).
+    // Жирный шрифт на базе системного Segoe UI (чтобы метки T1–T5/R1–R2 выделялись).
     static HFONT s_boldGuiFont = nullptr;
     if (!s_boldGuiFont) {
         LOGFONT lf = {};
-        HFONT base = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
-        if (base && GetObject(base, sizeof(lf), &lf) == sizeof(lf)) {
-            lf.lfWeight = FW_BOLD;
-            s_boldGuiFont = CreateFontIndirect(&lf);
+        NONCLIENTMETRICS ncm = {};
+        ncm.cbSize = sizeof(ncm);
+        bool gotFont = false;
+        if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0)) {
+            lf = ncm.lfMessageFont;
+            gotFont = true;
         }
-        // Fallback: если не смогли получить LOGFONT — используем обычный GUI font
+        if (!gotFont) {
+            HFONT base = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+            if (base) GetObject(base, sizeof(lf), &lf);
+        }
+        lf.lfWeight = FW_BOLD;
+        s_boldGuiFont = CreateFontIndirect(&lf);
         if (!s_boldGuiFont) {
-            s_boldGuiFont = base;
+            s_boldGuiFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
         }
     }
 
@@ -2091,10 +2098,18 @@ void SchematicModule::DrawSchematicConnections(HDC hdc, const RECT& rect) {
 
 
 void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
-    // Устанавливаем шрифт для подписей
-    HFONT labelFont = CreateFont(12, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
-                                DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                DEFAULT_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+    // Устанавливаем единый шрифт для подписей
+    LOGFONT lfLabel = {};
+    NONCLIENTMETRICS ncmLabel = {};
+    ncmLabel.cbSize = sizeof(ncmLabel);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncmLabel), &ncmLabel, 0)) {
+        lfLabel = ncmLabel.lfMessageFont;
+    } else {
+        wcscpy_s(lfLabel.lfFaceName, L"Segoe UI");
+        lfLabel.lfHeight = 12;
+        lfLabel.lfQuality = CLEARTYPE_QUALITY;
+    }
+    HFONT labelFont = CreateFontIndirect(&lfLabel);
     HFONT oldFont = (HFONT)SelectObject(hdc, labelFont);
     
     SetTextColor(hdc, RGB(80, 80, 80));

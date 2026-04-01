@@ -262,9 +262,36 @@ const COLORREF ChartModule::CHANNEL_COLORS[UIModule::UI_TRANSMITTER_COUNT] = {
 };
 
 ChartModule::ChartModule() {
+    NONCLIENTMETRICS ncm = {};
+    ncm.cbSize = sizeof(ncm);
+    if (SystemParametersInfo(SPI_GETNONCLIENTMETRICS, sizeof(ncm), &ncm, 0)) {
+        hDrawFont = CreateFontIndirect(&ncm.lfMessageFont);
+    }
+    if (!hDrawFont) {
+        hDrawFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    }
+    // Жирный вариант для подписей осей
+    {
+        LOGFONT lfBold = {};
+        if (hDrawFont && GetObject(hDrawFont, sizeof(lfBold), &lfBold)) {
+            lfBold.lfWeight = FW_SEMIBOLD;
+            hDrawFontBold = CreateFontIndirect(&lfBold);
+        }
+        if (!hDrawFontBold) {
+            hDrawFontBold = hDrawFont;
+        }
+    }
 }
 
 ChartModule::~ChartModule() {
+    if (hDrawFontBold && hDrawFontBold != hDrawFont) {
+        DeleteObject(hDrawFontBold);
+        hDrawFontBold = nullptr;
+    }
+    if (hDrawFont) {
+        DeleteObject(hDrawFont);
+        hDrawFont = nullptr;
+    }
 }
 
 namespace {
@@ -734,7 +761,7 @@ void ChartModule::DrawChartBorder(HDC hdc, const RECT& rect) const {
 }
 
 void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& title) const {
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
@@ -743,7 +770,7 @@ void ChartModule::DrawChartTitle(HDC hdc, const RECT& rect, const std::wstring& 
 }
 
 void ChartModule::DrawNoDataMessage(HDC hdc, const RECT& rect, const std::wstring& message) const {
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetTextColor(hdc, RGB(100, 100, 100));
     SetBkMode(hdc, TRANSPARENT);
@@ -869,7 +896,7 @@ void ChartModule::DrawChartLegend(HDC hdc, const RECT& rect, const std::vector<s
     int elementSpacing = 15;      // Промежуток между элементами легенды
     int lineHeight = 20;          // Высота строки легенды
     
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
     SetTextColor(hdc, kText);
@@ -976,7 +1003,7 @@ int ChartModule::HitTestLegendCheckbox(const RECT& chartRect, const POINT& pt, D
     
     // Создаем временный DC для вычисления размеров текста
     HDC hdc = GetDC(NULL);
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     
     // Вычисляем ширину каждого элемента и общую ширину
@@ -1075,6 +1102,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     const int TICK_LENGTH = 5;
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
     
     // Отрисовка горизонтальных линий сетки и меток Y-оси
     double niceStepY = CalculateNiceStep(maxVal - minVal, (plotRect.bottom - plotRect.top) / 40); // Примерное количество шагов
@@ -1170,6 +1198,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
             currentXVal += niceStepX;
         }
         
+        if (hOldFont) SelectObject(hdc, hOldFont);
         // Рисуем ось X (не утолщаем: при плотных данных толстая ось визуально давит)
         HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
         HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
@@ -1712,6 +1741,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
     
     // Отслеживание уже отрисованных целых значений для предотвращения дубликатов
     std::set<int> drawnLabels;
@@ -1757,6 +1787,7 @@ void ChartModule::DrawDualAxisGrid(HDC hdc, const RECT& plotRect,
         currentXVal += niceStepX;
     }
     
+    if (hOldFont) SelectObject(hdc, hOldFont);
     // Рисуем ось X (без утолщения)
     HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldAxisPen = (HPEN)SelectObject(hdc, hAxisPen);
@@ -1780,6 +1811,7 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
 
     // Рисуем левую ось (тонко и ненавязчиво)
     HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
@@ -1839,6 +1871,7 @@ void ChartModule::DrawLeftAxis(HDC hdc, const RECT& plotRect,
         std::wstring wunits(units.begin(), units.end());
         TextOut(hdc, plotRect.left - 45, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
+    if (hOldFont) SelectObject(hdc, hOldFont);
 }
 
 void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect, 
@@ -1858,6 +1891,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
 
     HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
@@ -1909,6 +1943,7 @@ void ChartModule::DrawRightAxis(HDC hdc, const RECT& plotRect,
         std::wstring wunits(units.begin(), units.end());
         TextOut(hdc, rightAxisX + TICK_LENGTH + 2, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
+    if (hOldFont) SelectObject(hdc, hOldFont);
 }
 
 void ChartModule::DrawDualAxisData(HDC hdc, const RECT& plotRect,
@@ -2158,7 +2193,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int lineHeight = 20;
     int separatorSpacing = 25; // Дополнительный отступ для разделителя
     
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
     
@@ -2467,7 +2502,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
         const int elementSpacing = 15;
         const int lineHeight = 20;
 
-        HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+        HFONT hFont = hDrawFont;
         HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
         SetBkMode(hdc, TRANSPARENT);
 
@@ -2590,7 +2625,7 @@ void ChartModule::DrawDualAxisLegend(HDC hdc, const RECT& rect,
     int elementSpacing = 15;
     int lineHeight = 20;
     
-    HFONT hFont = (HFONT)GetStockObject(DEFAULT_GUI_FONT);
+    HFONT hFont = hDrawFont;
     HFONT hOldFont = (HFONT)SelectObject(hdc, hFont);
     SetBkMode(hdc, TRANSPARENT);
     
@@ -2889,6 +2924,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     // Рисуем сетку (мягкая, ненавязчивая)
     HPEN hGridPen = CreatePen(PS_SOLID, 1, kGridMajor);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
     
     // Вертикальные линии сетки (по температуре)
     int numVerticalLines = 10;
@@ -2958,6 +2994,7 @@ void ChartModule::DrawGridAndAxes(HDC hdc, const RECT& plotRect, const std::vect
     int xLabelX = plotRect.right - xLabelSize.cx - 5; // Справа с отступом 5px
     int xLabelY = plotRect.bottom + 25; // Ниже числовых значений (5 + 20 отступ)
     TextOut(hdc, xLabelX, xLabelY, xAxisLabel, (int)wcslen(xAxisLabel));
+    if (hOldFont) SelectObject(hdc, hOldFont);
 }
 
 
@@ -3115,6 +3152,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     // Рисуем сетку (мягкая, ненавязчивая)
     HPEN hGridPen = CreatePen(PS_SOLID, 1, kGridMajor);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hGridPen);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
     
     // Вертикальные линии сетки (по температуре)
     int numVerticalLines = 10;
@@ -3191,6 +3229,7 @@ void ChartModule::DrawDualAxisGridWithTemperature(HDC hdc, const RECT& plotRect,
     
     SelectObject(hdc, hOldPen);
     DeleteObject(hGridPen);
+    if (hOldFont) SelectObject(hdc, hOldFont);
     
     // Рисуем ось X (без утолщения)
     HPEN hAxisPen = CreatePen(PS_SOLID, 1, kAxis);
@@ -3213,6 +3252,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
 
     // Рисуем левую ось
     HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
@@ -3270,6 +3310,7 @@ void ChartModule::DrawLeftAxisWithZoom(HDC hdc, const RECT& plotRect,
         std::wstring wunits(units.begin(), units.end());
         TextOut(hdc, plotRect.left - 45, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
+    if (hOldFont) SelectObject(hdc, hOldFont);
 }
 
 void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
@@ -3287,6 +3328,7 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
     
     SetTextColor(hdc, kText);
     SetBkMode(hdc, TRANSPARENT);
+    HFONT hOldFont = hDrawFontBold ? (HFONT)SelectObject(hdc, hDrawFontBold) : nullptr;
 
     HPEN hPen = CreatePen(PS_SOLID, 1, kAxis);
     HPEN hOldPen = (HPEN)SelectObject(hdc, hPen);
@@ -3338,6 +3380,7 @@ void ChartModule::DrawRightAxisWithZoom(HDC hdc, const RECT& plotRect,
         std::wstring wunits(units.begin(), units.end());
         TextOut(hdc, rightAxisX + TICK_LENGTH + 2, plotRect.top - 20, wunits.c_str(), (int)wunits.length());
     }
+    if (hOldFont) SelectObject(hdc, hOldFont);
 }
 
 void ChartModule::DrawDualAxisDataWithTemperatureAndZoom(HDC hdc, const RECT& plotRect,
