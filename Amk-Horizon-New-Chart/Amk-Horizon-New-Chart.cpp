@@ -5,6 +5,9 @@
 #include "Amk-Horizon-New-Chart.h"
 #include "SerialModule.h"  // v2.13.0: Для IDT_SERIAL_POLL
 #include "MetrologyModule.h"
+#include "DeviceExchangeLog.h"
+#include "DeviceLogPanel.h"
+#include "resource.h"
 #include <algorithm>
 #include <fstream>
 #include <sstream>
@@ -1554,6 +1557,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         return 0;
 
+    case WM_APP_DEVICE_LOG_REFRESH:
+        DeviceLogPanel_OnRefresh(hWnd);
+        return 0;
+
     case WM_COMMAND:
         {
             int wmId = LOWORD(wParam);
@@ -1654,6 +1661,13 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             case IDM_RETURN_TO_COM:
                 if (g_chartManager && g_chartManager->IsComRecordingInBackground()) {
                     g_chartManager->ReturnToComLive(hWnd);
+                }
+                break;
+
+            case IDM_DEVICE_LOG:
+                DeviceLogPanel_Toggle(hWnd);
+                if (g_chartManager) {
+                    g_chartManager->UpdateLayout(hWnd);
                 }
                 break;
 
@@ -1758,6 +1772,19 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
 
             // === Кнопка-переключатель Подключить/Отключить/→К прибору ===
+            case IDC_DEVICE_LOG_EXPAND:
+                if (HIWORD(wParam) == BN_CLICKED) {
+                    DeviceLogPanel_OnExpandCommand();
+                }
+                break;
+
+            case IDC_DEVICE_LOG_CLEAR:
+                if (HIWORD(wParam) == BN_CLICKED) {
+                    DeviceExchangeLogClear();
+                    DeviceLogPanel_OnRefresh(hWnd);
+                }
+                break;
+
             case IDC_CONNECT_TOGGLE_BTN:
                 if (g_chartManager)
                 {
@@ -2002,6 +2029,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_DESTROY:
+        DeviceLogPanel_Shutdown(hWnd);
         g_hMetrologyDialog = nullptr;
         if (g_chartManager)
         {

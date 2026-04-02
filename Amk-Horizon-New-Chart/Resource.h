@@ -186,6 +186,15 @@
 // Сообщение главному окну: открыть в проводнике папку текущего файла данных (клик по иконке в статусной строке)
 #define WM_APP_OPEN_CURRENT_FILE_FOLDER  (WM_APP + 28)
 
+// Журнал обмена с прибором (немодальная панель + развёрнутое окно)
+#define WM_APP_DEVICE_LOG_REFRESH (WM_APP + 36)
+#define IDM_DEVICE_LOG               1121
+#define IDC_DEVICE_LOG_EXPAND      1122
+#define IDC_DEVICE_LOG_CLEAR       1123
+#define IDC_DEVICE_LOG_EDIT        1124
+#define IDC_DEVICE_LOG_EDIT_EXPANDED 1125
+#define IDC_DEVICE_LOG_COLLAPSE    1126
+
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092
 

@@ -164,6 +164,8 @@
     <ClInclude Include="ChartModule.h" />
     <ClInclude Include="CurveSelectionModule.h" />
     <ClInclude Include="DataModule.h" />
+    <ClInclude Include="DeviceExchangeLog.h" />
+    <ClInclude Include="DeviceLogPanel.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LayoutModule.h" />
     <ClInclude Include="MetrologyModule.h" />
@@ -183,6 +185,8 @@
     <ClCompile Include="ChartModule.cpp" />
     <ClCompile Include="CurveSelectionModule.cpp" />
     <ClCompile Include="DataModule.cpp" />
+    <ClCompile Include="DeviceExchangeLog.cpp" />
+    <ClCompile Include="DeviceLogPanel.cpp" />
     <ClCompile Include="LayoutModule.cpp" />
     <ClCompile Include="NotesModule.cpp" />
     <ClCompile Include="SchematicModule.cpp" />

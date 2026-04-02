@@ -1,5 +1,7 @@
-#include "framework.h"
+﻿#include "framework.h"
 #include "ChartManager.h"
+#include "DeviceExchangeLog.h"
+#include "DeviceLogPanel.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
 #include <shellapi.h>
@@ -1542,6 +1544,10 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
             MessageBox(hWnd, error.c_str(), L"Ошибка COM-порта", MB_OK | MB_ICONERROR);
         }
     });
+
+    DeviceExchangeLogInit();
+    DeviceExchangeLogSetMainWindow(hWnd);
+    DeviceLogPanel_Init(hWnd, hInst);
 }
 
 void ChartManager::UpdateLayout(HWND hWnd)
@@ -1591,6 +1597,8 @@ void ChartManager::UpdateLayout(HWND hWnd)
     
     // Высота статусной строки
     uiModule->ResizeStatusBar();
+
+    DeviceLogPanel_UpdateLayout(hWnd, uiModule.get(), layoutModule.get());
 }
 
 void ChartManager::ToggleDualMode()

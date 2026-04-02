@@ -1,4 +1,5 @@
 #include "SerialModule.h"
+#include "DeviceExchangeLog.h"
 #include "ToolDataAccess.h"
 #include "ToolDataAdapters.h"
 #include <shellapi.h>   // Для ShellExecuteW
@@ -492,14 +493,17 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
         DWORD winError = ::GetLastError();  // Явно вызываем Windows API
         if (winError == ERROR_FILE_NOT_FOUND) {
             SetState(ConnectionState::CONNECTION_ERROR, L"COM-порт не найден: " + port);
+            DeviceExchangeLogAppend(L"COM: порт не найден");
             return SerialResult::PORT_NOT_FOUND;
         }
         else if (winError == ERROR_ACCESS_DENIED) {
             SetState(ConnectionState::CONNECTION_ERROR, L"COM-порт занят: " + port);
+            DeviceExchangeLogAppend(L"COM: порт занят");
             return SerialResult::PORT_BUSY;
         }
         else {
             SetState(ConnectionState::CONNECTION_ERROR, L"Ошибка открытия порта: " + std::to_wstring(winError));
+            DeviceExchangeLogAppend(L"COM: ошибка открытия порта");
             return SerialResult::CONNECTION_FAILED;
         }
     }
@@ -509,6 +513,7 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
         CloseHandle(hSerial);
         hSerial = INVALID_HANDLE_VALUE;
         SetState(ConnectionState::CONNECTION_ERROR, setupError);
+        DeviceExchangeLogAppend(L"COM: ошибка настройки порта");
         return SerialResult::CONNECTION_FAILED;
     }
     
@@ -521,7 +526,8 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
     
     SetState(ConnectionState::CONNECTED);
     ResetStatistics();
-    
+
+    DeviceExchangeLogAppendFormatted(L"COM: подключено %s, %u бод", port.c_str(), static_cast<unsigned>(baud));
     return SerialResult::SUCCESS;
 }
 
@@ -533,7 +539,8 @@ void SerialModule::Disconnect() {
         CloseHandle(hSerial);
         hSerial = INVALID_HANDLE_VALUE;
     }
-    
+
+    DeviceExchangeLogAppend(L"COM: отключено");
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
     connectionSessionId = 0;
@@ -905,24 +912,30 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         PurgeBuffers();
 
         if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
+            DeviceExchangeLogAppend(L"Запрос кадра (modern): ошибка отправки CMD_DATA");
             return SerialResult::CONNECTION_FAILED;
         }
 
         uint8_t cmd = 0;
         std::vector<uint8_t> payload;
         if (!ReceivePacket(cmd, payload)) {
+            DeviceExchangeLogAppend(L"Запрос кадра (modern): нет ответа");
             return SerialResult::TIMEOUT;
         }
 
         if (cmd != SerialCommands::CMD_DATA) {
+            DeviceExchangeLogAppendFormatted(L"Запрос кадра (modern): неверная команда ответа 0x%02X", cmd);
             return SerialResult::INVALID_RESPONSE;
         }
 
         if (payload.size() != sizeof(GP_TOOL_DATA)) {
+            DeviceExchangeLogAppendFormatted(L"Запрос кадра (modern): размер payload %zu (ожид. 240)",
+                payload.size());
             return SerialResult::INVALID_RESPONSE;
         }
 
         if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
+            DeviceExchangeLogAppend(L"Запрос кадра (modern): разбор кадра не удался (сигнатура?)");
             return SerialResult::INVALID_SIGNATURE;
         }
 
@@ -930,6 +943,11 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         if (outRawPayload) {
             *outRawPayload = payload;
         }
+
+        DeviceExchangeLogAppendFormatted(L"Кадр: OK frame=%u sig=0x%08X T=%.1f°C",
+            outParsedFrame.canonicalData.frame,
+            outParsedFrame.canonicalData.signature,
+            static_cast<double>(outParsedFrame.canonicalData.temperature));
 
         return SerialResult::SUCCESS;
     };
@@ -1052,6 +1070,9 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
         memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
         hasMetrology = true;
         HandleMetrologyUpdated();
+
+        DeviceExchangeLogAppendFormatted(L"Метрология: получено sig=0x%08X, serial=%u",
+            data.signature, static_cast<unsigned>(data.serial));
 
         if (onMetrologyReceived) {
             onMetrologyReceived(outData);
@@ -1646,11 +1667,11 @@ bool SerialModule::SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLen
     packet[4 + dataLength] = static_cast<uint8_t>(crc >> 8);
 
     DWORD bytesWritten = 0;
-    if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr)) {
-        return false;
-    }
-
-    return bytesWritten == packet.size();
+    const bool ok = WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr)
+        && bytesWritten == packet.size();
+    DeviceExchangeLogAppendFormatted(L"TX: CMD=0x%02X, пакет %zu B — %s",
+        cmd, packet.size(), ok ? L"OK" : L"ошибка записи");
+    return ok;
 }
 
 bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPayload) {
@@ -1658,6 +1679,7 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     outCmd = 0;
 
     if (hSerial == INVALID_HANDLE_VALUE) {
+        DeviceExchangeLogAppend(L"RX: порт не открыт");
         return false;
     }
 
@@ -1666,9 +1688,11 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     while (headerRead < sizeof(header)) {
         DWORD chunk = 0;
         if (!ReadFile(hSerial, header + headerRead, static_cast<DWORD>(sizeof(header) - headerRead), &chunk, nullptr)) {
+            DeviceExchangeLogAppend(L"RX: ошибка чтения заголовка");
             return false;
         }
         if (chunk == 0) {
+            DeviceExchangeLogAppend(L"RX: нет данных (заголовок)");
             return false;
         }
         headerRead += chunk;
@@ -1676,6 +1700,7 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
 
     const uint16_t totalLen = static_cast<uint16_t>(header[1] | (static_cast<uint16_t>(header[2]) << 8));
     if (totalLen < 5 || totalLen > 4096) {
+        DeviceExchangeLogAppendFormatted(L"RX: некорректная длина пакета (%u)", static_cast<unsigned>(totalLen));
         return false;
     }
 
@@ -1693,15 +1718,18 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     while (totalRead < remaining) {
         DWORD chunk = 0;
         if (!ReadFile(hSerial, packet.data() + 3 + totalRead, static_cast<DWORD>(remaining - totalRead), &chunk, nullptr)) {
+            DeviceExchangeLogAppend(L"RX: ошибка чтения полезной нагрузки");
             return false;
         }
         if (chunk == 0) {
+            DeviceExchangeLogAppend(L"RX: обрыв данных");
             return false;
         }
         totalRead += chunk;
     }
 
     if (!ValidateCRC(packet.data(), packet.size())) {
+        DeviceExchangeLogAppend(L"RX: ошибка CRC16");
         return false;
     }
 
@@ -1711,6 +1739,7 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     if (payloadLen > 0) {
         memcpy(outPayload.data(), packet.data() + 3, payloadLen);
     }
+    DeviceExchangeLogAppendFormatted(L"RX: CMD=0x%02X, полезная нагрузка %zu B, CRC OK", outCmd, payloadLen);
     return true;
 }
 

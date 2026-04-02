@@ -53,6 +53,8 @@ BEGIN
         MENUITEM "&Журнал заметок текущего файла...", IDM_NOTES_JOURNAL
     END
 
+    MENUITEM "&Логи",                        IDM_DEVICE_LOG
+
     POPUP "&Справка"
     BEGIN
         MENUITEM "&О программе...",           IDM_ABOUT

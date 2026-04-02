@@ -193,6 +193,7 @@ public:
     bool IsPollingToggleActive() const { return pollingToggleActive; }
     void UpdateConnectToggleState(bool connected, bool hasAvailablePorts);
     HWND GetConnectToggleBtn() const { return hConnectToggleBtn; }
+    HWND GetChart1CursorIconHwnd() const { return hCursor1Icon; }
     bool IsConnectToggleActive() const { return connectToggleActive; }
     bool IsConnectToggleReturnMode() const { return connectToggleReturnMode; }
     void SetConnectToggleReturnMode(bool returnMode);
