@@ -526,6 +526,7 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
     
     SetState(ConnectionState::CONNECTED);
     ResetStatistics();
+    loggedDeviceIdentityToExchangeLog = false;
 
     DeviceExchangeLogAppendFormatted(L"COM: подключено %s, %u бод", port.c_str(), static_cast<unsigned>(baud));
     return SerialResult::SUCCESS;
@@ -544,6 +545,7 @@ void SerialModule::Disconnect() {
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
     connectionSessionId = 0;
+    loggedDeviceIdentityToExchangeLog = false;
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
     protocolMode = DeviceProtocolMode::UNKNOWN;
@@ -944,15 +946,17 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
             *outRawPayload = payload;
         }
 
-        DeviceExchangeLogAppendFormatted(L"Кадр: OK frame=%u sig=0x%08X T=%.1f°C",
-            outParsedFrame.canonicalData.frame,
+        DeviceExchangeLogAppendFormatted(
+            L"Кадр: OK signature=0x%08X condition=0x%08X frame=%u T=%.1f°C",
             outParsedFrame.canonicalData.signature,
+            outParsedFrame.canonicalData.condition,
+            outParsedFrame.canonicalData.frame,
             static_cast<double>(outParsedFrame.canonicalData.temperature));
 
         return SerialResult::SUCCESS;
     };
 
-    auto requestLegacyData = [this, &tryStoreParsedFrame]() -> SerialResult {
+    auto requestLegacyData = [this, &tryStoreParsedFrame, &outParsedFrame]() -> SerialResult {
         PurgeBuffers();
 
         // Формат запроса данных: [CMD=0x67][0x00][0x04][0xF0][CRC16:2] = 6 байт
@@ -999,6 +1003,12 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
                 memcpy(&sig, legacyResponse.data() + offset, sizeof(sig));
                 DebugLog4Tx("requestLegacyData: SUCCESS at offset=%zu, signature=0x%08X",
                              offset, sig);
+                DeviceExchangeLogAppendFormatted(
+                    L"Кадр: OK signature=0x%08X condition=0x%08X frame=%u T=%.1f°C",
+                    outParsedFrame.canonicalData.signature,
+                    outParsedFrame.canonicalData.condition,
+                    outParsedFrame.canonicalData.frame,
+                    static_cast<double>(outParsedFrame.canonicalData.temperature));
                 return SerialResult::SUCCESS;
             }
         }
@@ -1073,6 +1083,11 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
 
         DeviceExchangeLogAppendFormatted(L"Метрология: получено sig=0x%08X, serial=%u",
             data.signature, static_cast<unsigned>(data.serial));
+
+        if (!loggedDeviceIdentityToExchangeLog) {
+            DeviceExchangeLogAppendDeviceIdentity(data.signature, data.serial);
+            loggedDeviceIdentityToExchangeLog = true;
+        }
 
         if (onMetrologyReceived) {
             onMetrologyReceived(outData);

@@ -7,6 +7,12 @@
 #include <algorithm>
 #include <commctrl.h>
 #include <string>
+#include <vector>
+
+#ifndef _RICHEDIT_VER
+#define _RICHEDIT_VER 0x0500
+#endif
+#include <richedit.h>
 
 static constexpr wchar_t kExpandedClassName[] = L"AmkHorizonDeviceLogExpandedFrame";
 
@@ -28,8 +34,98 @@ static bool g_expandedVisible = false;
 
 static bool g_classesRegistered = false;
 
+static HMODULE g_hMsftedit = nullptr;
+static bool g_dockUsesRichEdit = false;
+static bool g_expandedUsesRichEdit = false;
+
 // Последний текст, уже отданный полям EDIT; для чистого «дописывания в конец» без SetWindowText (без сброса прокрутки).
 static std::wstring g_lastSyncedLogText;
+// Число строк лога после последнего синка (для Rich Edit: дописывание только если новые строки без bold).
+static size_t g_lastSyncedLineCount = 0;
+// Первый RefreshBothEdits вызывается до нормального размера панели (хост 10×10) — после UpdateLayout прокручиваем вниз один раз.
+static bool g_forceDockScrollToBottomOnce = false;
+
+static bool EnsureMsfteditLoaded() {
+    if (g_hMsftedit) {
+        return true;
+    }
+    g_hMsftedit = LoadLibraryW(L"Msftedit.dll");
+    return g_hMsftedit != nullptr;
+}
+
+static HWND CreateLogEditChild(HWND parent, int controlId, bool* outUsesRichEdit) {
+    *outUsesRichEdit = false;
+    const HMENU id = reinterpret_cast<HMENU>(static_cast<INT_PTR>(controlId));
+    if (EnsureMsfteditLoaded()) {
+        HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, L"RichEdit50W", L"",
+            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_AUTOVSCROLL,
+            0, 0, 1, 1, parent, id, g_hInst, nullptr);
+        if (h && IsWindow(h)) {
+            SendMessageW(h, EM_SETREADONLY, TRUE, 0);
+            SendMessageW(h, EM_SETLIMITTEXT, 1024 * 1024, 0);
+            HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+            SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+            *outUsesRichEdit = true;
+            return h;
+        }
+    }
+    HWND h = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_WANTRETURN,
+        0, 0, 1, 1, parent, id, g_hInst, nullptr);
+    if (h) {
+        SendMessageW(h, EM_SETLIMITTEXT, 1024 * 1024, 0);
+        HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    }
+    return h;
+}
+
+static void EditRedrawEnd(HWND hEdit);
+
+static void RichEditApplyFullLog(HWND hRich, const std::vector<DeviceLogLine>& lines, bool pinBottom, int savedFirstLine) {
+    if (!hRich || !IsWindow(hRich)) {
+        return;
+    }
+    SendMessageW(hRich, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hRich, EM_SETREADONLY, FALSE, 0);
+    SetWindowTextW(hRich, L"");
+
+    CHARFORMAT2W cfBold = {};
+    cfBold.cbSize = sizeof(cfBold);
+    cfBold.dwMask = CFM_BOLD | CFM_WEIGHT;
+    cfBold.dwEffects = CFE_BOLD;
+    cfBold.wWeight = static_cast<WORD>(FW_BOLD);
+    CHARFORMAT2W cfNorm = {};
+    cfNorm.cbSize = sizeof(cfNorm);
+    cfNorm.dwMask = CFM_BOLD | CFM_WEIGHT;
+    cfNorm.dwEffects = 0;
+    cfNorm.wWeight = static_cast<WORD>(FW_NORMAL);
+
+    SendMessageW(hRich, EM_SETSEL, 0, 0);
+    SendMessageW(hRich, EM_SETCHARFORMAT, SCF_ALL, reinterpret_cast<LPARAM>(&cfNorm));
+
+    for (const auto& ln : lines) {
+        const int pos = GetWindowTextLengthW(hRich);
+        SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(pos), static_cast<LPARAM>(pos));
+        SendMessageW(hRich, EM_SETCHARFORMAT, SCF_SELECTION,
+            reinterpret_cast<LPARAM>(ln.bold ? &cfBold : &cfNorm));
+        const std::wstring chunk = ln.text + L"\r\n";
+        SendMessageW(hRich, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(chunk.c_str()));
+    }
+    SendMessageW(hRich, EM_SETREADONLY, TRUE, 0);
+
+    if (pinBottom) {
+        SendMessageW(hRich, WM_VSCROLL, SB_BOTTOM, 0);
+        const int len = GetWindowTextLengthW(hRich);
+        SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+        SendMessageW(hRich, EM_SCROLLCARET, 0, 0);
+    } else if (savedFirstLine > 0) {
+        const int total = static_cast<int>(SendMessageW(hRich, EM_GETLINECOUNT, 0, 0));
+        const int scrollTo = (total > 0) ? (std::min)(savedFirstLine, (std::max)(0, total - 1)) : 0;
+        SendMessageW(hRich, EM_LINESCROLL, 0, scrollTo);
+    }
+    EditRedrawEnd(hRich);
+}
 
 static int EditGetVisibleLineCount(HWND hEdit) {
     RECT rcFmt{};
@@ -52,8 +148,25 @@ static int EditGetVisibleLineCount(HWND hEdit) {
     return 1;
 }
 
-// Пользователь смотрит «хвост» лога: нижняя часть текста в поле видна (как после ручной прокрутки вниз).
+// Пользователь смотрит «хвост» лога: ползунок у нижнего края (GetScrollInfo надёжнее, чем только номер строки).
 static bool EditIsPinnedToBottom(HWND hEdit) {
+    if (!hEdit || !IsWindow(hEdit)) {
+        return true;
+    }
+    SCROLLINFO si = {};
+    si.cbSize = sizeof(SCROLLINFO);
+    si.fMask = SIF_POS | SIF_RANGE | SIF_PAGE;
+    if (GetScrollInfo(hEdit, SB_VERT, &si)) {
+        const int page = static_cast<int>(si.nPage);
+        const int maxRange = static_cast<int>(si.nMax);
+        if (maxRange > 0 && page > 0) {
+            const int maxPos = maxRange - page + 1;
+            if (maxPos > 0) {
+                return static_cast<int>(si.nPos) >= maxPos - 2;
+            }
+            return true;
+        }
+    }
     const int total = static_cast<int>(SendMessageW(hEdit, EM_GETLINECOUNT, 0, 0));
     if (total <= 0) {
         return true;
@@ -66,6 +179,16 @@ static bool EditIsPinnedToBottom(HWND hEdit) {
 static void EditRedrawEnd(HWND hEdit) {
     SendMessageW(hEdit, WM_SETREDRAW, TRUE, 0);
     RedrawWindow(hEdit, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
+}
+
+static void ScrollLogEditToBottom(HWND hEdit) {
+    if (!hEdit || !IsWindow(hEdit)) {
+        return;
+    }
+    SendMessageW(hEdit, WM_VSCROLL, SB_BOTTOM, 0);
+    const int len = GetWindowTextLengthW(hEdit);
+    SendMessageW(hEdit, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+    SendMessageW(hEdit, EM_SCROLLCARET, 0, 0);
 }
 
 // Инкремент допустим только если оба поля уже совпадают с последним синком (иначе, например, пустое развёрнутое окно получило бы только «хвост»).
@@ -123,18 +246,64 @@ static void EditAppendDeltaPinnedBottom(HWND hEdit, const wchar_t* delta) {
     EditRedrawEnd(hEdit);
 }
 
+static void RichEditAppendPlainDeltaPinnedBottom(HWND hRich, const wchar_t* delta) {
+    if (!hRich || !IsWindow(hRich) || !delta || !delta[0]) {
+        return;
+    }
+    CHARFORMAT2W cfNorm = {};
+    cfNorm.cbSize = sizeof(cfNorm);
+    cfNorm.dwMask = CFM_BOLD | CFM_WEIGHT;
+    cfNorm.dwEffects = 0;
+    cfNorm.wWeight = static_cast<WORD>(FW_NORMAL);
+    SendMessageW(hRich, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hRich, EM_SETREADONLY, FALSE, 0);
+    const int len = GetWindowTextLengthW(hRich);
+    SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+    SendMessageW(hRich, EM_SETCHARFORMAT, SCF_SELECTION, reinterpret_cast<LPARAM>(&cfNorm));
+    SendMessageW(hRich, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(delta));
+    SendMessageW(hRich, EM_SETREADONLY, TRUE, 0);
+    SendMessageW(hRich, WM_VSCROLL, SB_BOTTOM, 0);
+    const int len2 = GetWindowTextLengthW(hRich);
+    SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(len2), static_cast<LPARAM>(len2));
+    SendMessageW(hRich, EM_SCROLLCARET, 0, 0);
+    EditRedrawEnd(hRich);
+}
+
 static void RefreshBothEdits() {
     const std::wstring text = DeviceExchangeLogGetFullText();
+    const std::vector<DeviceLogLine> lines = DeviceExchangeLogGetLines();
 
-    const bool canDelta = !g_lastSyncedLogText.empty()
-        && text.size() > g_lastSyncedLogText.size()
-        && text.compare(0, g_lastSyncedLogText.size(), g_lastSyncedLogText) == 0
+    const bool dockRich = g_dockUsesRichEdit && g_hDockEdit && IsWindow(g_hDockEdit);
+    const bool expRich = g_expandedUsesRichEdit && g_hExpandedEdit && IsWindow(g_hExpandedEdit);
+    const bool anyRichEdit = dockRich || expRich;
+
+    const bool textExtends = text.size() > g_lastSyncedLogText.size()
+        && (g_lastSyncedLogText.empty() || text.compare(0, g_lastSyncedLogText.size(), g_lastSyncedLogText) == 0)
         && EditsMatchLastSyncedLength();
 
     const bool dockPin = !g_hDockEdit || !IsWindow(g_hDockEdit) || EditIsPinnedToBottom(g_hDockEdit);
     const bool expPin = !g_hExpandedEdit || !IsWindow(g_hExpandedEdit) || EditIsPinnedToBottom(g_hExpandedEdit);
 
-    if (canDelta && dockPin && expPin) {
+    const int savedDockFirst = (g_hDockEdit && IsWindow(g_hDockEdit))
+        ? static_cast<int>(SendMessageW(g_hDockEdit, EM_GETFIRSTVISIBLELINE, 0, 0))
+        : 0;
+    const int savedExpFirst = (g_hExpandedEdit && IsWindow(g_hExpandedEdit))
+        ? static_cast<int>(SendMessageW(g_hExpandedEdit, EM_GETFIRSTVISIBLELINE, 0, 0))
+        : 0;
+
+    bool richNewLinesArePlainOnly = false;
+    if (textExtends && lines.size() > g_lastSyncedLineCount) {
+        richNewLinesArePlainOnly = true;
+        for (size_t i = g_lastSyncedLineCount; i < lines.size(); ++i) {
+            if (lines[i].bold) {
+                richNewLinesArePlainOnly = false;
+                break;
+            }
+        }
+    }
+
+    // Обычный EDIT: инкремент без полной замены (в т.ч. первое заполнение с пустого).
+    if (!anyRichEdit && textExtends && dockPin && expPin) {
         const std::wstring delta = text.substr(g_lastSyncedLogText.size());
         if (!delta.empty()) {
             if (g_hDockEdit && IsWindow(g_hDockEdit)) {
@@ -145,16 +314,39 @@ static void RefreshBothEdits() {
             }
         }
         g_lastSyncedLogText = text;
+        g_lastSyncedLineCount = lines.size();
         return;
     }
 
-    if (g_hDockEdit && IsWindow(g_hDockEdit)) {
+    // Rich Edit: то же дописывание в конец, если новые строки без жирного (без полной пересборки — скролл не «отпрыгивает»).
+    if (anyRichEdit && textExtends && dockPin && expPin && richNewLinesArePlainOnly && !lines.empty()) {
+        const std::wstring delta = text.substr(g_lastSyncedLogText.size());
+        if (!delta.empty()) {
+            if (dockRich) {
+                RichEditAppendPlainDeltaPinnedBottom(g_hDockEdit, delta.c_str());
+            }
+            if (expRich) {
+                RichEditAppendPlainDeltaPinnedBottom(g_hExpandedEdit, delta.c_str());
+            }
+        }
+        g_lastSyncedLogText = text;
+        g_lastSyncedLineCount = lines.size();
+        return;
+    }
+
+    if (dockRich) {
+        RichEditApplyFullLog(g_hDockEdit, lines, dockPin, savedDockFirst);
+    } else if (g_hDockEdit && IsWindow(g_hDockEdit)) {
         EditApplyFullText(g_hDockEdit, text.c_str());
     }
-    if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
+
+    if (expRich) {
+        RichEditApplyFullLog(g_hExpandedEdit, lines, expPin, savedExpFirst);
+    } else if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
         EditApplyFullText(g_hExpandedEdit, text.c_str());
     }
     g_lastSyncedLogText = text;
+    g_lastSyncedLineCount = lines.size();
 }
 
 LRESULT CALLBACK DockHostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -224,12 +416,8 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         g_hExpandedCollapseBtn = CreateWindowExW(0, L"BUTTON", L"Свернуть",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, hWnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_COLLAPSE)),
             hi, nullptr);
-        g_hExpandedEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
-            WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_WANTRETURN,
-            0, 0, 1, 1, hWnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_EDIT_EXPANDED)), hi, nullptr);
-        SendMessageW(g_hExpandedEdit, EM_SETLIMITTEXT, 1024 * 1024, 0);
+        g_hExpandedEdit = CreateLogEditChild(hWnd, IDC_DEVICE_LOG_EDIT_EXPANDED, &g_expandedUsesRichEdit);
         HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
-        SendMessageW(g_hExpandedEdit, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedCollapseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         RefreshBothEdits();
@@ -258,6 +446,7 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
             g_hExpandedEdit = nullptr;
             g_hExpandedClearBtn = nullptr;
             g_hExpandedCollapseBtn = nullptr;
+            g_expandedUsesRichEdit = false;
             g_expandedVisible = false;
             if (g_dockVisible && g_hDockHost && IsWindow(g_hDockHost)) {
                 ShowWindow(g_hDockHost, SW_SHOW);
@@ -297,7 +486,10 @@ static void DestroyDockControls() {
     g_hDockEdit = nullptr;
     g_hDockExpandBtn = nullptr;
     g_hDockClearBtn = nullptr;
+    g_dockUsesRichEdit = false;
     g_lastSyncedLogText.clear();
+    g_lastSyncedLineCount = 0;
+    g_forceDockScrollToBottomOnce = false;
 }
 
 static void CreateDockControls() {
@@ -317,19 +509,17 @@ static void CreateDockControls() {
         WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, g_hDockHost,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_CLEAR)), g_hInst, nullptr);
 
-    g_hDockEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
-        WS_CHILD | WS_VISIBLE | WS_VSCROLL | ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL | ES_WANTRETURN,
-        0, 0, 1, 1, g_hDockHost, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_EDIT)), g_hInst, nullptr);
-    SendMessageW(g_hDockEdit, EM_SETLIMITTEXT, 1024 * 1024, 0);
+    g_hDockEdit = CreateLogEditChild(g_hDockHost, IDC_DEVICE_LOG_EDIT, &g_dockUsesRichEdit);
 
     HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
-    SendMessageW(g_hDockEdit, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockExpandBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
 
     RefreshBothEdits();
     LayoutDockChildren();
     SetWindowPos(g_hDockHost, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
+    // Реальный размер задаётся в DeviceLogPanel_UpdateLayout; после него нужно опустить скролл (см. g_forceDockScrollToBottomOnce).
+    g_forceDockScrollToBottomOnce = true;
 }
 
 static void ShowExpandedWindow() {
@@ -375,6 +565,7 @@ static void ShowExpandedWindow() {
 void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst) {
     g_hMain = hMain;
     g_hInst = hInst;
+    EnsureMsfteditLoaded();
     RegisterExpandedClass(hInst);
 }
 
@@ -386,6 +577,10 @@ void DeviceLogPanel_Shutdown(HWND) {
     DestroyDockControls();
     g_dockVisible = false;
     g_hMain = nullptr;
+    if (g_hMsftedit) {
+        FreeLibrary(g_hMsftedit);
+        g_hMsftedit = nullptr;
+    }
 }
 
 void DeviceLogPanel_Toggle(HWND hMain) {
@@ -454,6 +649,15 @@ void DeviceLogPanel_UpdateLayout(HWND hMain, UIModule* ui, const LayoutModule* l
 
     SetWindowPos(g_hDockHost, HWND_TOP, leftScreen, topScreen, width, height, SWP_NOACTIVATE);
     LayoutDockChildren();
+
+    if (g_hDockEdit && IsWindow(g_hDockEdit)) {
+        if (g_forceDockScrollToBottomOnce) {
+            ScrollLogEditToBottom(g_hDockEdit);
+            g_forceDockScrollToBottomOnce = false;
+        } else if (EditIsPinnedToBottom(g_hDockEdit)) {
+            ScrollLogEditToBottom(g_hDockEdit);
+        }
+    }
 }
 
 void DeviceLogPanel_OnRefresh(HWND) {
