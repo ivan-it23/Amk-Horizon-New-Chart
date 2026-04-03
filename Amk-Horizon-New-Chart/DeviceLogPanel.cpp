@@ -6,6 +6,7 @@
 #include "resource.h"
 #include <algorithm>
 #include <commctrl.h>
+#include <string>
 
 static constexpr wchar_t kExpandedClassName[] = L"AmkHorizonDeviceLogExpandedFrame";
 
@@ -26,6 +27,9 @@ static bool g_dockVisible = false;
 static bool g_expandedVisible = false;
 
 static bool g_classesRegistered = false;
+
+// Последний текст, уже отданный полям EDIT; для чистого «дописывания в конец» без SetWindowText (без сброса прокрутки).
+static std::wstring g_lastSyncedLogText;
 
 static int EditGetVisibleLineCount(HWND hEdit) {
     RECT rcFmt{};
@@ -59,6 +63,26 @@ static bool EditIsPinnedToBottom(HWND hEdit) {
     return firstVis + vis >= total - 1;
 }
 
+static void EditRedrawEnd(HWND hEdit) {
+    SendMessageW(hEdit, WM_SETREDRAW, TRUE, 0);
+    RedrawWindow(hEdit, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
+}
+
+// Инкремент допустим только если оба поля уже совпадают с последним синком (иначе, например, пустое развёрнутое окно получило бы только «хвост»).
+static bool EditsMatchLastSyncedLength() {
+    if (g_hDockEdit && IsWindow(g_hDockEdit)) {
+        if (GetWindowTextLengthW(g_hDockEdit) != static_cast<int>(g_lastSyncedLogText.size())) {
+            return false;
+        }
+    }
+    if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
+        if (GetWindowTextLengthW(g_hExpandedEdit) != static_cast<int>(g_lastSyncedLogText.size())) {
+            return false;
+        }
+    }
+    return true;
+}
+
 static void EditApplyFullText(HWND hEdit, const wchar_t* text) {
     if (!hEdit || !IsWindow(hEdit)) {
         return;
@@ -66,6 +90,7 @@ static void EditApplyFullText(HWND hEdit, const wchar_t* text) {
     const bool pinBottom = EditIsPinnedToBottom(hEdit);
     const int savedFirstLine = static_cast<int>(SendMessageW(hEdit, EM_GETFIRSTVISIBLELINE, 0, 0));
 
+    SendMessageW(hEdit, WM_SETREDRAW, FALSE, 0);
     SetWindowTextW(hEdit, text);
 
     if (pinBottom) {
@@ -79,16 +104,57 @@ static void EditApplyFullText(HWND hEdit, const wchar_t* text) {
         const int scrollTo = (total > 0) ? (std::min)(savedFirstLine, (std::max)(0, total - 1)) : 0;
         SendMessageW(hEdit, EM_LINESCROLL, 0, scrollTo);
     }
+    EditRedrawEnd(hEdit);
+}
+
+// Дописывание в конец без SetWindowText — прокрутка не сбрасывается на первую строку; вместе с «низом» даёт плавный рост лога.
+static void EditAppendDeltaPinnedBottom(HWND hEdit, const wchar_t* delta) {
+    if (!hEdit || !IsWindow(hEdit) || !delta || !delta[0]) {
+        return;
+    }
+    SendMessageW(hEdit, WM_SETREDRAW, FALSE, 0);
+    const int len = GetWindowTextLengthW(hEdit);
+    SendMessageW(hEdit, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+    SendMessageW(hEdit, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(delta));
+    SendMessageW(hEdit, WM_VSCROLL, SB_BOTTOM, 0);
+    const int len2 = GetWindowTextLengthW(hEdit);
+    SendMessageW(hEdit, EM_SETSEL, static_cast<WPARAM>(len2), static_cast<LPARAM>(len2));
+    SendMessageW(hEdit, EM_SCROLLCARET, 0, 0);
+    EditRedrawEnd(hEdit);
 }
 
 static void RefreshBothEdits() {
     const std::wstring text = DeviceExchangeLogGetFullText();
+
+    const bool canDelta = !g_lastSyncedLogText.empty()
+        && text.size() > g_lastSyncedLogText.size()
+        && text.compare(0, g_lastSyncedLogText.size(), g_lastSyncedLogText) == 0
+        && EditsMatchLastSyncedLength();
+
+    const bool dockPin = !g_hDockEdit || !IsWindow(g_hDockEdit) || EditIsPinnedToBottom(g_hDockEdit);
+    const bool expPin = !g_hExpandedEdit || !IsWindow(g_hExpandedEdit) || EditIsPinnedToBottom(g_hExpandedEdit);
+
+    if (canDelta && dockPin && expPin) {
+        const std::wstring delta = text.substr(g_lastSyncedLogText.size());
+        if (!delta.empty()) {
+            if (g_hDockEdit && IsWindow(g_hDockEdit)) {
+                EditAppendDeltaPinnedBottom(g_hDockEdit, delta.c_str());
+            }
+            if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
+                EditAppendDeltaPinnedBottom(g_hExpandedEdit, delta.c_str());
+            }
+        }
+        g_lastSyncedLogText = text;
+        return;
+    }
+
     if (g_hDockEdit && IsWindow(g_hDockEdit)) {
         EditApplyFullText(g_hDockEdit, text.c_str());
     }
     if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
         EditApplyFullText(g_hExpandedEdit, text.c_str());
     }
+    g_lastSyncedLogText = text;
 }
 
 LRESULT CALLBACK DockHostSubclassProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam,
@@ -231,6 +297,7 @@ static void DestroyDockControls() {
     g_hDockEdit = nullptr;
     g_hDockExpandBtn = nullptr;
     g_hDockClearBtn = nullptr;
+    g_lastSyncedLogText.clear();
 }
 
 static void CreateDockControls() {
