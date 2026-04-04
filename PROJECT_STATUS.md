@@ -35,6 +35,8 @@ Realtime in-tree path:
 
 ## Последние стабильные улучшения
 
+- **лог обмена с прибором**: немодальная панель (`DeviceLogPanel`) + буфер `DeviceExchangeLog`, Rich Edit с жирным блоком идентификации (тип прибора, число передатчиков, S/N), TX/RX и строки кадра с `signature` / `condition` / `frame`; прокрутка «как в консоли» (пин к низу, инкремент без полной пересборки где возможно);
+- настройки приложения в `%LOCALAPPDATA%\AMK-Horizon-New-Chart\app_settings.txt` (`lastComPort`, `lastRecordFolder` и др.);
 - quick-connect UI: кнопки "Включить/Отключить" и "▶/■" на панели управления Chart 1;
 - сохранение/восстановление последнего COM-порта и папки записи между сессиями;
 - adapter-driven parsing приведён к current-state для файлов и COM;
@@ -65,7 +67,8 @@ Realtime in-tree path:
 - dual-axis и temperature X-axis;
 - заметки и hit-test marker-ов;
 - canonical range export;
-- runtime `4Tx/5Tx` ограничения в схеме прибора.
+- runtime `4Tx/5Tx` ограничения в схеме прибора;
+- просмотр лога обмена с прибором без блокировки главного окна.
 
 ## Текущие compatibility boundaries
 

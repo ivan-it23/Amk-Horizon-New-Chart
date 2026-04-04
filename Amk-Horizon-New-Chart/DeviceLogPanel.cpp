@@ -23,11 +23,13 @@ static HWND g_hDockHost = nullptr;
 static HWND g_hDockEdit = nullptr;
 static HWND g_hDockExpandBtn = nullptr;
 static HWND g_hDockClearBtn = nullptr;
+static HWND g_hDockRawCheck = nullptr;
 
 static HWND g_hExpandedRoot = nullptr;
 static HWND g_hExpandedEdit = nullptr;
 static HWND g_hExpandedClearBtn = nullptr;
 static HWND g_hExpandedCollapseBtn = nullptr;
+static HWND g_hExpandedRawCheck = nullptr;
 
 static bool g_dockVisible = false;
 static bool g_expandedVisible = false;
@@ -369,13 +371,21 @@ static void LayoutDockChildren() {
     GetClientRect(g_hDockHost, &rc);
     const int btnH = 22;
     const int pad = 4;
+    const int gap = 4;
     const int expandW = 28;
     const int clearW = 72;
+    int x = pad;
     if (g_hDockExpandBtn) {
-        SetWindowPos(g_hDockExpandBtn, nullptr, pad, pad, expandW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(g_hDockExpandBtn, nullptr, x, pad, expandW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += expandW + gap;
     }
     if (g_hDockClearBtn) {
-        SetWindowPos(g_hDockClearBtn, nullptr, pad + expandW + 4, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(g_hDockClearBtn, nullptr, x, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += clearW + gap;
+    }
+    if (g_hDockRawCheck) {
+        const int checkW = std::max(10, static_cast<int>(rc.right) - pad - x);
+        SetWindowPos(g_hDockRawCheck, nullptr, x, pad, checkW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
     }
     const int topEdit = pad + btnH + 4;
     const int editH = std::max(0, static_cast<int>(rc.bottom) - topEdit - pad);
@@ -390,13 +400,21 @@ static void LayoutExpandedChildren(HWND hRoot) {
     GetClientRect(hRoot, &rc);
     const int btnH = 26;
     const int pad = 8;
+    const int gap = 8;
     const int clearW = 90;
     const int collapseW = 100;
+    int x = pad;
     if (g_hExpandedClearBtn) {
-        SetWindowPos(g_hExpandedClearBtn, nullptr, pad, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(g_hExpandedClearBtn, nullptr, x, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += clearW + gap;
     }
     if (g_hExpandedCollapseBtn) {
-        SetWindowPos(g_hExpandedCollapseBtn, nullptr, pad + clearW + 8, pad, collapseW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        SetWindowPos(g_hExpandedCollapseBtn, nullptr, x, pad, collapseW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += collapseW + gap;
+    }
+    if (g_hExpandedRawCheck) {
+        const int checkW = std::max(10, static_cast<int>(rc.right) - pad - x);
+        SetWindowPos(g_hExpandedRawCheck, nullptr, x, pad, checkW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
     }
     const int topEdit = pad + btnH + 8;
     if (g_hExpandedEdit) {
@@ -416,10 +434,16 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         g_hExpandedCollapseBtn = CreateWindowExW(0, L"BUTTON", L"Свернуть",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, hWnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_COLLAPSE)),
             hi, nullptr);
+        g_hExpandedRawCheck = CreateWindowExW(0, L"BUTTON", L"Сырые данные",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 1, 1, hWnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_RAW_CHECK)), hi, nullptr);
+        SendMessageW(g_hExpandedRawCheck, BM_SETCHECK,
+            DeviceExchangeLogGetShowRawData() ? BST_CHECKED : BST_UNCHECKED, 0);
         g_hExpandedEdit = CreateLogEditChild(hWnd, IDC_DEVICE_LOG_EDIT_EXPANDED, &g_expandedUsesRichEdit);
         HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
         SendMessageW(g_hExpandedClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedCollapseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+        SendMessageW(g_hExpandedRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         RefreshBothEdits();
         return 0;
     }
@@ -436,6 +460,10 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
             DestroyWindow(hWnd);
             return 0;
         }
+        if (LOWORD(wParam) == IDC_DEVICE_LOG_RAW_CHECK && HIWORD(wParam) == BN_CLICKED) {
+            DeviceLogPanel_OnRawDataToggled(reinterpret_cast<HWND>(lParam));
+            return 0;
+        }
         break;
     case WM_CLOSE:
         DestroyWindow(hWnd);
@@ -446,6 +474,7 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
             g_hExpandedEdit = nullptr;
             g_hExpandedClearBtn = nullptr;
             g_hExpandedCollapseBtn = nullptr;
+            g_hExpandedRawCheck = nullptr;
             g_expandedUsesRichEdit = false;
             g_expandedVisible = false;
             if (g_dockVisible && g_hDockHost && IsWindow(g_hDockHost)) {
@@ -486,6 +515,7 @@ static void DestroyDockControls() {
     g_hDockEdit = nullptr;
     g_hDockExpandBtn = nullptr;
     g_hDockClearBtn = nullptr;
+    g_hDockRawCheck = nullptr;
     g_dockUsesRichEdit = false;
     g_lastSyncedLogText.clear();
     g_lastSyncedLineCount = 0;
@@ -509,11 +539,18 @@ static void CreateDockControls() {
         WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, g_hDockHost,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_CLEAR)), g_hInst, nullptr);
 
+    g_hDockRawCheck = CreateWindowExW(0, L"BUTTON", L"Сырые данные",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 1, 1, g_hDockHost,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_RAW_CHECK)), g_hInst, nullptr);
+    SendMessageW(g_hDockRawCheck, BM_SETCHECK,
+        DeviceExchangeLogGetShowRawData() ? BST_CHECKED : BST_UNCHECKED, 0);
+
     g_hDockEdit = CreateLogEditChild(g_hDockHost, IDC_DEVICE_LOG_EDIT, &g_dockUsesRichEdit);
 
     HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
     SendMessageW(g_hDockExpandBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    SendMessageW(g_hDockRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
 
     RefreshBothEdits();
     LayoutDockChildren();
@@ -667,4 +704,21 @@ void DeviceLogPanel_OnRefresh(HWND) {
 // Точка входа из главного окна: развернуть из dock-кнопки
 void DeviceLogPanel_OnExpandCommand() {
     ShowExpandedWindow();
+}
+
+void DeviceLogPanel_OnRawDataToggled(HWND hCheckbox) {
+    if (!hCheckbox || !IsWindow(hCheckbox)) {
+        return;
+    }
+    const bool checked = (SendMessageW(hCheckbox, BM_GETCHECK, 0, 0) == BST_CHECKED);
+    DeviceExchangeLogSetShowRawData(checked);
+    if (hCheckbox != g_hDockRawCheck && g_hDockRawCheck && IsWindow(g_hDockRawCheck)) {
+        SendMessageW(g_hDockRawCheck, BM_SETCHECK, checked ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+    if (hCheckbox != g_hExpandedRawCheck && g_hExpandedRawCheck && IsWindow(g_hExpandedRawCheck)) {
+        SendMessageW(g_hExpandedRawCheck, BM_SETCHECK, checked ? BST_CHECKED : BST_UNCHECKED, 0);
+    }
+    g_lastSyncedLogText.clear();
+    g_lastSyncedLineCount = 0;
+    RefreshBothEdits();
 }

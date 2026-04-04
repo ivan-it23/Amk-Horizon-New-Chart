@@ -57,7 +57,7 @@ bool MetrologyModule::LoadFromFile(const std::wstring& path, std::wstring& outEr
         return false;
     }
 
-    // Rewind and read whole struct (stable format: 240 bytes)
+
     f.clear();
     f.seekg(0, std::ios::beg);
 
@@ -68,7 +68,7 @@ bool MetrologyModule::LoadFromFile(const std::wstring& path, std::wstring& outEr
         return false;
     }
 
-    // Ensure there's no extra bytes? (optional) We'll accept larger but read first 240.
+    
     current = tmp;
     hasData = true;
     dirty = false;

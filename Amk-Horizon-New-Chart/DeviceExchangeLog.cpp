@@ -12,12 +12,14 @@ constexpr size_t kMaxLines = 2000;
 
 struct LogEntry {
     bool bold = false;
+    bool isRawPayload = false;
     std::wstring text;
 };
 
 std::mutex g_mutex;
 std::deque<LogEntry> g_lines;
 HWND g_notifyWnd = nullptr;
+bool g_showRawData = false;
 
 void PostRefresh() {
     if (g_notifyWnd && IsWindow(g_notifyWnd)) {
@@ -49,10 +51,40 @@ void DeviceExchangeLogSetMainWindow(HWND hWnd) {
     g_notifyWnd = hWnd;
 }
 
+static bool LineVisible(const LogEntry& e) {
+    if (e.isRawPayload && !g_showRawData) {
+        return false;
+    }
+    return true;
+}
+
+void DeviceExchangeLogSetShowRawData(bool show) {
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_showRawData = show;
+    }
+}
+
+bool DeviceExchangeLogGetShowRawData() {
+    std::lock_guard<std::mutex> lock(g_mutex);
+    return g_showRawData;
+}
+
 void DeviceExchangeLogAppend(const std::wstring& line) {
     {
         std::lock_guard<std::mutex> lock(g_mutex);
-        g_lines.push_back(LogEntry{false, line});
+        g_lines.push_back(LogEntry{false, false, line});
+        while (g_lines.size() > kMaxLines) {
+            g_lines.pop_front();
+        }
+    }
+    PostRefresh();
+}
+
+void DeviceExchangeLogAppendRaw(const std::wstring& line) {
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_lines.push_back(LogEntry{false, true, line});
         while (g_lines.size() > kMaxLines) {
             g_lines.pop_front();
         }
@@ -81,10 +113,15 @@ std::wstring DeviceExchangeLogGetFullText() {
     std::lock_guard<std::mutex> lock(g_mutex);
     std::wstring out;
     out.reserve(g_lines.size() * 64);
+    bool first = true;
     for (size_t i = 0; i < g_lines.size(); ++i) {
-        if (i > 0) {
+        if (!LineVisible(g_lines[i])) {
+            continue;
+        }
+        if (!first) {
             out += L"\r\n";
         }
+        first = false;
         out += g_lines[i].text;
     }
     return out;
@@ -95,7 +132,10 @@ std::vector<DeviceLogLine> DeviceExchangeLogGetLines() {
     std::vector<DeviceLogLine> out;
     out.reserve(g_lines.size());
     for (const auto& e : g_lines) {
-        out.push_back(DeviceLogLine{e.bold, e.text});
+        if (!LineVisible(e)) {
+            continue;
+        }
+        out.push_back(DeviceLogLine{e.bold, e.isRawPayload, e.text});
     }
     return out;
 }
@@ -114,7 +154,7 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) 
 
     std::lock_guard<std::mutex> lock(g_mutex);
     auto pushBold = [](const std::wstring& s) {
-        g_lines.push_back(LogEntry{true, s});
+        g_lines.push_back(LogEntry{true, false, s});
         while (g_lines.size() > kMaxLines) {
             g_lines.pop_front();
         }

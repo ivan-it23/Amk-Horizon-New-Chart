@@ -37,6 +37,7 @@
 - `MetrologyModule`
 - `NotesModule`
 - `AsyncTaskQueue`
+- `DeviceExchangeLog` + `DeviceLogPanel` (см. §8.4)
 
 ### 1.2 Текущий pipeline данных
 
@@ -398,6 +399,14 @@ UI исторически использует 5 визуальных слото
 - mixed range сейчас может быть сохранён только как canonical compatibility export;
 - adapter-aware export policy пока не внедрена.
 
+### 8.4 Лог обмена с прибором
+
+- **Хранение**: `DeviceExchangeLog` — потокобезопасный deque строк (`DeviceLogLine`: обычный текст и флаг жирного для блока идентификации); верхняя граница числа строк (~2000); уведомление UI через `PostMessage(WM_APP_DEVICE_LOG_REFRESH)` на главное окно.
+- **Источники записей**: `SerialModule` (TX/RX, успешный кадр с полями из `ParsedToolFrame` / canonical данных), первая успешная метрология (`DeviceExchangeLogAppendDeviceIdentity` по `signature` + `serial` через `ToolDataAdapterRegistry`).
+- **UI**: `DeviceLogPanel` — хост `WS_POPUP` у верхнего края главного окна; поле ввода — `RichEdit50W` при загрузке `Msftedit.dll`, иначе многострочный `EDIT`; развёрнутое окно — отдельный frame class.
+- **Прокрутка**: определение «приклеен к низу» через `GetScrollInfo(SB_VERT)` с fallback на `EM_GETFIRSTVISIBLELINE`; инкрементальное дописывание хвоста при совпадении префикса текста и отсутствии новых жирных строк (Rich Edit); после первого `UpdateLayout` принудительный скролл вниз (`g_forceDockScrollToBottomOnce`), т.к. первый `RefreshBothEdits` может выполняться до финального размера панели.
+- **Настройки COM в файле**: см. `GetAppSettingsPath()` / `app_settings.txt` в `Amk-Horizon-New-Chart.cpp` — не путать с логом.
+
 ## 9. Практические точки входа
 
 Если меняете поведение, обычно смотреть сюда:
@@ -412,6 +421,8 @@ UI исторически использует 5 визуальных слото
 - `SerialModule.h/.cpp`
 - `MetrologyModule.cpp`
 - `NotesModule.h/.cpp`
+- `DeviceExchangeLog.h/.cpp`
+- `DeviceLogPanel.h/.cpp`
 
 ## 10. Что не нужно хранить в этом документе
 

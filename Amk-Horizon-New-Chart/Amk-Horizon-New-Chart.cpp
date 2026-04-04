@@ -1785,6 +1785,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
 
+            case IDC_DEVICE_LOG_RAW_CHECK:
+                if (HIWORD(wParam) == BN_CLICKED) {
+                    DeviceLogPanel_OnRawDataToggled(reinterpret_cast<HWND>(lParam));
+                }
+                break;
+
             case IDC_CONNECT_TOGGLE_BTN:
                 if (g_chartManager)
                 {

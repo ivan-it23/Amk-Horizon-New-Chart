@@ -1,5 +1,6 @@
 #include "SerialModule.h"
 #include "DeviceExchangeLog.h"
+#include "DeviceLogPayloadFormat.h"
 #include "ToolDataAccess.h"
 #include "ToolDataAdapters.h"
 #include <shellapi.h>   // Для ShellExecuteW
@@ -326,6 +327,42 @@ void ConvertLegacyLwd4TxMetrology(const LEGACY_LWD_METROLOGY_DATA& legacyData, M
     outData.Rx_Position = 0;
 }
 }
+
+namespace {
+std::wstring HexDumpWide(const wchar_t* label, const uint8_t* data, size_t len) {
+    std::wstring out = label;
+    if (!data || len == 0) {
+        out += L" (0 B)";
+        return out;
+    }
+    wchar_t nb[48] = {};
+    swprintf_s(nb, L" (%zu B): ", len);
+    out += nb;
+    if (len <= 32) {
+        for (size_t i = 0; i < len; ++i) {
+            swprintf_s(nb, L"%02X ", data[i]);
+            out += nb;
+        }
+        return out;
+    }
+    out += L"\r\n";
+    constexpr size_t kPerLine = 16;
+    for (size_t off = 0; off < len; off += kPerLine) {
+        wchar_t prefix[24] = {};
+        swprintf_s(prefix, L"  %04X: ", static_cast<unsigned>(off & 0xFFFFu));
+        out += prefix;
+        const size_t n = (std::min)(kPerLine, len - off);
+        for (size_t i = 0; i < n; ++i) {
+            swprintf_s(nb, L"%02X ", data[off + i]);
+            out += nb;
+        }
+        if (off + kPerLine < len) {
+            out += L"\r\n";
+        }
+    }
+    return out;
+}
+} // namespace
 
 // CRC16 таблица (Modbus) - идентична эмулятору
 const uint16_t SerialModule::CRC16_TABLE[256] = {
@@ -953,6 +990,8 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
             outParsedFrame.canonicalData.frame,
             static_cast<double>(outParsedFrame.canonicalData.temperature));
 
+        DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
+
         return SerialResult::SUCCESS;
     };
 
@@ -978,6 +1017,7 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
             DebugLog4Tx("requestLegacyData: WriteFile FAILED, written=%lu", bytesWritten);
             return SerialResult::CONNECTION_FAILED;
         }
+        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy)", request.data(), request.size()));
 
         std::vector<uint8_t> legacyResponse;
         if (!ReceiveLegacyFixedPacket(hSerial, kLegacyLwdDataCommand, kLegacyLwdDataPacketSize, 300, legacyResponse)) {
@@ -1009,6 +1049,7 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
                     outParsedFrame.canonicalData.condition,
                     outParsedFrame.canonicalData.frame,
                     static_cast<double>(outParsedFrame.canonicalData.temperature));
+                DeviceLogTryAppendVariantAForDataPayload240(legacyResponse.data() + offset, sizeof(GP_TOOL_DATA));
                 return SerialResult::SUCCESS;
             }
         }
@@ -1140,6 +1181,7 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
             DebugLog4Tx("requestLegacyMetrology: WriteFile FAILED");
             return SerialResult::CONNECTION_FAILED;
         }
+        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy метрология)", legacyRequest.data(), legacyRequest.size()));
 
         std::vector<uint8_t> legacyResponse;
         Sleep(150);
@@ -1261,6 +1303,7 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
                 pausePolling = false;
                 return SerialResult::CONNECTION_FAILED;
             }
+            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy запись метрологии)", packet.data(), packet.size()));
 
             // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
             Sleep(500);
@@ -1433,6 +1476,7 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
             bytesWritten != legacyRequest.size()) {
             return SerialResult::CONNECTION_FAILED;
         }
+        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy сигнатура)", legacyRequest.data(), legacyRequest.size()));
 
         std::vector<uint8_t> legacyResponse;
         Sleep(150);
@@ -1686,6 +1730,7 @@ bool SerialModule::SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLen
         && bytesWritten == packet.size();
     DeviceExchangeLogAppendFormatted(L"TX: CMD=0x%02X, пакет %zu B — %s",
         cmd, packet.size(), ok ? L"OK" : L"ошибка записи");
+    DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые", packet.data(), packet.size()));
     return ok;
 }
 
