@@ -886,7 +886,9 @@ static void Metro_UpdateSignaturePanel(HWND hDlg, const METROLOGY_DATA& metro) {
     const int typeClass = static_cast<int>(info.low20 / 100000u);
     const int decodedNtx = static_cast<int>((info.low20 % 100000u) / 10000u);
     const int activeNtx = Metro_CountActiveTransmitters(metro);
-    const int ntx = (activeNtx > 0) ? activeNtx : decodedNtx;
+    // N Tx задаётся полем signature (low20: … + N_Tx*10000 + …). Подсчёт ненулевых L1/L2 нельзя брать
+    // как источник истины: у LWD 4Tx в слоте T5 в файле/после маппинга могут быть ненули (остаток данных).
+    const int ntx = (decodedNtx > 0) ? decodedNtx : activeNtx;
     int mod = static_cast<int>((info.low20 % 10000u) / 1000u);
     int number = static_cast<int>(info.low20 % 1000u);
 
@@ -2376,6 +2378,8 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 if (SerialModule* serial = g_chartManager->GetSerialModule()) {
                                     result.connectResult = serial->Connect(selectedPort);
                                     if (result.connectResult == SerialResult::SUCCESS) {
+                                        uint32_t probeSig = 0;
+                                        (void)serial->ProbeDeviceSignature(probeSig);
                                         for (int attempt = 0; attempt < 4; ++attempt) {
                                             result.metrologyResult = serial->RequestMetrology(result.metrology);
                                             if (result.metrologyResult == SerialResult::SUCCESS) {

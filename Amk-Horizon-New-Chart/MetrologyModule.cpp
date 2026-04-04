@@ -1,5 +1,6 @@
 #include "framework.h"
 #include "MetrologyModule.h"
+#include "ToolDataAdapters.h"
 
 #include <fstream>
 #include <bitset>
@@ -46,13 +47,14 @@ bool MetrologyModule::LoadFromFile(const std::wstring& path, std::wstring& outEr
         return false;
     }
 
-    if (!IsSupportedAutonom5TxSignature(sig)) {
+    if (!IsSupportedMetrologyFileSignature(sig)) {
         SignatureInfo info = DecodeSignature(sig);
         std::wstringstream ss;
         ss << L"Неподдерживаемый тип прибора по signature.\n"
            << L"signature=0x" << std::hex << sig << std::dec << L"\n"
            << L"sonde_type=" << info.sondeType << L"\n\n"
-           << L"Поддерживается только AUTONOM 5Tx (151/152).";
+           << L"Допустимы типы, для которых в приложении есть профиль данных "
+           << L"(AUTONOM 5Tx / 5Tx SDR, LWD 4Tx, LWD 3Tx canonical и совместимые сигнатуры).";
         outError = ss.str();
         return false;
     }
@@ -100,6 +102,10 @@ MetrologyModule::SignatureInfo MetrologyModule::DecodeSignature(uint32_t signatu
     info.sondeType = info.low20 / 1000;
     info.signatureForPalette = info.sondeType; // per doc: low20/1000
     return info;
+}
+
+bool MetrologyModule::IsSupportedMetrologyFileSignature(uint32_t signature) {
+    return ToolDataAdapterRegistry::Get().IsSupportedSignature(signature);
 }
 
 bool MetrologyModule::IsSupportedAutonom5TxSignature(uint32_t signature) {

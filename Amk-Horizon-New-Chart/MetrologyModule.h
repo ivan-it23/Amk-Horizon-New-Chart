@@ -36,6 +36,8 @@ public:
     bool SaveToFile(const std::wstring& path, std::wstring& outError) const;
 
     static SignatureInfo DecodeSignature(uint32_t signature);
+    // Допускает загрузку .bin метрологии для любого прибора, зарегистрированного в ToolDataAdapterRegistry.
+    static bool IsSupportedMetrologyFileSignature(uint32_t signature);
     static bool IsSupportedAutonom5TxSignature(uint32_t signature);
 
     // Builds signature in legacy-compatible style:

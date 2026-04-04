@@ -1540,6 +1540,10 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
     return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
 }
 
+SerialResult SerialModule::ProbeDeviceSignature(uint32_t& outSignature) {
+    return RequestSignature(outSignature);
+}
+
 void SerialModule::HandleMetrologyUpdated() {
     std::wstring newDeviceId = GetDeviceId();
     if (!currentDeviceId.empty() && currentDeviceId != newDeviceId) {

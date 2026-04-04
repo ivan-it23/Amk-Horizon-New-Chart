@@ -203,6 +203,10 @@ public:
 
     // Запрос сигнатуры (CMD_GET_SIGNATURE = 0x16)
     SerialResult RequestSignature(uint32_t& outSignature);
+
+    // Вызов сразу после успешного Connect (до RequestMetrology): определяет modern vs legacy
+    // и выставляет protocolMode. Нужен для приборов с canonical GP_TOOL_DATA по COM (AUTONOM, LWD 3Tx и т.д.).
+    SerialResult ProbeDeviceSignature(uint32_t& outSignature);
     
     // === Callbacks ===
     

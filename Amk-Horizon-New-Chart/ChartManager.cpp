@@ -5076,6 +5076,8 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
                 if (SerialModule* serial = g_chartManager->GetSerialModule()) {
                     connectResult = serial->Connect(lastPort);
                     if (connectResult == SerialResult::SUCCESS) {
+                        uint32_t probeSig = 0;
+                        (void)serial->ProbeDeviceSignature(probeSig);
                         for (int attempt = 0; attempt < 4; ++attempt) {
                             metrologyResult = serial->RequestMetrology(metrology);
                             if (metrologyResult == SerialResult::SUCCESS) {
