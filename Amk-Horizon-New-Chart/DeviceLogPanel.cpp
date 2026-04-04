@@ -636,10 +636,26 @@ static void ShowExpandedWindow() {
         y = work.top + (work.bottom - work.top - h) / 2;
     }
 
-    g_hExpandedRoot = CreateWindowExW(WS_EX_DLGMODALFRAME, kExpandedClassName, L"Лог обмена с прибором",
+    g_hExpandedRoot = CreateWindowExW(WS_EX_DLGMODALFRAME | WS_EX_APPWINDOW, kExpandedClassName, L"Лог обмена с прибором",
         WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_MINIMIZEBOX | WS_CLIPCHILDREN,
         x, y, w, h, g_hMain, nullptr, g_hInst, nullptr);
     if (g_hExpandedRoot) {
+        if (g_hMain && IsWindow(g_hMain)) {
+            HICON hIconBig = (HICON)SendMessageW(g_hMain, WM_GETICON, ICON_BIG, 0);
+            if (!hIconBig) {
+                hIconBig = (HICON)GetClassLongPtr(g_hMain, GCLP_HICON);
+            }
+            if (hIconBig) {
+                SendMessageW(g_hExpandedRoot, WM_SETICON, ICON_BIG, (LPARAM)hIconBig);
+            }
+            HICON hIconSmall = (HICON)SendMessageW(g_hMain, WM_GETICON, ICON_SMALL, 0);
+            if (!hIconSmall) {
+                hIconSmall = (HICON)GetClassLongPtr(g_hMain, GCLP_HICONSM);
+            }
+            if (hIconSmall) {
+                SendMessageW(g_hExpandedRoot, WM_SETICON, ICON_SMALL, (LPARAM)hIconSmall);
+            }
+        }
         ShowWindow(g_hExpandedRoot, SW_SHOW);
         g_expandedVisible = true;
         if (g_hDockHost && IsWindow(g_hDockHost)) {
