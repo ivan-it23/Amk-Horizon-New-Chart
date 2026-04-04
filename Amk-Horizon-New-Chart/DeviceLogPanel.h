@@ -5,7 +5,7 @@
 class UIModule;
 class LayoutModule;
 
-void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst);
+void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst, HFONT hAppFont);
 void DeviceLogPanel_Shutdown(HWND hMain);
 void DeviceLogPanel_Toggle(HWND hMain);
 bool DeviceLogPanel_IsDockVisible();

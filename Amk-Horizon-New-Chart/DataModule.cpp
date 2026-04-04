@@ -286,7 +286,7 @@ uint32_t DataModule::DecodeToolCode(uint32_t signature) {
 }
 
 bool DataModule::IsDirectlySupportedToolCode(uint32_t toolCode) {
-    return toolCode == 151u || toolCode == 152u || toolCode == 241u;
+    return toolCode == 151u || toolCode == 152u || toolCode == kToolCodeLwd3TxCanonical || toolCode == 241u;
 }
 
 uint32_t DataModule::DecodeToolCodeFromSignature(uint32_t signature) {

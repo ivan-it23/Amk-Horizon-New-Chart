@@ -34,6 +34,17 @@ public:
     bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
 };
 
+// LWD с canonical GP_TOOL_DATA на проводе (как у AUTONOM 5Tx): неиспользуемые передатчики — нули в слотах T4/T5.
+class Lwd3TxCanonicalAdapter : public IToolDataAdapter {
+public:
+    ToolDataKind GetKind() const override;
+    ToolCapabilities GetCapabilities() const override;
+    bool CanHandleSignature(uint32_t signature) const override;
+    bool SupportsFileFormat(FileFormat format) const override;
+    size_t GetRawFrameSize() const override;
+    bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
+};
+
 class Lwd4TxAdapter : public IToolDataAdapter {
 public:
     ToolDataKind GetKind() const override;

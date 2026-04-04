@@ -1547,7 +1547,7 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
 
     DeviceExchangeLogInit();
     DeviceExchangeLogSetMainWindow(hWnd);
-    DeviceLogPanel_Init(hWnd, hInst);
+    DeviceLogPanel_Init(hWnd, hInst, uiModule->GetAppFont());
 }
 
 void ChartManager::UpdateLayout(HWND hWnd)

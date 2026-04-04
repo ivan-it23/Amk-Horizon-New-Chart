@@ -72,6 +72,57 @@ bool Autonom5TxAdapter::ParseRawFrame(const void* rawFrame, size_t rawFrameSize,
     return true;
 }
 
+ToolDataKind Lwd3TxCanonicalAdapter::GetKind() const {
+    return ToolDataKind::LWD_3TX;
+}
+
+ToolCapabilities Lwd3TxCanonicalAdapter::GetCapabilities() const {
+    ToolCapabilities capabilities = {};
+    capabilities.kind = ToolDataKind::LWD_3TX;
+    capabilities.transmitterCount = 3;
+    capabilities.hasT5 = false;
+    capabilities.hasSeparatePhaseRx = true;
+    capabilities.hasDeltaPhase = true;
+    capabilities.hasZeroAmplitudeRx1 = true;
+    capabilities.hasZeroAmplitudeRx2 = true;
+    capabilities.hasZeroDeltaPhase = true;
+    capabilities.hasSondeRhoSmt = true;
+    capabilities.hasSondePhaseSmt = true;
+    capabilities.supportsBinContainer = true;
+    capabilities.supportsBivContainer = true;
+    capabilities.supportsDevContainer = true;
+    capabilities.supportsComPolling = true;
+    capabilities.supportsSilentData = true;
+    return capabilities;
+}
+
+bool Lwd3TxCanonicalAdapter::CanHandleSignature(uint32_t signature) const {
+    return ToolDataAdapterRegistry::DecodeToolCode(signature) == kToolCodeLwd3TxCanonical;
+}
+
+bool Lwd3TxCanonicalAdapter::SupportsFileFormat(FileFormat format) const {
+    return format == FileFormat::FORMAT_BIN || format == FileFormat::FORMAT_BIV || format == FileFormat::FORMAT_DEV;
+}
+
+size_t Lwd3TxCanonicalAdapter::GetRawFrameSize() const {
+    return sizeof(GP_TOOL_DATA);
+}
+
+bool Lwd3TxCanonicalAdapter::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const {
+    outFrame = {};
+    if (!rawFrame || rawFrameSize != sizeof(GP_TOOL_DATA)) {
+        return false;
+    }
+
+    GP_TOOL_DATA canonicalData = {};
+    memcpy(&canonicalData, rawFrame, sizeof(canonicalData));
+
+    outFrame.kind = GetKind();
+    outFrame.capabilities = GetCapabilities();
+    outFrame.canonicalData = canonicalData;
+    return true;
+}
+
 ToolDataKind Lwd4TxAdapter::GetKind() const {
     return ToolDataKind::LWD_4TX;
 }
@@ -215,5 +266,6 @@ ToolDataKind ToolDataAdapterRegistry::DetermineToolDataKind(uint32_t signature) 
 
 ToolDataAdapterRegistry::ToolDataAdapterRegistry() {
     adapters.emplace_back(new Autonom5TxAdapter());
+    adapters.emplace_back(new Lwd3TxCanonicalAdapter());
     adapters.emplace_back(new Lwd4TxAdapter());
 }

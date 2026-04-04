@@ -46,8 +46,12 @@ enum class ToolDataKind {
     UNKNOWN,
     AUTONOM_5TX,
     AUTONOM_5TX_SDR,
+    LWD_3TX,
     LWD_4TX
 };
+
+// DecodeToolCode(signature) == low20(signature)/1000 — см. ToolDataAdapterRegistry::DecodeToolCode
+static constexpr uint32_t kToolCodeLwd3TxCanonical = 231u;
 
 static constexpr int kLegacyUiTransmitterCount = 5;
 static constexpr int kLegacyFallbackTransmitterCount = 5;

@@ -34,6 +34,8 @@ static std::wstring ToolKindToDisplayName(ToolDataKind kind) {
         return L"Автоном 5TX";
     case ToolDataKind::AUTONOM_5TX_SDR:
         return L"Автоном 5TX SDR";
+    case ToolDataKind::LWD_3TX:
+        return L"LWD 3TX";
     case ToolDataKind::LWD_4TX:
         return L"LWD 4TX";
     default:

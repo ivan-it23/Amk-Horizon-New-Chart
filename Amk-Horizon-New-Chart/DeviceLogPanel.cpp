@@ -18,6 +18,11 @@ static constexpr wchar_t kExpandedClassName[] = L"AmkHorizonDeviceLogExpandedFra
 
 static HINSTANCE g_hInst = nullptr;
 static HWND g_hMain = nullptr;
+static HFONT g_hAppUiFont = nullptr;
+
+static HFONT LogPanelUiFont() {
+    return g_hAppUiFont ? g_hAppUiFont : reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+}
 
 static HWND g_hDockHost = nullptr;
 static HWND g_hDockEdit = nullptr;
@@ -65,7 +70,7 @@ static HWND CreateLogEditChild(HWND parent, int controlId, bool* outUsesRichEdit
         if (h && IsWindow(h)) {
             SendMessageW(h, EM_SETREADONLY, TRUE, 0);
             SendMessageW(h, EM_SETLIMITTEXT, 1024 * 1024, 0);
-            HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+            HFONT hf = LogPanelUiFont();
             SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
             *outUsesRichEdit = true;
             return h;
@@ -76,7 +81,7 @@ static HWND CreateLogEditChild(HWND parent, int controlId, bool* outUsesRichEdit
         0, 0, 1, 1, parent, id, g_hInst, nullptr);
     if (h) {
         SendMessageW(h, EM_SETLIMITTEXT, 1024 * 1024, 0);
-        HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        HFONT hf = LogPanelUiFont();
         SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     }
     return h;
@@ -493,7 +498,7 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         SendMessageW(g_hExpandedRawCheck, BM_SETCHECK,
             DeviceExchangeLogGetShowRawData() ? BST_CHECKED : BST_UNCHECKED, 0);
         g_hExpandedEdit = CreateLogEditChild(hWnd, IDC_DEVICE_LOG_EDIT_EXPANDED, &g_expandedUsesRichEdit);
-        HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+        HFONT hf = LogPanelUiFont();
         SendMessageW(g_hExpandedClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedCollapseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
@@ -603,7 +608,7 @@ static void CreateDockControls() {
 
     g_hDockEdit = CreateLogEditChild(g_hDockHost, IDC_DEVICE_LOG_EDIT, &g_dockUsesRichEdit);
 
-    HFONT hf = reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+    HFONT hf = LogPanelUiFont();
     SendMessageW(g_hDockExpandBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
@@ -621,8 +626,8 @@ static void ShowExpandedWindow() {
         return;
     }
 
-    static constexpr int kExpandedLogDefaultW = 606;
-    static constexpr int kExpandedLogDefaultH = 496;
+    static constexpr int kExpandedLogDefaultW = 600;
+    static constexpr int kExpandedLogDefaultH = 550;
     const int w = kExpandedLogDefaultW;
     const int h = kExpandedLogDefaultH;
 
@@ -664,14 +669,16 @@ static void ShowExpandedWindow() {
     }
 }
 
-void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst) {
+void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst, HFONT hAppFont) {
     g_hMain = hMain;
     g_hInst = hInst;
+    g_hAppUiFont = hAppFont;
     EnsureMsfteditLoaded();
     RegisterExpandedClass(hInst);
 }
 
 void DeviceLogPanel_Shutdown(HWND) {
+    g_hAppUiFont = nullptr;
     if (g_hMain && IsWindow(g_hMain)) {
         KillTimer(g_hMain, IDT_DEVICE_LOG_REFRESH);
     }
