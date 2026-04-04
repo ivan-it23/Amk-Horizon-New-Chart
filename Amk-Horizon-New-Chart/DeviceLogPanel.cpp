@@ -621,17 +621,10 @@ static void ShowExpandedWindow() {
         return;
     }
 
-    RECT rcDock{};
-    int baseW = 400;
-    int baseH = 200;
-    if (g_hDockHost && IsWindow(g_hDockHost)) {
-        GetWindowRect(g_hDockHost, &rcDock);
-        baseW = std::max(80, static_cast<int>(rcDock.right - rcDock.left));
-        baseH = std::max(40, static_cast<int>(rcDock.bottom - rcDock.top));
-    }
-
-    int w = std::max(560, baseW * 2);
-    int h = std::max(320, baseH * 2);
+    static constexpr int kExpandedLogDefaultW = 606;
+    static constexpr int kExpandedLogDefaultH = 496;
+    const int w = kExpandedLogDefaultW;
+    const int h = kExpandedLogDefaultH;
 
     HMONITOR mon = MonitorFromWindow(g_hMain, MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi = {};
