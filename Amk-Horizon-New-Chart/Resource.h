@@ -188,6 +188,8 @@
 
 // Журнал обмена с прибором (немодальная панель + развёрнутое окно)
 #define WM_APP_DEVICE_LOG_REFRESH (WM_APP + 36)
+// Дебаунс обновления UI лога (не пересекать с IDT_SERIAL_POLL 9001 в SerialModule.h)
+#define IDT_DEVICE_LOG_REFRESH       9002
 #define IDM_DEVICE_LOG               1121
 #define IDC_DEVICE_LOG_EXPAND      1122
 #define IDC_DEVICE_LOG_CLEAR       1123

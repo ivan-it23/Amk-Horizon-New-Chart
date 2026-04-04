@@ -39,9 +39,6 @@ static std::wstring FormatGpToolDataVariantA(const GP_TOOL_DATA& d, int transmit
     const int nTx = NormalizeTxCount(transmitterCount);
     std::wstring s;
     AppendFmt(s, L"[GP_TOOL_DATA — разбор полей]");
-    AppendFmt(s, L"signature=0x%08X  condition=%u  frame=%u  temperature=%.6g °C",
-        d.signature, d.condition, d.frame, static_cast<double>(d.temperature));
-
     AppendFmt(s, L"");
     AppendFmt(s, L"УЭС (rho_smt), Ом·м");
     for (int fi = 0; fi < 2; ++fi) {
@@ -140,6 +137,23 @@ void DeviceLogTryAppendVariantAForDataPayload240(const uint8_t* payload, size_t 
         ? parsed.capabilities.transmitterCount
         : 5;
 
-    const std::wstring text = FormatGpToolDataVariantA(parsed.canonicalData, tx);
+    const GP_TOOL_DATA& d = parsed.canonicalData;
+
+
+    DeviceExchangeLogAppendRaw(L"");
+    DeviceExchangeLogAppendRaw(L"");
+
+    DeviceExchangeLogAppendRaw(L"───────────────────────────────────────────────────────────────────");
+
+    wchar_t boldHeader[384];
+    swprintf_s(boldHeader,
+        L"▶ Кадр #%u | signature=0x%08X | condition=%u | T=%.6g °C",
+        static_cast<unsigned>(d.frame),
+        d.signature,
+        d.condition,
+        static_cast<double>(d.temperature));
+    DeviceExchangeLogAppendRawBold(boldHeader);
+
+    const std::wstring text = FormatGpToolDataVariantA(d, tx);
     DeviceExchangeLogAppendRaw(text);
 }

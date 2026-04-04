@@ -42,7 +42,7 @@ static bool g_expandedUsesRichEdit = false;
 
 // Последний текст, уже отданный полям EDIT; для чистого «дописывания в конец» без SetWindowText (без сброса прокрутки).
 static std::wstring g_lastSyncedLogText;
-// Число строк лога после последнего синка (для Rich Edit: дописывание только если новые строки без bold).
+// Число строк модели лога после последнего синка (инкремент Rich Edit: новые видимые строки).
 static size_t g_lastSyncedLineCount = 0;
 // Первый RefreshBothEdits вызывается до нормального размера панели (хост 10×10) — после UpdateLayout прокручиваем вниз один раз.
 static bool g_forceDockScrollToBottomOnce = false;
@@ -112,6 +112,49 @@ static void RichEditApplyFullLog(HWND hRich, const std::vector<DeviceLogLine>& l
         SendMessageW(hRich, EM_SETCHARFORMAT, SCF_SELECTION,
             reinterpret_cast<LPARAM>(ln.bold ? &cfBold : &cfNorm));
         const std::wstring chunk = ln.text + L"\r\n";
+        SendMessageW(hRich, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(chunk.c_str()));
+    }
+    SendMessageW(hRich, EM_SETREADONLY, TRUE, 0);
+
+    if (pinBottom) {
+        SendMessageW(hRich, WM_VSCROLL, SB_BOTTOM, 0);
+        const int len = GetWindowTextLengthW(hRich);
+        SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(len), static_cast<LPARAM>(len));
+        SendMessageW(hRich, EM_SCROLLCARET, 0, 0);
+    } else if (savedFirstLine > 0) {
+        const int total = static_cast<int>(SendMessageW(hRich, EM_GETLINECOUNT, 0, 0));
+        const int scrollTo = (total > 0) ? (std::min)(savedFirstLine, (std::max)(0, total - 1)) : 0;
+        SendMessageW(hRich, EM_LINESCROLL, 0, scrollTo);
+    }
+    EditRedrawEnd(hRich);
+}
+
+// Инкремент в конец Rich Edit с пер-строчным bold (без полной пересборки всего буфера).
+static void RichEditAppendLinesFrom(HWND hRich, const std::vector<DeviceLogLine>& lines, size_t startIdx,
+    bool pinBottom, int savedFirstLine) {
+    if (!hRich || !IsWindow(hRich) || startIdx >= lines.size()) {
+        return;
+    }
+    SendMessageW(hRich, WM_SETREDRAW, FALSE, 0);
+    SendMessageW(hRich, EM_SETREADONLY, FALSE, 0);
+
+    CHARFORMAT2W cfBold = {};
+    cfBold.cbSize = sizeof(cfBold);
+    cfBold.dwMask = CFM_BOLD | CFM_WEIGHT;
+    cfBold.dwEffects = CFE_BOLD;
+    cfBold.wWeight = static_cast<WORD>(FW_BOLD);
+    CHARFORMAT2W cfNorm = {};
+    cfNorm.cbSize = sizeof(cfNorm);
+    cfNorm.dwMask = CFM_BOLD | CFM_WEIGHT;
+    cfNorm.dwEffects = 0;
+    cfNorm.wWeight = static_cast<WORD>(FW_NORMAL);
+
+    for (size_t i = startIdx; i < lines.size(); ++i) {
+        const int pos = GetWindowTextLengthW(hRich);
+        SendMessageW(hRich, EM_SETSEL, static_cast<WPARAM>(pos), static_cast<LPARAM>(pos));
+        SendMessageW(hRich, EM_SETCHARFORMAT, SCF_SELECTION,
+            reinterpret_cast<LPARAM>(lines[i].bold ? &cfBold : &cfNorm));
+        const std::wstring chunk = lines[i].text + L"\r\n";
         SendMessageW(hRich, EM_REPLACESEL, FALSE, reinterpret_cast<LPARAM>(chunk.c_str()));
     }
     SendMessageW(hRich, EM_SETREADONLY, TRUE, 0);
@@ -320,15 +363,25 @@ static void RefreshBothEdits() {
         return;
     }
 
-    // Rich Edit: то же дописывание в конец, если новые строки без жирного (без полной пересборки — скролл не «отпрыгивает»).
-    if (anyRichEdit && textExtends && dockPin && expPin && richNewLinesArePlainOnly && !lines.empty()) {
-        const std::wstring delta = text.substr(g_lastSyncedLogText.size());
-        if (!delta.empty()) {
+    // Rich Edit: дописывание в конец без полной пересборки (plain — одним куском; с bold — по строкам модели).
+    if (anyRichEdit && textExtends && dockPin && expPin && lines.size() > g_lastSyncedLineCount && !lines.empty()) {
+        const size_t startIdx = g_lastSyncedLineCount;
+        if (richNewLinesArePlainOnly) {
+            const std::wstring delta = text.substr(g_lastSyncedLogText.size());
+            if (!delta.empty()) {
+                if (dockRich) {
+                    RichEditAppendPlainDeltaPinnedBottom(g_hDockEdit, delta.c_str());
+                }
+                if (expRich) {
+                    RichEditAppendPlainDeltaPinnedBottom(g_hExpandedEdit, delta.c_str());
+                }
+            }
+        } else {
             if (dockRich) {
-                RichEditAppendPlainDeltaPinnedBottom(g_hDockEdit, delta.c_str());
+                RichEditAppendLinesFrom(g_hDockEdit, lines, startIdx, true, 0);
             }
             if (expRich) {
-                RichEditAppendPlainDeltaPinnedBottom(g_hExpandedEdit, delta.c_str());
+                RichEditAppendLinesFrom(g_hExpandedEdit, lines, startIdx, true, 0);
             }
         }
         g_lastSyncedLogText = text;
@@ -508,6 +561,9 @@ static void RegisterExpandedClass(HINSTANCE hInst) {
 }
 
 static void DestroyDockControls() {
+    if (g_hMain && IsWindow(g_hMain)) {
+        KillTimer(g_hMain, IDT_DEVICE_LOG_REFRESH);
+    }
     if (g_hDockHost && IsWindow(g_hDockHost)) {
         DestroyWindow(g_hDockHost);
     }
@@ -607,6 +663,9 @@ void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst) {
 }
 
 void DeviceLogPanel_Shutdown(HWND) {
+    if (g_hMain && IsWindow(g_hMain)) {
+        KillTimer(g_hMain, IDT_DEVICE_LOG_REFRESH);
+    }
     if (g_hExpandedRoot && IsWindow(g_hExpandedRoot)) {
         DestroyWindow(g_hExpandedRoot);
     }

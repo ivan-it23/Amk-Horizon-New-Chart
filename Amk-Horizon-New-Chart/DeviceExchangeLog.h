@@ -17,6 +17,8 @@ void DeviceExchangeLogSetMainWindow(HWND hWnd);
 void DeviceExchangeLogAppend(const std::wstring& line);
 /// Дополнительные строки (hex и т.д.), показываются только при включённом «Сырые данные».
 void DeviceExchangeLogAppendRaw(const std::wstring& line);
+/// Как AppendRaw, но строка отображается жирным (Rich Edit); при обычном EDIT — как обычный текст.
+void DeviceExchangeLogAppendRawBold(const std::wstring& line);
 void DeviceExchangeLogAppendFormatted(const wchar_t* fmt, ...);
 void DeviceExchangeLogSetShowRawData(bool show);
 bool DeviceExchangeLogGetShowRawData();

@@ -1927,6 +1927,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_TIMER:
+        if (wParam == IDT_DEVICE_LOG_REFRESH) {
+            KillTimer(hWnd, IDT_DEVICE_LOG_REFRESH);
+            DeviceLogPanel_OnRefresh(hWnd);
+            return 0;
+        }
         // v2.13.0: Обработка таймера опроса COM-порта
         if (wParam == IDT_SERIAL_POLL && g_chartManager)
         {

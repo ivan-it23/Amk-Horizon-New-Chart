@@ -23,7 +23,8 @@ bool g_showRawData = false;
 
 void PostRefresh() {
     if (g_notifyWnd && IsWindow(g_notifyWnd)) {
-        PostMessageW(g_notifyWnd, WM_APP_DEVICE_LOG_REFRESH, 0, 0);
+        // Один таймер на окно: повторные SetTimer с тем же ID сдвигают срабатывание — не засыпаем очередь сообщений.
+        SetTimer(g_notifyWnd, IDT_DEVICE_LOG_REFRESH, 75, nullptr);
     }
 }
 
@@ -85,6 +86,17 @@ void DeviceExchangeLogAppendRaw(const std::wstring& line) {
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_lines.push_back(LogEntry{false, true, line});
+        while (g_lines.size() > kMaxLines) {
+            g_lines.pop_front();
+        }
+    }
+    PostRefresh();
+}
+
+void DeviceExchangeLogAppendRawBold(const std::wstring& line) {
+    {
+        std::lock_guard<std::mutex> lock(g_mutex);
+        g_lines.push_back(LogEntry{true, true, line});
         while (g_lines.size() > kMaxLines) {
             g_lines.pop_front();
         }
