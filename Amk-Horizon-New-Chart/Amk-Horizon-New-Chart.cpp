@@ -850,23 +850,6 @@ static bool Metro_GetEditIntOptional(HWND hDlg, int id, int& out, bool& hasValue
     return true;
 }
 
-static void Metro_FillSelectedKeyCheckboxes(HWND hDlg, uint32_t key) {
-    for (int bit = 0; bit <= 25; ++bit) {
-        int id = IDC_METRO_KEY_0 + bit;
-        SendMessage(GetDlgItem(hDlg, id), BM_SETCHECK, (key & (1u << bit)) ? BST_CHECKED : BST_UNCHECKED, 0);
-    }
-}
-
-static uint32_t Metro_ReadSelectedKeyCheckboxes(HWND hDlg) {
-    uint32_t key = 0;
-    for (int bit = 0; bit <= 25; ++bit) {
-        int id = IDC_METRO_KEY_0 + bit;
-        if (SendMessage(GetDlgItem(hDlg, id), BM_GETCHECK, 0, 0) == BST_CHECKED) {
-            key |= (1u << bit);
-        }
-    }
-    return key;
-}
 
 static int Metro_CountActiveTransmitters(const METROLOGY_DATA& metro) {
     int count = 0;
@@ -897,8 +880,6 @@ static void Metro_UpdateSignaturePanel(HWND hDlg, const METROLOGY_DATA& metro) {
         int typeIndex = 0;
         if (typeClass == 2) {
             typeIndex = 1;
-        } else if (typeClass == 3) {
-            typeIndex = 2;
         }
         SendMessage(hType, CB_SETCURSEL, typeIndex, 0);
     }
@@ -1070,7 +1051,6 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
             if (hType) {
                 SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"АВТОНОМ");
                 SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"LWD");
-                SendMessage(hType, CB_ADDSTRING, 0, (LPARAM)L"КАРТОГРАФ");
                 SendMessage(hType, CB_SETCURSEL, 0, 0);
             }
             HWND hNtx = GetDlgItem(hDlg, IDC_METRO_NTX_COMBO);
@@ -1131,7 +1111,7 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                 if (hBoldFont) {
                     static const int btnIds[] = {
                         IDC_METRO_BTN_READ_SONDE, IDC_METRO_BTN_WRITE_SONDE,
-                        IDC_METRO_BTN_WRITE_CMD, IDC_METRO_BTN_OPEN_FILE,
+                        IDC_METRO_BTN_OPEN_FILE,
                         IDC_METRO_BTN_SAVE_FILE, IDOK
                     };
                     for (int id : btnIds) {
@@ -1146,12 +1126,10 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
 
             if (ctx && ctx->metro && ctx->metro->HasData()) {
                 Metro_FillFormFromStruct(hDlg, ctx->metro->Get());
-                Metro_FillSelectedKeyCheckboxes(hDlg, ctx->metro->GetSelectedKey());
             } else if (ctx && ctx->metro) {
                 METROLOGY_DATA blank{};
                 ctx->metro->Set(blank, false);
                 Metro_FillFormFromStruct(hDlg, blank);
-                Metro_FillSelectedKeyCheckboxes(hDlg, 0);
             }
 
             return (INT_PTR)TRUE;
@@ -1269,24 +1247,6 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                     MessageBox(hDlg, L"Метрология записана в зонд.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
                 } else {
                     std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(wr);
-                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
-                }
-                return (INT_PTR)TRUE;
-            }
-
-            if (id == IDC_METRO_BTN_WRITE_CMD) {
-                if (!ctx->serial || !ctx->serial->IsConnected()) {
-                    MessageBox(hDlg, L"Нет подключения к прибору.", L"METROLOGY", MB_OK | MB_ICONWARNING);
-                    return (INT_PTR)TRUE;
-                }
-                uint32_t key = Metro_ReadSelectedKeyCheckboxes(hDlg);
-                ctx->metro->SetSelectedKey(key);
-
-                SerialResult rr = ctx->serial->SetSelectedKey(key);
-                if (rr == SerialResult::SUCCESS) {
-                    MessageBox(hDlg, L"Команда (selected_key) отправлена.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
-                } else {
-                    std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(rr);
                     MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
                 }
                 return (INT_PTR)TRUE;

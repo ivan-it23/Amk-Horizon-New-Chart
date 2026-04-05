@@ -129,13 +129,13 @@ BEGIN
     PUSHBUTTON      "Закрыть",IDCANCEL,150,184,60,18
 END
 
-IDD_METROLOGY_DIALOG DIALOGEX 0, 0, 612, 222
+IDD_METROLOGY_DIALOG DIALOGEX 0, 0, 450, 222
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
 CAPTION "МЕТРОЛОГИЯ"
 FONT 9, "Segoe UI"
 BEGIN
     // =====================================================================
-    // ROW 1: Геометрия зонда | Воздушные калибровки (табличный) | Калибр. ключи
+    // ROW 1: Геометрия зонда | Воздушные калибровки (табличный)
     // =====================================================================
 
     // --- Геометрия зонда (left) ---
@@ -219,80 +219,32 @@ BEGIN
     LTEXT           "Palette",IDC_STATIC,176,136,30,10
     EDITTEXT        IDC_METRO_SIGNATUREPAL_EDIT,210,134,32,13,ES_AUTOHSCROLL | ES_READONLY
 
-    // --- Калибровочные ключи (right) ---
-    GROUPBOX        "Калибровочные ключи",IDC_STATIC,450,4,156,152
-
-    // Column headers
-    LTEXT           "400 кГц",IDC_STATIC,474,16,36,8
-    LTEXT           "2000 кГц",IDC_STATIC,540,16,40,8
-
-    AUTOCHECKBOX    "WORK",IDC_METRO_KEY_24,474,28,40,11
-    AUTOCHECKBOX    "WORK",IDC_METRO_KEY_25,540,28,40,11
-
-    LTEXT           "GA",IDC_STATIC,458,44,14,8
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_0,474,44,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_1,498,44,22,11
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_12,540,44,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_13,564,44,22,11
-
-    LTEXT           "",IDC_STATIC,458,56,14,8
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_2,474,56,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_3,498,56,22,11
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_14,540,56,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_15,564,56,22,11
-
-    LTEXT           "GP",IDC_STATIC,458,72,14,8
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_4,474,72,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_5,498,72,22,11
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_16,540,72,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_17,564,72,22,11
-
-    LTEXT           "",IDC_STATIC,458,84,14,8
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_6,474,84,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_7,498,84,22,11
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_18,540,84,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_19,564,84,22,11
-
-    LTEXT           "Ro",IDC_STATIC,458,100,14,8
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_8,474,100,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_9,498,100,22,11
-    AUTOCHECKBOX    "1",IDC_METRO_KEY_20,540,100,22,11
-    AUTOCHECKBOX    "2",IDC_METRO_KEY_21,564,100,22,11
-
-    LTEXT           "",IDC_STATIC,458,112,14,8
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_10,474,112,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_11,498,112,22,11
-    AUTOCHECKBOX    "3",IDC_METRO_KEY_22,540,112,22,11
-    AUTOCHECKBOX    "4",IDC_METRO_KEY_23,564,112,22,11
-
     // =====================================================================
     // ROW 2: Идентификация зонда (full width)
     // =====================================================================
-    GROUPBOX        "Идентификация зонда",IDC_STATIC,6,158,600,32
+    GROUPBOX        "Идентификация зонда",IDC_STATIC,6,158,438,32
 
-    LTEXT           "Тип",IDC_STATIC,14,172,18,10
-    COMBOBOX        IDC_METRO_TYPE_COMBO,34,170,72,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "N Tx",IDC_STATIC,114,172,20,10
-    COMBOBOX        IDC_METRO_NTX_COMBO,136,170,36,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Мод",IDC_STATIC,180,172,18,10
-    COMBOBOX        IDC_METRO_MOD_COMBO,200,170,36,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
-    LTEXT           "Номер",IDC_STATIC,244,172,26,10
-    EDITTEXT        IDC_METRO_NUMBER_EDIT,274,170,36,13,ES_AUTOHSCROLL
-    LTEXT           "Серийный №",IDC_STATIC,318,172,46,10
-    EDITTEXT        IDC_METRO_SERIAL_EDIT,368,170,50,13,ES_AUTOHSCROLL
-    LTEXT           "Позиция R1",IDC_STATIC,424,172,44,10
-    COMBOBOX        IDC_METRO_RX_POSITION_COMBO,472,170,60,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Тип",IDC_STATIC,14,172,16,10
+    COMBOBOX        IDC_METRO_TYPE_COMBO,30,170,60,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "N Tx",IDC_STATIC,94,172,18,10
+    COMBOBOX        IDC_METRO_NTX_COMBO,112,170,30,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Мод",IDC_STATIC,146,172,16,10
+    COMBOBOX        IDC_METRO_MOD_COMBO,162,170,30,90,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Номер",IDC_STATIC,196,172,24,10
+    EDITTEXT        IDC_METRO_NUMBER_EDIT,222,170,32,13,ES_AUTOHSCROLL
+    LTEXT           "Серийный №",IDC_STATIC,258,172,42,10
+    EDITTEXT        IDC_METRO_SERIAL_EDIT,302,170,40,13,ES_AUTOHSCROLL
+    LTEXT           "Позиция R1",IDC_STATIC,346,172,40,10
+    COMBOBOX        IDC_METRO_RX_POSITION_COMBO,388,170,50,60,CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
 
     // =====================================================================
     // ROW 3: Горизонтальная панель кнопок
     // =====================================================================
     PUSHBUTTON      "Прочитать из зонда",IDC_METRO_BTN_READ_SONDE,6,198,100,18
     PUSHBUTTON      "Записать в зонд",IDC_METRO_BTN_WRITE_SONDE,112,198,100,18
-    PUSHBUTTON      "Записать команду",IDC_METRO_BTN_WRITE_CMD,218,198,100,18
-
-    PUSHBUTTON      "Открыть файл",IDC_METRO_BTN_OPEN_FILE,370,198,80,18
-    PUSHBUTTON      "Записать в файл",IDC_METRO_BTN_SAVE_FILE,456,198,80,18
-    PUSHBUTTON      "Закрыть",IDOK,556,198,50,18
+    PUSHBUTTON      "Открыть файл",IDC_METRO_BTN_OPEN_FILE,224,198,80,18
+    PUSHBUTTON      "Записать в файл",IDC_METRO_BTN_SAVE_FILE,310,198,80,18
+    PUSHBUTTON      "Закрыть",IDOK,396,198,50,18
 END
 
 IDD_SCHEMATIC_DIALOG DIALOGEX 0, 0, 430, 272

@@ -256,39 +256,10 @@
 #define IDC_METRO_RX_POSITION_COMBO 1248
 
 // Buttons
-#define IDC_METRO_BTN_WRITE_CMD     1250
 #define IDC_METRO_BTN_OPEN_FILE     1251
 #define IDC_METRO_BTN_SAVE_FILE     1252
 #define IDC_METRO_BTN_READ_SONDE    1253
 #define IDC_METRO_BTN_WRITE_SONDE   1254
-
-// selected_key checkboxes (0..25)
-#define IDC_METRO_KEY_0             1260
-#define IDC_METRO_KEY_1             1261
-#define IDC_METRO_KEY_2             1262
-#define IDC_METRO_KEY_3             1263
-#define IDC_METRO_KEY_4             1264
-#define IDC_METRO_KEY_5             1265
-#define IDC_METRO_KEY_6             1266
-#define IDC_METRO_KEY_7             1267
-#define IDC_METRO_KEY_8             1268
-#define IDC_METRO_KEY_9             1269
-#define IDC_METRO_KEY_10            1270
-#define IDC_METRO_KEY_11            1271
-#define IDC_METRO_KEY_12            1272
-#define IDC_METRO_KEY_13            1273
-#define IDC_METRO_KEY_14            1274
-#define IDC_METRO_KEY_15            1275
-#define IDC_METRO_KEY_16            1276
-#define IDC_METRO_KEY_17            1277
-#define IDC_METRO_KEY_18            1278
-#define IDC_METRO_KEY_19            1279
-#define IDC_METRO_KEY_20            1280
-#define IDC_METRO_KEY_21            1281
-#define IDC_METRO_KEY_22            1282
-#define IDC_METRO_KEY_23            1283
-#define IDC_METRO_KEY_24            1284
-#define IDC_METRO_KEY_25            1285
 
 // === Меню записи (v2.15.0) ===
 #define IDM_DEVICE_RECORD_FOLDER	112
