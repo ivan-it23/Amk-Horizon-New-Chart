@@ -266,18 +266,18 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
     int surfStartX = xRangeStartX + 321;
     
-    // Checkbox "Surf"
-    hChart1SurfCheck = CreateWindow(L"BUTTON", L"Surf",
+    // Checkbox «Поток» (режим Surf)
+    hChart1SurfCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x0442\x043E\x043A",
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-        surfStartX, yPos, 50, 20, hWnd, (HMENU)IDC_CHART1_SURF_CHECK, hInst, NULL);
+        surfStartX, yPos, 58, 20, hWnd, (HMENU)IDC_CHART1_SURF_CHECK, hInst, NULL);
     
     // Поле ввода количества точек (по умолчанию 100)
     hChart1SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_VISIBLE | WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
-        surfStartX + 55, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
+        surfStartX + 63, yPos - 2, 45, 22, hWnd, (HMENU)IDC_CHART1_SURF_EDIT, hInst, NULL);
 
     // === Кнопка-переключатель Старт/Стоп опроса (панель Chart 1) ===
-    int pollingBtnX = surfStartX + 112;  // 12px зазор после Surf Edit
+    int pollingBtnX = surfStartX + 120;  // 12px зазор после поля окна «Поток»
     hPollingToggleBtn = CreateWindow(L"BUTTON", L"",
         WS_VISIBLE | WS_CHILD | BS_OWNERDRAW | WS_DISABLED,
         pollingBtnX, yPos - 2, 32, 24, hWnd, (HMENU)IDC_POLLING_TOGGLE_BTN, hInst, NULL);
@@ -319,7 +319,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Элементы отображения координат курсора для Chart 1 (компактный дизайн v2.15.1)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursorStartX = surfStartX + 105;  // После Surf (YZoom combo перемещён на график)
+    int cursorStartX = surfStartX + 113;  // После «Поток» + поле N (YZoom combo на графике)
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -394,15 +394,15 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // ПЕРЕМЕЩЕНО: Surf теперь ПЕРЕД Cursor (v2.15.1)
     int surf2StartX = xRange2StartX + 263;
     
-    // Checkbox "Surf" для Chart 2 (изначально скрыт)
-    hChart2SurfCheck = CreateWindow(L"BUTTON", L"Surf",
+    // Checkbox «Поток» для Chart 2 (изначально скрыт)
+    hChart2SurfCheck = CreateWindow(L"BUTTON", L"\x041F\x043E\x0442\x043E\x043A",
         WS_CHILD | BS_AUTOCHECKBOX,
-        surf2StartX, 300, 50, 20, hWnd, (HMENU)IDC_CHART2_SURF_CHECK, hInst, NULL);
+        surf2StartX, 300, 58, 20, hWnd, (HMENU)IDC_CHART2_SURF_CHECK, hInst, NULL);
     
     // Поле ввода количества точек для Chart 2 (по умолчанию 100)
     hChart2SurfEdit = CreateWindow(L"EDIT", L"100",
         WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
-        surf2StartX + 55, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
+        surf2StartX + 63, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
 
     // === Переключатель цели Y-zoom для Chart 2 (v2.18.0) ===
     // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)
@@ -430,7 +430,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursor2StartX = surf2StartX + 105;  // После Surf элементов (убрана метка "pts")
+    int cursor2StartX = surf2StartX + 113;  // После «Поток» и поля N
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -623,11 +623,11 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     
     // Позиционируем элементы Surf для Chart 2 (v2.15.1 - Surf ПЕРЕД Cursor)
     int surf2StartX = xRange2StartX + 263;
-    SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 50, 20, SWP_NOSIZE);
-    SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 55, yPos - 2, 45, 22, SWP_NOSIZE);
+    SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 58, 20, SWP_NOSIZE);
+    SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 63, yPos - 2, 45, 22, SWP_NOSIZE);
     
     // Позиционируем элементы координат курсора для Chart 2 (v2.15.1 - Cursor КРАЙНИЙ СПРАВА)
-    int cursor2StartX = surf2StartX + 105;  // После Surf (YZoom combo перемещён на график)
+    int cursor2StartX = surf2StartX + 113;  // После «Поток» + поле N (YZoom combo на графике)
     SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
