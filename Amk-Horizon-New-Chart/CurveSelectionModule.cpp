@@ -163,9 +163,9 @@ const wchar_t* GetPresetDisplayName(PresetType preset) {
         case PresetType::PHASE_DIFFERENCES:
             return L"Разность фаз";
         case PresetType::SILENT_AMPLITUDES:
-            return L"Ампл. молч. пер.";
+            return L"Ампл. молч.";
         case PresetType::SILENT_PHASE_DIFFERENCE:
-            return L"Разн. фаз молч. пер.";
+            return L"Разность фаз молч.";
         case PresetType::RHO_SMT:
             return L"УЭС";
         case PresetType::PHASE_SMT:

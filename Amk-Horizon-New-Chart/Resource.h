@@ -32,6 +32,7 @@
 
 // Диалоговое окно схемы прибора
 #define IDD_SCHEMATIC_DIALOG		1012
+#define IDC_SCHEMATIC_GROUPBOX		1087
 #define IDC_SCHEMATIC_AREA			1013
 #define IDC_FREQUENCY_COMBO			1014
 #define IDC_CURVE_LIST				1015

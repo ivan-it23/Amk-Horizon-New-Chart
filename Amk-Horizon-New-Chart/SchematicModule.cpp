@@ -1334,12 +1334,87 @@ void SchematicModule::InitializeDialogControls(HWND hDlg) {
         SendMessage(hXAxisCombo, CB_SETCURSEL, xAxisIndex, 0);
     }
     
-    // Инициализируем область схемы
+    // Инициализируем область схемы с программной подгонкой размеров
     HWND hSchematicArea = GetDlgItem(hDlg, IDC_SCHEMATIC_AREA);
     if (hSchematicArea) {
-        RECT schematicRect;
-        GetClientRect(hSchematicArea, &schematicRect);
-        InitializeSchematicElements(schematicRect);
+        // Шаг 1: вычисляем точный размер контента в пикселях из констант
+        const int contentW = kSchematicFrameElementsCount * kSchematicElementWidth
+            + (kSchematicFrameElementsCount - 1) * kSchematicElementSpacing
+            + 2 * FRAME_PADDING
+            + kFrameToSilentSpacing
+            + 2 * kSchematicElementWidth + kSchematicElementSpacing;
+        const int contentH = kSchematicElementHeight + 2 * (FRAME_PADDING + FRAME_BORDER_WIDTH);
+
+        // Шаг 2: параметры компактного layout
+        const int areaPad = 6;            // padding внутри area вокруг контента
+        const int gbTop = 2;              // верхний отступ groupbox от края диалога
+        const int gbTitleH = 16;          // высота для заголовка groupbox + линия рамки
+        const int gbMarginX = 4;          // боковой отступ groupbox от area
+        const int gbMarginBottom = 4;     // нижний отступ внутри groupbox под area
+        const int newAreaW = contentW + 2 * areaPad;
+        const int newAreaH = contentH + 2 * areaPad;
+
+        // Шаг 3: сохраняем оригинальное положение groupbox ДО ресайза
+        HWND hGroupBox = GetDlgItem(hDlg, IDC_SCHEMATIC_GROUPBOX);
+        int origGbBottom = 0;
+        if (hGroupBox) {
+            RECT origGbRect;
+            GetWindowRect(hGroupBox, &origGbRect);
+            MapWindowPoints(HWND_DESKTOP, hDlg, (POINT*)&origGbRect, 2);
+            origGbBottom = origGbRect.bottom;
+        }
+
+        // Шаг 4: позиционируем groupbox и area с минимальными отступами
+        RECT dlgClient;
+        GetClientRect(hDlg, &dlgClient);
+        const int newAreaX = (dlgClient.right - newAreaW) / 2;
+        const int newAreaY = gbTop + gbTitleH;
+
+        MoveWindow(hSchematicArea, newAreaX, newAreaY, newAreaW, newAreaH, TRUE);
+
+        int newGbBottom = 0;
+        if (hGroupBox) {
+            const int gbH = gbTitleH + newAreaH + gbMarginBottom;
+            MoveWindow(hGroupBox,
+                newAreaX - gbMarginX,
+                gbTop,
+                newAreaW + 2 * gbMarginX,
+                gbH,
+                TRUE);
+            newGbBottom = gbTop + gbH;
+        }
+
+        // Шаг 5: сдвигаем ВСЕ контролы ниже оригинального groupbox вверх
+        if (origGbBottom > 0 && newGbBottom > 0 && newGbBottom < origGbBottom) {
+            const int shiftUp = origGbBottom - newGbBottom;
+
+            HWND hChild = GetWindow(hDlg, GW_CHILD);
+            while (hChild) {
+                if (hChild != hSchematicArea && hChild != hGroupBox) {
+                    RECT cr;
+                    GetWindowRect(hChild, &cr);
+                    MapWindowPoints(HWND_DESKTOP, hDlg, (POINT*)&cr, 2);
+                    if (cr.top >= origGbBottom) {
+                        MoveWindow(hChild, cr.left, cr.top - shiftUp,
+                            cr.right - cr.left, cr.bottom - cr.top, TRUE);
+                    }
+                }
+                hChild = GetWindow(hChild, GW_HWNDNEXT);
+            }
+
+            // Уменьшаем высоту диалога
+            RECT dlgRect;
+            GetWindowRect(hDlg, &dlgRect);
+            SetWindowPos(hDlg, NULL, 0, 0,
+                dlgRect.right - dlgRect.left,
+                dlgRect.bottom - dlgRect.top - shiftUp,
+                SWP_NOMOVE | SWP_NOZORDER);
+        }
+
+        // Шаг 6: переинициализируем элементы с новым размером area
+        RECT newSchematicRect;
+        GetClientRect(hSchematicArea, &newSchematicRect);
+        InitializeSchematicElements(newSchematicRect);
         
         // Синхронизируем визуальное состояние элементов с восстановленным выбором
         if (hasExistingConfig) {
@@ -1767,7 +1842,7 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             ApplyBasicPresetState(currentSelection,
                                   DataTypeFilter::AMPLITUDE_ONLY,
                                   PresetType::SILENT_AMPLITUDES,
-                                  L"Ампл. молч. пер.",
+                                  L"Ампл. молч.",
                                   currentPreset,
                                   currentPresetDisplayName);
             break;
@@ -1778,7 +1853,7 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
             ApplyBasicPresetState(currentSelection,
                                   DataTypeFilter::DIFFERENCE_ONLY,
                                   PresetType::SILENT_PHASE_DIFFERENCE,
-                                  L"Разн. фаз молч. пер.",
+                                  L"Разность фаз молч.",
                                   currentPreset,
                                   currentPresetDisplayName);
             break;
@@ -2116,13 +2191,14 @@ void SchematicModule::DrawGroupLabels(HDC hdc, const RECT& rect) {
     SetBkMode(hdc, TRANSPARENT);
     
     // Поскольку все элементы теперь в одной линии, добавляем подписи под каждым элементом
-    // Получаем позиции элементов для подписей
-    int elementWidth = 70, spacing = 10;
-    int totalElements = 9;
-    int totalElementsWidth = totalElements * elementWidth + (totalElements - 1) * spacing;
-    int startX = rect.left + (rect.right - rect.left - totalElementsWidth) / 2;
-    int centerY = rect.top + (rect.bottom - rect.top) / 2;
-    int labelY = centerY + 45 + 5; // Под элементами
+    // Получаем позиции элементов для подписей (используем те же константы, что и CalculateElementRect)
+    const int elW = kSchematicElementWidth;
+    const int elSp = kSchematicElementSpacing;
+    const int frameW = kSchematicFrameElementsCount * elW + (kSchematicFrameElementsCount - 1) * elSp + 2 * FRAME_PADDING;
+    const int totalW = frameW + kFrameToSilentSpacing + 2 * elW + elSp;
+    int startX = rect.left + (rect.right - rect.left - totalW) / 2;
+    int centerY = rect.top + (rect.bottom - rect.top - kSchematicElementHeight) / 2;
+    int labelY = centerY + kSchematicElementHeight + 5; // Под элементами
     
     // Подписи типов элементов убраны для более чистого вида
     // Пользователи ИАТК понимают обозначения T1-T5, R1-R2, Silent R1-R2 без дополнительных пояснений
