@@ -140,6 +140,12 @@ private:
     std::wstring currentDeviceId;       // ID текущего прибора (SN_Diameter)
     std::vector<uint8_t> lastRawDataFrame;
 
+    // Для объединённого логирования TX/RX
+    uint8_t lastTxCmd = 0;
+    size_t lastTxSize = 0;
+    uint8_t lastRxCmd = 0;
+    size_t lastRxSize = 0;
+
     // Защита от конфликтов: polling (таймер) vs метрология/команды
     std::mutex ioMutex;
     

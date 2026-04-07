@@ -797,3 +797,32 @@ void DeviceLogPanel_OnRawDataToggled(HWND hCheckbox) {
     g_lastSyncedLineCount = 0;
     RefreshBothEdits();
 }
+
+// Статическая переменная для отслеживания видимости чекбокса
+static bool g_rawCheckboxVisible = true;
+
+void DeviceLogPanel_SetRawDataCheckboxVisible(bool visible) {
+    g_rawCheckboxVisible = visible;
+    
+    // Обновляем видимость чекбокса в dock-панели
+    if (g_hDockRawCheck && IsWindow(g_hDockRawCheck)) {
+        ShowWindow(g_hDockRawCheck, visible ? SW_SHOW : SW_HIDE);
+    }
+    
+    // Обновляем видимость чекбокса в развёрнутом окне
+    if (g_hExpandedRawCheck && IsWindow(g_hExpandedRawCheck)) {
+        ShowWindow(g_hExpandedRawCheck, visible ? SW_SHOW : SW_HIDE);
+    }
+    
+    // Пересчитываем layout, чтобы элементы заняли освободившееся/добавленное пространство
+    if (g_hDockHost && IsWindow(g_hDockHost)) {
+        LayoutDockChildren();
+    }
+    if (g_hExpandedRoot && IsWindow(g_hExpandedRoot)) {
+        LayoutExpandedChildren(g_hExpandedRoot);
+    }
+}
+
+bool DeviceLogPanel_IsRawDataCheckboxVisible() {
+    return g_rawCheckboxVisible;
+}

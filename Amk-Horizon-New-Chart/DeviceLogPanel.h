@@ -14,3 +14,7 @@ void DeviceLogPanel_OnRefresh(HWND hMain);
 void DeviceLogPanel_OnExpandCommand();
 /// Вызывать из WM_COMMAND для IDC_DEVICE_LOG_RAW_CHECK (lParam = HWND чекбокса).
 void DeviceLogPanel_OnRawDataToggled(HWND hCheckbox);
+
+// Управление видимостью чекбокса "Сырые данные" (для файлового режима - скрыть, для COM - показать)
+void DeviceLogPanel_SetRawDataCheckboxVisible(bool visible);
+bool DeviceLogPanel_IsRawDataCheckboxVisible();

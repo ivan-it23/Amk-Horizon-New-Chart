@@ -984,10 +984,10 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
         }
 
         DeviceExchangeLogAppendFormatted(
-            L"Кадр: OK signature=0x%08X condition=0x%08X frame=%u T=%.1f°C",
-            outParsedFrame.canonicalData.signature,
-            outParsedFrame.canonicalData.condition,
+            L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]  |  Кадр #%u: Sig=0x%08X, %.1f°C",
+            lastTxCmd, lastTxSize, lastRxCmd, lastRxSize,
             outParsedFrame.canonicalData.frame,
+            outParsedFrame.canonicalData.signature,
             static_cast<double>(outParsedFrame.canonicalData.temperature));
 
         DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
@@ -1044,10 +1044,10 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
                 DebugLog4Tx("requestLegacyData: SUCCESS at offset=%zu, signature=0x%08X",
                              offset, sig);
                 DeviceExchangeLogAppendFormatted(
-                    L"Кадр: OK signature=0x%08X condition=0x%08X frame=%u T=%.1f°C",
-                    outParsedFrame.canonicalData.signature,
-                    outParsedFrame.canonicalData.condition,
+                    L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]  |  Кадр #%u: Sig=0x%08X, %.1f°C",
+                    lastTxCmd, lastTxSize, lastRxCmd, lastRxSize,
                     outParsedFrame.canonicalData.frame,
+                    outParsedFrame.canonicalData.signature,
                     static_cast<double>(outParsedFrame.canonicalData.temperature));
                 DeviceLogTryAppendVariantAForDataPayload240(legacyResponse.data() + offset, sizeof(GP_TOOL_DATA));
                 return SerialResult::SUCCESS;
@@ -1126,7 +1126,13 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
             data.signature, static_cast<unsigned>(data.serial));
 
         if (!loggedDeviceIdentityToExchangeLog) {
-            DeviceExchangeLogAppendDeviceIdentity(data.signature, data.serial);
+            // Декодируем поля из signature (low20 бит): type*100000 + N_Tx*10000 + mod*1000 + number
+            const uint32_t low20 = (data.signature << 12) >> 12;
+            const int decodedMod = static_cast<int>((low20 % 10000u) / 1000u);
+            const int decodedNumber = static_cast<int>(low20 % 1000u);
+            DeviceExchangeLogAppendDeviceIdentity(data.signature, data.serial,
+                                                 decodedMod, decodedNumber,
+                                                 data.Rx_Position, data.D_sonde_mm);
             loggedDeviceIdentityToExchangeLog = true;
         }
 
@@ -1732,8 +1738,8 @@ bool SerialModule::SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLen
     DWORD bytesWritten = 0;
     const bool ok = WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr)
         && bytesWritten == packet.size();
-    DeviceExchangeLogAppendFormatted(L"TX: CMD=0x%02X, пакет %zu B — %s",
-        cmd, packet.size(), ok ? L"OK" : L"ошибка записи");
+    lastTxCmd = cmd;
+    lastTxSize = packet.size();
     DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые", packet.data(), packet.size()));
     return ok;
 }
@@ -1803,7 +1809,14 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     if (payloadLen > 0) {
         memcpy(outPayload.data(), packet.data() + 3, payloadLen);
     }
-    DeviceExchangeLogAppendFormatted(L"RX: CMD=0x%02X, полезная нагрузка %zu B, CRC OK", outCmd, payloadLen);
+    lastRxCmd = outCmd;
+    lastRxSize = payloadLen;
+    // Для CMD_DATA логирование будет в RequestData с информацией о кадре
+    // Для других команд логируем здесь
+    if (outCmd != SerialCommands::CMD_DATA) {
+        DeviceExchangeLogAppendFormatted(L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]",
+            lastTxCmd, lastTxSize, outCmd, payloadLen);
+    }
     return true;
 }
 

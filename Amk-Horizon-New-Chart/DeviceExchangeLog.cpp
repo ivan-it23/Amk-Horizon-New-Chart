@@ -154,7 +154,9 @@ std::vector<DeviceLogLine> DeviceExchangeLogGetLines() {
     return out;
 }
 
-void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) {
+void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
+                                          int mod, int number, uint32_t rxPosition,
+                                          uint32_t dSondeMm) {
     const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(signature);
     ToolDataKind kind = ToolDataKind::UNKNOWN;
     int txCount = 0;
@@ -166,6 +168,22 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) 
         typeLabel = ToolKindToDisplayName(kind);
     }
 
+    // Декодирование полей из signature (low20 бит)
+    const uint32_t low20 = (signature << 12) >> 12;
+    const int typeClass = static_cast<int>(low20 / 100000u);
+    const int decodedNtx = static_cast<int>((low20 % 100000u) / 10000u);
+    const int ntx = (decodedNtx > 0) ? decodedNtx : txCount;
+    
+    // Если mod/number не переданы (-1), берём из signature
+    const int finalMod = (mod >= 0) ? mod : static_cast<int>((low20 % 10000u) / 1000u);
+    const int finalNumber = (number >= 0) ? number : static_cast<int>(low20 % 1000u);
+    
+    // Позиция R1
+    std::wstring rxPosLabel = L"R1→T1";
+    if (rxPosition == 1) {
+        rxPosLabel = L"R1→T2";
+    }
+
     std::lock_guard<std::mutex> lock(g_mutex);
     auto pushBold = [](const std::wstring& s) {
         g_lines.push_back(LogEntry{true, false, s});
@@ -173,8 +191,21 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) 
             g_lines.pop_front();
         }
     };
-    pushBold(L"Тип прибора: " + typeLabel);
-    pushBold(L"Передатчиков: " + std::to_wstring(txCount > 0 ? txCount : 0));
-    pushBold(L"Серийный номер: " + std::to_wstring(static_cast<unsigned long>(serial)));
+    pushBold(L"========== Идентификация зонда ==========");
+    pushBold(L"Тип: " + typeLabel);
+    pushBold(L"N Tx: " + std::to_wstring(ntx));
+    pushBold(L"Мод: " + std::to_wstring(finalMod));
+    pushBold(L"Номер: " + std::to_wstring(finalNumber));
+    pushBold(L"Серийный №: " + std::to_wstring(static_cast<unsigned long>(serial)));
+    pushBold(L"Позиция R1: " + rxPosLabel);
+    if (dSondeMm > 0) {
+        pushBold(L"Диаметр прибора: " + std::to_wstring(dSondeMm) + L" мм");
+    }
+    pushBold(L"========================================");
     PostRefresh();
+}
+
+// Упрощённая версия для COM-режима (с полной метрологией)
+void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) {
+    DeviceExchangeLogAppendDeviceIdentity(signature, serial, -1, -1, 0, 0);
 }

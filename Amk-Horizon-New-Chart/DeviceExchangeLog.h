@@ -28,3 +28,8 @@ std::vector<DeviceLogLine> DeviceExchangeLogGetLines();
 
 // После успешного чтения метрологии: тип прибора, число передатчиков, S/N (строки помечаются как «важные» для жирного в UI).
 void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial);
+
+// Расширенная версия с полной идентификацией зонда (тип, N Tx, мод, номер, позиция R1, диаметр)
+void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
+                                          int mod, int number, uint32_t rxPosition,
+                                          uint32_t dSondeMm);

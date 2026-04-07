@@ -1758,6 +1758,23 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
             InvalidateCachedSnapshots();
             ResetCoordinateTracking();
 
+            // Логирование идентификации зонда при загрузке файла
+            if (dataModule->HasData()) {
+                const GP_TOOL_DATA* firstRecord = dataModule->TryGetRecord(0);
+                if (firstRecord) {
+                    // Декодируем поля из signature (low20 бит)
+                    const uint32_t low20 = (firstRecord->signature << 12) >> 12;
+                    const int decodedMod = static_cast<int>((low20 % 10000u) / 1000u);
+                    const int decodedNumber = static_cast<int>(low20 % 1000u);
+                    // Для файлов серийный номер и позиция R1 неизвестны (0)
+                    DeviceExchangeLogAppendFormatted(L"Файл загружен: %s", filename.c_str());
+                    DeviceExchangeLogAppendDeviceIdentity(firstRecord->signature, 0,
+                                                         decodedMod, decodedNumber, 0, 0);
+                }
+                // Скрываем чекбокс "Сырые данные" при работе с файлами
+                DeviceLogPanel_SetRawDataCheckboxVisible(false);
+            }
+
             if (schematicModule) {
                 schematicModule->CloseSchematicDialog();
             }
@@ -3690,9 +3707,7 @@ void ChartManager::SynchronizeUIWithConfiguration(int chartNumber) {
     // Синхронизируем старые элементы UI с новой системой, если возможно
     SynchronizeLegacyUIWithNewSystem(chartNumber);
     
-    // Новая система работает независимо от старых элементов UI,
-    // но мы стараемся поддерживать их в синхронизированном состоянии
-    // для лучшего пользовательского опыта
+
 }
 
 bool ChartManager::ValidateChartConfiguration(const ChartConfiguration& config) const {
@@ -5109,6 +5124,9 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
                         ui->UpdatePollingToggleState(true, true);
                     }
                     
+                    // Показываем чекбокс "Сырые данные" при работе с COM-портом
+                    DeviceLogPanel_SetRawDataCheckboxVisible(true);
+                    
                     if (metrologyResult == SerialResult::SUCCESS) {
                         wchar_t title[256];
                         swprintf_s(title, L"AMK Horizon - %s (S/N: %u)", lastPort.c_str(), metrology.serial);
@@ -5143,6 +5161,9 @@ void ChartManager::HandleSerialDisconnect(HWND hWnd) {
     
     serialModule->Disconnect();
     
+    // Логируем отключение
+    DeviceExchangeLogAppend(L"❌ COM: отключено");
+    
     if (uiModule) {
         uiModule->SetConnectToggleReturnMode(false);
         uiModule->SetSerialConnected(false);
@@ -5160,6 +5181,9 @@ void ChartManager::HandleSerialStart(HWND hWnd) {
     // перед вызовом StartPolling через HandleSerialClear
     serialModule->StartPolling(hWnd, serialModule->GetPollInterval());
     
+    // Логируем возобновление опроса
+    DeviceExchangeLogAppend(L"▶ Опрос возобновлён");
+    
     if (uiModule) {
         uiModule->SetSerialPolling(true);
     }
@@ -5169,6 +5193,9 @@ void ChartManager::HandleSerialStop(HWND hWnd) {
     if (!serialModule) return;
     
     serialModule->StopPolling();
+    
+    // Логируем паузу опроса
+    DeviceExchangeLogAppend(L"⏸ Опрос приостановлен");
     
     if (uiModule) {
         uiModule->SetSerialPolling(false);
