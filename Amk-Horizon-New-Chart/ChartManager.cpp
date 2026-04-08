@@ -5064,13 +5064,28 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
         return;
     }
     
-    // Проверяем, доступен ли порт
-    std::vector<std::wstring> availablePorts = SerialModule::GetAvailablePorts();
+    // Быстрая проверка конкретного порта (без полного сканирования)
     bool portAvailable = false;
-    for (const auto& port : availablePorts) {
-        if (port == lastPort) {
-            portAvailable = true;
-            break;
+    {
+        HKEY hKey = nullptr;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DEVICEMAP\\SERIALCOMM",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            wchar_t valueName[256];
+            wchar_t valueData[256];
+            for (DWORD idx = 0; ; ++idx) {
+                DWORD nameLen = _countof(valueName);
+                DWORD dataLen = sizeof(valueData);
+                DWORD type = 0;
+                LONG rc = RegEnumValueW(hKey, idx, valueName, &nameLen,
+                                        nullptr, &type,
+                                        reinterpret_cast<LPBYTE>(valueData), &dataLen);
+                if (rc != ERROR_SUCCESS) break;
+                if (type == REG_SZ && lastPort == valueData) {
+                    portAvailable = true;
+                    break;
+                }
+            }
+            RegCloseKey(hKey);
         }
     }
     

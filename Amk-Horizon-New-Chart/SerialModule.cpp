@@ -1681,32 +1681,65 @@ uint32_t SerialModule::GetDisplayedFrameNumber() const {
 
 std::vector<std::wstring> SerialModule::GetAvailablePorts() {
     std::vector<std::wstring> ports;
-    
-    // Метод 1: Перебор COM1-COM256
-    for (int i = 1; i <= 256; i++) {
-        std::wstring portName = L"COM" + std::to_wstring(i);
-        std::wstring fullName = L"\\\\.\\" + portName;
-        
-        HANDLE hTest = CreateFileW(
-            fullName.c_str(),
-            GENERIC_READ | GENERIC_WRITE,
-            0,
-            nullptr,
-            OPEN_EXISTING,
-            0,
-            nullptr
-        );
-        
-        if (hTest != INVALID_HANDLE_VALUE) {
-            CloseHandle(hTest);
-            ports.push_back(portName);
-        }
-        else if (::GetLastError() == ERROR_ACCESS_DENIED) {
-            // Порт существует, но занят
-            ports.push_back(portName);
+
+    // Метод 1 (быстрый): реестр HKLM\HARDWARE\DEVICEMAP\SERIALCOMM
+    // Мгновенно возвращает список портов без обращения к драйверам.
+    {
+        HKEY hKey = nullptr;
+        if (RegOpenKeyExW(HKEY_LOCAL_MACHINE, L"HARDWARE\\DEVICEMAP\\SERIALCOMM",
+                          0, KEY_READ, &hKey) == ERROR_SUCCESS) {
+            wchar_t valueName[256];
+            wchar_t valueData[256];
+            for (DWORD idx = 0; ; ++idx) {
+                DWORD nameLen = _countof(valueName);
+                DWORD dataLen = sizeof(valueData);
+                DWORD type = 0;
+                LONG rc = RegEnumValueW(hKey, idx, valueName, &nameLen,
+                                        nullptr, &type,
+                                        reinterpret_cast<LPBYTE>(valueData), &dataLen);
+                if (rc != ERROR_SUCCESS) break;
+                if (type == REG_SZ) {
+                    ports.emplace_back(valueData);
+                }
+            }
+            RegCloseKey(hKey);
         }
     }
-    
+
+    // Метод 2 (fallback): QueryDosDevice — если реестр пуст
+    if (ports.empty()) {
+        std::vector<wchar_t> buf(65536);
+        DWORD len = QueryDosDeviceW(nullptr, buf.data(), static_cast<DWORD>(buf.size()));
+        if (len > 0) {
+            const wchar_t* p = buf.data();
+            while (*p) {
+                std::wstring name(p);
+                if (name.size() >= 3 && name[0] == L'C' && name[1] == L'O' && name[2] == L'M') {
+                    // Проверяем что после "COM" идут только цифры
+                    bool allDigits = true;
+                    for (size_t i = 3; i < name.size(); ++i) {
+                        if (name[i] < L'0' || name[i] > L'9') { allDigits = false; break; }
+                    }
+                    if (allDigits && name.size() > 3) {
+                        ports.push_back(name);
+                    }
+                }
+                p += name.size() + 1;
+            }
+        }
+    }
+
+    // Сортируем по номеру COM-порта
+    std::sort(ports.begin(), ports.end(), [](const std::wstring& a, const std::wstring& b) {
+        auto num = [](const std::wstring& s) -> int {
+            if (s.size() > 3) {
+                try { return std::stoi(s.substr(3)); } catch (...) {}
+            }
+            return 9999;
+        };
+        return num(a) < num(b);
+    });
+
     return ports;
 }
 
