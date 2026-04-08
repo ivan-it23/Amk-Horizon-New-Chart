@@ -5,10 +5,13 @@
 #include <deque>
 #include <mutex>
 #include <cstdarg>
+#include <fstream>
+#include <atomic>
+#include <shlobj.h>
 
 namespace {
 
-constexpr size_t kMaxLines = 2000;
+constexpr size_t kMaxLines = 500;
 
 struct LogEntry {
     bool bold = false;
@@ -20,11 +23,41 @@ std::mutex g_mutex;
 std::deque<LogEntry> g_lines;
 HWND g_notifyWnd = nullptr;
 bool g_showRawData = false;
+std::atomic<bool> g_panelVisible{false};
+std::atomic<bool> g_loggingEnabled{true};
+
+// === Файловый лог ===
+std::mutex g_fileMutex;
+std::ofstream g_logFile;
+std::wstring g_logFilePath;
+
+static std::wstring BuildLogFilePath() {
+    wchar_t localAppData[MAX_PATH] = {0};
+    if (SHGetFolderPathW(nullptr, CSIDL_LOCAL_APPDATA, nullptr, 0, localAppData) != S_OK) {
+        DWORD len = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, MAX_PATH);
+        if (len == 0 || len >= MAX_PATH) return L"";
+    }
+    std::wstring dir = std::wstring(localAppData) + L"\\AMK-Horizon-New-Chart";
+    CreateDirectoryW(dir.c_str(), nullptr);
+    return dir + L"\\device_log.txt";
+}
+
+static void FileWriteLine(const std::wstring& text) {
+    std::lock_guard<std::mutex> flock(g_fileMutex);
+    if (!g_logFile.is_open()) return;
+    // UTF-8 конвертация
+    int needed = WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (needed > 0) {
+        std::string utf8(static_cast<size_t>(needed), '\0');
+        WideCharToMultiByte(CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()), &utf8[0], needed, nullptr, nullptr);
+        g_logFile << utf8 << "\n";
+    }
+}
 
 void PostRefresh() {
+    if (!g_panelVisible.load(std::memory_order_relaxed)) return;
     if (g_notifyWnd && IsWindow(g_notifyWnd)) {
-        // Один таймер на окно: повторные SetTimer с тем же ID сдвигают срабатывание — не засыпаем очередь сообщений.
-        SetTimer(g_notifyWnd, IDT_DEVICE_LOG_REFRESH, 75, nullptr);
+        SetTimer(g_notifyWnd, IDT_DEVICE_LOG_REFRESH, 400, nullptr);
     }
 }
 
@@ -74,6 +107,7 @@ bool DeviceExchangeLogGetShowRawData() {
 }
 
 void DeviceExchangeLogAppend(const std::wstring& line) {
+    if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_lines.push_back(LogEntry{false, false, line});
@@ -81,10 +115,12 @@ void DeviceExchangeLogAppend(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    FileWriteLine(line);
     PostRefresh();
 }
 
 void DeviceExchangeLogAppendRaw(const std::wstring& line) {
+    if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_lines.push_back(LogEntry{false, true, line});
@@ -92,10 +128,12 @@ void DeviceExchangeLogAppendRaw(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    FileWriteLine(line);
     PostRefresh();
 }
 
 void DeviceExchangeLogAppendRawBold(const std::wstring& line) {
+    if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
     {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_lines.push_back(LogEntry{true, true, line});
@@ -103,10 +141,12 @@ void DeviceExchangeLogAppendRawBold(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    FileWriteLine(line);
     PostRefresh();
 }
 
 void DeviceExchangeLogAppendFormatted(const wchar_t* fmt, ...) {
+    if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
     wchar_t buf[2048];
     va_list args;
     va_start(args, fmt);
@@ -157,6 +197,7 @@ std::vector<DeviceLogLine> DeviceExchangeLogGetLines() {
 void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
                                           int mod, int number, uint32_t rxPosition,
                                           uint32_t dSondeMm) {
+    if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
     const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(signature);
     ToolDataKind kind = ToolDataKind::UNKNOWN;
     int txCount = 0;
@@ -190,6 +231,7 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
         while (g_lines.size() > kMaxLines) {
             g_lines.pop_front();
         }
+        FileWriteLine(s);
     };
     pushBold(L"========== Идентификация зонда ==========");
     pushBold(L"Тип: " + typeLabel);
@@ -208,4 +250,42 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
 // Упрощённая версия для COM-режима (с полной метрологией)
 void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial) {
     DeviceExchangeLogAppendDeviceIdentity(signature, serial, -1, -1, 0, 0);
+}
+
+// === Ленивое обновление UI-панели ===
+
+void DeviceExchangeLogSetPanelVisible(bool visible) {
+    g_panelVisible.store(visible, std::memory_order_relaxed);
+}
+
+bool DeviceExchangeLogIsPanelVisible() {
+    return g_panelVisible.load(std::memory_order_relaxed);
+}
+
+void DeviceExchangeLogSetEnabled(bool enabled) {
+    g_loggingEnabled.store(enabled, std::memory_order_relaxed);
+}
+
+bool DeviceExchangeLogIsEnabled() {
+    return g_loggingEnabled.load(std::memory_order_relaxed);
+}
+
+// === Файловый лог ===
+
+void DeviceExchangeLogFileOpen() {
+    std::lock_guard<std::mutex> flock(g_fileMutex);
+    if (g_logFile.is_open()) g_logFile.close();
+    g_logFilePath = BuildLogFilePath();
+    if (g_logFilePath.empty()) return;
+    g_logFile.open(g_logFilePath, std::ios::out | std::ios::trunc);
+}
+
+void DeviceExchangeLogFileClose() {
+    std::lock_guard<std::mutex> flock(g_fileMutex);
+    if (g_logFile.is_open()) g_logFile.close();
+}
+
+std::wstring DeviceExchangeLogGetFilePath() {
+    std::lock_guard<std::mutex> flock(g_fileMutex);
+    return g_logFilePath;
 }

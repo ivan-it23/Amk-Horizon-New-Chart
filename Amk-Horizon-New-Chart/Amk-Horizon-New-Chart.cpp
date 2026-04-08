@@ -1753,6 +1753,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 }
                 break;
 
+            case IDC_DEVICE_LOG_PAUSE:
+                if (HIWORD(wParam) == BN_CLICKED) {
+                    DeviceLogPanel_OnPauseToggled();
+                }
+                break;
+
+            case IDC_DEVICE_LOG_CLOSE:
+                if (HIWORD(wParam) == BN_CLICKED) {
+                    DeviceLogPanel_Toggle(hWnd);
+                }
+                break;
+
             case IDC_CONNECT_TOGGLE_BTN:
                 if (g_chartManager)
                 {
@@ -2375,6 +2387,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                 }
 
                                 if (result.connectResult == SerialResult::SUCCESS) {
+                                    DeviceExchangeLogFileOpen();
                                     SaveLastUsedComPort(selectedPort);
 
                                     SetWindowText(GetDlgItem(hDlg, IDC_SERIAL_STATUS_LABEL), L"Подключено");

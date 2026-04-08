@@ -29,12 +29,15 @@ static HWND g_hDockEdit = nullptr;
 static HWND g_hDockExpandBtn = nullptr;
 static HWND g_hDockClearBtn = nullptr;
 static HWND g_hDockRawCheck = nullptr;
+static HWND g_hDockPauseBtn = nullptr;
+static HWND g_hDockCloseBtn = nullptr;
 
 static HWND g_hExpandedRoot = nullptr;
 static HWND g_hExpandedEdit = nullptr;
 static HWND g_hExpandedClearBtn = nullptr;
 static HWND g_hExpandedCollapseBtn = nullptr;
 static HWND g_hExpandedRawCheck = nullptr;
+static HWND g_hExpandedPauseBtn = nullptr;
 
 static bool g_dockVisible = false;
 static bool g_expandedVisible = false;
@@ -226,6 +229,16 @@ static bool EditIsPinnedToBottom(HWND hEdit) {
     return firstVis + vis >= total - 1;
 }
 
+static void SyncPauseButtonText() {
+    const wchar_t* label = DeviceExchangeLogIsEnabled() ? L"\u25A0 Стоп" : L"\u25B6 Запись";
+    if (g_hDockPauseBtn && IsWindow(g_hDockPauseBtn)) {
+        SetWindowTextW(g_hDockPauseBtn, label);
+    }
+    if (g_hExpandedPauseBtn && IsWindow(g_hExpandedPauseBtn)) {
+        SetWindowTextW(g_hExpandedPauseBtn, label);
+    }
+}
+
 static void EditRedrawEnd(HWND hEdit) {
     SendMessageW(hEdit, WM_SETREDRAW, TRUE, 0);
     RedrawWindow(hEdit, nullptr, nullptr, RDW_INVALIDATE | RDW_ERASE);
@@ -319,9 +332,21 @@ static void RichEditAppendPlainDeltaPinnedBottom(HWND hRich, const wchar_t* delt
     EditRedrawEnd(hRich);
 }
 
+static std::wstring BuildTextFromLines(const std::vector<DeviceLogLine>& lines) {
+    std::wstring out;
+    out.reserve(lines.size() * 60);
+    bool first = true;
+    for (const auto& ln : lines) {
+        if (!first) out += L"\r\n";
+        first = false;
+        out += ln.text;
+    }
+    return out;
+}
+
 static void RefreshBothEdits() {
-    const std::wstring text = DeviceExchangeLogGetFullText();
     const std::vector<DeviceLogLine> lines = DeviceExchangeLogGetLines();
+    const std::wstring text = BuildTextFromLines(lines);
 
     const bool dockRich = g_dockUsesRichEdit && g_hDockEdit && IsWindow(g_hDockEdit);
     const bool expRich = g_expandedUsesRichEdit && g_hExpandedEdit && IsWindow(g_hExpandedEdit);
@@ -432,6 +457,8 @@ static void LayoutDockChildren() {
     const int gap = 4;
     const int expandW = 28;
     const int clearW = 72;
+    const int pauseW = 72;
+    const int closeW = 22;
     int x = pad;
     if (g_hDockExpandBtn) {
         SetWindowPos(g_hDockExpandBtn, nullptr, x, pad, expandW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -441,9 +468,16 @@ static void LayoutDockChildren() {
         SetWindowPos(g_hDockClearBtn, nullptr, x, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
         x += clearW + gap;
     }
+    if (g_hDockPauseBtn) {
+        SetWindowPos(g_hDockPauseBtn, nullptr, x, pad, pauseW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += pauseW + gap;
+    }
     if (g_hDockRawCheck) {
-        const int checkW = std::max(10, static_cast<int>(rc.right) - pad - x);
+        const int checkW = std::max(10, static_cast<int>(rc.right) - pad - x - closeW - gap);
         SetWindowPos(g_hDockRawCheck, nullptr, x, pad, checkW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+    }
+    if (g_hDockCloseBtn) {
+        SetWindowPos(g_hDockCloseBtn, nullptr, static_cast<int>(rc.right) - pad - closeW, pad, closeW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
     }
     const int topEdit = pad + btnH + 4;
     const int editH = std::max(0, static_cast<int>(rc.bottom) - topEdit - pad);
@@ -461,6 +495,7 @@ static void LayoutExpandedChildren(HWND hRoot) {
     const int gap = 8;
     const int clearW = 90;
     const int collapseW = 100;
+    const int pauseW = 90;
     int x = pad;
     if (g_hExpandedClearBtn) {
         SetWindowPos(g_hExpandedClearBtn, nullptr, x, pad, clearW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
@@ -469,6 +504,10 @@ static void LayoutExpandedChildren(HWND hRoot) {
     if (g_hExpandedCollapseBtn) {
         SetWindowPos(g_hExpandedCollapseBtn, nullptr, x, pad, collapseW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
         x += collapseW + gap;
+    }
+    if (g_hExpandedPauseBtn) {
+        SetWindowPos(g_hExpandedPauseBtn, nullptr, x, pad, pauseW, btnH, SWP_NOZORDER | SWP_NOACTIVATE);
+        x += pauseW + gap;
     }
     if (g_hExpandedRawCheck) {
         const int checkW = std::max(10, static_cast<int>(rc.right) - pad - x);
@@ -492,6 +531,9 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         g_hExpandedCollapseBtn = CreateWindowExW(0, L"BUTTON", L"Свернуть",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, hWnd, reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_COLLAPSE)),
             hi, nullptr);
+        g_hExpandedPauseBtn = CreateWindowExW(0, L"BUTTON", L"",
+            WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, hWnd,
+            reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_PAUSE)), hi, nullptr);
         g_hExpandedRawCheck = CreateWindowExW(0, L"BUTTON", L"Сырые данные",
             WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 1, 1, hWnd,
             reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_RAW_CHECK)), hi, nullptr);
@@ -501,7 +543,9 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         HFONT hf = LogPanelUiFont();
         SendMessageW(g_hExpandedClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedCollapseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+        SendMessageW(g_hExpandedPauseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+        SyncPauseButtonText();
         RefreshBothEdits();
         return 0;
     }
@@ -518,6 +562,11 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
             DestroyWindow(hWnd);
             return 0;
         }
+        if (LOWORD(wParam) == IDC_DEVICE_LOG_PAUSE && HIWORD(wParam) == BN_CLICKED) {
+            DeviceExchangeLogSetEnabled(!DeviceExchangeLogIsEnabled());
+            SyncPauseButtonText();
+            return 0;
+        }
         if (LOWORD(wParam) == IDC_DEVICE_LOG_RAW_CHECK && HIWORD(wParam) == BN_CLICKED) {
             DeviceLogPanel_OnRawDataToggled(reinterpret_cast<HWND>(lParam));
             return 0;
@@ -532,11 +581,14 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
             g_hExpandedEdit = nullptr;
             g_hExpandedClearBtn = nullptr;
             g_hExpandedCollapseBtn = nullptr;
+            g_hExpandedPauseBtn = nullptr;
             g_hExpandedRawCheck = nullptr;
             g_expandedUsesRichEdit = false;
             g_expandedVisible = false;
+            DeviceExchangeLogSetPanelVisible(g_dockVisible);
             if (g_dockVisible && g_hDockHost && IsWindow(g_hDockHost)) {
                 ShowWindow(g_hDockHost, SW_SHOW);
+                RefreshBothEdits();
             }
         }
         break;
@@ -576,6 +628,8 @@ static void DestroyDockControls() {
     g_hDockEdit = nullptr;
     g_hDockExpandBtn = nullptr;
     g_hDockClearBtn = nullptr;
+    g_hDockPauseBtn = nullptr;
+    g_hDockCloseBtn = nullptr;
     g_hDockRawCheck = nullptr;
     g_dockUsesRichEdit = false;
     g_lastSyncedLogText.clear();
@@ -600,18 +654,29 @@ static void CreateDockControls() {
         WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, g_hDockHost,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_CLEAR)), g_hInst, nullptr);
 
+    g_hDockPauseBtn = CreateWindowExW(0, L"BUTTON", L"",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, g_hDockHost,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_PAUSE)), g_hInst, nullptr);
+
     g_hDockRawCheck = CreateWindowExW(0, L"BUTTON", L"Сырые данные",
         WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_AUTOCHECKBOX, 0, 0, 1, 1, g_hDockHost,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_RAW_CHECK)), g_hInst, nullptr);
     SendMessageW(g_hDockRawCheck, BM_SETCHECK,
         DeviceExchangeLogGetShowRawData() ? BST_CHECKED : BST_UNCHECKED, 0);
 
+    g_hDockCloseBtn = CreateWindowExW(0, L"BUTTON", L"\u2715",
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP, 0, 0, 1, 1, g_hDockHost,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(IDC_DEVICE_LOG_CLOSE)), g_hInst, nullptr);
+
     g_hDockEdit = CreateLogEditChild(g_hDockHost, IDC_DEVICE_LOG_EDIT, &g_dockUsesRichEdit);
 
     HFONT hf = LogPanelUiFont();
     SendMessageW(g_hDockExpandBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    SendMessageW(g_hDockPauseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    SendMessageW(g_hDockCloseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    SyncPauseButtonText();
 
     RefreshBothEdits();
     LayoutDockChildren();
@@ -663,6 +728,7 @@ static void ShowExpandedWindow() {
         }
         ShowWindow(g_hExpandedRoot, SW_SHOW);
         g_expandedVisible = true;
+        DeviceExchangeLogSetPanelVisible(true);
         if (g_hDockHost && IsWindow(g_hDockHost)) {
             ShowWindow(g_hDockHost, SW_HIDE);
         }
@@ -679,6 +745,8 @@ void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst, HFONT hAppFont) {
 
 void DeviceLogPanel_Shutdown(HWND) {
     g_hAppUiFont = nullptr;
+    DeviceExchangeLogSetPanelVisible(false);
+    DeviceExchangeLogFileClose();
     if (g_hMain && IsWindow(g_hMain)) {
         KillTimer(g_hMain, IDT_DEVICE_LOG_REFRESH);
     }
@@ -703,11 +771,14 @@ void DeviceLogPanel_Toggle(HWND hMain) {
             DestroyWindow(g_hExpandedRoot);
         }
         DestroyDockControls();
+        DeviceExchangeLogSetPanelVisible(false);
         return;
     }
     g_dockVisible = true;
+    DeviceExchangeLogSetPanelVisible(true);
     CreateDockControls();
     ShowWindow(g_hDockHost, SW_SHOW);
+    RefreshBothEdits();
 }
 
 bool DeviceLogPanel_IsDockVisible() {
@@ -796,6 +867,11 @@ void DeviceLogPanel_OnRawDataToggled(HWND hCheckbox) {
     g_lastSyncedLogText.clear();
     g_lastSyncedLineCount = 0;
     RefreshBothEdits();
+}
+
+void DeviceLogPanel_OnPauseToggled() {
+    DeviceExchangeLogSetEnabled(!DeviceExchangeLogIsEnabled());
+    SyncPauseButtonText();
 }
 
 // Статическая переменная для отслеживания видимости чекбокса

@@ -198,6 +198,8 @@
 #define IDC_DEVICE_LOG_EDIT_EXPANDED 1125
 #define IDC_DEVICE_LOG_COLLAPSE    1126
 #define IDC_DEVICE_LOG_RAW_CHECK     1127
+#define IDC_DEVICE_LOG_PAUSE         1128
+#define IDC_DEVICE_LOG_CLOSE         1129
 
 // === Метрология (AUTONOM 5Tx) ===
 #define IDD_METROLOGY_DIALOG        1092

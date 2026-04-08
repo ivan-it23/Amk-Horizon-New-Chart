@@ -22,6 +22,11 @@ void DeviceExchangeLogAppendRawBold(const std::wstring& line);
 void DeviceExchangeLogAppendFormatted(const wchar_t* fmt, ...);
 void DeviceExchangeLogSetShowRawData(bool show);
 bool DeviceExchangeLogGetShowRawData();
+
+// Глобальный выключатель логирования. Когда false — все Append-вызовы = no-op
+// (не пишут ни в буфер, ни в файл, ни триггерят UI). По умолчанию true.
+void DeviceExchangeLogSetEnabled(bool enabled);
+bool DeviceExchangeLogIsEnabled();
 void DeviceExchangeLogClear();
 std::wstring DeviceExchangeLogGetFullText();
 std::vector<DeviceLogLine> DeviceExchangeLogGetLines();
@@ -33,3 +38,16 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial);
 void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
                                           int mod, int number, uint32_t rxPosition,
                                           uint32_t dSondeMm);
+
+// === Ленивое обновление UI-панели ===
+// Сообщить буферу, видна ли сейчас UI-панель лога.
+// Если панель не видна, PostRefresh() не планирует таймер → нулевая нагрузка на main thread.
+void DeviceExchangeLogSetPanelVisible(bool visible);
+bool DeviceExchangeLogIsPanelVisible();
+
+// === Файловый лог ===
+// Открыть/закрыть файл лога сессии (%LOCALAPPDATA%\AMK-Horizon-New-Chart\device_log.txt).
+// При открытии файл перезаписывается (новая сессия). Все Append-вызовы дописывают строку в файл.
+void DeviceExchangeLogFileOpen();
+void DeviceExchangeLogFileClose();
+std::wstring DeviceExchangeLogGetFilePath();

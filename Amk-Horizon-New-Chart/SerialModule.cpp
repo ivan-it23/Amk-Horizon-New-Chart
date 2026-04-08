@@ -578,7 +578,6 @@ void SerialModule::Disconnect() {
         hSerial = INVALID_HANDLE_VALUE;
     }
 
-    DeviceExchangeLogAppend(L"COM: отключено");
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
     connectionSessionId = 0;
@@ -990,7 +989,9 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
             outParsedFrame.canonicalData.signature,
             static_cast<double>(outParsedFrame.canonicalData.temperature));
 
-        DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
+        if (DeviceExchangeLogGetShowRawData()) {
+            DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
+        }
 
         return SerialResult::SUCCESS;
     };
@@ -1017,7 +1018,9 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
             DebugLog4Tx("requestLegacyData: WriteFile FAILED, written=%lu", bytesWritten);
             return SerialResult::CONNECTION_FAILED;
         }
-        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy)", request.data(), request.size()));
+        if (DeviceExchangeLogIsEnabled()) {
+            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy)", request.data(), request.size()));
+        }
 
         std::vector<uint8_t> legacyResponse;
         if (!ReceiveLegacyFixedPacket(hSerial, kLegacyLwdDataCommand, kLegacyLwdDataPacketSize, 300, legacyResponse)) {
@@ -1049,7 +1052,9 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
                     outParsedFrame.canonicalData.frame,
                     outParsedFrame.canonicalData.signature,
                     static_cast<double>(outParsedFrame.canonicalData.temperature));
-                DeviceLogTryAppendVariantAForDataPayload240(legacyResponse.data() + offset, sizeof(GP_TOOL_DATA));
+                if (DeviceExchangeLogGetShowRawData()) {
+                    DeviceLogTryAppendVariantAForDataPayload240(legacyResponse.data() + offset, sizeof(GP_TOOL_DATA));
+                }
                 return SerialResult::SUCCESS;
             }
         }
@@ -1187,7 +1192,9 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
             DebugLog4Tx("requestLegacyMetrology: WriteFile FAILED");
             return SerialResult::CONNECTION_FAILED;
         }
-        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy метрология)", legacyRequest.data(), legacyRequest.size()));
+        if (DeviceExchangeLogIsEnabled()) {
+            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy метрология)", legacyRequest.data(), legacyRequest.size()));
+        }
 
         std::vector<uint8_t> legacyResponse;
         Sleep(150);
@@ -1309,7 +1316,9 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
                 pausePolling = false;
                 return SerialResult::CONNECTION_FAILED;
             }
-            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy запись метрологии)", packet.data(), packet.size()));
+            if (DeviceExchangeLogIsEnabled()) {
+                DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy запись метрологии)", packet.data(), packet.size()));
+            }
 
             // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
             Sleep(500);
@@ -1482,7 +1491,9 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
             bytesWritten != legacyRequest.size()) {
             return SerialResult::CONNECTION_FAILED;
         }
-        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy сигнатура)", legacyRequest.data(), legacyRequest.size()));
+        if (DeviceExchangeLogIsEnabled()) {
+            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy сигнатура)", legacyRequest.data(), legacyRequest.size()));
+        }
 
         std::vector<uint8_t> legacyResponse;
         Sleep(150);
@@ -1740,7 +1751,9 @@ bool SerialModule::SendPacket(uint8_t cmd, const uint8_t* data, uint16_t dataLen
         && bytesWritten == packet.size();
     lastTxCmd = cmd;
     lastTxSize = packet.size();
-    DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые", packet.data(), packet.size()));
+    if (DeviceExchangeLogIsEnabled()) {
+        DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые", packet.data(), packet.size()));
+    }
     return ok;
 }
 

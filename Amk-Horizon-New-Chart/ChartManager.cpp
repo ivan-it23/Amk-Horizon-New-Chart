@@ -5113,6 +5113,7 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
                 UIModule* ui = g_chartManager->GetUIModule();
                 
                 if (connectResult == SerialResult::SUCCESS) {
+                    DeviceExchangeLogFileOpen();
                     g_chartManager->PrepareSerialDisplayData(hWnd, false, L"");
                     
                     if (serial) {
@@ -5163,6 +5164,7 @@ void ChartManager::HandleSerialDisconnect(HWND hWnd) {
     
     // Логируем отключение
     DeviceExchangeLogAppend(L"❌ COM: отключено");
+    DeviceExchangeLogFileClose();
     
     if (uiModule) {
         uiModule->SetConnectToggleReturnMode(false);
