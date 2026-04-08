@@ -1283,28 +1283,34 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
 
     // Приостанавливаем polling на время записи метрологии (аналог metro_check
     // + ожидания busy_read_from_sonde + Sleep(2000) в старом стабильном приложении).
+    // Прибор не отвечает во время цикла измерения (~600мс), поэтому нужно
+    // дождаться завершения текущего цикла перед отправкой.
     pausePolling = true;
+    Sleep(2000);
 
     SerialResult result;
     {
         std::lock_guard<std::mutex> lock(ioMutex);
+        PurgeBuffers();
 
         // === Legacy 4Tx: использовать legacy протокол для записи ===
-        // Формат: [CMD=0x66][METROLOGY_DATA:240][CRC:2] = 243 байта + 1 padding = 244 (кратно 4)
-        // Arduino читает по 4 байта → 244/4 = 61 чтений, 0 остаток = чистый буфер
+        // Формат: [CMD=0x66][ADDR_LO:1][ADDR_HI:1][METROLOGY_DATA:240][CRC:2] = 246 байт
+        // Адрес EEPROM: 0x0400 (low=0x00, high=0x04) — как в старом приложении.
         if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
             DebugLog4Tx("WriteMetrology: LEGACY_4TX, using legacy CMD=0x66");
-            PurgeBuffers();
 
-            const size_t payloadSize = sizeof(METROLOGY_DATA);
-            // 1(CMD) + 240(METROLOGY) + 2(CRC) + 1(padding) = 244 байт = 4*61
-            std::vector<uint8_t> packet(1 + payloadSize + 2 + 1, 0x00);
-            packet[0] = 0x66; // CMD_WRITE_EE
-            memcpy(packet.data() + 1, &inData, payloadSize);
-            const uint16_t crc = CalculateCRC16(packet.data(), 1 + payloadSize);
-            packet[1 + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
-            packet[2 + payloadSize] = static_cast<uint8_t>(crc >> 8);
-            // packet[3 + payloadSize] = 0x00; // padding (уже 0)
+            const size_t payloadSize = sizeof(METROLOGY_DATA);   // 240
+            const size_t addrSize = 2;                            // 2 байта адрес EEPROM
+            // 1(CMD) + 2(ADDR) + 240(METROLOGY) + 2(CRC) + 1(padding) = 246 байт
+            std::vector<uint8_t> packet(1 + addrSize + payloadSize + 2 + 1, 0x00);
+            packet[0] = 0x66;  // CMD_WRITE_EE
+            packet[1] = 0x00;  // EEPROM addr low
+            packet[2] = 0x04;  // EEPROM addr high  (0x0400)
+            memcpy(packet.data() + 1 + addrSize, &inData, payloadSize);
+            const uint16_t crc = CalculateCRC16(packet.data(), 1 + addrSize + payloadSize);
+            packet[1 + addrSize + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
+            packet[2 + addrSize + payloadSize] = static_cast<uint8_t>(crc >> 8);
+            // packet[3 + addrSize + payloadSize] = 0x00; // padding (уже 0)
 
             DebugLog4Tx("WriteMetrology: sending %zu bytes (legacy), header: %s",
                          packet.size(), HexDump(packet.data(), packet.size(), 8).c_str());
@@ -1320,8 +1326,8 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
                 DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy запись метрологии)", packet.data(), packet.size()));
             }
 
-            // Ждём ответ (прибор может не поддерживать запись — эмулятор не поддерживает)
-            Sleep(500);
+            // Даём прибору время записать EEPROM (старое приложение: Sleep + receive)
+            Sleep(1000);
 
             // Вычитываем и отбрасываем всё что Arduino мог отправить
             // (при совпадении 0x67/0x65 в payload Arduino отправляет ответы)
@@ -1341,41 +1347,51 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
         }
 
         // === Modern 5Tx: стандартный modern протокол ===
-        PurgeBuffers();
+        // Формат по документации: [CMD=0x13][LEN_L][LEN_H][GP_METROLOGY:240][CRC_L][CRC_H]
+        // Квитанция: [CMD=0x13][0x05][0x00][CRC_L][CRC_H] (пустой payload)
+        DeviceExchangeLogAppendFormatted(
+            L"WriteMetrology: modern path, protocolMode=%d, sending CMD=0x%02X, %u bytes payload",
+            static_cast<int>(protocolMode),
+            static_cast<unsigned>(SerialCommands::CMD_SET_METROLOGY),
+            static_cast<unsigned>(sizeof(METROLOGY_DATA)));
+        DeviceExchangeLogAppendFormatted(
+            L"  inData: sig=0x%08X, serial=%u, L1[0]=%u, L2[0]=%u",
+            inData.signature, inData.serial, inData.L1[0], inData.L2[0]);
+
         if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
                         reinterpret_cast<const uint8_t*>(&inData),
                         static_cast<uint16_t>(sizeof(METROLOGY_DATA)))) {
+            DeviceExchangeLogAppend(L"WriteMetrology: SendPacket FAILED");
             pausePolling = false;
             return SerialResult::CONNECTION_FAILED;
         }
 
-        // Даём прибору время обработать команду (старое приложение: Sleep(500))
-        Sleep(500);
+        // Даём прибору время обработать команду и записать EEPROM
+        Sleep(1000);
 
         uint8_t cmd = 0;
         std::vector<uint8_t> payload;
         if (!ReceivePacket(cmd, payload)) {
-            // Команда была отправлена; отсутствие ответа допустимо — применяем
-            // метрологию локально (аналог старого приложения, которое показывало
-            // успех/неудачу, но метрология применялась).
-            DebugLog4Tx("WriteMetrology: modern TIMEOUT, applying locally");
-
-            memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
-            hasMetrology = true;
-            HandleMetrologyUpdated();
-            if (onMetrologyReceived) {
-                onMetrologyReceived(metrology);
-            }
-
-            result = SerialResult::SUCCESS;
+            DebugLog4Tx("WriteMetrology: modern TIMEOUT — no receipt from device");
+            DeviceExchangeLogAppend(L"WriteMetrology: таймаут — прибор не ответил квитанцией");
+            result = SerialResult::TIMEOUT;
         } else if (cmd != SerialCommands::CMD_SET_METROLOGY) {
+            DebugLog4Tx("WriteMetrology: unexpected response CMD=0x%02X", cmd);
+            DeviceExchangeLogAppendFormatted(
+                L"WriteMetrology: неожиданный ответ CMD=0x%02X (ожидался 0x12)", cmd);
             result = SerialResult::INVALID_RESPONSE;
         } else {
+            DeviceExchangeLogAppendFormatted(
+                L"WriteMetrology: квитанция получена, CMD=0x%02X, payload=%zu bytes",
+                cmd, payload.size());
+
             METROLOGY_DATA applied = inData;
             if (!payload.empty()) {
                 if (payload.size() == sizeof(METROLOGY_DATA)) {
                     memcpy(&applied, payload.data(), sizeof(METROLOGY_DATA));
                 } else if (payload.size() != 1) {
+                    DeviceExchangeLogAppendFormatted(
+                        L"WriteMetrology: неожиданный размер payload=%zu", payload.size());
                     pausePolling = false;
                     return SerialResult::INVALID_RESPONSE;
                 }
@@ -1389,6 +1405,27 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
                 onMetrologyReceived(metrology);
             }
             result = SerialResult::SUCCESS;
+        }
+    }
+
+    // === Верификация: перечитываем метрологию и проверяем signature ===
+    if (result == SerialResult::SUCCESS) {
+        Sleep(300);
+
+        METROLOGY_DATA verify = {};
+        SerialResult readBack = RequestMetrology(verify);
+        if (readBack == SerialResult::SUCCESS) {
+            if (verify.signature != inData.signature || verify.serial != inData.serial) {
+                DebugLog4Tx("WriteMetrology: VERIFY FAILED — signature 0x%08X vs expected 0x%08X, serial %u vs %u",
+                             verify.signature, inData.signature, verify.serial, inData.serial);
+                DeviceExchangeLogAppend(L"⚠ Метрология: верификация не прошла — данные в зонде не совпадают с отправленными");
+                pausePolling = false;
+                return SerialResult::INVALID_RESPONSE;
+            }
+            DebugLog4Tx("WriteMetrology: VERIFY OK — signature 0x%08X, serial %u", verify.signature, verify.serial);
+            DeviceExchangeLogAppend(L"✓ Метрология записана и верифицирована");
+        } else {
+            DebugLog4Tx("WriteMetrology: verify re-read failed: %d (non-fatal)", static_cast<int>(readBack));
         }
     }
 

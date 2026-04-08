@@ -16,7 +16,11 @@
 // Команды протокола обмена с прибором
 namespace SerialCommands {
     constexpr uint8_t CMD_DATA = 0x11;          // Запрос данных измерений
-    constexpr uint8_t CMD_SET_METROLOGY = 0x12; // Запись метрологии (квитанция)
+    // Прибор использует один CMD 0x13 для чтения и записи метрологии:
+    //   - пустой payload (5 байт) → чтение (GET)
+    //   - 240 байт payload → запись (SET), ответ — пустая квитанция
+    // В старом стабильном приложении: CMD_SET_METROLOGY = 0x13 (0x03 | 0x10)
+    constexpr uint8_t CMD_SET_METROLOGY = 0x13; // Запись метрологии (квитанция)
     constexpr uint8_t CMD_GET_METROLOGY = 0x13; // Запрос метрологии
     constexpr uint8_t CMD_GET_SIGNATURE = 0x16; // Запрос сигнатуры
     constexpr uint8_t CMD_SET_SELECTED_KEY = 0x17; // Запись selected_key (квитанция)

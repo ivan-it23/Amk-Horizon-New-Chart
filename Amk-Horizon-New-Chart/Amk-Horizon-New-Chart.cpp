@@ -1240,14 +1240,24 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                     return (INT_PTR)TRUE;
                 }
 
-                // Will be implemented in SerialModule (CMD 0x12)
-                SerialResult wr = ctx->serial->WriteMetrology(tmp);
-                if (wr == SerialResult::SUCCESS) {
-                    ctx->metro->Set(tmp, false);
-                    MessageBox(hDlg, L"Метрология записана в зонд.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
-                } else {
-                    std::wstring msg = L"Ошибка: " + SerialModule::ResultToString(wr);
-                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
+                {
+                    HCURSOR hWait = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+                    SerialResult wr = ctx->serial->WriteMetrology(tmp);
+                    SetCursor(hWait ? hWait : LoadCursor(nullptr, IDC_ARROW));
+
+                    if (wr == SerialResult::SUCCESS) {
+                        ctx->metro->Set(tmp, false);
+                        MessageBox(hDlg, L"Метрология записана и верифицирована.", L"METROLOGY", MB_OK | MB_ICONINFORMATION);
+                    } else if (wr == SerialResult::TIMEOUT) {
+                        MessageBox(hDlg, L"Прибор не подтвердил запись метрологии (таймаут).\n"
+                                         L"Проверьте подключение и попробуйте ещё раз.\n\n"
+                                         L"Подробности — в окне логов обмена.",
+                                   L"METROLOGY", MB_OK | MB_ICONWARNING);
+                    } else {
+                        std::wstring msg = L"Ошибка записи: " + SerialModule::ResultToString(wr)
+                                         + L"\n\nПодробности — в окне логов обмена.";
+                        MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
+                    }
                 }
                 return (INT_PTR)TRUE;
             }
@@ -2432,6 +2442,8 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                     // Синхронизируем toggle-кнопку Старт/Стоп на панели
                                     if (UIModule* ui = g_chartManager->GetUIModule()) {
                                         ui->UpdatePollingToggleState(true, true);
+                                        // Синхронизируем кнопку подключения на главном окне
+                                        ui->UpdateConnectToggleState(true, true);
                                     }
                                 } else {
                                     std::wstring errorMsg = L"Ошибка: " + SerialModule::ResultToString(result.connectResult);
