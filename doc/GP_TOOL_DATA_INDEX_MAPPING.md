@@ -51,7 +51,7 @@ Silent-каналы индексируются отдельно:
 ## Где брать current-state истину
 
 - `Amk-Horizon-New-Chart/ToolDataTypes.h`
-- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- `ANALYSIS_GP_TOOL_DATA.md`
 - `Amk-Horizon-New-Chart/ToolDataAdapters.cpp`
 
 ## Historical appendix

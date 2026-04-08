@@ -106,9 +106,9 @@ Realtime in-tree path:
 
 ## Где искать актуальный контекст
 
-- обзор — `Amk-Horizon-New-Chart/README.md`
-- технические инварианты — `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
-- структуры данных — `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- обзор — `README.md`
+- технические инварианты — `TECHNICAL_REFERENCE.md`
+- структуры данных — `ANALYSIS_GP_TOOL_DATA.md`
 - форматы файлов — `FILE_FORMATS_ANALYSIS.md`
 - файловая валидация — `FILE_VALIDATION_FOR_5TX_MODEL.md`
 - adapter migration / remaining boundaries — `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`

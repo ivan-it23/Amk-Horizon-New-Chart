@@ -157,5 +157,5 @@ accept file for parsing
 ## 12. Связанные документы
 
 - контейнеры и чтение файлов — `FILE_FORMATS_ANALYSIS.md`
-- структуры данных — `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- структуры данных — `ANALYSIS_GP_TOOL_DATA.md`
 - статус архитектуры — `PROJECT_STATUS.md`

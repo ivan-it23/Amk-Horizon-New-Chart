@@ -24,8 +24,8 @@ Current-state логика в `AMK-Horizon-New-Chart` должна тракто�
 ## Где current-state истина
 
 - `Amk-Horizon-New-Chart/CurveSelectionModule.cpp`
-- `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
-- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- `TECHNICAL_REFERENCE.md`
+- `ANALYSIS_GP_TOOL_DATA.md`
 
 ## Historical notes below
 

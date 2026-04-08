@@ -2,7 +2,7 @@
 
 > Актуально для текущей ветки `main`.
 >
-> Этот файл — **главная точка входа в проект**. Если нужен быстрый и надёжный контекст, начинайте с него, затем переходите к `TECHNICAL_REFERENCE.md`, `ANALYSIS_GP_TOOL_DATA.md` и `../PROJECT_STATUS.md`.
+> Этот файл — **главная точка входа в проект**. Если нужен быстрый и надёжный контекст, начинайте с него, затем переходите к `TECHNICAL_REFERENCE.md`, `ANALYSIS_GP_TOOL_DATA.md` и `PROJECT_STATUS.md`.
 
 ## Что это за проект
 
@@ -25,9 +25,9 @@
 - `README.md` — обзор проекта и актуальный набор возможностей;
 - `TECHNICAL_REFERENCE.md` — технические инварианты UI, графиков, координат, модулей и расчётов;
 - `ANALYSIS_GP_TOOL_DATA.md` — текущая точка истины по `GP_TOOL_DATA`, `LEGACY_GP_TOOL_DATA`, `METROLOGY_DATA`, адаптерам и canonical shape;
-- `../PROJECT_STATUS.md` — краткий статус архитектуры, последних стабильных улучшений и оставшихся compatibility boundaries;
-- `../FILE_FORMATS_ANALYSIS.md` — как реально читаются `.bin/.biv/.DEV`;
-- `../FILE_VALIDATION_FOR_5TX_MODEL.md` — что именно валидируется при открытии файла.
+- `PROJECT_STATUS.md` — краткий статус архитектуры, последних стабильных улучшений и оставшихся compatibility boundaries;
+- `FILE_FORMATS_ANALYSIS.md` — как реально читаются `.bin/.biv/.DEV`;
+- `FILE_VALIDATION_FOR_5TX_MODEL.md` — что именно валидируется при открытии файла.
 
 Остальные Markdown-файлы в корне репозитория теперь приведены к актуальному состоянию, но часть из них носит **историко-справочный** характер и используется как дополнительный контекст, а не как основной источник истины.
 
@@ -251,13 +251,13 @@
 - основной обзор — `README.md`
 - технические инварианты — `TECHNICAL_REFERENCE.md`
 - структуры данных — `ANALYSIS_GP_TOOL_DATA.md`
-- файловые контейнеры — `../FILE_FORMATS_ANALYSIS.md`
-- файловая валидация — `../FILE_VALIDATION_FOR_5TX_MODEL.md`
-- статус архитектуры — `../PROJECT_STATUS.md`
-- adapter-driven миграция и remaining boundaries — `../ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
-- COM и метрология — `../COM_5TX_GP_POLLING_AND_METROLOGY.md`
-- canonical/legacy индексные схемы — `../GP_TOOL_DATA_INDEX_MAPPING.md`, `../GP_TOOL_DATA_LWD_AUTONOM.md`
-- SMT `FROM_COMPUTER` — `../ues_phase_from_computer_5tx.md`
+- файловые контейнеры — `FILE_FORMATS_ANALYSIS.md`
+- файловая валидация — `FILE_VALIDATION_FOR_5TX_MODEL.md`
+- статус архитектуры — `PROJECT_STATUS.md`
+- adapter-driven миграция и remaining boundaries — `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
+- COM и метрология — `COM_5TX_GP_POLLING_AND_METROLOGY.md`
+- canonical/legacy индексные схемы — `GP_TOOL_DATA_INDEX_MAPPING.md`, `GP_TOOL_DATA_LWD_AUTONOM.md`
+- SMT `FROM_COMPUTER` — `ues_phase_from_computer_5tx.md`
 
 ---
 

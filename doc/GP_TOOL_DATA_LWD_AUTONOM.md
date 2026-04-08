@@ -46,8 +46,8 @@ struct GP_TOOL_DATA {
 
 ## Где current-state источник истины
 
-- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
-- `Amk-Horizon-New-Chart/TECHNICAL_REFERENCE.md`
+- `ANALYSIS_GP_TOOL_DATA.md`
+- `TECHNICAL_REFERENCE.md`
 - `Amk-Horizon-New-Chart/DataModule.cpp`
 - `Amk-Horizon-New-Chart/ToolDataAdapters.cpp`
 

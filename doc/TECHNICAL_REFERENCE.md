@@ -15,9 +15,9 @@
 Для деталей используйте профильные документы:
 
 - структуры данных и canonical mapping — `ANALYSIS_GP_TOOL_DATA.md`
-- файловые контейнеры — `..\FILE_FORMATS_ANALYSIS.md`
-- файловая валидация — `..\FILE_VALIDATION_FOR_5TX_MODEL.md`
-- краткий статус ветки — `..\PROJECT_STATUS.md`
+- файловые контейнеры — `FILE_FORMATS_ANALYSIS.md`
+- файловая валидация — `FILE_VALIDATION_FOR_5TX_MODEL.md`
+- краткий статус ветки — `PROJECT_STATUS.md`
 
 ## 1. Архитектура
 
@@ -387,8 +387,8 @@ UI исторически использует 5 визуальных слото
 
 Подробности:
 
-- `..\FILE_FORMATS_ANALYSIS.md`
-- `..\FILE_VALIDATION_FOR_5TX_MODEL.md`
+- `FILE_FORMATS_ANALYSIS.md`
+- `FILE_VALIDATION_FOR_5TX_MODEL.md`
 
 ### 8.3 Export
 
@@ -430,8 +430,8 @@ UI исторически использует 5 визуальных слото
 
 Для этого есть:
 
-- `..\PROJECT_STATUS.md`
-- `..\ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
+- `PROJECT_STATUS.md`
+- `ADAPTER_REGISTRY_IMPLEMENTATION_PLAN.md`
 - профильные историко-справочные документы в корне репозитория
 
 ---

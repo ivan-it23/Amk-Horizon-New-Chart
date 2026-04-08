@@ -167,7 +167,7 @@ sizeof(METROLOGY_DATA) == 240
 ## 11. Связанные документы
 
 - файловая валидация — `FILE_VALIDATION_FOR_5TX_MODEL.md`
-- структуры данных — `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- структуры данных — `ANALYSIS_GP_TOOL_DATA.md`
 - статус проекта — `PROJECT_STATUS.md`
 
 Если описание в других документах расходится с этим файлом, ориентироваться нужно на код и данный краткий документ.

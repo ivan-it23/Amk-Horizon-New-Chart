@@ -8,7 +8,7 @@
 
 - `FILE_FORMATS_ANALYSIS.md`
 - `FILE_VALIDATION_FOR_5TX_MODEL.md`
-- `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- `ANALYSIS_GP_TOOL_DATA.md`
 
 ## 1. Что из старой модели осталось актуальным
 
@@ -56,7 +56,7 @@
 
 1. `FILE_FORMATS_ANALYSIS.md`
 2. `FILE_VALIDATION_FOR_5TX_MODEL.md`
-3. `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+3. `ANALYSIS_GP_TOOL_DATA.md`
 4. только потом этот файл как исторический комментарий
 
 ## 5. Зачем файл оставлен в репозитории
@@ -69,7 +69,7 @@
 
 ## 6. Источники истины
 
-- current-state — `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md`, `Amk-Horizon-New-Chart/ANALYSIS_GP_TOOL_DATA.md`
+- current-state — `FILE_FORMATS_ANALYSIS.md`, `FILE_VALIDATION_FOR_5TX_MODEL.md`, `ANALYSIS_GP_TOOL_DATA.md`
 - исторический контекст — этот файл
 
 Если между ними есть расхождения, для текущего поведения приложения нужно ориентироваться на код и current-state документы.
