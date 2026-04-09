@@ -1059,7 +1059,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                     if (!view.TryGetAmplitudeRx1(freqIdx, t, amplitude)) {
                                         break;
                                     }
-                                    value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                    value = amplitude;
                                     hasValue = true;
                                 }
                                 break;
@@ -1069,7 +1069,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                                     if (!view.TryGetAmplitudeRx2(freqIdx, t, amplitude)) {
                                         break;
                                     }
-                                    value = amplitude * 4000.0f / pow(2.0f, 24.0f);
+                                    value = amplitude;
                                     hasValue = true;
                                 }
                                 break;
@@ -1114,8 +1114,7 @@ void DataModule::CalculateChartData(DataType type, FrequencyBand freq, std::vect
                 const bool hasValue = (type == DataType::SILENT_AMPLITUDE_RX1) ?
                     view.TryGetSilentAmplitudeRx1(freqIdx, amplitude) :
                     view.TryGetSilentAmplitudeRx2(freqIdx, amplitude);
-                float value = amplitude * 4000.0f / pow(2.0f, 24.0f);
-                AppendAlignedFilteredPlotValue(outData[0], hasValue, value, minY, maxY);
+                AppendAlignedFilteredPlotValue(outData[0], hasValue, amplitude, minY, maxY);
             }
         }
         break;
@@ -1457,7 +1456,7 @@ void DataModule::CalculateAmplitudeData(int transmitterIndex, int receiverIndex,
         const bool hasValue = (receiverIndex == 0) ?
             view.TryGetAmplitudeRx1(context.frequencyIndex, context.transmitterIndex, amplitude) :
             view.TryGetAmplitudeRx2(context.frequencyIndex, context.transmitterIndex, amplitude);
-        AppendAlignedPlotValue(outData, hasValue, amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
+        AppendAlignedPlotValue(outData, hasValue, amplitude);
     }
 }
 
@@ -1496,7 +1495,7 @@ void DataModule::CalculateSilentAmplitudeData(int receiverIndex, FrequencyBand f
         const bool hasValue = (receiverIndex == 0) ?
             view.TryGetSilentAmplitudeRx1(context.frequencyIndex, amplitude) :
             view.TryGetSilentAmplitudeRx2(context.frequencyIndex, amplitude);
-        AppendAlignedPlotValue(outData, hasValue, amplitude * 4000.0f / pow(2.0f, 24.0f)); // Преобразование В -> мВ
+        AppendAlignedPlotValue(outData, hasValue, amplitude);
     }
 }
 
