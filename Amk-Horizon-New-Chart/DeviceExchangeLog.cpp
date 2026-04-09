@@ -208,6 +208,13 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
         txCount = cap.transmitterCount;
         typeLabel = ToolKindToDisplayName(kind);
     }
+    if (kind == ToolDataKind::UNKNOWN) {
+        const uint32_t tc = ToolDataAdapterRegistry::DecodeToolCode(signature);
+        kind = UniversalCanonicalAdapter::DetermineKindFromToolCode(tc);
+        ToolCapabilities cap = UniversalCanonicalAdapter::BuildCapabilities(tc);
+        txCount = cap.transmitterCount;
+        typeLabel = ToolKindToDisplayName(kind);
+    }
 
     // Декодирование полей из signature (low20 бит)
     const uint32_t low20 = (signature << 12) >> 12;

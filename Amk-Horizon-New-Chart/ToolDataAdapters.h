@@ -55,6 +55,22 @@ public:
     bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
 };
 
+// Универсальный canonical-адаптер: принимает любую сигнатуру, определяет transmitterCount
+// из toolCode. Все приборы с новой прошивкой шлют canonical GP_TOOL_DATA.
+class UniversalCanonicalAdapter : public IToolDataAdapter {
+public:
+    ToolDataKind GetKind() const override;
+    ToolCapabilities GetCapabilities() const override;
+    bool CanHandleSignature(uint32_t signature) const override;
+    bool SupportsFileFormat(FileFormat format) const override;
+    size_t GetRawFrameSize() const override;
+    bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
+
+    static int DetermineTransmitterCount(uint32_t toolCode);
+    static ToolDataKind DetermineKindFromToolCode(uint32_t toolCode);
+    static ToolCapabilities BuildCapabilities(uint32_t toolCode);
+};
+
 class ToolDataAdapterRegistry {
 public:
     static const ToolDataAdapterRegistry& Get();

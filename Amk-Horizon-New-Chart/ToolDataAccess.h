@@ -141,6 +141,11 @@ public:
             metadata.kind = adapter->GetKind();
             metadata.capabilities = adapter->GetCapabilities();
         }
+        if (metadata.kind == ToolDataKind::UNKNOWN) {
+            const uint32_t tc = ToolDataAdapterRegistry::DecodeToolCode(inRecord.signature);
+            metadata.kind = UniversalCanonicalAdapter::DetermineKindFromToolCode(tc);
+            metadata.capabilities = UniversalCanonicalAdapter::BuildCapabilities(tc);
+        }
     }
 
     MeasurementView(const GP_TOOL_DATA& inRecord, const ToolRecordMetadata& inMetadata)

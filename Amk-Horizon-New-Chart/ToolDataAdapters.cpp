@@ -259,13 +259,104 @@ uint32_t ToolDataAdapterRegistry::DecodeToolCode(uint32_t signature) {
 ToolDataKind ToolDataAdapterRegistry::DetermineToolDataKind(uint32_t signature) {
     const IToolDataAdapter* adapter = Get().FindAdapterBySignature(signature);
     if (adapter) {
-        return adapter->GetKind();
+        const ToolDataKind kind = adapter->GetKind();
+        if (kind != ToolDataKind::UNKNOWN) {
+            return kind;
+        }
     }
-    return ToolDataKind::UNKNOWN;
+    // UniversalCanonicalAdapter возвращает UNKNOWN из GetKind() —
+    // определяем kind динамически из toolCode.
+    const uint32_t toolCode = DecodeToolCode(signature);
+    return UniversalCanonicalAdapter::DetermineKindFromToolCode(toolCode);
 }
 
+// ===== UniversalCanonicalAdapter =====
+
+int UniversalCanonicalAdapter::DetermineTransmitterCount(uint32_t toolCode) {
+    // Десятки toolCode кодируют количество зондов:
+    //   x3x -> 3Tx, x4x -> 4Tx, x5x -> 5Tx
+    const int tensDigit = static_cast<int>((toolCode / 10u) % 10u);
+    if (tensDigit >= 3 && tensDigit <= 5) {
+        return tensDigit;
+    }
+    return 5; // fallback: 5Tx
+}
+
+ToolDataKind UniversalCanonicalAdapter::DetermineKindFromToolCode(uint32_t toolCode) {
+    const int txCount = DetermineTransmitterCount(toolCode);
+    switch (txCount) {
+        case 3: return ToolDataKind::LWD_3TX;
+        case 4: return ToolDataKind::LWD_4TX;
+        default: return ToolDataKind::AUTONOM_5TX;
+    }
+}
+
+ToolCapabilities UniversalCanonicalAdapter::BuildCapabilities(uint32_t toolCode) {
+    const int txCount = DetermineTransmitterCount(toolCode);
+    const ToolDataKind kind = DetermineKindFromToolCode(toolCode);
+
+    ToolCapabilities cap = {};
+    cap.kind = kind;
+    cap.transmitterCount = txCount;
+    cap.hasT5 = (txCount >= 5);
+    cap.hasSeparatePhaseRx = (txCount < 5);
+    cap.hasDeltaPhase = true;
+    cap.hasZeroAmplitudeRx1 = true;
+    cap.hasZeroAmplitudeRx2 = true;
+    cap.hasZeroDeltaPhase = true;
+    cap.hasSondeRhoSmt = true;
+    cap.hasSondePhaseSmt = true;
+    cap.supportsBinContainer = true;
+    cap.supportsBivContainer = true;
+    cap.supportsDevContainer = true;
+    cap.supportsComPolling = true;
+    cap.supportsSilentData = true;
+    return cap;
+}
+
+ToolDataKind UniversalCanonicalAdapter::GetKind() const {
+    return ToolDataKind::UNKNOWN; // определяется динамически в ParseRawFrame
+}
+
+ToolCapabilities UniversalCanonicalAdapter::GetCapabilities() const {
+    return {}; // определяется динамически в ParseRawFrame
+}
+
+bool UniversalCanonicalAdapter::CanHandleSignature(uint32_t signature) const {
+    // Catch-all: принимает любую сигнатуру с разумным toolCode (> 0)
+    const uint32_t toolCode = ToolDataAdapterRegistry::DecodeToolCode(signature);
+    return toolCode > 0;
+}
+
+bool UniversalCanonicalAdapter::SupportsFileFormat(FileFormat format) const {
+    return format == FileFormat::FORMAT_BIN || format == FileFormat::FORMAT_BIV || format == FileFormat::FORMAT_DEV;
+}
+
+size_t UniversalCanonicalAdapter::GetRawFrameSize() const {
+    return sizeof(GP_TOOL_DATA);
+}
+
+bool UniversalCanonicalAdapter::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const {
+    outFrame = {};
+    if (!rawFrame || rawFrameSize != sizeof(GP_TOOL_DATA)) {
+        return false;
+    }
+
+    GP_TOOL_DATA canonicalData = {};
+    memcpy(&canonicalData, rawFrame, sizeof(canonicalData));
+
+    const uint32_t toolCode = ToolDataAdapterRegistry::DecodeToolCode(canonicalData.signature);
+    outFrame.kind = DetermineKindFromToolCode(toolCode);
+    outFrame.capabilities = BuildCapabilities(toolCode);
+    outFrame.canonicalData = canonicalData;
+    return true;
+}
+
+// ===== ToolDataAdapterRegistry =====
+
 ToolDataAdapterRegistry::ToolDataAdapterRegistry() {
-    adapters.emplace_back(new Autonom5TxAdapter());
-    adapters.emplace_back(new Lwd3TxCanonicalAdapter());
-    adapters.emplace_back(new Lwd4TxAdapter());
+    adapters.emplace_back(new Autonom5TxAdapter());         // 151, 152
+    adapters.emplace_back(new Lwd3TxCanonicalAdapter());    // 231
+    adapters.emplace_back(new UniversalCanonicalAdapter());  // 241, 242, любые новые — canonical passthrough
+    adapters.emplace_back(new Lwd4TxAdapter());             // legacy fallback (для старых файлов, не достигается через FindAdapterBySignature)
 }

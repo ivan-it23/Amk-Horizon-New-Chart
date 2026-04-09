@@ -110,6 +110,11 @@ void AppendCanonicalRecord(const GP_TOOL_DATA& record,
         metadata.kind = adapter->GetKind();
         metadata.capabilities = adapter->GetCapabilities();
     }
+    if (metadata.kind == ToolDataKind::UNKNOWN) {
+        const uint32_t tc = ToolDataAdapterRegistry::DecodeToolCode(record.signature);
+        metadata.kind = UniversalCanonicalAdapter::DetermineKindFromToolCode(tc);
+        metadata.capabilities = UniversalCanonicalAdapter::BuildCapabilities(tc);
+    }
 
     AppendCanonicalRecord(record, metadata, data, recordMetadata);
 }
@@ -303,10 +308,6 @@ bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize
         return false;
     }
 
-    // Файлы всегда содержат canonical GP_TOOL_DATA (240 байт, 2D-массивы).
-    // Используем passthrough (memcpy) и находим адаптер только для metadata.
-    // НЕ вызываем adapter->ParseRawFrame(), т.к. Lwd4TxAdapter выполняет
-    // flat→2D конвертацию, которая не нужна для canonical данных из файла.
     GP_TOOL_DATA canonicalData = {};
     memcpy(&canonicalData, rawFrame, sizeof(canonicalData));
 
@@ -315,15 +316,19 @@ bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize
         return false;
     }
 
-    if (adapter->GetKind() == ToolDataKind::LWD_4TX &&
+    // Для LWD_4TX файлов: старые файлы могут содержать LEGACY_GP_TOOL_DATA (flat layout).
+    // Эвристика ShouldParseAsLegacyLwd4TxRawFrame определяет формат, и если он legacy —
+    // явно создаём Lwd4TxAdapter для flat→2D конвертации.
+    const uint32_t toolCode = ToolDataAdapterRegistry::DecodeToolCode(canonicalData.signature);
+    const ToolDataKind effectiveKind = UniversalCanonicalAdapter::DetermineKindFromToolCode(toolCode);
+    if (effectiveKind == ToolDataKind::LWD_4TX &&
         ShouldParseAsLegacyLwd4TxRawFrame(rawFrame, rawFrameSize)) {
-        return adapter->ParseRawFrame(rawFrame, rawFrameSize, outFrame);
+        static const Lwd4TxAdapter legacyAdapter;
+        return legacyAdapter.ParseRawFrame(rawFrame, rawFrameSize, outFrame);
     }
 
-    outFrame.kind = adapter->GetKind();
-    outFrame.capabilities = adapter->GetCapabilities();
-    outFrame.canonicalData = canonicalData;
-    return true;
+    // Canonical passthrough: используем адаптер из реестра для metadata + memcpy данных
+    return adapter->ParseRawFrame(rawFrame, rawFrameSize, outFrame);
 }
 
 bool DataModule::ParseRawFrame(const void* rawFrame, size_t rawFrameSize, GP_TOOL_DATA& outData) {
@@ -368,8 +373,8 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
 
     const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(signature);
     if (!adapter || !adapter->SupportsFileFormat(format)) {
-        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
+        outError = L"Файл содержит неподдерживаемую сигнатуру или формат.\n"
+                   L"Поддерживаются приборы с canonical GP_TOOL_DATA (240 байт на кадр).";
         return false;
     }
 
@@ -377,8 +382,8 @@ bool DataModule::ValidateDataFile(const std::wstring& filename, std::wstring& ou
 
     if (static_cast<size_t>(fileSize) < physicalFrameSize ||
         (static_cast<size_t>(fileSize) % physicalFrameSize) != 0) {
-        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
+        outError = L"Файл имеет неправильный размер или повреждён.\n"
+                   L"Ожидается кратность 240 (или 251 для .DEV) байт.";
         return false;
     }
 
@@ -652,8 +657,7 @@ bool DataModule::LoadDataFromFileResult(const std::wstring& filename, DataLoadRe
     
     const size_t frameCount = static_cast<size_t>(fileSize) / GetPhysicalFrameSize(format);
     if (frameCount == 0) {
-        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
+        outError = L"Файл не содержит корректных кадров данных.";
         file.close();
         return false;
     }
@@ -663,8 +667,7 @@ bool DataModule::LoadDataFromFileResult(const std::wstring& filename, DataLoadRe
     file.close();
 
     if (!outResult.HasData()) {
-        outError = L"Файл содержит неподдерживаемую структуру данных.\n"
-                   L"Приложение поддерживает только структуры AUTONOM_5Tx или LWD legacy (240 байт на кадр).";
+        outError = L"Не удалось прочитать данные из файла.";
         return false;
     }
 
