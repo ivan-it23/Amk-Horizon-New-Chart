@@ -270,7 +270,7 @@ ToolDataKind ToolDataAdapterRegistry::DetermineToolDataKind(uint32_t signature) 
     return UniversalCanonicalAdapter::DetermineKindFromToolCode(toolCode);
 }
 
-// ===== UniversalCanonicalAdapter =====
+// ===== Универсальный Адаптер =====
 
 int UniversalCanonicalAdapter::DetermineTransmitterCount(uint32_t toolCode) {
     // Десятки toolCode кодируют количество зондов:

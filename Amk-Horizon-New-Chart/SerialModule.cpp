@@ -827,9 +827,7 @@ void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, cons
         if (!ValidateRecordingSettings(settingsError)) {
             lastError = settingsError;
         } else {
-            // Записываем canonical GP_TOOL_DATA (240 байт, 2D-массивы),
-            // а не raw LEGACY_GP_TOOL_DATA (flat-массивы), чтобы файлы
-            // были совместимы с загрузкой через ParseRawFrameDetailed.
+
             WriteDataToFile(&parsedFrame.canonicalData, sizeof(GP_TOOL_DATA));
         }
     }
@@ -839,10 +837,9 @@ void SerialModule::HandleSuccessfulPoll(const ParsedToolFrame& parsedFrame, cons
 
 void SerialModule::HandleFailedPoll(SerialResult result) {
     packetsErrors++;
-    const uint32_t failures = ++consecutivePollFailures;
-    if (ShouldTriggerAutoReconnect(result) && failures >= kAutoReconnectFailureThreshold) {
-        InvalidateConnectionForRecovery();
-    }
+    (void)++consecutivePollFailures; // порт не закрывается
+    // Порт не закрываем при ошибках - polling должен продолжаться бесконечно
+    // для поддержания питания на приборе во время перепрошивки/отключения кабеля
 }
 
 bool SerialModule::ShouldTriggerAutoReconnect(SerialResult result) const {
