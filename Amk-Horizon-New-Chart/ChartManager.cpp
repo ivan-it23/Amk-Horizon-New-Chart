@@ -5410,66 +5410,60 @@ bool ChartManager::IsComRecordingInBackground() const {
 }
 
 void ChartManager::ReturnToComLive(HWND hWnd) {
-    if (!serialModule || !serialModule->IsConnected() || !serialModule->IsPolling()) {
-        // COM больше не активен — просто сбрасываем режим
-        OutputDebugStringW(L"[DBG] ReturnToComLive: COM not active, just resetting mode\n");
+    // Если serialModule отсутствует или COM полностью отключён — просто сбрасываем режим
+    // и очищаем данные, чтобы не оставлять в DataModule чужой файл.
+    if (!serialModule || !serialModule->IsConnected()) {
+        OutputDebugStringW(L"[DBG] ReturnToComLive: COM not connected, resetting mode and clearing data\n");
         dataSourceMode = DataSourceMode::COM_LIVE;
         displayCallbackPaused = false;
         comSessionSnapshot.hasSnapshot = false;
+        if (dataModule) {
+            dataModule->ClearData();
+        }
+        currentDataFilePath.clear();
+        InvalidateCachedSnapshots();
+        if (schematicModule) {
+            schematicModule->CloseSchematicDialog();
+        }
         if (uiModule) {
             uiModule->SetConnectToggleReturnMode(false);
+            uiModule->UpdateConnectToggleState(false, true);
         }
+        UpdateStatusBarFileInfo();
+        InvalidateRect(hWnd, nullptr, TRUE);
         return;
     }
+
+    // COM подключён (опрос может быть активен или приостановлен — в обоих случаях
+    // нужно перезагрузить данные из файла записи, чтобы DataModule содержал
+    // кадры прибора, а не чужой файл, открытый в FILE_VIEW).
 
     // DEBUG: Состояние перед загрузкой файла
     {
         size_t dmSizeBefore = dataModule ? dataModule->GetDataSize() : 0;
         uint32_t recFrames = serialModule->GetRecordedFrames();
         wchar_t dbg[512];
-        swprintf_s(dbg, L"[DBG] ReturnToComLive: START. DataModule=%zu, RecordedFrames=%u, RecordingActive=%d\n",
-                    dmSizeBefore, recFrames, (int)serialModule->IsRecordingActive());
+        swprintf_s(dbg, L"[DBG] ReturnToComLive: START. DataModule=%zu, RecordedFrames=%u, RecordingActive=%d, Polling=%d\n",
+                    dmSizeBefore, recFrames, (int)serialModule->IsRecordingActive(), (int)serialModule->IsPolling());
         OutputDebugStringW(dbg);
     }
 
-    // v2.19.0: Принудительный flush буфера записи перед чтением файла,
+    // Принудительный flush буфера записи перед чтением файла,
     // чтобы все записанные кадры были видны на диске.
     serialModule->FlushRecordFile();
-    OutputDebugStringW(L"[DBG] ReturnToComLive: FlushRecordFile() done\n");
 
     // Загружаем записанный файл как источник данных для отображения
     std::wstring recordPath = serialModule->GetRecordFilePath();
     bool loadedFromFile = false;
 
     if (!recordPath.empty() && serialModule->IsRecordingActive()) {
-        // Загружаем данные из recording-файла
         DataLoadResult loadedData;
         std::wstring loadError;
         if (DataModule::LoadDataFromFileResult(recordPath, loadedData, loadError) && loadedData.HasData()) {
-            // DEBUG: Логируем сколько кадров загружено и значения граничных кадров
             {
-                size_t loadedCount = loadedData.data.size();
                 wchar_t dbg[512];
-                swprintf_s(dbg, L"[DBG] ReturnToComLive: Loaded %zu frames from file\n", loadedCount);
+                swprintf_s(dbg, L"[DBG] ReturnToComLive: Loaded %zu frames from record file\n", loadedData.data.size());
                 OutputDebugStringW(dbg);
-
-                // Значения AM_RX_1[0][0] (400kHz T1 RX1) для первых и последних 3 кадров
-                for (size_t i = 0; i < loadedCount && i < 3; i++) {
-                    float amVal = loadedData.data[i].AM_RX_1[0][0];
-                    uint32_t frame = loadedData.data[i].frame;
-                    swprintf_s(dbg, L"[DBG]   frame[%zu]: frame#=%u, AM_RX_1[0][0]=%.4f\n", i, frame, amVal);
-                    OutputDebugStringW(dbg);
-                }
-                if (loadedCount > 6) {
-                    OutputDebugStringW(L"[DBG]   ...\n");
-                }
-                for (size_t i = (loadedCount > 3 ? loadedCount - 3 : 0); i < loadedCount; i++) {
-                    if (i < 3) continue;
-                    float amVal = loadedData.data[i].AM_RX_1[0][0];
-                    uint32_t frame = loadedData.data[i].frame;
-                    swprintf_s(dbg, L"[DBG]   frame[%zu]: frame#=%u, AM_RX_1[0][0]=%.4f\n", i, frame, amVal);
-                    OutputDebugStringW(dbg);
-                }
             }
 
             dataModule->ApplyLoadedData(std::move(loadedData));
@@ -5485,8 +5479,27 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
         }
     }
 
+    // Если файл записи не существует или не удалось загрузить — пытаемся загрузить
+    // по пути (файл мог быть закрыт, но данные на диске есть)
+    if (!loadedFromFile && !recordPath.empty()) {
+        DataLoadResult loadedData;
+        std::wstring loadError;
+        if (DataModule::LoadDataFromFileResult(recordPath, loadedData, loadError) && loadedData.HasData()) {
+            {
+                wchar_t dbg[512];
+                swprintf_s(dbg, L"[DBG] ReturnToComLive: Loaded %zu frames from closed record path\n", loadedData.data.size());
+                OutputDebugStringW(dbg);
+            }
+            dataModule->ApplyLoadedData(std::move(loadedData));
+            currentDataFilePath = recordPath;
+            if (notesModule) {
+                EnsureNotesLoadedForPath(recordPath + L".notes.jsonl");
+            }
+            loadedFromFile = true;
+        }
+    }
+
     if (!loadedFromFile) {
-        // Не удалось загрузить файл — начинаем с чистого листа
         OutputDebugStringW(L"[DBG] ReturnToComLive: No file loaded, clearing DataModule\n");
         dataModule->ClearData();
         currentDataFilePath.clear();
@@ -5526,7 +5539,6 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
 
     // Возобновляем display callback и режим COM_LIVE
     displayCallbackPaused = false;
-    dbgResumeCallbackCounter = 5;  // DEBUG: начать логирование следующих 5 кадров
     dataSourceMode = DataSourceMode::COM_LIVE;
 
     // Сбрасываем режим "→К прибору" и восстанавливаем кнопку в "Отключить"
@@ -5539,7 +5551,8 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
     {
         size_t dmSizeAfter = dataModule ? dataModule->GetDataSize() : 0;
         wchar_t dbg[256];
-        swprintf_s(dbg, L"[DBG] ReturnToComLive: DONE. DataModule=%zu frames, displayCallbackPaused=false\n", dmSizeAfter);
+        swprintf_s(dbg, L"[DBG] ReturnToComLive: DONE. DataModule=%zu frames, Polling=%d\n",
+                    dmSizeAfter, (int)serialModule->IsPolling());
         OutputDebugStringW(dbg);
     }
 
