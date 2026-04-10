@@ -7,7 +7,7 @@
 // Класс для управления элементами интерфейса
 class UIModule {
 public:
-    static constexpr int UI_TRANSMITTER_COUNT = kLegacyUiTransmitterCount;
+    static constexpr int UI_TRANSMITTER_COUNT = kFallbackTransmitterCount;
 
 private:
     // Элементы управления

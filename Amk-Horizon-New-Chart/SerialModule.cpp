@@ -40,7 +40,6 @@ uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
     return parsedFrame.canonicalData.frame;
 }
 
-constexpr uint32_t kAutoReconnectFailureThreshold = 3;
 constexpr DWORD kAutoReconnectAttemptIntervalMs = 1000;
 
 bool ConfigureOpenedSerialHandle(HANDLE serialHandle,
@@ -95,158 +94,6 @@ bool OpenAppendBinaryStream(std::ofstream& stream, const std::wstring& path) {
     return stream.is_open();
 }
 
-constexpr uint8_t kLegacyLwdDataCommand = 0x67;
-constexpr uint8_t kLegacyLwdMetrologyCommand = 0x65;
-constexpr size_t kLegacyLwdDataPacketSize = 255u;
-constexpr size_t kLegacyLwdDataPayloadOffset = 13u;
-constexpr size_t kLegacyLwdMetrologyPacketSize = 243u;
-constexpr size_t kLegacyLwdMetrologyPayloadOffset = 1u;
-
-bool WaitForBytesAvailable(HANDLE hSerial, size_t expectedBytes, DWORD waitMs) {
-    if (hSerial == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-
-    const ULONGLONG deadline = GetTickCount64() + waitMs;
-    while (GetTickCount64() < deadline) {
-        COMSTAT stat = {};
-        DWORD errors = 0;
-        if (!ClearCommError(hSerial, &errors, &stat)) {
-            return false;
-        }
-
-        if (stat.cbInQue >= expectedBytes) {
-            return true;
-        }
-
-        Sleep(5);
-    }
-
-    COMSTAT stat = {};
-    DWORD errors = 0;
-    if (!ClearCommError(hSerial, &errors, &stat)) {
-        return false;
-    }
-
-    return stat.cbInQue >= expectedBytes;
-}
-
-bool ReadExactAvailableBytes(HANDLE hSerial, size_t expectedBytes, DWORD waitMs, std::vector<uint8_t>& outBuffer) {
-    outBuffer.clear();
-    if (hSerial == INVALID_HANDLE_VALUE) {
-        return false;
-    }
-
-    outBuffer.reserve(expectedBytes);
-    const ULONGLONG deadline = GetTickCount64() + waitMs;
-
-    while (outBuffer.size() < expectedBytes) {
-        COMSTAT stat = {};
-        DWORD errors = 0;
-        if (!ClearCommError(hSerial, &errors, &stat)) {
-            return false;
-        }
-
-        if (stat.cbInQue == 0) {
-            if (GetTickCount64() >= deadline) {
-                break;
-            }
-            Sleep(2);
-            continue;
-        }
-
-        const size_t remaining = expectedBytes - outBuffer.size();
-        const DWORD toRead = static_cast<DWORD>(std::min<size_t>(remaining, stat.cbInQue));
-        const size_t oldSize = outBuffer.size();
-        outBuffer.resize(oldSize + toRead);
-
-        DWORD chunk = 0;
-        if (!ReadFile(hSerial, outBuffer.data() + oldSize, toRead, &chunk, nullptr)) {
-            return false;
-        }
-
-        if (chunk == 0) {
-            outBuffer.resize(oldSize);
-            if (GetTickCount64() >= deadline) {
-                break;
-            }
-            Sleep(2);
-            continue;
-        }
-
-        if (chunk < toRead) {
-            outBuffer.resize(oldSize + chunk);
-        }
-    }
-
-    return outBuffer.size() == expectedBytes;
-}
-
-bool ReadExactBytes(HANDLE hSerial, uint8_t* buffer, size_t expectedBytes) {
-    if (hSerial == INVALID_HANDLE_VALUE || buffer == nullptr) {
-        return false;
-    }
-
-    size_t totalRead = 0;
-    while (totalRead < expectedBytes) {
-        DWORD chunk = 0;
-        if (!ReadFile(hSerial, buffer + totalRead, static_cast<DWORD>(expectedBytes - totalRead), &chunk, nullptr)) {
-            return false;
-        }
-
-        if (chunk == 0) {
-            return false;
-        }
-
-        totalRead += chunk;
-    }
-
-    return true;
-}
-
-bool ReceiveLegacyFixedPacket(HANDLE hSerial,
-                              uint8_t expectedCmd,
-                              size_t totalPacketSize,
-                              DWORD settleAfterHeaderMs,
-                              std::vector<uint8_t>& outPacket) {
-    outPacket.clear();
-    if (hSerial == INVALID_HANDLE_VALUE || totalPacketSize < 5) {
-        return false;
-    }
-
-    if (!WaitForBytesAvailable(hSerial, 3, 500)) {
-        return false;
-    }
-
-    uint8_t header[3] = { 0, 0, 0 };
-    if (!ReadExactBytes(hSerial, header, sizeof(header))) {
-        return false;
-    }
-
-    if (header[0] != expectedCmd) {
-        return false;
-    }
-
-    outPacket.resize(totalPacketSize);
-    outPacket[0] = header[0];
-    outPacket[1] = header[1];
-    outPacket[2] = header[2];
-
-    Sleep(settleAfterHeaderMs);
-
-    const size_t remaining = totalPacketSize - sizeof(header);
-    if (remaining > 0 && !WaitForBytesAvailable(hSerial, remaining, 500)) {
-        outPacket.clear();
-        return false;
-    }
-
-    if (!ReadExactBytes(hSerial, outPacket.data() + sizeof(header), remaining)) {
-        outPacket.clear();
-        return false;
-    }
-
-    return true;
-}
 
 void DispatchDataCallbacks(const ParsedToolFrame& parsedFrame,
                            const std::function<void(const ParsedToolFrame&)>& onParsedDataReceived,
@@ -262,70 +109,6 @@ void DispatchDataCallbacks(const ParsedToolFrame& parsedFrame,
     }
 }
 
-#pragma pack(push, 1)
-struct LEGACY_LWD_METROLOGY_DATA {
-    uint32_t signature;
-    uint32_t serial;
-    uint16_t L1[8];
-    uint16_t L2[8];
-    uint16_t F[8];
-    int16_t Air_zz[8];
-    uint16_t PhaseOffsets[4];
-    uint32_t D_sonde_mm;
-    int16_t Air_zz_amt[8];
-    uint8_t service[140];
-};
-#pragma pack(pop)
-
-static_assert(sizeof(LEGACY_LWD_METROLOGY_DATA) == 240, "LEGACY_LWD_METROLOGY_DATA must be exactly 240 bytes");
-
-bool IsLegacyLwd4TxCompatibilitySignature(uint32_t signature) {
-    return ToolDataAdapterRegistry::DecodeToolCode(signature) == 241u ||
-           signature == 0x3143ADD4u ||
-           signature == 0x31443454u ||
-           signature == 0x31444453u ||
-           signature == 0x31443453u;
-}
-
-bool TryParseLegacyLwd4TxFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) {
-    outFrame = {};
-    if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
-        return false;
-    }
-
-    uint32_t signature = 0;
-    memcpy(&signature, rawFrame, sizeof(signature));
-    if (!IsLegacyLwd4TxCompatibilitySignature(signature)) {
-        return false;
-    }
-
-    Lwd4TxAdapter adapter;
-    return adapter.ParseRawFrame(rawFrame, rawFrameSize, outFrame);
-}
-
-void ConvertLegacyLwd4TxMetrology(const LEGACY_LWD_METROLOGY_DATA& legacyData, METROLOGY_DATA& outData) {
-    outData = {};
-    outData.signature = legacyData.signature;
-    outData.serial = legacyData.serial;
-    outData.D_sonde_mm = legacyData.D_sonde_mm;
-
-    for (int txIdx = 0; txIdx < 4; ++txIdx) {
-        outData.L1[txIdx] = legacyData.L1[txIdx];
-        outData.L2[txIdx] = legacyData.L2[txIdx];
-    }
-
-    for (int freqIdx = 0; freqIdx < 2; ++freqIdx) {
-        outData.F[freqIdx] = legacyData.F[freqIdx * 4];
-        for (int txIdx = 0; txIdx < 4; ++txIdx) {
-            const int legacyIndex = txIdx + freqIdx * 4;
-            outData.Air_zz[freqIdx][txIdx] = legacyData.Air_zz[legacyIndex];
-            outData.Air_zz_amt[freqIdx][txIdx] = legacyData.Air_zz_amt[legacyIndex];
-        }
-    }
-
-    outData.work_type = 0;
-    outData.Rx_Position = 0;
-}
 }
 
 namespace {
@@ -407,7 +190,6 @@ SerialModule::SerialModule()
     , readTimeout(1000)
     , writeTimeout(1000)
     , state(ConnectionState::DISCONNECTED)
-    , protocolMode(DeviceProtocolMode::UNKNOWN)
     , timerId(0)
     , pollInterval(2000)
     , callbackWindow(nullptr)
@@ -418,7 +200,6 @@ SerialModule::SerialModule()
     , lastFrameNumber(0)
     , sessionFirstFrameNumber(0)
     , hasSessionFirstFrameNumber(false)
-    , legacyPollInterval(1000)
     , stopLegacyPolling(false)
     , pausePolling(false)
     , consecutivePollFailures(0)
@@ -556,7 +337,6 @@ SerialResult SerialModule::Connect(const std::wstring& port, DWORD baud) {
     
     // Очищаем буферы
     PurgeBuffers();
-    protocolMode = DeviceProtocolMode::UNKNOWN;
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
     ++connectionSessionId;
@@ -584,7 +364,6 @@ void SerialModule::Disconnect() {
     loggedDeviceIdentityToExchangeLog = false;
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
-    protocolMode = DeviceProtocolMode::UNKNOWN;
     currentDeviceId.clear();  // v2.15.0: Сбрасываем ID прибора
     SetState(ConnectionState::DISCONNECTED);
 }
@@ -610,20 +389,13 @@ void SerialModule::StartPolling(HWND hWnd, DWORD intervalMs) {
     
     callbackWindow = hWnd;
     pollInterval = intervalMs;
-    legacyPollInterval = intervalMs;
 
     {
         std::lock_guard<std::mutex> lock(pendingPollEventsMutex);
         pendingPollEvents.clear();
     }
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX &&
-        (legacyPollInterval == 0 || legacyPollInterval > 1000)) {
-        legacyPollInterval = 1000;
-    }
-
-    DebugLog4Tx("=== StartPolling: mode=%d, interval=%lu ms ===",
-                static_cast<int>(protocolMode), legacyPollInterval);
+    DebugLog4Tx("=== StartPolling: interval=%lu ms ===", pollInterval);
     stopLegacyPolling = false;
     pausePolling = false;
     timerId = SetTimer(hWnd, IDT_SERIAL_POLL, 50, nullptr);
@@ -634,11 +406,6 @@ void SerialModule::SetPollInterval(DWORD intervalMs) {
     if (intervalMs < 500) intervalMs = 500;    // минимум 0.5 сек
     if (intervalMs > 30000) intervalMs = 30000; // максимум 30 сек
     pollInterval = intervalMs;
-    legacyPollInterval = intervalMs;
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX &&
-        (legacyPollInterval == 0 || legacyPollInterval > 1000)) {
-        legacyPollInterval = 1000;
-    }
 }
 
 void SerialModule::StopPolling() {
@@ -717,9 +484,7 @@ void SerialModule::FlushPendingPollResults() {
 
 void SerialModule::LegacyPollingLoop() {
     while (!stopLegacyPolling) {
-        const DWORD sleepInterval = (protocolMode == DeviceProtocolMode::LEGACY_4TX)
-            ? legacyPollInterval
-            : pollInterval;
+        const DWORD sleepInterval = pollInterval;
 
         // Polling приостановлен (метрологическая операция в процессе)
         if (pausePolling) {
@@ -856,7 +621,6 @@ void SerialModule::InvalidateConnectionForRecovery() {
 
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
-    protocolMode = DeviceProtocolMode::UNKNOWN;
     nextReconnectAttemptTick = GetTickCount() + kAutoReconnectAttemptIntervalMs;
     SetState(ConnectionState::DISCONNECTED);
 }
@@ -897,7 +661,6 @@ bool SerialModule::TryReconnectCurrentPort() {
 
     hSerial = reopened;
     PurgeBuffers();
-    protocolMode = DeviceProtocolMode::UNKNOWN;
     hasMetrology = false;
     metrologyAutoRetryCount = 0;
     consecutivePollFailures = 0;
@@ -921,172 +684,54 @@ SerialResult SerialModule::RequestData(ParsedToolFrame& outParsedFrame, std::vec
 
     std::lock_guard<std::mutex> lock(ioMutex);
 
-    auto tryStoreParsedFrame = [this, outRawPayload, &outParsedFrame](const uint8_t* rawFrame, size_t rawFrameSize) -> bool {
-        if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
-            return false;
-        }
+    // Протокол: [CMD=0x11][LEN:2][CRC:2] → [CMD=0x11][LEN:2][GP_TOOL_DATA:240][CRC:2]
+    PurgeBuffers();
 
-        ParsedToolFrame parsedFrame = {};
-        bool parsed = ToolDataAdapterRegistry::Get().ParseRawFrame(rawFrame, rawFrameSize, parsedFrame);
-        if (!parsed) {
-            parsed = TryParseLegacyLwd4TxFrame(rawFrame, rawFrameSize, parsedFrame);
-        }
-        if (!parsed) {
-            return false;
-        }
+    if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
+        DeviceExchangeLogAppend(L"Запрос кадра: ошибка отправки CMD_DATA");
+        return SerialResult::CONNECTION_FAILED;
+    }
 
-        outParsedFrame = parsedFrame;
-        lastRawDataFrame.assign(rawFrame, rawFrame + rawFrameSize);
-        if (outRawPayload) {
-            *outRawPayload = lastRawDataFrame;
-        }
-        return true;
-    };
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        DeviceExchangeLogAppend(L"Запрос кадра: нет ответа");
+        return SerialResult::TIMEOUT;
+    }
 
-    auto requestModernData = [this, outRawPayload, &outParsedFrame]() -> SerialResult {
-        PurgeBuffers();
+    if (cmd != SerialCommands::CMD_DATA) {
+        DeviceExchangeLogAppendFormatted(L"Запрос кадра: неверная команда ответа 0x%02X", cmd);
+        return SerialResult::INVALID_RESPONSE;
+    }
 
-        if (!SendPacket(SerialCommands::CMD_DATA, nullptr, 0)) {
-            DeviceExchangeLogAppend(L"Запрос кадра (modern): ошибка отправки CMD_DATA");
-            return SerialResult::CONNECTION_FAILED;
-        }
+    if (payload.size() != sizeof(GP_TOOL_DATA)) {
+        DeviceExchangeLogAppendFormatted(L"Запрос кадра: размер payload %zu (ожид. 240)",
+            payload.size());
+        return SerialResult::INVALID_RESPONSE;
+    }
 
-        uint8_t cmd = 0;
-        std::vector<uint8_t> payload;
-        if (!ReceivePacket(cmd, payload)) {
-            DeviceExchangeLogAppend(L"Запрос кадра (modern): нет ответа");
-            return SerialResult::TIMEOUT;
-        }
-
-        if (cmd != SerialCommands::CMD_DATA) {
-            DeviceExchangeLogAppendFormatted(L"Запрос кадра (modern): неверная команда ответа 0x%02X", cmd);
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (payload.size() != sizeof(GP_TOOL_DATA)) {
-            DeviceExchangeLogAppendFormatted(L"Запрос кадра (modern): размер payload %zu (ожид. 240)",
-                payload.size());
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
-            DeviceExchangeLogAppend(L"Запрос кадра (modern): разбор кадра не удался (сигнатура?)");
-            return SerialResult::INVALID_SIGNATURE;
-        }
-
-        lastRawDataFrame = payload;
-        if (outRawPayload) {
-            *outRawPayload = payload;
-        }
-
-        DeviceExchangeLogAppendFormatted(
-            L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]  |  Кадр #%u: Sig=0x%08X, %.1f°C",
-            lastTxCmd, lastTxSize, lastRxCmd, lastRxSize,
-            outParsedFrame.canonicalData.frame,
-            outParsedFrame.canonicalData.signature,
-            static_cast<double>(outParsedFrame.canonicalData.temperature));
-
-        if (DeviceExchangeLogGetShowRawData()) {
-            DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
-        }
-
-        return SerialResult::SUCCESS;
-    };
-
-    auto requestLegacyData = [this, &tryStoreParsedFrame, &outParsedFrame]() -> SerialResult {
-        PurgeBuffers();
-
-        // Формат запроса данных: [CMD=0x67][0x00][0x04][0xF0][CRC16:2] = 6 байт
-        // Идентичен старому коду: send_to_tool_(COM, 0x67, 0x00, 0x04, 0xF0)
-        const uint8_t payload[] = { 0x00, 0x04, 0xF0 };
-        std::vector<uint8_t> request(1 + sizeof(payload) + sizeof(uint16_t));
-        request[0] = kLegacyLwdDataCommand;
-        memcpy(request.data() + 1, payload, sizeof(payload));
-        const uint16_t crc = CalculateCRC16(request.data(), 1 + sizeof(payload));
-        request[1 + sizeof(payload)] = static_cast<uint8_t>(crc & 0xFF);
-        request[2 + sizeof(payload)] = static_cast<uint8_t>(crc >> 8);
-
-        DebugLog4Tx("requestLegacyData: sending %zu bytes: %s",
-                     request.size(), HexDump(request.data(), request.size()).c_str());
-
-        DWORD bytesWritten = 0;
-        if (!WriteFile(hSerial, request.data(), static_cast<DWORD>(request.size()), &bytesWritten, nullptr) ||
-            bytesWritten != request.size()) {
-            DebugLog4Tx("requestLegacyData: WriteFile FAILED, written=%lu", bytesWritten);
-            return SerialResult::CONNECTION_FAILED;
-        }
-        if (DeviceExchangeLogIsEnabled()) {
-            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy)", request.data(), request.size()));
-        }
-
-        std::vector<uint8_t> legacyResponse;
-        if (!ReceiveLegacyFixedPacket(hSerial, kLegacyLwdDataCommand, kLegacyLwdDataPacketSize, 300, legacyResponse)) {
-            DebugLog4Tx("requestLegacyData: ReceiveLegacyFixedPacket TIMEOUT (expected %zu bytes)",
-                         kLegacyLwdDataPacketSize);
-            return SerialResult::TIMEOUT;
-        }
-
-        DebugLog4Tx("requestLegacyData: received %zu bytes, header: %s",
-                     legacyResponse.size(),
-                     HexDump(legacyResponse.data(), legacyResponse.size(), 16).c_str());
-
-        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
-            DebugLog4Tx("requestLegacyData: CRC_ERROR");
-            return SerialResult::CRC_ERROR;
-        }
-
-        const size_t candidateOffsets[] = { kLegacyLwdDataPayloadOffset, 12u };
-        for (size_t offset : candidateOffsets) {
-            if (legacyResponse.size() >= offset + sizeof(LEGACY_GP_TOOL_DATA) &&
-                tryStoreParsedFrame(legacyResponse.data() + offset, sizeof(LEGACY_GP_TOOL_DATA))) {
-                uint32_t sig = 0;
-                memcpy(&sig, legacyResponse.data() + offset, sizeof(sig));
-                DebugLog4Tx("requestLegacyData: SUCCESS at offset=%zu, signature=0x%08X",
-                             offset, sig);
-                DeviceExchangeLogAppendFormatted(
-                    L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]  |  Кадр #%u: Sig=0x%08X, %.1f°C",
-                    lastTxCmd, lastTxSize, lastRxCmd, lastRxSize,
-                    outParsedFrame.canonicalData.frame,
-                    outParsedFrame.canonicalData.signature,
-                    static_cast<double>(outParsedFrame.canonicalData.temperature));
-                if (DeviceExchangeLogGetShowRawData()) {
-                    DeviceLogTryAppendVariantAForDataPayload240(legacyResponse.data() + offset, sizeof(GP_TOOL_DATA));
-                }
-                return SerialResult::SUCCESS;
-            }
-        }
-
-        DebugLog4Tx("requestLegacyData: INVALID_SIGNATURE (no adapter matched)");
+    if (!ToolDataAdapterRegistry::Get().ParseRawFrame(payload.data(), payload.size(), outParsedFrame)) {
+        DeviceExchangeLogAppend(L"Запрос кадра: разбор кадра не удался (сигнатура?)");
         return SerialResult::INVALID_SIGNATURE;
-    };
-
-    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
-        return requestModernData();
     }
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        return requestLegacyData();
+    lastRawDataFrame = payload;
+    if (outRawPayload) {
+        *outRawPayload = payload;
     }
 
-    DebugLog4Tx("RequestData: protocolMode=UNKNOWN, trying modern first");
-    const SerialResult modernResult = requestModernData();
-    if (modernResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::MODERN_5TX;
-        return modernResult;
+    DeviceExchangeLogAppendFormatted(
+        L"→ 0x%02X [%zuB]  ← 0x%02X [%zuB]  |  Кадр #%u: Sig=0x%08X, %.1f°C",
+        lastTxCmd, lastTxSize, lastRxCmd, lastRxSize,
+        outParsedFrame.canonicalData.frame,
+        outParsedFrame.canonicalData.signature,
+        static_cast<double>(outParsedFrame.canonicalData.temperature));
+
+    if (DeviceExchangeLogGetShowRawData()) {
+        DeviceLogTryAppendVariantAForDataPayload240(payload.data(), payload.size());
     }
 
-    // Modern не удался — сбрасываем буфер устройства
-    DebugLog4Tx("RequestData: modern failed, flushing device buffer");
-    FlushDeviceBufferAfterModernAttempt();
-
-    const SerialResult legacyResult = requestLegacyData();
-    DebugLog4Tx("RequestData: legacy result=%d", static_cast<int>(legacyResult));
-    if (legacyResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::LEGACY_4TX;
-        return legacyResult;
-    }
-
-    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
+    return SerialResult::SUCCESS;
 }
 
 SerialResult SerialModule::RequestData(GP_TOOL_DATA& outData) {
@@ -1118,151 +763,45 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
     {
         std::lock_guard<std::mutex> lock(ioMutex);
 
-    auto applyMetrology = [this, &outData](const METROLOGY_DATA& data) {
-        outData = data;
-        memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
-        hasMetrology = true;
-        HandleMetrologyUpdated();
-
-        DeviceExchangeLogAppendFormatted(L"Метрология: получено sig=0x%08X, serial=%u",
-            data.signature, static_cast<unsigned>(data.serial));
-
-        if (!loggedDeviceIdentityToExchangeLog) {
-            // Декодируем поля из signature (low20 бит): type*100000 + N_Tx*10000 + mod*1000 + number
-            const uint32_t low20 = (data.signature << 12) >> 12;
-            const int decodedMod = static_cast<int>((low20 % 10000u) / 1000u);
-            const int decodedNumber = static_cast<int>(low20 % 1000u);
-            DeviceExchangeLogAppendDeviceIdentity(data.signature, data.serial,
-                                                 decodedMod, decodedNumber,
-                                                 data.Rx_Position, data.D_sonde_mm);
-            loggedDeviceIdentityToExchangeLog = true;
-        }
-
-        if (onMetrologyReceived) {
-            onMetrologyReceived(outData);
-        }
-    };
-
-    auto requestModernMetrology = [this, &applyMetrology]() -> SerialResult {
-        PurgeBuffers();
-        if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
-            return SerialResult::CONNECTION_FAILED;
-        }
-
+    // Протокол: [CMD=0x13][LEN:2][CRC:2] → [CMD=0x13][LEN:2][METROLOGY_DATA:240][CRC:2]
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_GET_METROLOGY, nullptr, 0)) {
+        finalResult = SerialResult::CONNECTION_FAILED;
+    } else {
         uint8_t cmd = 0;
         std::vector<uint8_t> payload;
         if (!ReceivePacket(cmd, payload)) {
-            return SerialResult::TIMEOUT;
-        }
-
-        if (cmd != SerialCommands::CMD_GET_METROLOGY) {
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (payload.size() != sizeof(METROLOGY_DATA)) {
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        METROLOGY_DATA directData = {};
-        memcpy(&directData, payload.data(), sizeof(METROLOGY_DATA));
-        applyMetrology(directData);
-        return SerialResult::SUCCESS;
-    };
-
-    auto requestLegacyMetrology = [this, &applyMetrology]() -> SerialResult {
-        PurgeBuffers();
-
-        const uint8_t legacyPayload[] = { 0x00, 0x04, 240 };
-        std::vector<uint8_t> legacyRequest(1 + sizeof(legacyPayload) + sizeof(uint16_t));
-        legacyRequest[0] = 0x65;
-        memcpy(legacyRequest.data() + 1, legacyPayload, sizeof(legacyPayload));
-        const uint16_t legacyRequestCrc = CalculateCRC16(legacyRequest.data(), 1 + sizeof(legacyPayload));
-        legacyRequest[1 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc & 0xFF);
-        legacyRequest[2 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc >> 8);
-
-        DebugLog4Tx("requestLegacyMetrology: sending %zu bytes: %s",
-                     legacyRequest.size(), HexDump(legacyRequest.data(), legacyRequest.size()).c_str());
-
-        DWORD bytesWritten = 0;
-        if (!WriteFile(hSerial, legacyRequest.data(), static_cast<DWORD>(legacyRequest.size()), &bytesWritten, nullptr) ||
-            bytesWritten != legacyRequest.size()) {
-            DebugLog4Tx("requestLegacyMetrology: WriteFile FAILED");
-            return SerialResult::CONNECTION_FAILED;
-        }
-        if (DeviceExchangeLogIsEnabled()) {
-            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy метрология)", legacyRequest.data(), legacyRequest.size()));
-        }
-
-        std::vector<uint8_t> legacyResponse;
-        Sleep(150);
-        if (!ReadExactAvailableBytes(hSerial, kLegacyLwdMetrologyPacketSize, 1500, legacyResponse)) {
-            DebugLog4Tx("requestLegacyMetrology: TIMEOUT (got %zu of %zu bytes)",
-                         legacyResponse.size(), kLegacyLwdMetrologyPacketSize);
-            return SerialResult::TIMEOUT;
-        }
-
-        DebugLog4Tx("requestLegacyMetrology: received %zu bytes, header: %s",
-                     legacyResponse.size(),
-                     HexDump(legacyResponse.data(), legacyResponse.size(), 16).c_str());
-
-        Sleep(20);
-
-        if (legacyResponse.empty() || legacyResponse[0] != kLegacyLwdMetrologyCommand) {
-            DebugLog4Tx("requestLegacyMetrology: INVALID_RESPONSE (first byte=0x%02X, expected 0x%02X)",
-                         legacyResponse.empty() ? 0 : legacyResponse[0], kLegacyLwdMetrologyCommand);
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
-            DebugLog4Tx("requestLegacyMetrology: CRC_ERROR");
-            return SerialResult::CRC_ERROR;
-        }
-
-        const size_t candidateOffsets[] = { kLegacyLwdMetrologyPayloadOffset, 0u };
-        for (size_t offset : candidateOffsets) {
-            if (legacyResponse.size() < offset + sizeof(LEGACY_LWD_METROLOGY_DATA)) {
-                continue;
-            }
-
-            LEGACY_LWD_METROLOGY_DATA legacyData = {};
-            memcpy(&legacyData, legacyResponse.data() + offset, sizeof(legacyData));
-            if (!IsLegacyLwd4TxCompatibilitySignature(legacyData.signature)) {
-                continue;
-            }
-
-            METROLOGY_DATA converted = {};
-            ConvertLegacyLwd4TxMetrology(legacyData, converted);
-            applyMetrology(converted);
-            return SerialResult::SUCCESS;
-        }
-
-        return SerialResult::INVALID_RESPONSE;
-    };
-
-    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
-        finalResult = requestModernMetrology();
-    } else if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        finalResult = requestLegacyMetrology();
-    } else {
-        DebugLog4Tx("RequestMetrology: protocolMode=UNKNOWN, trying modern first");
-        const SerialResult modernResult = requestModernMetrology();
-        if (modernResult == SerialResult::SUCCESS) {
-            protocolMode = DeviceProtocolMode::MODERN_5TX;
-            finalResult = modernResult;
+            finalResult = SerialResult::TIMEOUT;
+        } else if (cmd != SerialCommands::CMD_GET_METROLOGY) {
+            finalResult = SerialResult::INVALID_RESPONSE;
+        } else if (payload.size() != sizeof(METROLOGY_DATA)) {
+            finalResult = SerialResult::INVALID_RESPONSE;
         } else {
-            // Modern не удался — сбрасываем буфер устройства (SendPacket отправил 5 байт,
-            // Arduino прочитал 4, 1 остался → отправляем 3 padding → Arduino читает 4 и отбрасывает)
-            DebugLog4Tx("RequestMetrology: modern failed, flushing device buffer");
-            FlushDeviceBufferAfterModernAttempt();
+            METROLOGY_DATA directData = {};
+            memcpy(&directData, payload.data(), sizeof(METROLOGY_DATA));
 
-            const SerialResult legacyResult = requestLegacyMetrology();
-            DebugLog4Tx("RequestMetrology: legacy result=%d", static_cast<int>(legacyResult));
-            if (legacyResult == SerialResult::SUCCESS) {
-                protocolMode = DeviceProtocolMode::LEGACY_4TX;
-                finalResult = legacyResult;
-            } else {
-                finalResult = modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
+            outData = directData;
+            memcpy(&metrology, &outData, sizeof(METROLOGY_DATA));
+            hasMetrology = true;
+            HandleMetrologyUpdated();
+
+            DeviceExchangeLogAppendFormatted(L"Метрология: получено sig=0x%08X, serial=%u",
+                directData.signature, static_cast<unsigned>(directData.serial));
+
+            if (!loggedDeviceIdentityToExchangeLog) {
+                const uint32_t low20 = (directData.signature << 12) >> 12;
+                const int decodedMod = static_cast<int>((low20 % 10000u) / 1000u);
+                const int decodedNumber = static_cast<int>(low20 % 1000u);
+                DeviceExchangeLogAppendDeviceIdentity(directData.signature, directData.serial,
+                                                     decodedMod, decodedNumber,
+                                                     directData.Rx_Position, directData.D_sonde_mm);
+                loggedDeviceIdentityToExchangeLog = true;
             }
+
+            if (onMetrologyReceived) {
+                onMetrologyReceived(outData);
+            }
+            finalResult = SerialResult::SUCCESS;
         }
     }
     } // lock scope
@@ -1290,65 +829,10 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
         std::lock_guard<std::mutex> lock(ioMutex);
         PurgeBuffers();
 
-        // === Legacy 4Tx: использовать legacy протокол для записи ===
-        // Формат: [CMD=0x66][ADDR_LO:1][ADDR_HI:1][METROLOGY_DATA:240][CRC:2] = 246 байт
-        // Адрес EEPROM: 0x0400 (low=0x00, high=0x04) — как в старом приложении.
-        if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-            DebugLog4Tx("WriteMetrology: LEGACY_4TX, using legacy CMD=0x66");
-
-            const size_t payloadSize = sizeof(METROLOGY_DATA);   // 240
-            const size_t addrSize = 2;                            // 2 байта адрес EEPROM
-            // 1(CMD) + 2(ADDR) + 240(METROLOGY) + 2(CRC) + 1(padding) = 246 байт
-            std::vector<uint8_t> packet(1 + addrSize + payloadSize + 2 + 1, 0x00);
-            packet[0] = 0x66;  // CMD_WRITE_EE
-            packet[1] = 0x00;  // EEPROM addr low
-            packet[2] = 0x04;  // EEPROM addr high  (0x0400)
-            memcpy(packet.data() + 1 + addrSize, &inData, payloadSize);
-            const uint16_t crc = CalculateCRC16(packet.data(), 1 + addrSize + payloadSize);
-            packet[1 + addrSize + payloadSize] = static_cast<uint8_t>(crc & 0xFF);
-            packet[2 + addrSize + payloadSize] = static_cast<uint8_t>(crc >> 8);
-            // packet[3 + addrSize + payloadSize] = 0x00; // padding (уже 0)
-
-            DebugLog4Tx("WriteMetrology: sending %zu bytes (legacy), header: %s",
-                         packet.size(), HexDump(packet.data(), packet.size(), 8).c_str());
-
-            DWORD bytesWritten = 0;
-            if (!WriteFile(hSerial, packet.data(), static_cast<DWORD>(packet.size()), &bytesWritten, nullptr) ||
-                bytesWritten != packet.size()) {
-                DebugLog4Tx("WriteMetrology: WriteFile FAILED");
-                pausePolling = false;
-                return SerialResult::CONNECTION_FAILED;
-            }
-            if (DeviceExchangeLogIsEnabled()) {
-                DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy запись метрологии)", packet.data(), packet.size()));
-            }
-
-            // Даём прибору время записать EEPROM (старое приложение: Sleep + receive)
-            Sleep(1000);
-
-            // Вычитываем и отбрасываем всё что Arduino мог отправить
-            // (при совпадении 0x67/0x65 в payload Arduino отправляет ответы)
-            PurgeBuffers();
-            DebugLog4Tx("WriteMetrology: legacy write done, buffers purged");
-
-            // Применяем метрологию локально (даже если прибор не подтвердил)
-            memcpy(&metrology, &inData, sizeof(METROLOGY_DATA));
-            hasMetrology = true;
-            HandleMetrologyUpdated();
-
-            if (onMetrologyReceived) {
-                onMetrologyReceived(metrology);
-            }
-            pausePolling = false;
-            return SerialResult::SUCCESS;
-        }
-
-        // === Modern 5Tx: стандартный modern протокол ===
-        // Формат по документации: [CMD=0x13][LEN_L][LEN_H][GP_METROLOGY:240][CRC_L][CRC_H]
+        // Протокол: [CMD=0x13][LEN_L][LEN_H][GP_METROLOGY:240][CRC_L][CRC_H]
         // Квитанция: [CMD=0x13][0x05][0x00][CRC_L][CRC_H] (пустой payload)
         DeviceExchangeLogAppendFormatted(
-            L"WriteMetrology: modern path, protocolMode=%d, sending CMD=0x%02X, %u bytes payload",
-            static_cast<int>(protocolMode),
+            L"WriteMetrology: sending CMD=0x%02X, %u bytes payload",
             static_cast<unsigned>(SerialCommands::CMD_SET_METROLOGY),
             static_cast<unsigned>(sizeof(METROLOGY_DATA)));
         DeviceExchangeLogAppendFormatted(
@@ -1435,14 +919,7 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
         return SerialResult::NOT_CONNECTED;
     }
 
-    // Legacy 4Tx устройства не поддерживают выбор ключа — пропускаем
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        DebugLog4Tx("SetSelectedKey: LEGACY_4TX, skipping (not supported)");
-        return SerialResult::SUCCESS;
-    }
-
-    // Приостанавливаем polling на время отправки команды (аналог metro_check
-    // + ожидания busy_read_from_sonde в старом стабильном приложении).
+    // Приостанавливаем polling на время отправки команды
     pausePolling = true;
 
     SerialResult result;
@@ -1485,110 +962,28 @@ SerialResult SerialModule::RequestSignature(uint32_t& outSignature) {
 
     std::lock_guard<std::mutex> lock(ioMutex);
 
-    auto requestModernSignature = [this, &outSignature]() -> SerialResult {
-        PurgeBuffers();
-        if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
-            return SerialResult::CONNECTION_FAILED;
-        }
+    // Протокол: [CMD=0x16][LEN:2][CRC:2] → [CMD=0x16][LEN:2][uint32_t:4][CRC:2]
+    PurgeBuffers();
+    if (!SendPacket(SerialCommands::CMD_GET_SIGNATURE, nullptr, 0)) {
+        return SerialResult::CONNECTION_FAILED;
+    }
 
-        uint8_t cmd = 0;
-        std::vector<uint8_t> payload;
-        if (!ReceivePacket(cmd, payload)) {
-            return SerialResult::TIMEOUT;
-        }
+    uint8_t cmd = 0;
+    std::vector<uint8_t> payload;
+    if (!ReceivePacket(cmd, payload)) {
+        return SerialResult::TIMEOUT;
+    }
 
-        if (cmd != SerialCommands::CMD_GET_SIGNATURE) {
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (payload.size() != sizeof(uint32_t)) {
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        memcpy(&outSignature, payload.data(), sizeof(uint32_t));
-        return SerialResult::SUCCESS;
-    };
-
-    auto requestLegacySignature = [this, &outSignature]() -> SerialResult {
-        PurgeBuffers();
-
-        const uint8_t legacyPayload[] = { 0x00, 0x04, 240 };
-        std::vector<uint8_t> legacyRequest(1 + sizeof(legacyPayload) + sizeof(uint16_t));
-        legacyRequest[0] = 0x65;
-        memcpy(legacyRequest.data() + 1, legacyPayload, sizeof(legacyPayload));
-        const uint16_t legacyRequestCrc = CalculateCRC16(legacyRequest.data(), 1 + sizeof(legacyPayload));
-        legacyRequest[1 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc & 0xFF);
-        legacyRequest[2 + sizeof(legacyPayload)] = static_cast<uint8_t>(legacyRequestCrc >> 8);
-
-        DWORD bytesWritten = 0;
-        if (!WriteFile(hSerial, legacyRequest.data(), static_cast<DWORD>(legacyRequest.size()), &bytesWritten, nullptr) ||
-            bytesWritten != legacyRequest.size()) {
-            return SerialResult::CONNECTION_FAILED;
-        }
-        if (DeviceExchangeLogIsEnabled()) {
-            DeviceExchangeLogAppendRaw(HexDumpWide(L"TX сырые (legacy сигнатура)", legacyRequest.data(), legacyRequest.size()));
-        }
-
-        std::vector<uint8_t> legacyResponse;
-        Sleep(150);
-        if (!ReadExactAvailableBytes(hSerial, kLegacyLwdMetrologyPacketSize, 1500, legacyResponse)) {
-            return SerialResult::TIMEOUT;
-        }
-
-        Sleep(20);
-
-        if (legacyResponse.empty() || legacyResponse[0] != kLegacyLwdMetrologyCommand) {
-            return SerialResult::INVALID_RESPONSE;
-        }
-
-        if (!ValidateCRC(legacyResponse.data(), legacyResponse.size())) {
-            return SerialResult::CRC_ERROR;
-        }
-
-        const size_t candidateOffsets[] = { kLegacyLwdMetrologyPayloadOffset, 0u };
-        for (size_t offset : candidateOffsets) {
-            if (legacyResponse.size() < offset + sizeof(LEGACY_LWD_METROLOGY_DATA)) {
-                continue;
-            }
-
-            LEGACY_LWD_METROLOGY_DATA legacyData = {};
-            memcpy(&legacyData, legacyResponse.data() + offset, sizeof(legacyData));
-            if (!IsLegacyLwd4TxCompatibilitySignature(legacyData.signature)) {
-                continue;
-            }
-
-            outSignature = legacyData.signature;
-            return SerialResult::SUCCESS;
-        }
-
+    if (cmd != SerialCommands::CMD_GET_SIGNATURE) {
         return SerialResult::INVALID_RESPONSE;
-    };
-
-    if (protocolMode == DeviceProtocolMode::MODERN_5TX) {
-        return requestModernSignature();
     }
 
-    if (protocolMode == DeviceProtocolMode::LEGACY_4TX) {
-        return requestLegacySignature();
+    if (payload.size() != sizeof(uint32_t)) {
+        return SerialResult::INVALID_RESPONSE;
     }
 
-    DebugLog4Tx("RequestSignature: protocolMode=UNKNOWN, trying modern first");
-    const SerialResult modernResult = requestModernSignature();
-    if (modernResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::MODERN_5TX;
-        return modernResult;
-    }
-
-    DebugLog4Tx("RequestSignature: modern failed, flushing device buffer");
-    FlushDeviceBufferAfterModernAttempt();
-
-    const SerialResult legacyResult = requestLegacySignature();
-    if (legacyResult == SerialResult::SUCCESS) {
-        protocolMode = DeviceProtocolMode::LEGACY_4TX;
-        return legacyResult;
-    }
-
-    return modernResult != SerialResult::SUCCESS ? modernResult : legacyResult;
+    memcpy(&outSignature, payload.data(), sizeof(uint32_t));
+    return SerialResult::SUCCESS;
 }
 
 SerialResult SerialModule::ProbeDeviceSignature(uint32_t& outSignature) {
@@ -1860,8 +1255,15 @@ bool SerialModule::ReceivePacket(uint8_t& outCmd, std::vector<uint8_t>& outPaylo
     packet[2] = header[2];
 
     size_t remaining = totalLen - 3;
-    if (remaining > 0 && !WaitForBytesAvailable(hSerial, remaining, 350)) {
-        Sleep(50);
+    if (remaining > 0) {
+        // Ждём поступления оставшихся байтов (до 350 мс)
+        const ULONGLONG deadline = GetTickCount64() + 350;
+        while (GetTickCount64() < deadline) {
+            COMSTAT stat = {};
+            DWORD errors = 0;
+            if (ClearCommError(hSerial, &errors, &stat) && stat.cbInQue >= remaining) break;
+            Sleep(5);
+        }
     }
 
     DWORD totalRead = 0;
@@ -1935,26 +1337,6 @@ void SerialModule::PurgeBuffers() {
     if (hSerial != INVALID_HANDLE_VALUE) {
         PurgeComm(hSerial, PURGE_RXCLEAR | PURGE_TXCLEAR);
     }
-}
-
-void SerialModule::FlushDeviceBufferAfterModernAttempt() {
-    // Modern SendPacket отправляет 5 байт ([CMD][LEN:2][CRC:2]).
-    // Arduino читает ровно 4 байта за раз → 1 байт остаётся в буфере Arduino.
-    // Отправляем 3 padding-байта (0x00), чтобы Arduino получил 1+3=4 байта,
-    // прочитал их, не нашёл валидной команды и отбросил.
-    if (hSerial == INVALID_HANDLE_VALUE) return;
-
-    DebugLog4Tx("FlushDeviceBufferAfterModernAttempt: sending 3 padding bytes");
-    const uint8_t padding[3] = { 0x00, 0x00, 0x00 };
-    DWORD written = 0;
-    WriteFile(hSerial, padding, 3, &written, nullptr);
-
-    // Даём Arduino время обработать (его loop() работает быстро, ~100мкс)
-    Sleep(50);
-
-    // Очищаем app RX буфер (Arduino мог отправить что-то по ошибке)
-    PurgeBuffers();
-    DebugLog4Tx("FlushDeviceBufferAfterModernAttempt: done, purged app RX");
 }
 
 // === Реализация методов записи в файл (v2.15.0) ===

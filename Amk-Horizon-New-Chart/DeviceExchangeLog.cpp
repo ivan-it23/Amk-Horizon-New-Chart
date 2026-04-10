@@ -63,14 +63,10 @@ void PostRefresh() {
 
 static std::wstring ToolKindToDisplayName(ToolDataKind kind) {
     switch (kind) {
-    case ToolDataKind::AUTONOM_5TX:
-        return L"Автоном 5TX";
-    case ToolDataKind::AUTONOM_5TX_SDR:
-        return L"Автоном 5TX SDR";
-    case ToolDataKind::LWD_3TX:
-        return L"LWD 3TX";
-    case ToolDataKind::LWD_4TX:
-        return L"LWD 4TX";
+    case ToolDataKind::AUTONOM:
+        return L"Автоном";
+    case ToolDataKind::LWD:
+        return L"LWD";
     default:
         return L"Неизвестно";
     }
@@ -198,27 +194,13 @@ void DeviceExchangeLogAppendDeviceIdentity(uint32_t signature, uint32_t serial,
                                           int mod, int number, uint32_t rxPosition,
                                           uint32_t dSondeMm) {
     if (!g_loggingEnabled.load(std::memory_order_relaxed)) return;
-    const IToolDataAdapter* adapter = ToolDataAdapterRegistry::Get().FindAdapterBySignature(signature);
-    ToolDataKind kind = ToolDataKind::UNKNOWN;
-    int txCount = 0;
-    std::wstring typeLabel = L"Неизвестно";
-    if (adapter) {
-        kind = adapter->GetKind();
-        ToolCapabilities cap = adapter->GetCapabilities();
-        txCount = cap.transmitterCount;
-        typeLabel = ToolKindToDisplayName(kind);
-    }
-    if (kind == ToolDataKind::UNKNOWN) {
-        const uint32_t tc = ToolDataAdapterRegistry::DecodeToolCode(signature);
-        kind = UniversalCanonicalAdapter::DetermineKindFromToolCode(tc);
-        ToolCapabilities cap = UniversalCanonicalAdapter::BuildCapabilities(tc);
-        txCount = cap.transmitterCount;
-        typeLabel = ToolKindToDisplayName(kind);
-    }
+    const uint32_t toolCode = ToolDataAdapterRegistry::DecodeToolCode(signature);
+    ToolCapabilities cap = UniversalCanonicalAdapter::BuildCapabilities(toolCode);
+    const int txCount = cap.transmitterCount;
+    std::wstring typeLabel = UniversalCanonicalAdapter::BuildDisplayName(toolCode);
 
     // Декодирование полей из signature (low20 бит)
     const uint32_t low20 = (signature << 12) >> 12;
-    const int typeClass = static_cast<int>(low20 / 100000u);
     const int decodedNtx = static_cast<int>((low20 % 100000u) / 10000u);
     const int ntx = (decodedNtx > 0) ? decodedNtx : txCount;
     

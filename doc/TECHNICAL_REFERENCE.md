@@ -53,29 +53,24 @@
 - `ToolRecordMetadata` — capability-aware контекст рядом с записью;
 - `ToolDataAccessView` и `MeasurementView` — предпочтительный access layer для верхних модулей.
 
-## 2. Compatibility boundaries
+## 2. Adapter-архитектура
 
-### 2.1 Что ещё остаётся canonical boundary
+### 2.1 UniversalCanonicalAdapter
 
-На текущем этапе всё ещё важно помнить:
+Единственный адаптер, обрабатывающий все типы приборов:
+
+- принимает любую сигнатуру с `toolCode > 0`;
+- определяет `DeviceType`, `transmitterCount`, `modification` из palette (toolCode = XYZ);
+- canonical passthrough: `memcpy` без преобразований;
+- статические методы: `DetermineDeviceType()`, `DetermineTransmitterCount()`, `BuildCapabilities()`, `BuildDisplayName()`.
+
+### 2.2 Что остаётся canonical boundary
 
 - `DataModule` хранит данные как `GP_TOOL_DATA`;
 - `SaveDataRange(...)` пишет canonical `.bin`;
-- range export UI пока строится вокруг canonical `.bin` сценария;
-- metadata и range-analysis seam уже есть, но adapter-aware export policy ещё не внедрена.
+- range export UI строится вокруг canonical `.bin` сценария.
 
-### 2.2 Какие API считать compatibility-only
-
-Публичные поверхности:
-
-- `DataModule::GetData()`
-- `DataModule::ParseRawFrame(...)`
-- `SerialModule::RequestData(GP_TOOL_DATA& ...)`
-- `SerialModule::SetDataCallback(...)`
-
-следует трактовать как **compatibility-only API surface**.
-
-Предпочтительные современные пути:
+### 2.3 Предпочтительные API
 
 - `ParseRawFrameDetailed(...)`
 - `RequestData(ParsedToolFrame& ...)`
@@ -110,28 +105,7 @@ struct GP_TOOL_DATA {
 
 - `GP_TOOL_DATA == 240 байт`
 
-### 3.2 Legacy raw layout для части `LWD_4TX`
-
-```cpp
-struct LEGACY_GP_TOOL_DATA {
-    uint32_t signature;
-    uint32_t condition;
-    float Ro_smt[8];
-    float PH_smt[8];
-    uint32_t frame;
-    float temperature;
-    float AM_RX_1[10];
-    float AM_RX_2[10];
-    float PH_RX_1[10];
-    float PH_RX_2[10];
-};
-```
-
-Размер:
-
-- `LEGACY_GP_TOOL_DATA == 240 байт`
-
-### 3.3 Метрология
+### 3.2 Метрология
 
 ```cpp
 struct METROLOGY_DATA {
@@ -151,11 +125,11 @@ struct METROLOGY_DATA {
 
 - `METROLOGY_DATA == 240 байт`
 
-### 3.4 Capabilities и range analysis
+### 3.3 Capabilities и range analysis
 
 Текущие важные типы:
 
-- `ToolDataKind`
+- `ToolDataKind` (`UNKNOWN`, `AUTONOM`, `LWD` — определяется из palette)
 - `ToolCapabilities`
 - `ToolRecordMetadata`
 - `DataRangeMetadataSummary`
@@ -168,7 +142,7 @@ struct METROLOGY_DATA {
 - анализа диапазона перед экспортом;
 - разделения current-state и compatibility behavior.
 
-## 4. Инварианты `4Tx/5Tx`
+## 4. Инварианты 3Tx/4Tx/5Tx
 
 ### 4.1 Runtime число передатчиков
 
@@ -191,12 +165,10 @@ UI исторически использует 5 визуальных слото
 
 ### 4.3 Актуальное поведение схемы прибора
 
-`SchematicModule` теперь синхронизирован с runtime capability count:
+`SchematicModule` синхронизирован с runtime capability count (определяется из palette):
 
-- для `4Tx` `T5` отображается как недоступный;
-- выбрать `T5` нельзя;
-- список доступных кривых и checkbox-ы не включают пятую кривую;
-- для `5Tx` поведение остаётся полным.
+- недоступные передатчики отображаются как заблокированные;
+- список доступных кривых и checkbox-ы скрываются динамически по capability.
 
 ### 4.4 Практический смысл
 

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 struct ParsedToolFrame {
@@ -24,39 +25,12 @@ public:
     virtual bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const = 0;
 };
 
-class Autonom5TxAdapter : public IToolDataAdapter {
-public:
-    ToolDataKind GetKind() const override;
-    ToolCapabilities GetCapabilities() const override;
-    bool CanHandleSignature(uint32_t signature) const override;
-    bool SupportsFileFormat(FileFormat format) const override;
-    size_t GetRawFrameSize() const override;
-    bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
-};
-
-// LWD с canonical GP_TOOL_DATA на проводе (как у AUTONOM 5Tx): неиспользуемые передатчики — нули в слотах T4/T5.
-class Lwd3TxCanonicalAdapter : public IToolDataAdapter {
-public:
-    ToolDataKind GetKind() const override;
-    ToolCapabilities GetCapabilities() const override;
-    bool CanHandleSignature(uint32_t signature) const override;
-    bool SupportsFileFormat(FileFormat format) const override;
-    size_t GetRawFrameSize() const override;
-    bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
-};
-
-class Lwd4TxAdapter : public IToolDataAdapter {
-public:
-    ToolDataKind GetKind() const override;
-    ToolCapabilities GetCapabilities() const override;
-    bool CanHandleSignature(uint32_t signature) const override;
-    bool SupportsFileFormat(FileFormat format) const override;
-    size_t GetRawFrameSize() const override;
-    bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
-};
-
-// Универсальный canonical-адаптер: принимает любую сигнатуру, определяет transmitterCount
-// из toolCode. Все приборы с новой прошивкой шлют canonical GP_TOOL_DATA.
+// Универсальный canonical-адаптер. Единственный адаптер в системе.
+// Все приборы шлют canonical GP_TOOL_DATA (240 байт).
+// Тип прибора, количество передатчиков и модификация определяются из palette (toolCode = XYZ):
+//   X = тип прибора (1=Автоном, 2=LWD)
+//   Y = количество передатчиков (3, 4, 5)
+//   Z = модификация
 class UniversalCanonicalAdapter : public IToolDataAdapter {
 public:
     ToolDataKind GetKind() const override;
@@ -66,9 +40,16 @@ public:
     size_t GetRawFrameSize() const override;
     bool ParseRawFrame(const void* rawFrame, size_t rawFrameSize, ParsedToolFrame& outFrame) const override;
 
-    static int DetermineTransmitterCount(uint32_t toolCode);
+    // === Palette (toolCode) декодирование ===
+    // toolCode = XYZ: X=тип, Y=txCount, Z=модификация
+    static DeviceType  DetermineDeviceType(uint32_t toolCode);
+    static int         DetermineTransmitterCount(uint32_t toolCode);
+    static int         DetermineModification(uint32_t toolCode);
     static ToolDataKind DetermineKindFromToolCode(uint32_t toolCode);
     static ToolCapabilities BuildCapabilities(uint32_t toolCode);
+
+    // Динамическое имя прибора для отображения в UI/логах
+    static std::wstring BuildDisplayName(uint32_t toolCode);
 };
 
 class ToolDataAdapterRegistry {

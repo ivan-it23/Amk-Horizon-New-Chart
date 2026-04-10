@@ -46,52 +46,6 @@ bool ReadParsedFrameAt(std::ifstream& file, FileFormat format, size_t frameIndex
            DataModule::ParseRawFrameDetailed(rawFrameBuffer, sizeof(rawFrameBuffer), outFrame);
 }
 
-bool IsReasonableFrameCounter(uint32_t frame) {
-    return frame <= 100000000u;
-}
-
-bool IsReasonableTemperatureValue(float temperature) {
-    return std::isfinite(temperature) && temperature >= -200.0f && temperature <= 300.0f;
-}
-
-bool HasNonZeroLegacyFifthSlotData(const GP_TOOL_DATA& data) {
-    constexpr float epsilon = 1e-12f;
-    return std::fabs(data.rho_smt[0][4]) > epsilon ||
-           std::fabs(data.rho_smt[1][4]) > epsilon ||
-           std::fabs(data.phase_smt[0][4]) > epsilon ||
-           std::fabs(data.phase_smt[1][4]) > epsilon ||
-           std::fabs(data.AM_RX_1[0][4]) > epsilon ||
-           std::fabs(data.AM_RX_1[1][4]) > epsilon ||
-           std::fabs(data.AM_RX_2[0][4]) > epsilon ||
-           std::fabs(data.AM_RX_2[1][4]) > epsilon ||
-           std::fabs(data.DELTA_PH[0][4]) > epsilon ||
-           std::fabs(data.DELTA_PH[1][4]) > epsilon;
-}
-
-bool ShouldParseAsLegacyLwd4TxRawFrame(const void* rawFrame, size_t rawFrameSize) {
-    if (!rawFrame || rawFrameSize != sizeof(LEGACY_GP_TOOL_DATA)) {
-        return false;
-    }
-
-    GP_TOOL_DATA canonicalView = {};
-    memcpy(&canonicalView, rawFrame, sizeof(canonicalView));
-    if (HasNonZeroLegacyFifthSlotData(canonicalView)) {
-        return true;
-    }
-
-    LEGACY_GP_TOOL_DATA legacyView = {};
-    memcpy(&legacyView, rawFrame, sizeof(legacyView));
-
-    const bool canonicalLooksValid =
-        IsReasonableFrameCounter(canonicalView.frame) &&
-        IsReasonableTemperatureValue(canonicalView.temperature);
-
-    const bool legacyLooksValid =
-        IsReasonableFrameCounter(legacyView.frame) &&
-        IsReasonableTemperatureValue(legacyView.temperature);
-
-    return !canonicalLooksValid && legacyLooksValid;
-}
 
 void AppendCanonicalRecord(const GP_TOOL_DATA& record,
                            const ToolRecordMetadata& metadata,
@@ -291,7 +245,7 @@ uint32_t DataModule::DecodeToolCode(uint32_t signature) {
 }
 
 bool DataModule::IsDirectlySupportedToolCode(uint32_t toolCode) {
-    return toolCode == 151u || toolCode == 152u || toolCode == kToolCodeLwd3TxCanonical || toolCode == 241u;
+    return toolCode > 0;
 }
 
 uint32_t DataModule::DecodeToolCodeFromSignature(uint32_t signature) {
@@ -316,18 +270,7 @@ bool DataModule::ParseRawFrameDetailed(const void* rawFrame, size_t rawFrameSize
         return false;
     }
 
-    // Для LWD_4TX файлов: старые файлы могут содержать LEGACY_GP_TOOL_DATA (flat layout).
-    // Эвристика ShouldParseAsLegacyLwd4TxRawFrame определяет формат, и если он legacy —
-    // явно создаём Lwd4TxAdapter для flat→2D конвертации.
-    const uint32_t toolCode = ToolDataAdapterRegistry::DecodeToolCode(canonicalData.signature);
-    const ToolDataKind effectiveKind = UniversalCanonicalAdapter::DetermineKindFromToolCode(toolCode);
-    if (effectiveKind == ToolDataKind::LWD_4TX &&
-        ShouldParseAsLegacyLwd4TxRawFrame(rawFrame, rawFrameSize)) {
-        static const Lwd4TxAdapter legacyAdapter;
-        return legacyAdapter.ParseRawFrame(rawFrame, rawFrameSize, outFrame);
-    }
-
-    // Canonical passthrough: используем адаптер из реестра для metadata + memcpy данных
+    // Canonical passthrough: все приборы шлют GP_TOOL_DATA
     return adapter->ParseRawFrame(rawFrame, rawFrameSize, outFrame);
 }
 
@@ -1196,7 +1139,7 @@ int DataModule::GetAvailableTransmitterCount() const {
         maxCount = std::max(maxCount, view.GetTransmitterCount());
     }
 
-    cachedAvailableTransmitterCount = (maxCount > 0) ? maxCount : kLegacyFallbackTransmitterCount;
+    cachedAvailableTransmitterCount = (maxCount > 0) ? maxCount : kFallbackTransmitterCount;
     cachedAvailableTransmitterCountVersion = dataVersion;
     return cachedAvailableTransmitterCount;
 }

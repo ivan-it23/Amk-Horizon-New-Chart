@@ -46,7 +46,7 @@ public:
     }
 
     int GetTransmitterCount() const {
-        return (capabilities.transmitterCount > 0) ? capabilities.transmitterCount : kLegacyFallbackTransmitterCount;
+        return (capabilities.transmitterCount > 0) ? capabilities.transmitterCount : kFallbackTransmitterCount;
     }
 
     bool SupportsTransmitter(int transmitterIndex) const {

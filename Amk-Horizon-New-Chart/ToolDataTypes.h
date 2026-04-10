@@ -3,19 +3,6 @@
 #include <cstdint>
 
 #pragma pack(push, 1)
-struct LEGACY_GP_TOOL_DATA {
-    uint32_t signature;
-    uint32_t condition;
-    float Ro_smt[8];
-    float PH_smt[8];
-    uint32_t frame;
-    float temperature;
-    float AM_RX_1[10];
-    float AM_RX_2[10];
-    float PH_RX_1[10];
-    float PH_RX_2[10];
-};
-
 struct GP_TOOL_DATA {
     uint32_t signature;
     uint32_t condition;
@@ -32,7 +19,6 @@ struct GP_TOOL_DATA {
 };
 #pragma pack(pop)
 
-static_assert(sizeof(LEGACY_GP_TOOL_DATA) == 240, "LEGACY_GP_TOOL_DATA must be exactly 240 bytes");
 static_assert(sizeof(GP_TOOL_DATA) == 240, "GP_TOOL_DATA must be exactly 240 bytes");
 
 enum class FileFormat {
@@ -42,19 +28,27 @@ enum class FileFormat {
     FORMAT_UNKNOWN
 };
 
-enum class ToolDataKind {
-    UNKNOWN,
-    AUTONOM_5TX,
-    AUTONOM_5TX_SDR,
-    LWD_3TX,
-    LWD_4TX
+// Тип прибора: определяется из первой цифры palette (toolCode).
+//   1 = AUTONOM, 2 = LWD. Расширяемо для будущих типов.
+enum class DeviceType {
+    UNKNOWN = 0,
+    AUTONOM = 1,   // Автономный прибор
+    LWD     = 2    // LWD (Logging While Drilling)
 };
 
-// DecodeToolCode(signature) == low20(signature)/1000 — см. ToolDataAdapterRegistry::DecodeToolCode
-static constexpr uint32_t kToolCodeLwd3TxCanonical = 231u;
+// ToolDataKind — комбинация типа прибора + числа передатчиков.
+// Определяется динамически из palette (toolCode = XYZ):
+//   X = DeviceType (1=AUTONOM, 2=LWD)
+//   Y = transmitterCount (3, 4, 5)
+//   Z = modification
+// Enum сохраняется для обратной совместимости структур.
+enum class ToolDataKind {
+    UNKNOWN,
+    AUTONOM,     // Автономный прибор (любое число передатчиков)
+    LWD          // LWD прибор (любое число передатчиков)
+};
 
-static constexpr int kLegacyUiTransmitterCount = 5;
-static constexpr int kLegacyFallbackTransmitterCount = 5;
+static constexpr int kFallbackTransmitterCount = 5;
 
 struct ToolCapabilities {
     ToolDataKind kind = ToolDataKind::UNKNOWN;

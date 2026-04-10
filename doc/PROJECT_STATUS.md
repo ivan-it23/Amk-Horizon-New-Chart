@@ -4,18 +4,20 @@
 
 Проект находится в стабильном current-state, где:
 
-- file и COM ingest уже работают через adapter-driven parsing;
-- данные materialize-ятся в canonical `GP_TOOL_DATA` (`240` байт);
+- file и COM ingest работают через единый `UniversalCanonicalAdapter` с palette-декодированием;
+- все данные используют canonical `GP_TOOL_DATA` (`240` байт);
+- legacy `LEGACY_GP_TOOL_DATA` и legacy COM-протокол (CMD 0x65/0x66/0x67) удалены;
+- тип прибора и capabilities определяются динамически из palette (toolCode);
 - рядом с каждой записью хранится `ToolRecordMetadata`;
-- верхний слой частично переведён на `ToolDataAccessView` и `MeasurementView`;
+- верхний слой использует `ToolDataAccessView` и `MeasurementView`;
 - UI, графики, метрология, заметки и экспорт работают в одной согласованной модели.
 
 ## Поддерживаемые данные и контейнеры
 
-- сигнатуры:
-  - `AUTONOM_5TX (151)`
-  - `AUTONOM_5TX_SDR (152)`
-  - `LWD_4TX (241)`
+- типы приборов (определяются динамически из palette toolCode XYZ):
+  - `Автоном` (X=1): 3Tx, 4Tx, 5Tx
+  - `LWD` (X=2): 3Tx, 4Tx, 5Tx
+  - новые комбинации поддерживаются автоматически
 - контейнеры:
   - `.bin`
   - `.biv`
@@ -39,8 +41,8 @@ Realtime in-tree path:
 - настройки приложения в `%LOCALAPPDATA%\AMK-Horizon-New-Chart\app_settings.txt` (`lastComPort`, `lastRecordFolder` и др.);
 - quick-connect UI: кнопки "Включить/Отключить" и "▶/■" на панели управления Chart 1;
 - сохранение/восстановление последнего COM-порта и папки записи между сессиями;
-- adapter-driven parsing приведён к current-state для файлов и COM;
-- `LWD_4TX` поддерживает различение legacy raw layout и canonical 240-byte frames;
+- все приборы обрабатываются единым `UniversalCanonicalAdapter` с palette-декодированием;
+- legacy `LEGACY_GP_TOOL_DATA`, legacy COM-протокол и `DeviceProtocolMode` удалены;
 - `DataModule` получил range-analysis seam:
   - `DataRangeMetadataSummary`
   - `TryDescribeRangeMetadata(...)`
@@ -72,24 +74,15 @@ Realtime in-tree path:
 
 ## Текущие compatibility boundaries
 
-Наиболее важные оставшиеся границы:
-
-- canonical storage и public compatibility surface по-прежнему построены вокруг `GP_TOOL_DATA`;
+- canonical storage построен вокруг `GP_TOOL_DATA`;
 - `SaveDataRange(...)` остаётся главным live persistence boundary;
-- публичные:
-  - `DataModule::GetData()`
-  - `DataModule::ParseRawFrame(...)`
-  - `SerialModule::RequestData(GP_TOOL_DATA& ...)`
-  - `SerialModule::SetDataCallback(...)`
-  сохраняются как compatibility-only API;
-- computer-side `SMT` остаётся legacy-compatible вычислительной веткой, а не полностью general adapter-aware подсистемой.
+- computer-side `SMT` остаётся legacy-compatible вычислительной веткой.
 
 ## Известные ограничения
 
-- canonical `.bin` export не сохраняет исходный container/layout и не является adapter-aware export policy;
-- UI визуально всё ещё использует 5-слотовую схему передатчиков, хотя runtime доступность уже capability-aware;
-- computer-side `SMT` логика всё ещё опирается на legacy 4-delta-input модель;
-- полное удаление canonical compatibility boundary пока не завершено и не требуется для текущего стабильного behavior.
+- canonical `.bin` export не сохраняет исходный container/layout;
+- UI визуально использует 5-слотовую схему передатчиков, хотя runtime доступность capability-aware;
+- computer-side `SMT` логика всё ещё опирается на legacy 4-delta-input модель.
 
 ## Что считать рекомендуемым current-state подходом
 
@@ -115,8 +108,9 @@ Realtime in-tree path:
 
 ## Краткий вывод
 
-Проект сейчас находится не в стадии сырой миграции, а в стадии **стабилизированного adapter-driven current-state**:
+Проект сейчас находится в стадии **упрощённой масштабируемой архитектуры**:
 
-- основная архитектура уже сформирована;
-- user-visible поведение стабильно;
-- оставшиеся задачи в основном связаны не с аварийным рефакторингом, а с аккуратным сужением compatibility boundary и дальнейшей эволюцией export / API policy.
+- единый `UniversalCanonicalAdapter` с palette-декодированием;
+- все legacy структуры и протоколы удалены;
+- новые приборы поддерживаются автоматически без изменения кода;
+- user-visible поведение стабильно.

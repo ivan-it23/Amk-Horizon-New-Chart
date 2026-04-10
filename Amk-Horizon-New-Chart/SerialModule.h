@@ -66,13 +66,8 @@ enum class SerialResult {
     NOT_CONNECTED
 };
 
-enum class DeviceProtocolMode {
-    UNKNOWN,
-    MODERN_5TX,
-    LEGACY_4TX
-};
-
 // Класс для работы с COM-портом и протоколом обмена с прибором
+// Протокол: [CMD:1][LEN:2][PAYLOAD][CRC16:2] на 125000 бод
 class SerialModule {
 private:
     // Handle COM-порта (Windows API)
@@ -87,7 +82,6 @@ private:
     // Состояние
     ConnectionState state;
     std::wstring lastError;
-    DeviceProtocolMode protocolMode;
     
     // Таймер для периодического опроса
     UINT_PTR timerId;
@@ -114,7 +108,6 @@ private:
         uint32_t connectionSessionId = 0;
     };
 
-    DWORD legacyPollInterval;
     std::thread legacyPollingThread;
     std::atomic<bool> stopLegacyPolling;
     std::atomic<bool> pausePolling;
@@ -214,8 +207,7 @@ public:
     // Запрос сигнатуры (CMD_GET_SIGNATURE = 0x16)
     SerialResult RequestSignature(uint32_t& outSignature);
 
-    // Вызов сразу после успешного Connect (до RequestMetrology): определяет modern vs legacy
-    // и выставляет protocolMode. Нужен для приборов с canonical GP_TOOL_DATA по COM (AUTONOM, LWD 3Tx и т.д.).
+    // Запрос сигнатуры прибора сразу после Connect
     SerialResult ProbeDeviceSignature(uint32_t& outSignature);
     
     // === Callbacks ===
@@ -311,12 +303,6 @@ private:
     
     // Очистка буферов COM-порта
     void PurgeBuffers();
-
-    // Сброс буфера устройства после неудачной попытки modern-протокола.
-    // Modern SendPacket отправляет 5 байт, Arduino читает 4 → 1 лишний байт.
-    // Эта функция отправляет 3 padding-байта (1+3=4), чтобы Arduino
-    // прочитал и отбросил пакет, очищая буфер.
-    void FlushDeviceBufferAfterModernAttempt();
 
     // Пост-обработка после обновления metrology (deviceId, rename Unknown record file, callbacks)
     void HandleMetrologyUpdated();
