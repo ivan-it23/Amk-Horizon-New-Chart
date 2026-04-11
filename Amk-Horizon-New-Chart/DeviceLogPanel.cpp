@@ -19,9 +19,21 @@ static constexpr wchar_t kExpandedClassName[] = L"AmkHorizonDeviceLogExpandedFra
 static HINSTANCE g_hInst = nullptr;
 static HWND g_hMain = nullptr;
 static HFONT g_hAppUiFont = nullptr;
+static HFONT g_hCloseBtnBoldFont = nullptr;
 
 static HFONT LogPanelUiFont() {
     return g_hAppUiFont ? g_hAppUiFont : reinterpret_cast<HFONT>(GetStockObject(DEFAULT_GUI_FONT));
+}
+
+static HFONT GetCloseBtnBoldFont() {
+    if (g_hCloseBtnBoldFont) return g_hCloseBtnBoldFont;
+    HFONT hBase = LogPanelUiFont();
+    LOGFONTW lf{};
+    if (GetObjectW(hBase, sizeof(lf), &lf)) {
+        lf.lfWeight = FW_BOLD;
+        g_hCloseBtnBoldFont = CreateFontIndirectW(&lf);
+    }
+    return g_hCloseBtnBoldFont ? g_hCloseBtnBoldFont : hBase;
 }
 
 static HWND g_hDockHost = nullptr;
@@ -52,6 +64,10 @@ static std::wstring g_lastSyncedLogText;
 static size_t g_lastSyncedLineCount = 0;
 // Первый RefreshBothEdits вызывается до нормального размера панели (хост 10×10) — после UpdateLayout прокручиваем вниз один раз.
 static bool g_forceDockScrollToBottomOnce = false;
+
+// Generation-based skip: пропускаем RefreshBothEdits если данные не менялись с последнего рендера.
+static uint64_t g_lastRenderedGeneration = 0;
+static bool g_forceNextRefresh = true;  // true => следующий RefreshBothEdits выполнится безусловно
 
 static bool EnsureMsfteditLoaded() {
     if (g_hMsftedit) {
@@ -334,6 +350,14 @@ static std::wstring BuildTextFromLines(const std::vector<DeviceLogLine>& lines) 
 }
 
 static void RefreshBothEdits() {
+    // Generation-based skip: если данные не изменились и нет принудительного обновления — выходим
+    const uint64_t gen = DeviceExchangeLogGetGeneration();
+    if (!g_forceNextRefresh && gen == g_lastRenderedGeneration) {
+        return;
+    }
+    g_forceNextRefresh = false;
+    g_lastRenderedGeneration = gen;
+
     const std::vector<DeviceLogLine> lines = DeviceExchangeLogGetLines();
     const std::wstring text = BuildTextFromLines(lines);
 
@@ -408,14 +432,26 @@ static void RefreshBothEdits() {
         return;
     }
 
+    // Full rebuild path.
+    // When pinned to bottom (live streaming), use fast plain-text SetWindowText
+    // instead of per-line Rich Edit formatting (1 call vs 1200+).
+    // Bold formatting is only used when scrolled up (reviewing history).
     if (dockRich) {
-        RichEditApplyFullLog(g_hDockEdit, lines, dockPin, savedDockFirst);
+        if (dockPin) {
+            EditApplyFullText(g_hDockEdit, text.c_str());
+        } else {
+            RichEditApplyFullLog(g_hDockEdit, lines, false, savedDockFirst);
+        }
     } else if (g_hDockEdit && IsWindow(g_hDockEdit)) {
         EditApplyFullText(g_hDockEdit, text.c_str());
     }
 
     if (expRich) {
-        RichEditApplyFullLog(g_hExpandedEdit, lines, expPin, savedExpFirst);
+        if (expPin) {
+            EditApplyFullText(g_hExpandedEdit, text.c_str());
+        } else {
+            RichEditApplyFullLog(g_hExpandedEdit, lines, false, savedExpFirst);
+        }
     } else if (g_hExpandedEdit && IsWindow(g_hExpandedEdit)) {
         EditApplyFullText(g_hExpandedEdit, text.c_str());
     }
@@ -520,6 +556,7 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
         SendMessageW(g_hExpandedClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedCollapseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
         SendMessageW(g_hExpandedRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+        g_forceNextRefresh = true;
         RefreshBothEdits();
         return 0;
     }
@@ -529,6 +566,7 @@ LRESULT CALLBACK ExpandedFrameWndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM
     case WM_COMMAND:
         if (LOWORD(wParam) == IDC_DEVICE_LOG_CLEAR && HIWORD(wParam) == BN_CLICKED) {
             DeviceExchangeLogClear();
+            g_forceNextRefresh = true;
             RefreshBothEdits();
             return 0;
         }
@@ -602,6 +640,8 @@ static void DestroyDockControls() {
     g_lastSyncedLogText.clear();
     g_lastSyncedLineCount = 0;
     g_forceDockScrollToBottomOnce = false;
+    g_forceNextRefresh = true;
+    g_lastRenderedGeneration = 0;
 }
 
 static void CreateDockControls() {
@@ -636,9 +676,10 @@ static void CreateDockControls() {
     HFONT hf = LogPanelUiFont();
     SendMessageW(g_hDockExpandBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
     SendMessageW(g_hDockClearBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
-    SendMessageW(g_hDockCloseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
+    SendMessageW(g_hDockCloseBtn, WM_SETFONT, reinterpret_cast<WPARAM>(GetCloseBtnBoldFont()), TRUE);
     SendMessageW(g_hDockRawCheck, WM_SETFONT, reinterpret_cast<WPARAM>(hf), TRUE);
 
+    g_forceNextRefresh = true;
     RefreshBothEdits();
     LayoutDockChildren();
     SetWindowPos(g_hDockHost, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW | SWP_NOACTIVATE);
@@ -706,6 +747,7 @@ void DeviceLogPanel_Init(HWND hMain, HINSTANCE hInst, HFONT hAppFont) {
 
 void DeviceLogPanel_Shutdown(HWND) {
     g_hAppUiFont = nullptr;
+    if (g_hCloseBtnBoldFont) { DeleteObject(g_hCloseBtnBoldFont); g_hCloseBtnBoldFont = nullptr; }
     DeviceExchangeLogSetPanelVisible(false);
     DeviceExchangeLogFileClose();
     if (g_hMain && IsWindow(g_hMain)) {
@@ -827,6 +869,7 @@ void DeviceLogPanel_OnRawDataToggled(HWND hCheckbox) {
     }
     g_lastSyncedLogText.clear();
     g_lastSyncedLineCount = 0;
+    g_forceNextRefresh = true;  // raw data toggled — force full refresh
     RefreshBothEdits();
 }
 

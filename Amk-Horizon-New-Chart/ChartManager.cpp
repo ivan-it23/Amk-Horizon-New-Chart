@@ -640,6 +640,9 @@ ChartManager::ChartManager()
     
     // Callback обновления графика после применения настроек схемы (v2.9.4)
     schematicModule->SetOnConfigurationAppliedCallback([this](int chartNumber) {
+        // Сбрасываем кеш снимков при изменении конфигурации
+        InvalidateCachedSnapshots();
+
         // HWND главного окна — родитель диалога схемы
         HWND hSchematicDlg = schematicModule->GetSchematicDialogHandle();
         if (hSchematicDlg) {

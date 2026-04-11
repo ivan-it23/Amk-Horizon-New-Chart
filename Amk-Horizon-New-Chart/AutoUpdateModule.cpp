@@ -5,7 +5,7 @@
 #include <algorithm>
 
 // ===================================================================
-// Server configuration
+// Конфигурация сервера
 // ===================================================================
 static const wchar_t* kUpdateHost = L"ivanbohg.beget.tech";
 static const wchar_t* kVersionPath = L"/FilesForProgramVisualisation/version.txt";
@@ -13,7 +13,7 @@ static const wchar_t* kBaseUrl = L"http://ivanbohg.beget.tech/FilesForProgramVis
 static const wchar_t* kUserAgent = L"AmkHorizonUpdater/1.0";
 
 // ===================================================================
-// Helper: download a URL to a std::string (small files)
+// Вспомогательная функция: загрузка URL в std::string (маленькие файлы)
 // ===================================================================
 static bool HttpDownloadToString(const wchar_t* url, std::string& outData, std::wstring& outError) {
     outData.clear();
@@ -25,7 +25,7 @@ static bool HttpDownloadToString(const wchar_t* url, std::string& outData, std::
         return false;
     }
 
-    // Set connect/receive timeout to 5 seconds to avoid long UI freeze
+    // Устанавливает таймаут подключения/приёма 5 секунд, чтобы избежать длительной блокировки UI
     DWORD timeout = 5000;
     InternetSetOptionW(hInet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionW(hInet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
@@ -52,7 +52,7 @@ static bool HttpDownloadToString(const wchar_t* url, std::string& outData, std::
 }
 
 // ===================================================================
-// Helper: download a URL to a file (large files, with simple progress)
+// Вспомогательная функция: загрузка URL в файл (большие файлы, с простым прогрессом)
 // ===================================================================
 static bool HttpDownloadToFile(const wchar_t* url, const std::wstring& localPath, std::wstring& outError) {
     outError.clear();
@@ -63,7 +63,7 @@ static bool HttpDownloadToFile(const wchar_t* url, const std::wstring& localPath
         return false;
     }
 
-    // Longer timeout for exe download (60 seconds)
+    // Более длинный таймаут для загрузки exe (60 секунд)
     DWORD timeout = 60000;
     InternetSetOptionW(hInet, INTERNET_OPTION_CONNECT_TIMEOUT, &timeout, sizeof(timeout));
     InternetSetOptionW(hInet, INTERNET_OPTION_RECEIVE_TIMEOUT, &timeout, sizeof(timeout));
@@ -98,7 +98,7 @@ static bool HttpDownloadToFile(const wchar_t* url, const std::wstring& localPath
 }
 
 // ===================================================================
-// Trim whitespace / carriage returns from a string
+// Удаляет пробелы и символы возврата каретки из строки
 // ===================================================================
 static std::string TrimString(const std::string& s) {
     size_t start = s.find_first_not_of(" \t\r\n");
@@ -108,7 +108,7 @@ static std::string TrimString(const std::string& s) {
 }
 
 // ===================================================================
-// AutoUpdate::ParseVersion
+// AutoUpdate::ParseVersion — парсит строку версии
 // ===================================================================
 AutoUpdate::Version AutoUpdate::ParseVersion(const std::string& s) {
     Version v;
@@ -119,21 +119,21 @@ AutoUpdate::Version AutoUpdate::ParseVersion(const std::string& s) {
 }
 
 // ===================================================================
-// AutoUpdate::CheckForUpdate
+// AutoUpdate::CheckForUpdate — проверяет наличие обновлений
 // ===================================================================
 AutoUpdate::UpdateInfo AutoUpdate::CheckForUpdate() {
     UpdateInfo info;
 
-    // Build URL for version.txt
+    // Формирует URL для version.txt
     std::wstring versionUrl = std::wstring(L"http://") + kUpdateHost + kVersionPath;
 
-    // Download version.txt
+    // Загружает version.txt
     std::string body;
     if (!HttpDownloadToString(versionUrl.c_str(), body, info.errorMessage)) {
         return info;
     }
 
-    // Parse: line 1 = version, line 2 = exe filename
+    // Парсит: строка 1 = версия, строка 2 = имя exe-файла
     std::istringstream iss(body);
     std::string versionLine, filenameLine;
     if (!std::getline(iss, versionLine)) {
@@ -156,11 +156,11 @@ AutoUpdate::UpdateInfo AutoUpdate::CheckForUpdate() {
     info.remoteVersion = ParseVersion(versionLine);
     info.exeFileName = filenameLine;
 
-    // Build download URL
+    // Формирует URL для скачивания
     std::wstring wFilename(filenameLine.begin(), filenameLine.end());
     info.downloadUrl = std::wstring(kBaseUrl) + wFilename;
 
-    // Compare versions
+    // Сравнивает версии
     Version current = GetCurrentVersion();
     info.available = info.remoteVersion > current;
 
@@ -168,20 +168,20 @@ AutoUpdate::UpdateInfo AutoUpdate::CheckForUpdate() {
 }
 
 // ===================================================================
-// AutoUpdate::DownloadUpdate
+// AutoUpdate::DownloadUpdate — загружает обновление
 // ===================================================================
 std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent) {
     if (info.downloadUrl.empty()) return L"";
 
-    // Get temp folder
+    // Получает временную папку
     wchar_t tempDir[MAX_PATH] = {};
     GetTempPathW(MAX_PATH, tempDir);
 
-    // Build local path
+    // Формирует локальный путь
     std::wstring wFilename(info.exeFileName.begin(), info.exeFileName.end());
     std::wstring localPath = std::wstring(tempDir) + L"amk_update_" + wFilename;
 
-    // Download
+    // Загружает файл
     std::wstring error;
     if (!HttpDownloadToFile(info.downloadUrl.c_str(), localPath, error)) {
         if (hWndParent) {
@@ -190,7 +190,7 @@ std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent)
         return L"";
     }
 
-    // Verify the downloaded file is not empty and is a valid PE
+    // Проверяет, что скачанный файл не пустой и является корректным PE-файлом
     HANDLE hFile = CreateFileW(localPath.c_str(), GENERIC_READ, FILE_SHARE_READ,
         NULL, OPEN_EXISTING, 0, NULL);
     if (hFile == INVALID_HANDLE_VALUE) {
@@ -201,7 +201,7 @@ std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent)
     }
     DWORD fileSize = GetFileSize(hFile, NULL);
     bool validPE = false;
-    if (fileSize > 1024) { // minimal sanity check
+    if (fileSize > 1024) { // минимальная проверка на валидность
         BYTE header[2] = {};
         DWORD read = 0;
         ReadFile(hFile, header, 2, &read, NULL);
@@ -223,23 +223,23 @@ std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent)
 }
 
 // ===================================================================
-// AutoUpdate::ApplyUpdate
+// AutoUpdate::ApplyUpdate — применяет обновление
 // ===================================================================
 bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
-    // Get path to the currently running exe
+    // Получает путь к текущему исполняемому файлу
     wchar_t currentExe[MAX_PATH] = {};
     GetModuleFileNameW(NULL, currentExe, MAX_PATH);
 
-    // Create a batch script in TEMP that:
-    // 1. Waits for the current process to exit
-    // 2. Copies the new exe over the old one
-    // 3. Starts the new exe
-    // 4. Deletes itself
+    // Создаёт bat-скрипт в TEMP, который:
+    // 1. Ждёт завершения текущего процесса
+    // 2. Копирует новый exe поверх старого
+    // 3. Запускает новый exe
+    // 4. Удаляет сам себя
     wchar_t tempDir[MAX_PATH] = {};
     GetTempPathW(MAX_PATH, tempDir);
     std::wstring batPath = std::wstring(tempDir) + L"amk_updater.bat";
 
-    // Get current PID for tasklist check
+    // Получает текущий PID для проверки через tasklist
     DWORD pid = GetCurrentProcessId();
 
     std::wofstream bat(batPath);
@@ -248,7 +248,7 @@ bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
     bat << L"@echo off\r\n";
     bat << L"echo Updating Amk-Horizon-New-Chart...\r\n";
     bat << L"echo Waiting for the application to close...\r\n";
-    // Wait loop: check every second if the process is still running
+    // Цикл ожидания: проверяет каждую секунду, запущен ли процесс
     bat << L":wait_loop\r\n";
     bat << L"tasklist /FI \"PID eq " << pid << L"\" 2>NUL | find \"" << pid << L"\" >NUL\r\n";
     bat << L"if not errorlevel 1 (\r\n";
@@ -270,7 +270,7 @@ bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
 
     bat.close();
 
-    // Launch the batch script hidden
+    // Запускает bat-скрипт в скрытом режиме
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
@@ -293,7 +293,7 @@ bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
 }
 
 // ===================================================================
-// AutoUpdate::RunUpdateCheck — high-level orchestrator
+// AutoUpdate::RunUpdateCheck — высокоуровневая функция-координатор
 // ===================================================================
 void AutoUpdate::RunUpdateCheck(HWND hWndParent, bool silent) {
     UpdateInfo info = CheckForUpdate();
@@ -317,7 +317,7 @@ void AutoUpdate::RunUpdateCheck(HWND hWndParent, bool silent) {
         return;
     }
 
-    // Build version string for display
+    // Формирует строку версии для отображения
     std::wstring remoteStr =
         std::to_wstring(info.remoteVersion.major) + L"." +
         std::to_wstring(info.remoteVersion.minor) + L"." +
@@ -333,20 +333,20 @@ void AutoUpdate::RunUpdateCheck(HWND hWndParent, bool silent) {
 
     if (result != IDYES) return;
 
-    // Show wait cursor
+    // Показывает курсор ожидания
     HCURSOR hOldCursor = SetCursor(LoadCursor(NULL, IDC_WAIT));
 
     std::wstring downloadedPath = DownloadUpdate(info, hWndParent);
 
     SetCursor(hOldCursor);
 
-    if (downloadedPath.empty()) return; // error was already shown
+    if (downloadedPath.empty()) return; // ошибка уже была показана
 
     if (ApplyUpdate(downloadedPath)) {
         MessageBoxW(hWndParent,
             L"Обновление скачано. Приложение будет перезапущено.",
             L"Обновление", MB_ICONINFORMATION | MB_OK);
-        // Close the application — the batch script will handle the rest
+        // Закрывает приложение — bat-скрипт выполнит остальное
         PostMessage(hWndParent, WM_CLOSE, 0, 0);
     } else {
         MessageBoxW(hWndParent,

@@ -1776,9 +1776,20 @@ void SchematicModule::HandleXAxisTypeChange(HWND hDlg) {
 }
 
 void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
+    // Сохраняем текущую частоту из комбобокса перед Clear()
+    FrequencyBand savedFrequency = currentSelection.frequency;
+    HWND hFreqCombo = GetDlgItem(hDlg, IDC_FREQUENCY_COMBO);
+    if (hFreqCombo) {
+        int selection = (int)SendMessage(hFreqCombo, CB_GETCURSEL, 0, 0);
+        savedFrequency = (selection == 0) ? FrequencyBand::FREQ_400_KHZ : FrequencyBand::FREQ_2000_KHZ;
+    }
+
     // Очищаем текущий выбор (включая старые кривые)
     currentSelection.Clear();
     currentAvailableCurves.clear();
+
+    // Восстанавливаем частоту из комбобокса (не сбрасываем на 400 кГц)
+    currentSelection.frequency = savedFrequency;
     
     // v2.15.0: Сохраняем информацию о пресете для отображения в легенде
     switch (presetId) {

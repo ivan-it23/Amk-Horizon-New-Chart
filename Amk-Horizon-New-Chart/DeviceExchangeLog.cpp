@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr size_t kMaxLines = 500;
+constexpr size_t kMaxLines = 300;
 
 struct LogEntry {
     bool bold = false;
@@ -25,6 +25,10 @@ HWND g_notifyWnd = nullptr;
 bool g_showRawData = false;
 std::atomic<bool> g_panelVisible{false};
 std::atomic<bool> g_loggingEnabled{true};
+std::atomic<uint64_t> g_generation{0};
+
+// Throttle: минимальный интервал между реальными UI-обновлениями (не debounce!)
+std::atomic<uint64_t> g_lastRefreshPostTick{0};
 
 // === Файловый лог ===
 std::mutex g_fileMutex;
@@ -56,9 +60,21 @@ static void FileWriteLine(const std::wstring& text) {
 
 void PostRefresh() {
     if (!g_panelVisible.load(std::memory_order_relaxed)) return;
-    if (g_notifyWnd && IsWindow(g_notifyWnd)) {
-        SetTimer(g_notifyWnd, IDT_DEVICE_LOG_REFRESH, 400, nullptr);
+    if (!g_notifyWnd || !IsWindow(g_notifyWnd)) return;
+
+    // Throttle (не debounce!): планируем таймер не чаще чем раз в intervalMs.
+    // В отличие от debounce, не сбрасываем таймер при каждом Append —
+    // поэтому UI обновляется регулярно даже при непрерывном потоке данных.
+    const UINT intervalMs = g_showRawData ? 500 : 300;
+    const uint64_t now = GetTickCount64();
+    const uint64_t last = g_lastRefreshPostTick.load(std::memory_order_relaxed);
+
+    if (now - last < intervalMs) {
+        return;  // таймер уже запланирован, не сбрасываем
     }
+
+    g_lastRefreshPostTick.store(now, std::memory_order_relaxed);
+    SetTimer(g_notifyWnd, IDT_DEVICE_LOG_REFRESH, intervalMs, nullptr);
 }
 
 static std::wstring ToolKindToDisplayName(ToolDataKind kind) {
@@ -111,6 +127,7 @@ void DeviceExchangeLogAppend(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    g_generation.fetch_add(1, std::memory_order_relaxed);
     FileWriteLine(line);
     PostRefresh();
 }
@@ -124,6 +141,7 @@ void DeviceExchangeLogAppendRaw(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    g_generation.fetch_add(1, std::memory_order_relaxed);
     FileWriteLine(line);
     PostRefresh();
 }
@@ -137,6 +155,7 @@ void DeviceExchangeLogAppendRawBold(const std::wstring& line) {
             g_lines.pop_front();
         }
     }
+    g_generation.fetch_add(1, std::memory_order_relaxed);
     FileWriteLine(line);
     PostRefresh();
 }
@@ -156,6 +175,7 @@ void DeviceExchangeLogClear() {
         std::lock_guard<std::mutex> lock(g_mutex);
         g_lines.clear();
     }
+    g_generation.fetch_add(1, std::memory_order_relaxed);
     PostRefresh();
 }
 
@@ -257,6 +277,10 @@ void DeviceExchangeLogSetEnabled(bool enabled) {
 
 bool DeviceExchangeLogIsEnabled() {
     return g_loggingEnabled.load(std::memory_order_relaxed);
+}
+
+uint64_t DeviceExchangeLogGetGeneration() {
+    return g_generation.load(std::memory_order_relaxed);
 }
 
 // === Файловый лог ===

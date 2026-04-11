@@ -3,6 +3,7 @@
 #include <windows.h>
 #include <string>
 #include <vector>
+#include <cstdint>
 
 struct DeviceLogLine {
     bool bold = false;
@@ -27,6 +28,10 @@ bool DeviceExchangeLogGetShowRawData();
 // (не пишут ни в буфер, ни в файл, ни триггерят UI). По умолчанию true.
 void DeviceExchangeLogSetEnabled(bool enabled);
 bool DeviceExchangeLogIsEnabled();
+
+// Generation counter: \u0438\u043d\u043a\u0440\u0435\u043c\u0435\u043d\u0442\u0438\u0440\u0443\u0435\u0442\u0441\u044f \u043f\u0440\u0438 \u043a\u0430\u0436\u0434\u043e\u043c Append/Clear.
+// UI \u043c\u043e\u0436\u0435\u0442 \u043f\u0440\u043e\u043f\u0443\u0441\u043a\u0430\u0442\u044c \u043e\u0431\u043d\u043e\u0432\u043b\u0435\u043d\u0438\u0435, \u0435\u0441\u043b\u0438 generation \u043d\u0435 \u0438\u0437\u043c\u0435\u043d\u0438\u043b\u0441\u044f.
+uint64_t DeviceExchangeLogGetGeneration();
 void DeviceExchangeLogClear();
 std::wstring DeviceExchangeLogGetFullText();
 std::vector<DeviceLogLine> DeviceExchangeLogGetLines();
