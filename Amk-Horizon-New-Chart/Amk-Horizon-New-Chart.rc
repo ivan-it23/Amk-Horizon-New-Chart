@@ -57,6 +57,8 @@ BEGIN
 
     POPUP "&Справка"
     BEGIN
+        MENUITEM "&Проверить обновления...",  IDM_CHECK_UPDATES
+        MENUITEM SEPARATOR
         MENUITEM "&О программе...",           IDM_ABOUT
     END
 END

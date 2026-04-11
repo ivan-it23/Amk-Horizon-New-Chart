@@ -7,6 +7,7 @@
 #include "MetrologyModule.h"
 #include "DeviceExchangeLog.h"
 #include "DeviceLogPanel.h"
+#include "AutoUpdateModule.h"
 #include "resource.h"
 #include <algorithm>
 #include <fstream>
@@ -1456,6 +1457,9 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
    ShowWindow(hWnd, SW_MAXIMIZE);
    UpdateWindow(hWnd);
 
+   // v2.20.0: Отложенная проверка обновлений (через 3 сек после старта)
+   SetTimer(hWnd, 9999, 3000, NULL);
+
    return TRUE;
 }
 
@@ -1541,6 +1545,9 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             {
             case IDM_ABOUT:
                 DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+                break;
+            case IDM_CHECK_UPDATES:
+                AutoUpdate::RunUpdateCheck(hWnd, false);
                 break;
             case IDM_EXIT:
                 DestroyWindow(hWnd);
@@ -1899,6 +1906,12 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         }
         break;
     case WM_TIMER:
+        // v2.20.0: Одноразовая проверка обновлений при старте (silent)
+        if (wParam == 9999) {
+            KillTimer(hWnd, 9999);
+            AutoUpdate::RunUpdateCheck(hWnd, true);
+            return 0;
+        }
         if (wParam == IDT_DEVICE_LOG_REFRESH) {
             KillTimer(hWnd, IDT_DEVICE_LOG_REFRESH);
             DeviceLogPanel_OnRefresh(hWnd);

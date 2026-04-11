@@ -160,6 +160,8 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="Amk-Horizon-New-Chart.h" />
+    <ClInclude Include="AppVersion.h" />
+    <ClInclude Include="AutoUpdateModule.h" />
     <ClInclude Include="ChartManager.h" />
     <ClInclude Include="ChartModule.h" />
     <ClInclude Include="CurveSelectionModule.h" />
@@ -182,6 +184,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Amk-Horizon-New-Chart.cpp" />
+    <ClCompile Include="AutoUpdateModule.cpp" />
     <ClCompile Include="ChartManager.cpp" />
     <ClCompile Include="ChartModule.cpp" />
     <ClCompile Include="CurveSelectionModule.cpp" />

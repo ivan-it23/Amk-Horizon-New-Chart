@@ -13,6 +13,8 @@
 #include <windows.h>
 #include <commctrl.h>
 #pragma comment(lib, "comctl32.lib")
+#include <wininet.h>
+#pragma comment(lib, "wininet.lib")
 // Файлы заголовков среды выполнения C
 #include <stdlib.h>
 #include <malloc.h>

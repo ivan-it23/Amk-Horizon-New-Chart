@@ -268,6 +268,9 @@
 #define IDM_DEVICE_RECORD_FOLDER	112
 #define IDM_DEVICE_OPEN_FOLDER		113
 
+// === v2.20.0: Auto-update ===
+#define IDM_CHECK_UPDATES			117
+
 // === v2.19.0: Параллельная запись COM + просмотр файла ===
 #define IDM_RETURN_TO_COM			116
 #define IDC_RETURN_TO_COM_BTN		1290
