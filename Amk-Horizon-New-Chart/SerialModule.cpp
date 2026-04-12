@@ -42,6 +42,11 @@ uint32_t GetCanonicalFrameNumber(const ParsedToolFrame& parsedFrame) {
 
 constexpr DWORD kAutoReconnectAttemptIntervalMs = 1000;
 
+// Grace period: после обнаружения мёртвого handle продолжаем отправлять CMD_DATA
+// ещё столько мс, чтобы поддерживать DTR-питание при перепрошивке прибора.
+// Только после истечения grace period закрываем handle и переходим в reconnect.
+constexpr DWORD kStaleHandleGracePeriodMs = 15000;
+
 bool ConfigureOpenedSerialHandle(HANDLE serialHandle,
                                  DWORD baudRate,
                                  DWORD readTimeout,
@@ -483,6 +488,8 @@ void SerialModule::FlushPendingPollResults() {
 }
 
 void SerialModule::LegacyPollingLoop() {
+    DWORD staleHandleFirstDetectTick = 0; // 0 = handle OK, >0 = когда впервые обнаружен stale
+
     while (!stopLegacyPolling) {
         const DWORD sleepInterval = pollInterval;
 
@@ -527,9 +534,35 @@ void SerialModule::LegacyPollingLoop() {
             event.rawPayload = std::move(rawPayload);
             DebugLog4Tx("LegacyPollingLoop: poll SUCCESS, frame=%u",
                          GetCanonicalFrameNumber(parsedFrame));
+            staleHandleFirstDetectTick = 0;
         } else {
             DebugLog4Tx("LegacyPollingLoop: poll FAILED, result=%d",
                          static_cast<int>(event.result));
+
+            // Если отправка/приём не удались, проверяем, жив ли handle.
+            // При физическом отключении USB ClearCommError вернёт false.
+            // Но НЕ закрываем handle сразу — продолжаем отправлять CMD_DATA
+            // в течение grace period, чтобы поддерживать DTR-питание на приборе
+            // при перепрошивке. Только после kStaleHandleGracePeriodMs без
+            // восстановления связи закрываем handle и переходим в reconnect.
+            if (hSerial != INVALID_HANDLE_VALUE) {
+                DWORD comErrors = 0;
+                if (!ClearCommError(hSerial, &comErrors, nullptr)) {
+                    const DWORD now = GetTickCount();
+                    if (staleHandleFirstDetectTick == 0) {
+                        staleHandleFirstDetectTick = now;
+                        DeviceExchangeLogAppend(L"COM: ошибка связи, продолжаю отправку команд...");
+                    }
+                    const DWORD elapsed = now - staleHandleFirstDetectTick;
+                    if (elapsed >= kStaleHandleGracePeriodMs) {
+                        DeviceExchangeLogAppend(L"COM: устройство отключено, ожидание переподключения...");
+                        InvalidateConnectionForRecovery();
+                        staleHandleFirstDetectTick = 0;
+                    }
+                } else {
+                    staleHandleFirstDetectTick = 0;
+                }
+            }
         }
 
         {
@@ -665,8 +698,10 @@ bool SerialModule::TryReconnectCurrentPort() {
     metrologyAutoRetryCount = 0;
     consecutivePollFailures = 0;
     nextReconnectAttemptTick = 0;
+    loggedDeviceIdentityToExchangeLog = false;
     ++connectionSessionId;
     SetState(ConnectionState::CONNECTED);
+    DeviceExchangeLogAppendFormatted(L"COM: переподключено %s, %u бод", portName.c_str(), static_cast<unsigned>(baudRate));
     return true;
 }
 
