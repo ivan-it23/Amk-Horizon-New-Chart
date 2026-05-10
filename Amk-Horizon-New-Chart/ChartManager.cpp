@@ -1541,6 +1541,13 @@ void ChartManager::CreateControls(HWND hWnd, HINSTANCE hInst)
         }
     });
     
+    // Callback получения метрологии с COM-порта → автоматическая передача в MetrologyModule
+    serialModule->SetMetrologyCallback([this](const METROLOGY_DATA& data) {
+        if (metrologyModule) {
+            metrologyModule->Set(data, false);
+        }
+    });
+
     // Callback смены состояния COM-подключения
     serialModule->SetStateCallback([this, hWnd](ConnectionState state, const std::wstring& error) {
         if (state == ConnectionState::CONNECTION_ERROR && !error.empty()) {
@@ -5150,6 +5157,13 @@ void ChartManager::HandleSerialConnectQuick(HWND hWnd) {
                         wchar_t title[256];
                         swprintf_s(title, L"AMK Horizon - %s (S/N: %u)", lastPort.c_str(), metrology.serial);
                         SetWindowText(hWnd, title);
+                        DeviceExchangeLogAppendFormatted(
+                            L"Метрология: автоматически считана при подключении, sig=0x%08X, S/N=%u",
+                            metrology.signature, static_cast<unsigned>(metrology.serial));
+                    } else {
+                        DeviceExchangeLogAppendFormatted(
+                            L"Метрология: не удалось считать при подключении (%s)",
+                            SerialModule::ResultToString(metrologyResult).c_str());
                     }
                 } else {
                     std::wstring errorMsg = L"Ошибка подключения: " + SerialModule::ResultToString(connectResult);
