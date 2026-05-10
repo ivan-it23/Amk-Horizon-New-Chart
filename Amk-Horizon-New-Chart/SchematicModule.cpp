@@ -1910,6 +1910,18 @@ void SchematicModule::HandleSmtModeCheckbox(HWND hDlg, int checkboxId) {
         ? SmtComputationMode::FROM_COMPUTER
         : SmtComputationMode::FROM_SONDE;
 
+    if (mode == SmtComputationMode::FROM_COMPUTER &&
+        metrologyModule && !metrologyModule->HasData()) {
+        MessageBox(hDlg,
+            L"Метрология не была считана.\n"
+            L"Для режима \x00AB На компьютере \x00BB необходимы метрологические данные.\n\n"
+            L"Подключите прибор или загрузите метрологию из файла (Прибор \x2192 Метрология).",
+            L"Метрология недоступна",
+            MB_OK | MB_ICONWARNING);
+        ApplySmtModeCheckboxSelection(hDlg, *binding, currentSelection, SmtComputationMode::FROM_SONDE);
+        return;
+    }
+
     ApplySmtModeCheckboxSelection(hDlg, *binding, currentSelection, mode);
 
     // Активируем соответствующий пресет (GROUPBOX не шлёт BN_CLICKED,

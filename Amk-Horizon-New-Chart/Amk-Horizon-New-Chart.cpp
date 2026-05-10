@@ -2415,9 +2415,15 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                                         wchar_t info[128];
                                         swprintf_s(info, L"S/N: %u\nD: %u mm", result.metrology.serial, result.metrology.D_sonde_mm);
                                         SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, info);
+                                        DeviceExchangeLogAppendFormatted(
+                                            L"Метрология: автоматически считана при подключении, sig=0x%08X, S/N=%u",
+                                            result.metrology.signature, static_cast<unsigned>(result.metrology.serial));
                                     } else {
                                         std::wstring msg = L"Метрология не получена: " + SerialModule::ResultToString(result.metrologyResult);
                                         SetDlgItemText(hDlg, IDC_SERIAL_INFO_LABEL, msg.c_str());
+                                        DeviceExchangeLogAppendFormatted(
+                                            L"Метрология: не удалось считать при подключении (%s)",
+                                            SerialModule::ResultToString(result.metrologyResult).c_str());
                                     }
 
                                     HWND hMainWnd = GetParent(hDlg);
