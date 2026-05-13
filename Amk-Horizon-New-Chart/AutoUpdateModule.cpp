@@ -223,6 +223,23 @@ std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent)
 }
 
 // ===================================================================
+// Конвертирует wide-строку в OEM-кодировку (CP866 на русской Windows).
+// Это нужно, чтобы cmd.exe правильно интерпретировал пути с кириллицей
+// в bat-файле. Использовать std::wofstream здесь нельзя: глобальная
+// локаль "C" режет любые не-ASCII символы в '?', и пути ломаются.
+// ===================================================================
+static std::string WideToOem(const std::wstring& w) {
+    if (w.empty()) return std::string();
+    int needed = WideCharToMultiByte(CP_OEMCP, 0, w.c_str(), (int)w.size(),
+                                     nullptr, 0, nullptr, nullptr);
+    if (needed <= 0) return std::string();
+    std::string out((size_t)needed, '\0');
+    WideCharToMultiByte(CP_OEMCP, 0, w.c_str(), (int)w.size(),
+                        &out[0], needed, nullptr, nullptr);
+    return out;
+}
+
+// ===================================================================
 // AutoUpdate::ApplyUpdate — применяет обновление
 // ===================================================================
 bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
@@ -231,46 +248,82 @@ bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
     GetModuleFileNameW(NULL, currentExe, MAX_PATH);
 
     // Создаёт bat-скрипт в TEMP, который:
-    // 1. Ждёт завершения текущего процесса
-    // 2. Копирует новый exe поверх старого
-    // 3. Запускает новый exe
-    // 4. Удаляет сам себя
+    // 1. Ждёт завершения текущего процесса (по PID)
+    // 2. Копирует новый exe поверх старого (с retry — антивирус может ненадолго залочить файл)
+    // 3. Запускает новый exe из его исходной папки
+    // 4. Логирует все шаги в %TEMP%\amk_updater.log
+    // 5. Удаляет временный exe и сам себя
     wchar_t tempDir[MAX_PATH] = {};
     GetTempPathW(MAX_PATH, tempDir);
     std::wstring batPath = std::wstring(tempDir) + L"amk_updater.bat";
+    std::wstring logPath = std::wstring(tempDir) + L"amk_updater.log";
 
     // Получает текущий PID для проверки через tasklist
     DWORD pid = GetCurrentProcessId();
 
-    std::wofstream bat(batPath);
+    // Все пути пишутся в bat в OEM-кодировке. Это критично: на машинах, где
+    // путь содержит кириллицу (имя пользователя на русском), std::wofstream
+    // ломает пути, copy/start не находят файлы и обновление молча проваливается.
+    std::string sCurrent    = WideToOem(currentExe);
+    std::string sDownloaded = WideToOem(downloadedExePath);
+    std::string sLog        = WideToOem(logPath);
+
+    // Bat-файл пишется как байты в OEM, без wide-потока.
+    std::ofstream bat(batPath, std::ios::binary);
     if (!bat.is_open()) return false;
 
-    bat << L"@echo off\r\n";
-    bat << L"echo Updating Amk-Horizon-New-Chart...\r\n";
-    bat << L"echo Waiting for the application to close...\r\n";
-    // Цикл ожидания: проверяет каждую секунду, запущен ли процесс
-    bat << L":wait_loop\r\n";
-    bat << L"tasklist /FI \"PID eq " << pid << L"\" 2>NUL | find \"" << pid << L"\" >NUL\r\n";
-    bat << L"if not errorlevel 1 (\r\n";
-    bat << L"    timeout /t 1 /nobreak >NUL\r\n";
-    bat << L"    goto wait_loop\r\n";
-    bat << L")\r\n";
-    bat << L"timeout /t 1 /nobreak >NUL\r\n";
-    bat << L"copy /Y \"" << downloadedExePath << L"\" \"" << currentExe << L"\"\r\n";
-    bat << L"if errorlevel 1 (\r\n";
-    bat << L"    echo Update failed! Could not replace the executable.\r\n";
-    bat << L"    pause\r\n";
-    bat << L"    goto end\r\n";
-    bat << L")\r\n";
-    bat << L"echo Update complete. Starting application...\r\n";
-    bat << L"start \"\" \"" << currentExe << L"\"\r\n";
-    bat << L":end\r\n";
-    bat << L"del \"" << downloadedExePath << L"\" >NUL 2>&1\r\n";
-    bat << L"del \"%~f0\" >NUL 2>&1\r\n";
+    bat << "@echo off\r\n";
+    bat << "setlocal EnableDelayedExpansion\r\n";
+    bat << "set \"LOG=" << sLog << "\"\r\n";
+
+    // Скобки вокруг echo защищают от случая, когда строка заканчивается
+    // цифрой и cmd принимает её за номер дескриптора перед '>>'.
+    bat << "(echo [%date% %time%] Updater started)> \"%LOG%\" 2>&1\r\n";
+    bat << "(echo Source : " << sDownloaded << ")>> \"%LOG%\" 2>&1\r\n";
+    bat << "(echo Target : " << sCurrent    << ")>> \"%LOG%\" 2>&1\r\n";
+    bat << "(echo PID    : " << pid         << ")>> \"%LOG%\" 2>&1\r\n";
+
+    // Ожидание завершения родительского процесса.
+    bat << ":wait_loop\r\n";
+    bat << "tasklist /FI \"PID eq " << pid << "\" 2>NUL | find \"" << pid << "\" >NUL\r\n";
+    bat << "if not errorlevel 1 (\r\n";
+    bat << "    timeout /t 1 /nobreak >NUL\r\n";
+    bat << "    goto wait_loop\r\n";
+    bat << ")\r\n";
+    // Дополнительная пауза: даём ОС закрыть хэндлы, antivirus — досканировать exe.
+    bat << "timeout /t 2 /nobreak >NUL\r\n";
+    bat << "(echo [%date% %time%] Process exited, copying)>> \"%LOG%\" 2>&1\r\n";
+
+    // Копирование с retry — у антивируса может быть короткий лок на файл.
+    bat << "set RETRY=0\r\n";
+    bat << ":copy_retry\r\n";
+    bat << "copy /Y \"" << sDownloaded << "\" \"" << sCurrent << "\" >> \"%LOG%\" 2>&1\r\n";
+    bat << "if errorlevel 1 (\r\n";
+    bat << "    set /a RETRY+=1\r\n";
+    bat << "    if !RETRY! lss 5 (\r\n";
+    bat << "        (echo [%date% %time%] copy failed, retry !RETRY!)>> \"%LOG%\" 2>&1\r\n";
+    bat << "        timeout /t 1 /nobreak >NUL\r\n";
+    bat << "        goto copy_retry\r\n";
+    bat << "    )\r\n";
+    bat << "    (echo [%date% %time%] COPY FAILED, giving up)>> \"%LOG%\" 2>&1\r\n";
+    bat << "    goto end\r\n";
+    bat << ")\r\n";
+
+    // Запуск обновлённого exe из его собственной папки, чтобы относительные
+    // пути (.env, settings, локальные файлы) работали корректно.
+    bat << "(echo [%date% %time%] Starting new exe)>> \"%LOG%\" 2>&1\r\n";
+    bat << "for %%I in (\"" << sCurrent << "\") do set \"EXEDIR=%%~dpI\"\r\n";
+    bat << "start \"\" /D \"%EXEDIR%\" \"" << sCurrent << "\"\r\n";
+    bat << "(echo [%date% %time%] Done)>> \"%LOG%\" 2>&1\r\n";
+
+    bat << ":end\r\n";
+    bat << "del \"" << sDownloaded << "\" >NUL 2>&1\r\n";
+    // Самоудаление bat-файла — лог при этом остаётся.
+    bat << "(goto) 2>nul & del \"%~f0\"\r\n";
 
     bat.close();
 
-    // Запускает bat-скрипт в скрытом режиме
+    // Запускает bat-скрипт в скрытом режиме.
     STARTUPINFOW si = {};
     si.cb = sizeof(si);
     si.dwFlags = STARTF_USESHOWWINDOW;
