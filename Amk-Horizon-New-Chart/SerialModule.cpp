@@ -848,66 +848,135 @@ SerialResult SerialModule::RequestMetrology(METROLOGY_DATA& outData) {
 }
 
 SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
+    const ULONGLONG tStart = GetTickCount64();
+    DeviceExchangeLogAppend(L"[WriteMetrology] START");
+
     if (!IsConnected()) {
+        DeviceExchangeLogAppend(L"[WriteMetrology]   IsConnected=false");
+        DeviceExchangeLogAppend(L"[WriteMetrology] END result=NOT_CONNECTED");
         return SerialResult::NOT_CONNECTED;
     }
 
-    // Приостанавливаем polling на время записи метрологии (аналог metro_check
-    // + ожидания busy_read_from_sonde + Sleep(2000) в старом стабильном приложении).
-    // Прибор не отвечает во время цикла измерения (~600мс), поэтому нужно
-    // дождаться завершения текущего цикла перед отправкой.
+    // Pre-flight state
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   port=%ls baud=%lu sessionId=%u",
+        portName.c_str(), baudRate,
+        static_cast<unsigned>(connectionSessionId.load()));
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   pausePolling=%ls hasMetrology=%ls lastFrame=%u recording=%ls",
+        (pausePolling.load() ? L"true" : L"false"),
+        (hasMetrology ? L"true" : L"false"),
+        lastFrameNumber,
+        (isRecordingEnabled ? L"on" : L"off"));
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   port timeouts: read=%lums write=%lums",
+        readTimeout, writeTimeout);
+
+    // Дамп ключевых полей входной метрологии
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   inData: signature=0x%08X serial=%u D_sonde_mm=%u Rx_Position=%u",
+        inData.signature, inData.serial, inData.D_sonde_mm, inData.Rx_Position);
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   inData: L1=[%u %u %u %u %u] L2=[%u %u %u %u %u] F=[%u %u]",
+        inData.L1[0], inData.L1[1], inData.L1[2], inData.L1[3], inData.L1[4],
+        inData.L2[0], inData.L2[1], inData.L2[2], inData.L2[3], inData.L2[4],
+        inData.F[0], inData.F[1]);
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology]   inData: Air_zz[F1]=[%d %d %d %d %d] Air_zz[F2]=[%d %d %d %d %d]",
+        inData.Air_zz[0][0], inData.Air_zz[0][1], inData.Air_zz[0][2], inData.Air_zz[0][3], inData.Air_zz[0][4],
+        inData.Air_zz[1][0], inData.Air_zz[1][1], inData.Air_zz[1][2], inData.Air_zz[1][3], inData.Air_zz[1][4]);
+
     pausePolling = true;
+    DeviceExchangeLogAppend(L"[WriteMetrology]   pausePolling=true; Sleep(2000)");
     Sleep(2000);
 
     SerialResult result;
     {
         std::lock_guard<std::mutex> lock(ioMutex);
+
+        // COM-буфер ДО отправки
+        {
+            COMSTAT stat = {};
+            DWORD errs = 0;
+            if (ClearCommError(hSerial, &errs, &stat)) {
+                DeviceExchangeLogAppendFormatted(
+                    L"[WriteMetrology]   COM pre-purge: RX_queue=%lu TX_queue=%lu errors=0x%lX",
+                    stat.cbInQue, stat.cbOutQue, errs);
+            } else {
+                DeviceExchangeLogAppend(L"[WriteMetrology]   COM pre-purge: ClearCommError failed");
+            }
+        }
+
         PurgeBuffers();
+        DeviceExchangeLogAppend(L"[WriteMetrology]   PurgeBuffers done");
 
         // Протокол: [CMD=0x13][LEN_L][LEN_H][GP_METROLOGY:240][CRC_L][CRC_H]
         // Квитанция: [CMD=0x13][0x05][0x00][CRC_L][CRC_H] (пустой payload)
         DeviceExchangeLogAppendFormatted(
-            L"WriteMetrology: sending CMD=0x%02X, %u bytes payload",
+            L"[WriteMetrology]   TX: CMD=0x%02X (CMD_SET_METROLOGY) payload=%u B totalPacket=%u B",
             static_cast<unsigned>(SerialCommands::CMD_SET_METROLOGY),
-            static_cast<unsigned>(sizeof(METROLOGY_DATA)));
-        DeviceExchangeLogAppendFormatted(
-            L"  inData: sig=0x%08X, serial=%u, L1[0]=%u, L2[0]=%u",
-            inData.signature, inData.serial, inData.L1[0], inData.L2[0]);
+            static_cast<unsigned>(sizeof(METROLOGY_DATA)),
+            static_cast<unsigned>(sizeof(METROLOGY_DATA) + 5));
 
+        const ULONGLONG tBeforeSend = GetTickCount64();
         if (!SendPacket(SerialCommands::CMD_SET_METROLOGY,
                         reinterpret_cast<const uint8_t*>(&inData),
                         static_cast<uint16_t>(sizeof(METROLOGY_DATA)))) {
-            DeviceExchangeLogAppend(L"WriteMetrology: SendPacket FAILED");
+            DeviceExchangeLogAppendFormatted(
+                L"[WriteMetrology]   SendPacket returned false, elapsed=%llu ms",
+                GetTickCount64() - tBeforeSend);
+            DeviceExchangeLogAppend(L"[WriteMetrology] END result=CONNECTION_FAILED");
             pausePolling = false;
             return SerialResult::CONNECTION_FAILED;
         }
+        DeviceExchangeLogAppendFormatted(
+            L"[WriteMetrology]   TX sent, elapsed=%llu ms", GetTickCount64() - tBeforeSend);
 
-        // Даём прибору время обработать команду и записать EEPROM
+        DeviceExchangeLogAppend(L"[WriteMetrology]   Sleep(1000)");
         Sleep(1000);
+
+        // COM-буфер ПОСЛЕ Sleep
+        {
+            COMSTAT stat = {};
+            DWORD errs = 0;
+            if (ClearCommError(hSerial, &errs, &stat)) {
+                DeviceExchangeLogAppendFormatted(
+                    L"[WriteMetrology]   COM post-sleep: RX_queue=%lu (expected>=5) errors=0x%lX",
+                    stat.cbInQue, errs);
+            }
+        }
 
         uint8_t cmd = 0;
         std::vector<uint8_t> payload;
+        const ULONGLONG tBeforeRecv = GetTickCount64();
         if (!ReceivePacket(cmd, payload)) {
             DebugLog4Tx("WriteMetrology: modern TIMEOUT — no receipt from device");
-            DeviceExchangeLogAppend(L"WriteMetrology: таймаут — прибор не ответил квитанцией");
+            DeviceExchangeLogAppendFormatted(
+                L"[WriteMetrology]   ReceivePacket returned false, elapsed=%llu ms",
+                GetTickCount64() - tBeforeRecv);
             result = SerialResult::TIMEOUT;
         } else if (cmd != SerialCommands::CMD_SET_METROLOGY) {
             DebugLog4Tx("WriteMetrology: unexpected response CMD=0x%02X", cmd);
             DeviceExchangeLogAppendFormatted(
-                L"WriteMetrology: неожиданный ответ CMD=0x%02X (ожидался 0x12)", cmd);
+                L"[WriteMetrology]   RX: CMD=0x%02X (expected 0x13) payload=%zu B",
+                static_cast<unsigned>(cmd), payload.size());
             result = SerialResult::INVALID_RESPONSE;
         } else {
             DeviceExchangeLogAppendFormatted(
-                L"WriteMetrology: квитанция получена, CMD=0x%02X, payload=%zu bytes",
-                cmd, payload.size());
+                L"[WriteMetrology]   RX: CMD=0x%02X payload=%zu B elapsed=%llu ms",
+                static_cast<unsigned>(cmd), payload.size(),
+                GetTickCount64() - tBeforeRecv);
 
             METROLOGY_DATA applied = inData;
             if (!payload.empty()) {
                 if (payload.size() == sizeof(METROLOGY_DATA)) {
                     memcpy(&applied, payload.data(), sizeof(METROLOGY_DATA));
+                    DeviceExchangeLogAppend(L"[WriteMetrology]   RX payload size=240 B, applied to cache");
                 } else if (payload.size() != 1) {
                     DeviceExchangeLogAppendFormatted(
-                        L"WriteMetrology: неожиданный размер payload=%zu", payload.size());
+                        L"[WriteMetrology]   RX payload size=%zu (expected 0/1/240)",
+                        payload.size());
+                    DeviceExchangeLogAppend(L"[WriteMetrology] END result=INVALID_RESPONSE");
                     pausePolling = false;
                     return SerialResult::INVALID_RESPONSE;
                 }
@@ -924,8 +993,9 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
         }
     }
 
-    // === Верификация: перечитываем метрологию и проверяем signature ===
+    // Верификация: перечитываем метрологию и проверяем signature
     if (result == SerialResult::SUCCESS) {
+        DeviceExchangeLogAppend(L"[WriteMetrology]   verify: Sleep(300) + re-read metrology");
         Sleep(300);
 
         METROLOGY_DATA verify = {};
@@ -934,16 +1004,27 @@ SerialResult SerialModule::WriteMetrology(const METROLOGY_DATA& inData) {
             if (verify.signature != inData.signature || verify.serial != inData.serial) {
                 DebugLog4Tx("WriteMetrology: VERIFY FAILED — signature 0x%08X vs expected 0x%08X, serial %u vs %u",
                              verify.signature, inData.signature, verify.serial, inData.serial);
-                DeviceExchangeLogAppend(L"⚠ Метрология: верификация не прошла — данные в зонде не совпадают с отправленными");
+                DeviceExchangeLogAppendFormatted(
+                    L"[WriteMetrology]   verify mismatch: got=(0x%08X, %u) expected=(0x%08X, %u)",
+                    verify.signature, verify.serial, inData.signature, inData.serial);
+                DeviceExchangeLogAppend(L"[WriteMetrology] END result=INVALID_RESPONSE (verify failed)");
                 pausePolling = false;
                 return SerialResult::INVALID_RESPONSE;
             }
             DebugLog4Tx("WriteMetrology: VERIFY OK — signature 0x%08X, serial %u", verify.signature, verify.serial);
-            DeviceExchangeLogAppend(L"✓ Метрология записана и верифицирована");
+            DeviceExchangeLogAppend(L"[WriteMetrology]   verify OK: signature/serial match");
         } else {
             DebugLog4Tx("WriteMetrology: verify re-read failed: %d (non-fatal)", static_cast<int>(readBack));
+            DeviceExchangeLogAppendFormatted(
+                L"[WriteMetrology]   verify re-read failed: %ls (non-fatal)",
+                SerialModule::ResultToString(readBack).c_str());
         }
     }
+
+    DeviceExchangeLogAppendFormatted(
+        L"[WriteMetrology] END result=%ls elapsed=%llu ms",
+        SerialModule::ResultToString(result).c_str(),
+        GetTickCount64() - tStart);
 
     pausePolling = false;
     return result;
@@ -985,6 +1066,127 @@ SerialResult SerialModule::SetSelectedKey(uint32_t key) {
             result = SerialResult::SUCCESS;
         }
     }
+
+    pausePolling = false;
+    return result;
+}
+
+SerialResult SerialModule::RequestAirCalibration() {
+    const ULONGLONG tStart = GetTickCount64();
+    DeviceExchangeLogAppend(L"[RequestAirCalibration] START");
+
+    if (!IsConnected()) {
+        DeviceExchangeLogAppend(L"[RequestAirCalibration]   IsConnected=false");
+        DeviceExchangeLogAppend(L"[RequestAirCalibration] END result=NOT_CONNECTED");
+        return SerialResult::NOT_CONNECTED;
+    }
+
+    // Pre-flight state
+    DeviceExchangeLogAppendFormatted(
+        L"[RequestAirCalibration]   port=%ls baud=%lu sessionId=%u",
+        portName.c_str(), baudRate,
+        static_cast<unsigned>(connectionSessionId.load()));
+    DeviceExchangeLogAppendFormatted(
+        L"[RequestAirCalibration]   pausePolling=%ls hasMetrology=%ls lastFrame=%u recording=%ls",
+        (pausePolling.load() ? L"true" : L"false"),
+        (hasMetrology ? L"true" : L"false"),
+        lastFrameNumber,
+        (isRecordingEnabled ? L"on" : L"off"));
+    DeviceExchangeLogAppendFormatted(
+        L"[RequestAirCalibration]   port timeouts: read=%lums write=%lums",
+        readTimeout, writeTimeout);
+
+    pausePolling = true;
+    DeviceExchangeLogAppend(L"[RequestAirCalibration]   pausePolling=true; Sleep(2000)");
+    Sleep(2000);
+
+    SerialResult result;
+    {
+        std::lock_guard<std::mutex> lock(ioMutex);
+
+        // COM-буфер ДО отправки
+        {
+            COMSTAT stat = {};
+            DWORD errs = 0;
+            if (ClearCommError(hSerial, &errs, &stat)) {
+                DeviceExchangeLogAppendFormatted(
+                    L"[RequestAirCalibration]   COM pre-purge: RX_queue=%lu TX_queue=%lu errors=0x%lX",
+                    stat.cbInQue, stat.cbOutQue, errs);
+            } else {
+                DeviceExchangeLogAppend(L"[RequestAirCalibration]   COM pre-purge: ClearCommError failed");
+            }
+        }
+
+        PurgeBuffers();
+        DeviceExchangeLogAppend(L"[RequestAirCalibration]   PurgeBuffers done; Sleep(100)");
+        Sleep(100);
+
+        // Точные байты ожидаемого пакета (CMD + LEN=5 + CRC16)
+        uint8_t expected[5] = { SerialCommands::CMD_SET_AIR, 0x05, 0x00, 0, 0 };
+        const uint16_t expectedCrc = CalculateCRC16(expected, 3);
+        expected[3] = static_cast<uint8_t>(expectedCrc & 0xFF);
+        expected[4] = static_cast<uint8_t>(expectedCrc >> 8);
+        DeviceExchangeLogAppendFormatted(
+            L"[RequestAirCalibration]   TX bytes (5 B): %02X %02X %02X %02X %02X (CRC=0x%04X)",
+            expected[0], expected[1], expected[2], expected[3], expected[4],
+            static_cast<unsigned>(expectedCrc));
+        DeviceExchangeLogAppendFormatted(
+            L"[RequestAirCalibration]   TX: CMD=0x%02X (CMD_SET_AIR) payload=0 B",
+            static_cast<unsigned>(SerialCommands::CMD_SET_AIR));
+
+        const ULONGLONG tBeforeSend = GetTickCount64();
+        if (!SendPacket(SerialCommands::CMD_SET_AIR, nullptr, 0)) {
+            DeviceExchangeLogAppendFormatted(
+                L"[RequestAirCalibration]   SendPacket returned false, elapsed=%llu ms",
+                GetTickCount64() - tBeforeSend);
+            DeviceExchangeLogAppend(L"[RequestAirCalibration] END result=CONNECTION_FAILED");
+            pausePolling = false;
+            return SerialResult::CONNECTION_FAILED;
+        }
+        DeviceExchangeLogAppendFormatted(
+            L"[RequestAirCalibration]   TX sent, elapsed=%llu ms",
+            GetTickCount64() - tBeforeSend);
+
+        DeviceExchangeLogAppend(L"[RequestAirCalibration]   Sleep(2000)");
+        Sleep(2000);
+
+        // COM-буфер ПОСЛЕ Sleep
+        {
+            COMSTAT stat = {};
+            DWORD errs = 0;
+            if (ClearCommError(hSerial, &errs, &stat)) {
+                DeviceExchangeLogAppendFormatted(
+                    L"[RequestAirCalibration]   COM post-sleep: RX_queue=%lu (expected>=5) errors=0x%lX",
+                    stat.cbInQue, errs);
+            }
+        }
+
+        uint8_t cmd = 0;
+        std::vector<uint8_t> payload;
+        const ULONGLONG tBeforeRecv = GetTickCount64();
+        if (!ReceivePacket(cmd, payload)) {
+            DeviceExchangeLogAppendFormatted(
+                L"[RequestAirCalibration]   ReceivePacket returned false, elapsed=%llu ms",
+                GetTickCount64() - tBeforeRecv);
+            result = SerialResult::TIMEOUT;
+        } else if (cmd != SerialCommands::CMD_SET_AIR) {
+            DeviceExchangeLogAppendFormatted(
+                L"[RequestAirCalibration]   RX: CMD=0x%02X (expected 0x1A) payload=%zu B",
+                static_cast<unsigned>(cmd), payload.size());
+            result = SerialResult::INVALID_RESPONSE;
+        } else {
+            DeviceExchangeLogAppendFormatted(
+                L"[RequestAirCalibration]   RX: CMD=0x%02X payload=%zu B elapsed=%llu ms",
+                static_cast<unsigned>(cmd), payload.size(),
+                GetTickCount64() - tBeforeRecv);
+            result = SerialResult::SUCCESS;
+        }
+    }
+
+    DeviceExchangeLogAppendFormatted(
+        L"[RequestAirCalibration] END result=%ls elapsed=%llu ms",
+        SerialModule::ResultToString(result).c_str(),
+        GetTickCount64() - tStart);
 
     pausePolling = false;
     return result;

@@ -24,6 +24,7 @@ namespace SerialCommands {
     constexpr uint8_t CMD_GET_METROLOGY = 0x13; // Запрос метрологии
     constexpr uint8_t CMD_GET_SIGNATURE = 0x16; // Запрос сигнатуры
     constexpr uint8_t CMD_SET_SELECTED_KEY = 0x17; // Запись selected_key (квитанция)
+    constexpr uint8_t CMD_SET_AIR = 0x1a;          // Авто-калибровка нулей воздуха (квитанция, payload пуст)
 }
 
 // Структура метрологических данных прибора
@@ -206,6 +207,11 @@ public:
 
     // Запрос сигнатуры (CMD_GET_SIGNATURE = 0x16)
     SerialResult RequestSignature(uint32_t& outSignature);
+
+    // Авто-калибровка нулей воздуха (CMD_SET_AIR = 0x1a).
+    // Прибор сам обнуляет Air_zz во всех ячейках и фиксирует во flash.
+    // ВАЖНО: операция блокирует polling на ~4 секунды (по таймингам коллег).
+    SerialResult RequestAirCalibration();
 
     // Запрос сигнатуры прибора сразу после Connect
     SerialResult ProbeDeviceSignature(uint32_t& outSignature);

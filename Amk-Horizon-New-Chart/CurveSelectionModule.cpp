@@ -234,7 +234,7 @@ void FillIdentitySymmetryMatrix(SmtMatrix& K, uint8_t condition, int validTxCoun
 bool BuildSymmetryMatrix5Tx(SmtMatrix& K, uint8_t condition) {
     switch (condition) {
         case 0b00011111: // все 5 работают
-        case 0b11111111: // все 5 работают (альтернативный код)
+        case 0b11111111: // все 5 работают
             K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
                    {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
                    {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
@@ -255,7 +255,7 @@ bool BuildSymmetryMatrix5Tx(SmtMatrix& K, uint8_t condition) {
                    {{ +0.00f, +0.00f, +0.25f, +0.50f, +0.25f }},
                    {{ +0.00f, +0.00f, -0.25f, +0.50f, +0.75f }} }};
             return true;
-        case 0b00011011: // не работает T3 (NB: K[T4][T5]/K[T5][T5]=+0.05 — как в исходнике коллег)
+        case 0b00011011: // не работает T3 
             K = {{ {{ +0.50f, +0.75f, +0.00f, -0.25f, +0.00f }},
                    {{ +0.00f, +1.25f, +0.00f, -0.75f, +0.50f }},
                    {{ +0.00f, +0.75f, +0.00f, -0.25f, +0.50f }},
@@ -269,7 +269,7 @@ bool BuildSymmetryMatrix5Tx(SmtMatrix& K, uint8_t condition) {
                    {{ +0.00f, +0.50f, -0.25f, +0.00f, +0.75f }},
                    {{ +0.00f, +0.50f, -0.75f, +0.00f, +1.25f }} }};
             return true;
-        case 0b00001111: // не работает T5 (NB: K[T3][T1]=+0.05 — как в исходнике коллег)
+        case 0b00001111: // не работает T5 
             K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
                    {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
                    {{ +0.05f, +0.25f, +0.50f, +0.25f, +0.00f }},
@@ -289,7 +289,7 @@ bool BuildSymmetryMatrix5Tx(SmtMatrix& K, uint8_t condition) {
 bool BuildSymmetryMatrix4Tx(SmtMatrix& K, uint8_t condition) {
     switch (condition) {
         case 0b00001111: // все 4 работают
-        case 0b11111111: // все работают (альтернативный код)
+        case 0b11111111: // все работают
             K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
                    {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
                    {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
@@ -340,7 +340,7 @@ bool BuildSymmetryMatrix3Tx(SmtMatrix& K, uint8_t condition) {
             K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
                    {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
                    {{ -0.25f, +0.50f, +0.75f, +0.00f, +0.00f }},
-                   {{ -0.75f, +0.50f, +1.25f, +0.00f, +0.00f }}, // dead row для N_Tx=3 — копия из исходника коллег
+                   {{ -0.75f, +0.50f, +1.25f, +0.00f, +0.00f }}, 
                    {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
             return true;
         case 0b00000000: // несимметризованные значения (только T1..T3)

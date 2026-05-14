@@ -131,7 +131,7 @@ BEGIN
     PUSHBUTTON      "Закрыть",IDCANCEL,150,184,60,18
 END
 
-IDD_METROLOGY_DIALOG DIALOGEX 0, 0, 450, 222
+IDD_METROLOGY_DIALOG DIALOGEX 0, 0, 450, 244
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
 CAPTION "МЕТРОЛОГИЯ"
 FONT 9, "Segoe UI"
@@ -247,6 +247,11 @@ BEGIN
     PUSHBUTTON      "Открыть файл",IDC_METRO_BTN_OPEN_FILE,224,198,80,18
     PUSHBUTTON      "Записать в файл",IDC_METRO_BTN_SAVE_FILE,310,198,80,18
     PUSHBUTTON      "Закрыть",IDOK,396,198,50,18
+
+    // =====================================================================
+    // ROW 4: Второй ряд кнопок (v2.16.x — авто-калибровка нулей воздуха)
+    // =====================================================================
+    PUSHBUTTON      "Авто-калибровка нулей воздуха",IDC_METRO_BTN_AUTO_AIR_CAL,125,220,200,18
 END
 
 IDD_SCHEMATIC_DIALOG DIALOGEX 0, 0, 375, 233

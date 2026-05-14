@@ -1113,7 +1113,8 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                     static const int btnIds[] = {
                         IDC_METRO_BTN_READ_SONDE, IDC_METRO_BTN_WRITE_SONDE,
                         IDC_METRO_BTN_OPEN_FILE,
-                        IDC_METRO_BTN_SAVE_FILE, IDOK
+                        IDC_METRO_BTN_SAVE_FILE, IDOK,
+                        IDC_METRO_BTN_AUTO_AIR_CAL
                     };
                     for (int id : btnIds) {
                         HWND hBtn = GetDlgItem(hDlg, id);
@@ -1259,6 +1260,80 @@ static INT_PTR CALLBACK MetrologyDialogProc(HWND hDlg, UINT message, WPARAM wPar
                                          + L"\n\nПодробности — в окне логов обмена.";
                         MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
                     }
+                }
+                return (INT_PTR)TRUE;
+            }
+
+            if (id == IDC_METRO_BTN_AUTO_AIR_CAL) {
+                if (!ctx->serial || !ctx->serial->IsConnected()) {
+                    MessageBox(hDlg, L"Нет подключения к прибору.", L"METROLOGY", MB_OK | MB_ICONWARNING);
+                    return (INT_PTR)TRUE;
+                }
+
+                // Подтверждение операции (одно сообщение, как просил пользователь).
+                int confirm = MessageBox(hDlg,
+                                         L"Запустить автоматическую калибровку нулей воздуха? "
+                                         L"Текущие значения AIR будут перезаписаны нулями в приборе",
+                                         L"Подтверждение",
+                                         MB_OKCANCEL | MB_ICONQUESTION);
+                if (confirm != IDOK) return (INT_PTR)TRUE;
+
+                // Запуск операции (~4 секунды блокировки COM).
+                SerialResult r;
+                {
+                    HCURSOR hWait = SetCursor(LoadCursor(nullptr, IDC_WAIT));
+                    r = ctx->serial->RequestAirCalibration();
+                    SetCursor(hWait ? hWait : LoadCursor(nullptr, IDC_ARROW));
+                }
+
+                if (r == SerialResult::SUCCESS) {
+                    // Финальное сообщение с жирным MainInstruction "Перечитать метрологию?"
+                    // и кнопками Да/Нет — реализовано через TaskDialogIndirect.
+                    TASKDIALOGCONFIG tdc = {};
+                    tdc.cbSize = sizeof(tdc);
+                    tdc.hwndParent = hDlg;
+                    tdc.hInstance = GetModuleHandle(nullptr);
+                    tdc.dwFlags = TDF_ALLOW_DIALOG_CANCELLATION | TDF_POSITION_RELATIVE_TO_WINDOW;
+                    tdc.dwCommonButtons = TDCBF_YES_BUTTON | TDCBF_NO_BUTTON;
+                    tdc.pszWindowTitle = L"METROLOGY";
+                    tdc.pszMainIcon = TD_INFORMATION_ICON;
+                    tdc.pszMainInstruction = L"Перечитать метрологию?";
+                    tdc.pszContent = L"Авто-калибровка нулей воздуха прошла успешно!";
+                    tdc.nDefaultButton = IDYES;
+
+                    int tdResult = IDNO;
+                    HRESULT hr = TaskDialogIndirect(&tdc, &tdResult, nullptr, nullptr);
+                    if (FAILED(hr)) {
+                        // Fallback на обычный MessageBox, если TaskDialog недоступен.
+                        tdResult = MessageBox(hDlg,
+                                              L"Авто-калибровка нулей воздуха прошла успешно!\n\n"
+                                              L"Перечитать метрологию?",
+                                              L"METROLOGY",
+                                              MB_YESNO | MB_ICONINFORMATION);
+                    }
+
+                    if (tdResult == IDYES) {
+                        METROLOGY_DATA m{};
+                        SerialResult rr = ctx->serial->RequestMetrology(m);
+                        if (rr == SerialResult::SUCCESS) {
+                            ctx->metro->Set(m, false);
+                            Metro_FillFormFromStruct(hDlg, m);
+                        } else {
+                            std::wstring msg = L"Не удалось перечитать метрологию: "
+                                             + SerialModule::ResultToString(rr);
+                            MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONWARNING);
+                        }
+                    }
+                } else if (r == SerialResult::TIMEOUT) {
+                    MessageBox(hDlg,
+                               L"Прибор не подтвердил калибровку (таймаут).\n"
+                               L"Проверьте подключение и попробуйте ещё раз.\n\n"
+                               L"Подробности — в окне логов обмена.",
+                               L"METROLOGY", MB_OK | MB_ICONWARNING);
+                } else {
+                    std::wstring msg = L"Ошибка авто-калибровки: " + SerialModule::ResultToString(r)
+                                     + L"\n\nПодробности — в окне логов обмена.";
+                    MessageBox(hDlg, msg.c_str(), L"METROLOGY", MB_OK | MB_ICONERROR);
                 }
                 return (INT_PTR)TRUE;
             }

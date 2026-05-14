@@ -13,6 +13,11 @@
 #include <windows.h>
 #include <commctrl.h>
 #pragma comment(lib, "comctl32.lib")
+// Включаем Common Controls v6 для поддержки TaskDialog/TaskDialogIndirect
+// (требуется для жирного MainInstruction в диалогах подтверждения).
+#pragma comment(linker, "\"/manifestdependency:type='win32' \
+name='Microsoft.Windows.Common-Controls' version='6.0.0.0' \
+processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #include <wininet.h>
 #pragma comment(lib, "wininet.lib")
 // Файлы заголовков среды выполнения C

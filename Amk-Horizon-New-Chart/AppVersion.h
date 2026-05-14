@@ -7,8 +7,8 @@
 
 #define APP_VERSION_MAJOR   2
 #define APP_VERSION_MINOR   21
-#define APP_VERSION_PATCH   7
+#define APP_VERSION_PATCH   8
 
 // Строковая форма для отображения: "2.21.1"
-#define APP_VERSION_STR     "2.21.7"
-#define APP_VERSION_WSTR    L"2.21.7"
+#define APP_VERSION_STR     "2.21.8"
+#define APP_VERSION_WSTR    L"2.21.8"

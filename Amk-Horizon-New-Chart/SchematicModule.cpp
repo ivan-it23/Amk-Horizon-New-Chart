@@ -1577,10 +1577,27 @@ void SchematicModule::UpdateAvailableCurves(HWND hDlg) {
     column.cx = 400;
     column.pszText = const_cast<LPWSTR>(L"\x0414\x043E\x0441\x0442\x0443\x043F\x043D\x044B\x0435 \x043A\x0440\x0438\x0432\x044B\x0435");
     ListView_InsertColumn(hCurveList, 0, &column);
-    
+
+    // Определяем, нужно ли принудительно отключить группировку для конкретных пресетов
+    // (УЭС, Симм. фазы, Ампл. молч.) — в них каждая группа содержит только одну кривую,
+    // поэтому подзаголовки избыточны и создают визуальный шум.
+    bool forceFlatList = false;
+    if (currentSelection.dataFilter == DataTypeFilter::RHO_SMT_ONLY ||
+        currentSelection.dataFilter == DataTypeFilter::PHASE_SMT_ONLY) {
+        // УЭС и Симм. фазы — всегда плоский список
+        forceFlatList = true;
+    }
+    else if (currentSelection.dataFilter == DataTypeFilter::AMPLITUDE_ONLY &&
+             selectedReceivers == 0 &&
+             currentSelection.GetSelectedTransmittersCount() == 0 &&
+             currentSelection.GetSelectedSilentCount() > 0) {
+        // Ампл. молч. — только молчащие передатчики, без приёмников/передатчиков
+        forceFlatList = true;
+    }
+
     // ИЗМЕНЕНО v2.6.2: Для одного приёмника (R1 или R2) отображаем кривые в плоском списке
     // без группировки, чтобы сохранить порядок: сначала все фазы, потом все амплитуды
-    if (selectedReceivers == 1) {
+    if (selectedReceivers == 1 || forceFlatList) {
         // Отключаем группировку для этого случая
         ListView_EnableGroupView(hCurveList, FALSE);
         
