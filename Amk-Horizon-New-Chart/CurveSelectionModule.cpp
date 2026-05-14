@@ -11,10 +11,12 @@
 
 namespace {
 constexpr float kMdegPerRad = 57295.7795f;
-constexpr int kLegacySmtDeltaInputCount = 4;
-constexpr int kLegacySmtOutputCount = SchematicSelection::UI_TRANSMITTER_COUNT;
+constexpr int kSmtMaxTransmitterCount = SchematicSelection::UI_TRANSMITTER_COUNT;
+// Делитель для нормализации Air_zz (int16) к фазе в радианах (legacy: deg*100 -> rad)
+constexpr float kAirZzPhaseDivisor = 57297.0f;
 
-using LegacySmtPhaseOutputs = std::array<float, kLegacySmtOutputCount>;
+using SmtPhaseOutputs = std::array<float, kSmtMaxTransmitterCount>;
+using SmtMatrix = std::array<std::array<float, kSmtMaxTransmitterCount>, kSmtMaxTransmitterCount>;
 
 float InvertPhaseToRho(const METROLOGY_DATA& metrology, float targetPhase, int txIndex, int freqIdx);
 
@@ -186,61 +188,265 @@ float NormalizePhaseLocal(float phaseRadians) {
     return phaseRadians;
 }
 
-LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const ToolDataAccessView& view, int freqIdx) {
-    std::array<float, kLegacySmtDeltaInputCount> deltas = {0.0f, 0.0f, 0.0f, 0.0f};
-    LegacySmtPhaseOutputs outPhase = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-    for (int txIdx = 0; txIdx < kLegacySmtDeltaInputCount; ++txIdx) {
-        if (!view.TryGetDeltaPhase(freqIdx, txIdx, deltas[txIdx])) {
-            deltas[txIdx] = 0.0f;
-        }
+// ============================================================
+// Симметризация фаз на компьютере (УЭС / Симм. фазы — режим FROM_COMPUTER)
+// ============================================================
+//
+// Воспроизводит логику прибора (formula_simmetry/simmetry):
+//   1) извлекает 8-битное condition (маска работающих передатчиков) из
+//      32-битного GP_TOOL_DATA::condition в зависимости от частоты;
+//   2) читает DELTA_PH[freq][Tx] для всех физически существующих Tx,
+//      нормализует к воздуху по Air_zz[freq][Tx] из метрологии с чередованием
+//      знаков (+,-,+,-,+);
+//   3) выбирает матрицу симметризации K(N_Tx, condition) и применяет её.
+//
+// Поддерживаются N_Tx = 3, 4, 5. Для приборов с N_Tx < 5 выходы для
+// несуществующих передатчиков всегда нулевые.
+
+// Извлекает 8-битный condition для указанной частоты из 32-битного поля.
+// Layout (LSB-first): byte0 = 2000 кГц (freq_idx=1), byte1 = 400 кГц (freq_idx=0).
+// Внутри байта: bit0=T1, bit1=T2, ..., bit4=T5.
+uint8_t ExtractConditionByte(uint32_t rawCondition, int freqIdx) {
+    if (freqIdx == 0) {
+        return static_cast<uint8_t>((rawCondition >> 8) & 0xFFu);
+    }
+    return static_cast<uint8_t>(rawCondition & 0xFFu);
+}
+
+// Зануляет матрицу полностью.
+void ZeroSmtMatrix(SmtMatrix& K) {
+    for (auto& row : K) {
+        row.fill(0.0f);
+    }
+}
+
+// Identity по маске работающих передатчиков (T_t -> T_t для k_t=1, иначе 0).
+// Используется как fallback для редких комбинаций condition.
+void FillIdentitySymmetryMatrix(SmtMatrix& K, uint8_t condition, int validTxCount) {
+    ZeroSmtMatrix(K);
+    for (int t = 0; t < validTxCount && t < kSmtMaxTransmitterCount; ++t) {
+        const bool working = ((condition >> t) & 0x1u) != 0;
+        K[t][t] = working ? 1.0f : 0.0f;
+    }
+}
+
+// Матрицы симметризации для N_Tx = 5.
+bool BuildSymmetryMatrix5Tx(SmtMatrix& K, uint8_t condition) {
+    switch (condition) {
+        case 0b00011111: // все 5 работают
+        case 0b11111111: // все 5 работают (альтернативный код)
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.25f, +0.50f, +0.25f }},
+                   {{ +0.00f, +0.00f, -0.25f, +0.50f, +0.75f }} }};
+            return true;
+        case 0b00011110: // не работает T1
+            K = {{ {{ +0.00f, +1.25f, +0.50f, -0.75f, +0.00f }},
+                   {{ +0.00f, +0.75f, +0.50f, -0.25f, +0.00f }},
+                   {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.25f, +0.50f, +0.25f }},
+                   {{ +0.00f, +0.00f, -0.25f, +0.50f, +0.75f }} }};
+            return true;
+        case 0b00011101: // не работает T2
+            K = {{ {{ +1.25f, +0.00f, -0.75f, +0.50f, +0.00f }},
+                   {{ +0.75f, +0.00f, -0.25f, +0.50f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.75f, +0.50f, -0.25f }},
+                   {{ +0.00f, +0.00f, +0.25f, +0.50f, +0.25f }},
+                   {{ +0.00f, +0.00f, -0.25f, +0.50f, +0.75f }} }};
+            return true;
+        case 0b00011011: // не работает T3 (NB: K[T4][T5]/K[T5][T5]=+0.05 — как в исходнике коллег)
+            K = {{ {{ +0.50f, +0.75f, +0.00f, -0.25f, +0.00f }},
+                   {{ +0.00f, +1.25f, +0.00f, -0.75f, +0.50f }},
+                   {{ +0.00f, +0.75f, +0.00f, -0.25f, +0.50f }},
+                   {{ +0.00f, +0.25f, +0.00f, +0.25f, +0.05f }},
+                   {{ +0.00f, -0.25f, +0.00f, +0.75f, +0.05f }} }};
+            return true;
+        case 0b00010111: // не работает T4
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ -0.25f, +0.50f, +0.75f, +0.00f, +0.00f }},
+                   {{ +0.00f, +0.50f, -0.25f, +0.00f, +0.75f }},
+                   {{ +0.00f, +0.50f, -0.75f, +0.00f, +1.25f }} }};
+            return true;
+        case 0b00001111: // не работает T5 (NB: K[T3][T1]=+0.05 — как в исходнике коллег)
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ +0.05f, +0.25f, +0.50f, +0.25f, +0.00f }},
+                   {{ +0.00f, -0.25f, +0.50f, +0.75f, +0.00f }},
+                   {{ +0.00f, -0.75f, +0.50f, +1.25f, +0.00f }} }};
+            return true;
+        case 0b00000000: // несимметризованные значения для всех 5 передатчиков
+            ZeroSmtMatrix(K);
+            for (int t = 0; t < 5; ++t) K[t][t] = 1.0f;
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Матрицы симметризации для N_Tx = 4 (T5 не существует).
+bool BuildSymmetryMatrix4Tx(SmtMatrix& K, uint8_t condition) {
+    switch (condition) {
+        case 0b00001111: // все 4 работают
+        case 0b11111111: // все работают (альтернативный код)
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
+                   {{ +0.00f, -0.25f, +0.50f, +0.75f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00001110: // не работает T1
+            K = {{ {{ +0.00f, +1.25f, +0.50f, -0.75f, +0.00f }},
+                   {{ +0.00f, +0.75f, +0.50f, -0.25f, +0.00f }},
+                   {{ +0.00f, +0.25f, +0.50f, +0.25f, +0.00f }},
+                   {{ +0.00f, -0.25f, +0.50f, +0.75f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00001101: // не работает T2
+            K = {{ {{ +1.25f, +0.00f, -0.75f, +0.50f, +0.00f }},
+                   {{ +0.75f, +0.00f, -0.25f, +0.50f, +0.00f }},
+                   {{ +0.25f, +0.00f, +0.25f, +0.50f, +0.00f }},
+                   {{ -0.25f, +0.00f, +0.75f, +0.50f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00001011: // не работает T3
+            K = {{ {{ +0.50f, +0.75f, +0.00f, -0.25f, +0.00f }},
+                   {{ +0.50f, +0.25f, +0.00f, +0.25f, +0.00f }},
+                   {{ +0.50f, -0.25f, +0.00f, +0.75f, +0.00f }},
+                   {{ -0.50f, -0.75f, +0.00f, +1.25f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00000111: // не работает T4
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ -0.25f, +0.50f, +0.75f, +0.00f, +0.00f }},
+                   {{ -0.75f, +0.50f, +1.25f, +0.00f, +0.00f }},
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00000000: // несимметризованные значения (только T1..T4)
+            ZeroSmtMatrix(K);
+            for (int t = 0; t < 4; ++t) K[t][t] = 1.0f;
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Матрицы симметризации для N_Tx = 3 (T4, T5 не существуют).
+bool BuildSymmetryMatrix3Tx(SmtMatrix& K, uint8_t condition) {
+    switch (condition) {
+        case 0b00000111: // все 3 работают
+            K = {{ {{ +0.75f, +0.50f, -0.25f, +0.00f, +0.00f }},
+                   {{ +0.25f, +0.50f, +0.25f, +0.00f, +0.00f }},
+                   {{ -0.25f, +0.50f, +0.75f, +0.00f, +0.00f }},
+                   {{ -0.75f, +0.50f, +1.25f, +0.00f, +0.00f }}, // dead row для N_Tx=3 — копия из исходника коллег
+                   {{ +0.00f, +0.00f, +0.00f, +0.00f, +0.00f }} }};
+            return true;
+        case 0b00000000: // несимметризованные значения (только T1..T3)
+            ZeroSmtMatrix(K);
+            for (int t = 0; t < 3; ++t) K[t][t] = 1.0f;
+            return true;
+        default:
+            return false;
+    }
+}
+
+// Диспетчер: выбирает матрицу по (N_Tx, condition). Для нераспознанных
+// комбинаций возвращает identity по маске condition.
+void BuildSymmetryMatrix(SmtMatrix& K, int transmitterCount, uint8_t condition) {
+    bool resolved = false;
+    if (transmitterCount == 5) {
+        resolved = BuildSymmetryMatrix5Tx(K, condition);
+    } else if (transmitterCount == 4) {
+        resolved = BuildSymmetryMatrix4Tx(K, condition);
+    } else if (transmitterCount == 3) {
+        resolved = BuildSymmetryMatrix3Tx(K, condition);
+    }
+    if (!resolved) {
+        FillIdentitySymmetryMatrix(K, condition, transmitterCount);
+    }
+}
+
+// Основной расчёт: возвращает массив phase_smt[0..4] для одной частоты.
+// Выходы для индексов >= transmitterCount всегда нулевые.
+SmtPhaseOutputs ComputePhaseSmtFromComputer(const MeasurementView& measurement,
+                                            const METROLOGY_DATA& metrology,
+                                            int freqIdx) {
+    SmtPhaseOutputs outPhase = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    if (!measurement.IsValid() || freqIdx < 0 || freqIdx > 1) {
+        return outPhase;
     }
 
-    const float d1 = deltas[0];
-    const float d2 = deltas[1];
-    const float d3 = deltas[2];
-    const float d4 = deltas[3];
+    const GP_TOOL_DATA* record = measurement.GetRecord();
+    if (!record) {
+        return outPhase;
+    }
 
-    // baseline коэффициенты из legacy-документа (simmetry_5)
-    outPhase[0] = 1.150f * d1 + 0.500f * d2 - 0.650f * d3 + 0.000f * d4;
-    outPhase[1] = 0.675f * d1 + 0.500f * d2 - 0.175f * d3 + 0.000f * d4;
-    outPhase[2] = 0.200f * d1 + 0.500f * d2 + 0.300f * d3 + 0.000f * d4;
-    outPhase[3] = 0.000f * d1 + 0.225f * d2 + 0.500f * d3 + 0.275f * d4;
-    outPhase[4] = 0.000f * d1 - 0.250f * d2 + 0.500f * d3 + 0.750f * d4;
+    int transmitterCount = measurement.GetCapabilities().transmitterCount;
+    if (transmitterCount <= 0) {
+        transmitterCount = kFallbackTransmitterCount;
+    }
+    if (transmitterCount > kSmtMaxTransmitterCount) {
+        transmitterCount = kSmtMaxTransmitterCount;
+    }
+
+    const uint8_t conditionByte = ExtractConditionByte(record->condition, freqIdx);
+
+    // Читаем DELTA_PH и нормализуем к воздуху с чередованием знаков.
+    // signs[T1..T5] = +,-,+,-,+ — соответствует physical wiring разности фаз.
+    const ToolDataAccessView view = measurement.GetAccessView();
+    std::array<float, kSmtMaxTransmitterCount> deltas = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
+    constexpr float kAlternatingSigns[kSmtMaxTransmitterCount] = { +1.0f, -1.0f, +1.0f, -1.0f, +1.0f };
+
+    for (int t = 0; t < transmitterCount; ++t) {
+        float rawDelta = 0.0f;
+        if (!view.TryGetDeltaPhase(freqIdx, t, rawDelta)) {
+            rawDelta = 0.0f;
+        }
+        const float airOffset = static_cast<float>(metrology.Air_zz[freqIdx][t]) / kAirZzPhaseDivisor;
+        deltas[t] = kAlternatingSigns[t] * (rawDelta - airOffset);
+    }
+
+    // Матрица симметризации.
+    SmtMatrix K = {};
+    BuildSymmetryMatrix(K, transmitterCount, conditionByte);
+
+    // outPhase[t] = sum_j K[t][j] * deltas[j] для t < transmitterCount.
+    for (int t = 0; t < transmitterCount; ++t) {
+        float sum = 0.0f;
+        for (int j = 0; j < kSmtMaxTransmitterCount; ++j) {
+            sum += K[t][j] * deltas[j];
+        }
+        outPhase[t] = sum;
+    }
 
     return outPhase;
 }
 
-LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const GP_TOOL_DATA& record, int freqIdx) {
-    return ComputePhaseSmtFromComputer(ToolDataAccessView(record), freqIdx);
-}
-
-LegacySmtPhaseOutputs ComputePhaseSmtFromComputer(const MeasurementView& measurement, int freqIdx) {
-    return ComputePhaseSmtFromComputer(measurement.GetAccessView(), freqIdx);
-}
-
-bool TryGetLegacyComputedPhaseSmt(const GP_TOOL_DATA& record, int freqIdx, int transmitterIndex, float& outPhase) {
-    if (transmitterIndex < 0 || transmitterIndex >= kLegacySmtOutputCount) {
-        outPhase = 0.0f;
-        return false;
-    }
-
-    const LegacySmtPhaseOutputs phaseComputed = ComputePhaseSmtFromComputer(record, freqIdx);
-    outPhase = phaseComputed[transmitterIndex];
-    return true;
-}
-
-bool TryGetLegacyComputedPhaseSmt(const MeasurementView& measurement, int freqIdx, int transmitterIndex, float& outPhase) {
+bool TryGetLegacyComputedPhaseSmt(const MeasurementView& measurement,
+                                  const METROLOGY_DATA& metrology,
+                                  int freqIdx,
+                                  int transmitterIndex,
+                                  float& outPhase) {
+    outPhase = 0.0f;
     if (!measurement.IsValid()) {
-        outPhase = 0.0f;
+        return false;
+    }
+    if (transmitterIndex < 0 || transmitterIndex >= kSmtMaxTransmitterCount) {
         return false;
     }
 
-    if (transmitterIndex < 0 || transmitterIndex >= kLegacySmtOutputCount) {
-        outPhase = 0.0f;
+    int transmitterCount = measurement.GetCapabilities().transmitterCount;
+    if (transmitterCount <= 0) {
+        transmitterCount = kFallbackTransmitterCount;
+    }
+    // Несуществующие передатчики не имеют фазы.
+    if (transmitterIndex >= transmitterCount) {
         return false;
     }
 
-    const LegacySmtPhaseOutputs phaseComputed = ComputePhaseSmtFromComputer(measurement, freqIdx);
+    const SmtPhaseOutputs phaseComputed = ComputePhaseSmtFromComputer(measurement, metrology, freqIdx);
     outPhase = phaseComputed[transmitterIndex];
     return true;
 }
@@ -267,7 +473,7 @@ bool TryGetSelectedPhaseSmt(const MeasurementView& measurement,
     }
 
     if (ShouldUseLegacyComputedSmt(measurement, metro)) {
-        return TryGetLegacyComputedPhaseSmt(measurement, freqIdx, transmitterIndex, outPhase);
+        return TryGetLegacyComputedPhaseSmt(measurement, *metro, freqIdx, transmitterIndex, outPhase);
     }
 
     return measurement.GetAccessView().TryGetPhaseSmt(freqIdx, transmitterIndex, outPhase);
@@ -285,7 +491,7 @@ bool TryGetSelectedRhoSmt(const MeasurementView& measurement,
 
     if (ShouldUseLegacyComputedSmt(measurement, metro)) {
         float phase = 0.0f;
-        if (!TryGetLegacyComputedPhaseSmt(measurement, freqIdx, transmitterIndex, phase)) {
+        if (!TryGetLegacyComputedPhaseSmt(measurement, *metro, freqIdx, transmitterIndex, phase)) {
             return false;
         }
 

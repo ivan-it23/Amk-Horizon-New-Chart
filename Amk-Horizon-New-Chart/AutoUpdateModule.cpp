@@ -219,6 +219,13 @@ std::wstring AutoUpdate::DownloadUpdate(const UpdateInfo& info, HWND hWndParent)
         return L"";
     }
 
+    // Снимает Mark of the Web (NTFS Zone.Identifier ADS), который wininet
+    // ставит на любой скачанный файл. Без этого SmartScreen может молча
+    // блокировать запуск exe — особенно если приложение лежит в подпапке
+    // на Desktop / в OneDrive / в области, защищённой Controlled Folder Access.
+    std::wstring zonePath = localPath + L":Zone.Identifier";
+    DeleteFileW(zonePath.c_str());
+
     return localPath;
 }
 
@@ -301,20 +308,26 @@ bool AutoUpdate::ApplyUpdate(const std::wstring& downloadedExePath) {
     bat << "if errorlevel 1 (\r\n";
     bat << "    set /a RETRY+=1\r\n";
     bat << "    if !RETRY! lss 5 (\r\n";
-    bat << "        (echo [%date% %time%] copy failed, retry !RETRY!)>> \"%LOG%\" 2>&1\r\n";
+    bat << "        (echo [%date% %time%] copy failed errorlevel=!errorlevel! retry !RETRY!)>> \"%LOG%\" 2>&1\r\n";
     bat << "        timeout /t 1 /nobreak >NUL\r\n";
     bat << "        goto copy_retry\r\n";
     bat << "    )\r\n";
-    bat << "    (echo [%date% %time%] COPY FAILED, giving up)>> \"%LOG%\" 2>&1\r\n";
+    bat << "    (echo [%date% %time%] COPY FAILED errorlevel=!errorlevel! giving up)>> \"%LOG%\" 2>&1\r\n";
     bat << "    goto end\r\n";
     bat << ")\r\n";
 
-    // Запуск обновлённого exe из его собственной папки, чтобы относительные
-    // пути (.env, settings, локальные файлы) работали корректно.
+    // Снимает Mark of the Web с обновлённого exe — на случай, если copy
+    // протянул NTFS-поток Zone.Identifier из скачанного файла. Без этого
+    // SmartScreen может молча заблокировать запуск exe из подпапки.
+    bat << "del \"" << sCurrent << ":Zone.Identifier\" >NUL 2>&1\r\n";
+
+    // Запуск обновлённого exe. Без /D: start "" "<full path>" сам устанавливает
+    // рабочую папку процесса равной папке exe. Использование /D с путём,
+    // оканчивающимся на '\' внутри кавычек, ломает парсер cmd на некоторых
+    // версиях Windows.
     bat << "(echo [%date% %time%] Starting new exe)>> \"%LOG%\" 2>&1\r\n";
-    bat << "for %%I in (\"" << sCurrent << "\") do set \"EXEDIR=%%~dpI\"\r\n";
-    bat << "start \"\" /D \"%EXEDIR%\" \"" << sCurrent << "\"\r\n";
-    bat << "(echo [%date% %time%] Done)>> \"%LOG%\" 2>&1\r\n";
+    bat << "start \"\" \"" << sCurrent << "\"\r\n";
+    bat << "(echo [%date% %time%] start invoked errorlevel=!errorlevel!)>> \"%LOG%\" 2>&1\r\n";
 
     bat << ":end\r\n";
     bat << "del \"" << sDownloaded << "\" >NUL 2>&1\r\n";
