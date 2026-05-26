@@ -531,10 +531,8 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
             hChart2YZoomLabel, hChart2YZoomTargetCombo,
             hChart1UndoZoomBtn, hChart2UndoZoomBtn,
             hChart1ShowNotesCheck, hChart2ShowNotesCheck,
-            hCursor1XEdit, hCursor1Separator, hCursor1Y1Edit,
-            hCursor1Y2Separator, hCursor1Y2Edit,
-            hCursor2XEdit, hCursor2Separator, hCursor2Y1Edit,
-            hCursor2Y2Separator, hCursor2Y2Edit,
+            hCursor1Separator, hCursor1Y2Separator,
+            hCursor2Separator, hCursor2Y2Separator,
             hPollingToggleBtn, hConnectToggleBtn,
         };
         for (HWND hCtrl : allControls) {
@@ -548,6 +546,8 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
             hDualModeCheck,
             hChart1SchematicBtn, hChart2SchematicBtn,
             hChart1SurfCheck, hChart2SurfCheck,
+            hCursor1XEdit, hCursor1Y1Edit, hCursor1Y2Edit,
+            hCursor2XEdit, hCursor2Y1Edit, hCursor2Y2Edit,
         };
         for (HWND hCtrl : boldControls) {
             if (hCtrl) SendMessage(hCtrl, WM_SETFONT, (WPARAM)hAppFontBold, TRUE);

@@ -129,6 +129,9 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <!-- Static C++ runtime (/MT): exe не зависит от Visual C++ Redistributable. -->
+      <!-- Работает на любой чистой Windows 10/11 без дополнительных пакетов. -->
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -150,6 +153,9 @@
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <!-- Static C++ runtime (/MT): exe не зависит от Visual C++ Redistributable. -->
+      <!-- Работает на любой чистой Windows 10/11 без дополнительных пакетов. -->
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
