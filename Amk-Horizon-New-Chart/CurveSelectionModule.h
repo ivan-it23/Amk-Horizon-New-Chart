@@ -115,6 +115,14 @@ private:
     void FinalizeSilentPresetCurve(CurveDefinition& curve,
                                    const std::vector<CurveDefinition>& existingCurves,
                                    int silentIndex) const;
+
+    // Применяет преcет-специфичные override-ы единиц измерения и масштаба значений
+    // (например mV -> uV для пресета SILENT_AMPLITUDES). Должен вызываться ДО
+    // UpdateAxisConfiguration, чтобы leftAxisUnits/rightAxisUnits подхватили новые units.
+    // Централизация в одной точке гарантирует, что и path через ApplyPreset(),
+    // и path через ApplyCurrentCurveConfiguration() из диалога "Схема прибора"
+    // одинаково применяют конверсию единиц.
+    void ApplyPresetUnitOverrides(ChartConfiguration& config) const;
     
     // Вспомогательные методы для вычисления данных
     void CalculateRatioData(int transmitterIndex, FrequencyBand frequency,

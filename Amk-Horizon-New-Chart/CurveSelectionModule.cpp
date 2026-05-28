@@ -596,6 +596,14 @@ ChartConfiguration BuildPresetConfigurationBase(PresetType presetType) {
     return config;
 }
 
+// Параметры конверсии единиц для пресета "Ампл. молч.".
+// Молчащие амплитуды на канонической стороне приходят в милливольтах;
+// для удобства диагностики низкоуровневых сигналов пресет отображает их в микровольтах.
+namespace SilentAmplitudePresetUnits {
+    constexpr const char* kDisplayUnits = "uV";       // ASCII-нотация согласована с mV/mdeg/degC
+    constexpr float       kMillivoltsToMicrovolts = 1000.0f;
+}
+
 ChartConfiguration BuildSmtPresetConfiguration(const CurveSelectionModule& module,
                                                FrequencyBand frequency,
                                                CurveDefinition (CurveSelectionModule::*createCurve)(int, FrequencyBand) const,
@@ -830,6 +838,13 @@ std::vector<CurveDefinition> CurveSelectionModule::GetAvailableCurves(const Sche
 void CurveSelectionModule::ApplyCurveConfiguration(int chartNumber, const ChartConfiguration& config) {
     ChartConfiguration normalizedConfig = config;
     RefreshCurveColors(normalizedConfig.curves);
+
+    // Централизованное применение пресет-специфичных override-ов единиц измерения.
+    // Должно выполняться ДО UpdateAxisConfiguration(), чтобы leftAxisUnits
+    // и rightAxisUnits корректно отразили преобразованные units.
+    // Покрывает оба пути: ApplyPreset() и ApplyCurrentCurveConfiguration().
+    ApplyPresetUnitOverrides(normalizedConfig);
+
     normalizedConfig.UpdateAxisConfiguration();
 
     if (chartNumber == 1) {
@@ -867,7 +882,9 @@ ChartConfiguration CurveSelectionModule::CreatePresetConfiguration(PresetType pr
             {
                 ChartConfiguration config = BuildPresetConfigurationBase(PresetType::SILENT_AMPLITUDES);
 
-                // Две кривые: молчащий R1 и молчащий R2
+                // Две кривые: молчащий R1 и молчащий R2.
+                // Конверсия единиц mV -> uV выполняется централизованно
+                // через ApplyPresetUnitOverrides() в ApplyCurveConfiguration().
                 CurveDefinition r1 = CreateSilentAmplitudeCurve(0, frequency);
                 FinalizeSilentPresetCurve(r1, config.curves, 0);
                 config.curves.push_back(r1);
@@ -1146,11 +1163,22 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             default:
                 continue; // Неподдерживаемый тип данных
         }
-        
+
+        // Применяем масштаб значений кривой (valueScale).
+        // По умолчанию равен 1.0, поэтому горячий путь не затрагивается.
+        // Используется для конверсии единиц на уровне пресета (например mV -> uV).
+        // Умножение на NaN сохраняет NaN, что согласовано с механизмом
+        // AppendAlignedPlotValue для пропусков "нет данных".
+        if (curve.valueScale != 1.0f && !curveData.empty()) {
+            for (float& v : curveData) {
+                v *= curve.valueScale;
+            }
+        }
+
         // Добавляем данные к соответствующей оси
         // НОВОЕ v2.6.3: Если нормализация включена, все кривые идут на левую ось
         int effectiveAxisGroup = normalizeAxes ? 0 : curve.yAxisGroup;
-        
+
         if (effectiveAxisGroup == 0) {
             leftAxisData.push_back(curveData);
             // Создаём копию кривой с исправленным yAxisGroup для корректного отображения
@@ -1257,11 +1285,22 @@ void CurveSelectionModule::CalculateCurveData(const ChartConfiguration& config,
             default:
                 continue; // Неподдерживаемый тип данных
         }
-        
+
+        // Применяем масштаб значений кривой (valueScale).
+        // По умолчанию равен 1.0, поэтому горячий путь не затрагивается.
+        // Используется для конверсии единиц на уровне пресета (например mV -> uV).
+        // Умножение на NaN сохраняет NaN, что согласовано с механизмом
+        // AppendAlignedPlotValue для пропусков "нет данных".
+        if (curve.valueScale != 1.0f && !curveData.empty()) {
+            for (float& v : curveData) {
+                v *= curve.valueScale;
+            }
+        }
+
         // Добавляем данные к соответствующей оси
         // НОВОЕ v2.6.3: Если нормализация включена, все кривые идут на левую ось
         int effectiveAxisGroup = normalizeAxes ? 0 : curve.yAxisGroup;
-        
+
         if (effectiveAxisGroup == 0) {
             leftAxisData.push_back(curveData);
             // Создаём копию кривой с исправленным yAxisGroup для корректного отображения
@@ -1860,6 +1899,22 @@ void CurveSelectionModule::FinalizeSilentPresetCurve(CurveDefinition& curve,
     curve.enabled = true;
     curve.color = AssignSmartColor(existingCurves, silentIndex, curve.yAxisGroup);
     curve.displayName = GenerateDisplayName(ElementType::SILENT_TX, silentIndex, curve.dataType);
+}
+
+void CurveSelectionModule::ApplyPresetUnitOverrides(ChartConfiguration& config) const {
+    if (config.activePreset != PresetType::SILENT_AMPLITUDES) {
+        return;
+    }
+
+    // Для пресета "Ампл. молч." канонические значения приходят в милливольтах;
+    // для повышения читабельности низкоуровневых сигналов отображаем в микровольтах.
+    for (auto& curve : config.curves) {
+        if (curve.dataType == DataType::SILENT_AMPLITUDE_RX1 ||
+            curve.dataType == DataType::SILENT_AMPLITUDE_RX2) {
+            curve.units = SilentAmplitudePresetUnits::kDisplayUnits;
+            curve.valueScale = SilentAmplitudePresetUnits::kMillivoltsToMicrovolts;
+        }
+    }
 }
 
 void CurveSelectionModule::CalculateRatioData(int transmitterIndex, FrequencyBand frequency,

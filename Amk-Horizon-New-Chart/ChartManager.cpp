@@ -363,6 +363,9 @@ namespace {
             HashCombine(hashValue, static_cast<uint64_t>(curve.dataType));
             HashCombine(hashValue, static_cast<uint64_t>(curve.frequency));
             HashCombine(hashValue, static_cast<uint64_t>(curve.smtMode));
+            // valueScale включён в hash, чтобы snapshot-кеш инвалидировался при смене
+            // коэффициента конверсии единиц (например при переходе в/из пресета "Ампл. молч.").
+            HashCombine(hashValue, std::hash<float>()(curve.valueScale));
         }
 
         return hashValue;

@@ -42,7 +42,7 @@
 
 #define MyAppName          "AMK Horizon New Chart"
 #define MyAppNameShort     "AMK-Horizon-New-Chart"
-#define MyAppVersion       "2.21.9"
+#define MyAppVersion       "2.22.0"
 ; Полное юридическое название компании-разработчика. Отображается в свойствах
 ; setup.exe, в окне "Программы и компоненты" и в About-диалогах системы.
 ; Одинарные кавычки используются как ISPP-делимитер, потому что значение

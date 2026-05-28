@@ -47,7 +47,13 @@ struct CurveDefinition {
     DataType dataType;          // Тип данных
     FrequencyBand frequency;    // Частотный диапазон
     SmtComputationMode smtMode; // Источник для PHASE_SMT/RHO_SMT (для остальных игнорируется)
-    
+
+    // Множитель применяется к рассчитанным значениям перед отрисовкой.
+    // Используется для конверсии единиц на уровне пресета (например mV -> uV: valueScale = 1000.0).
+    // По умолчанию 1.0 — данные передаются в исходных canonical единицах без масштабирования.
+    // NaN-значения сохраняются (NaN * scale = NaN), отметки "нет данных" не теряются.
+    float valueScale;
+
     CurveDefinition();
     CurveDefinition(const std::string& id, const std::string& name, 
                    const std::string& units, ElementType element, 

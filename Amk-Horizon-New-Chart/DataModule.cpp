@@ -1291,6 +1291,17 @@ void DataModule::CalculateSingleCurveData(const CurveDefinition& curve,
             // Неизвестный тип данных
             break;
     }
+
+    // Применение масштаба значений кривой (valueScale).
+    // По умолчанию равен 1.0, поэтому горячий путь не затрагивается.
+    // Используется для конверсии единиц на уровне пресета (например mV -> uV).
+    // Умножение на NaN сохраняет NaN, что согласовано с механизмом
+    // AppendAlignedPlotValue для пропусков "нет данных".
+    if (curve.valueScale != 1.0f) {
+        for (float& v : outData) {
+            v *= curve.valueScale;
+        }
+    }
 }
 
 void DataModule::GroupCurvesByAxis(const std::vector<CurveDefinition>& curves,

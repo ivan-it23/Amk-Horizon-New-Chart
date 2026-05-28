@@ -302,7 +302,8 @@ CurveDefinition::CurveDefinition()
     : yAxisGroup(0), enabled(false), color(RGB(0, 0, 0)), lineStyle(PS_SOLID),
       sourceElement(ElementType::TRANSMITTER), elementIndex(0), 
       dataType(DataType::AMPLITUDE_RX1), frequency(FrequencyBand::FREQ_400_KHZ),
-      smtMode(SmtComputationMode::FROM_SONDE) {
+      smtMode(SmtComputationMode::FROM_SONDE),
+      valueScale(1.0f) {
 }
 
 CurveDefinition::CurveDefinition(const std::string& id, const std::string& name, 
@@ -311,7 +312,8 @@ CurveDefinition::CurveDefinition(const std::string& id, const std::string& name,
     : id(id), displayName(name), units(units), yAxisGroup(0), enabled(true),
       color(RGB(0, 0, 255)), lineStyle(PS_SOLID), sourceElement(element),
       elementIndex(index), dataType(type), frequency(freq),
-      smtMode(SmtComputationMode::FROM_SONDE) {
+      smtMode(SmtComputationMode::FROM_SONDE),
+      valueScale(1.0f) {
 }
 
 // Реализация SchematicSelection
