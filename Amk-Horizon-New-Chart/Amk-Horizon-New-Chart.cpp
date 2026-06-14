@@ -19,6 +19,7 @@
 #include <utility>
 #include <commdlg.h>
 #include <commctrl.h>
+#include <shellapi.h>  // ShellExecute для открытия документации
 #include <ctime>
 #include <cwchar>
 
@@ -1417,7 +1418,7 @@ static INT_PTR CALLBACK NoteDialogProc(HWND hDlg, UINT message, WPARAM wParam, L
 ATOM                MyRegisterClass(HINSTANCE hInstance);
 BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
-INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
+void                OpenDocumentation();
 INT_PTR CALLBACK    SerialStatusDialogProc(HWND, UINT, WPARAM, LPARAM);  // v2.13.0
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance,
@@ -1618,8 +1619,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             // Разобрать выбор в меню:
             switch (wmId)
             {
-            case IDM_ABOUT:
-                DialogBox(hInst, MAKEINTRESOURCE(IDD_ABOUTBOX), hWnd, About);
+            case IDM_DOCUMENTATION:
+                OpenDocumentation();
                 break;
             case IDM_CHECK_UPDATES:
                 AutoUpdate::RunUpdateCheck(hWnd, false);
@@ -2131,24 +2132,23 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     return 0;
 }
 
-// Обработчик сообщений для окна "О программе".
-INT_PTR CALLBACK About(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam)
-{
-    UNREFERENCED_PARAMETER(lParam);
-    switch (message)
-    {
-    case WM_INITDIALOG:
-        return (INT_PTR)TRUE;
+// ===================================================================
+// Открытие PDF-документации с FTP-сервера
+// ===================================================================
+void OpenDocumentation() {
+    // URL документации на сервере (используем те же параметры что и для обновлений)
+    static const wchar_t* kDocUrl = L"http://ivanbohg.beget.tech/FilesForProgramVisualisation/Документация.pdf";
 
-    case WM_COMMAND:
-        if (LOWORD(wParam) == IDOK || LOWORD(wParam) == IDCANCEL)
-        {
-            EndDialog(hDlg, LOWORD(wParam));
-            return (INT_PTR)TRUE;
-        }
-        break;
+    // Открываем URL в браузере по умолчанию
+    HINSTANCE result = ShellExecuteW(nullptr, L"open", kDocUrl, nullptr, nullptr, SW_SHOWNORMAL);
+
+    // ShellExecute возвращает HINSTANCE > 32 при успехе
+    if (reinterpret_cast<intptr_t>(result) <= 32) {
+        MessageBoxW(nullptr,
+            L"Не удалось открыть документацию.\n"
+            L"Проверьте подключение к интернету и попробуйте снова.",
+            L"Ошибка", MB_ICONWARNING | MB_OK);
     }
-    return (INT_PTR)FALSE;
 }
 
 // v2.13.0: Обработчик сообщений для диалога подключения к прибору

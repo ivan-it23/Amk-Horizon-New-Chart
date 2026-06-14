@@ -2881,12 +2881,11 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     SCROLLINFO si = {};
     si.cbSize = sizeof(SCROLLINFO);
     si.fMask = SIF_ALL;
-    BOOL siResult = GetScrollInfo(hScrollBar, SB_CTL, &si);
+    GetScrollInfo(hScrollBar, SB_CTL, &si);
 
     int newPos = si.nPos;
-    
+
     // Обрабатываем различные команды скроллинга
-    int oldPos = newPos;
     switch (scrollCode) {
         case SB_LINEUP:
             newPos = (std::max)(si.nMin, si.nPos - 1);

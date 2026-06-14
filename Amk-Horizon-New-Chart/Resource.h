@@ -6,8 +6,6 @@
 
 #define IDR_MAINFRAME			128
 #define IDD_AMKHORIZONNEWCHART_DIALOG	102
-#define IDD_ABOUTBOX			103
-#define IDM_ABOUT				104
 #define IDM_EXIT				105
 #define IDM_OPEN_FILE			106
 // ID 107-108 зарезервированы (ранее использовались для удаленных пунктов меню "Вид")
@@ -271,6 +269,9 @@
 
 // === v2.20.0: Автоматическое обновление ===
 #define IDM_CHECK_UPDATES			117
+
+// === v2.21.0: Документация (открытие PDF с FTP) ===
+#define IDM_DOCUMENTATION			118
 
 // === v2.19.0: Параллельная запись COM + просмотр файла ===
 #define IDM_RETURN_TO_COM			116

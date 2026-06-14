@@ -99,13 +99,8 @@ BEGIN
     END
 
     MENUITEM "&Логи",                        IDM_DEVICE_LOG
-
-    POPUP "&Справка"
-    BEGIN
-        MENUITEM "&Проверить обновления...",  IDM_CHECK_UPDATES
-        MENUITEM SEPARATOR
-        MENUITEM "&О программе...",           IDM_ABOUT
-    END
+    MENUITEM "&Проверить обновления",        IDM_CHECK_UPDATES
+    MENUITEM "&Документация",                IDM_DOCUMENTATION
 END
 
 
@@ -116,8 +111,6 @@ END
 
 IDC_AMKHORIZONNEWCHART ACCELERATORS
 BEGIN
-    "?",            IDM_ABOUT,              ASCII,  ALT
-    "/",            IDM_ABOUT,              ASCII,  ALT
 END
 
 
@@ -125,17 +118,6 @@ END
 //
 // Диалоговое окно
 //
-
-IDD_ABOUTBOX DIALOGEX 0, 0, 170, 62
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
-CAPTION "О программе Amk-Horizon-New-Chart"
-FONT 9, "Segoe UI"
-BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,14,14,21,20
-    LTEXT           "Amk-Horizon-New-Chart, Версия 1.0",IDC_STATIC,42,14,114,8,SS_NOPREFIX
-    LTEXT           "(c) 2026",IDC_STATIC,42,26,114,8
-    DEFPUSHBUTTON   "ОК",IDOK,113,41,50,14,WS_GROUP
-END
 
 IDD_SERIAL_STATUS DIALOGEX 0, 0, 220, 203
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX
