@@ -272,6 +272,7 @@ public:
     // Метод для сброса zoom (кнопка Reset Zoom)
     void HandleResetZoom(HWND hWnd, int chartNumber);
     void HandleUndoZoomStep(HWND hWnd, int chartNumber);
+    void HandleAxisUndoZoomStep(HWND hWnd, int chartNumber, bool isVertical);
 
     // Методы для сохранения диапазона
     void HandleSaveRange(HWND hWnd, int chartNumber);

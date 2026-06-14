@@ -2006,19 +2006,19 @@ bool ChartManager::HandleCommand(WPARAM wParam, LPARAM lParam)
             return true;
 
         case IDC_CHART1_HUNDO_BTN:
-            HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINELEFT, 0), (LPARAM)uiModule->GetHScrollBar(1));
+            HandleAxisUndoZoomStep(hWnd, 1, false);
             return true;
 
         case IDC_CHART1_VUNDO_BTN:
-            HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINEUP, 0), (LPARAM)uiModule->GetVScrollBar(1));
+            HandleAxisUndoZoomStep(hWnd, 1, true);
             return true;
 
         case IDC_CHART2_HUNDO_BTN:
-            HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINELEFT, 0), (LPARAM)uiModule->GetHScrollBar(2));
+            HandleAxisUndoZoomStep(hWnd, 2, false);
             return true;
 
         case IDC_CHART2_VUNDO_BTN:
-            HandleScrollEvent(hWnd, MAKEWPARAM(SB_LINEUP, 0), (LPARAM)uiModule->GetVScrollBar(2));
+            HandleAxisUndoZoomStep(hWnd, 2, true);
             return true;
             
         // === Команды COM-порта (v2.13.0) ===
@@ -2724,6 +2724,101 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 
 
 // Методы для обработки скроллинга
+
+// Осевой undo zoom (для кнопок "-" на скроллбарах). Отдельный метод, чтобы не смешивать с прокруткой стрелками скроллбара.
+void ChartManager::HandleAxisUndoZoomStep(HWND hWnd, int chartNumber, bool isVertical) {
+    ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+
+    const double fullMinX = 0.0;
+    const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    double xLockMin = fullMinX;
+    double xLockMax = fullMaxX;
+
+    std::vector<ZoomRange>* zoomHistory = (chartNumber == 1) ? &chart1ZoomHistory : &chart2ZoomHistory;
+
+    // Восстанавливаем xLock диапазон из истории если нужно
+    if (!zoom->hasXRangeLock) {
+        for (auto it = zoomHistory->rbegin(); it != zoomHistory->rend(); ++it) {
+            if (it->hasXRangeLock) {
+                xLockMin = it->minX;
+                xLockMax = it->maxX;
+                break;
+            }
+        }
+    } else {
+        xLockMin = zoom->minX;
+        xLockMax = zoom->maxX;
+    }
+
+    if (xLockMin < fullMinX) xLockMin = fullMinX;
+    if (xLockMax > fullMaxX) xLockMax = fullMaxX;
+    if (xLockMax < xLockMin) {
+        xLockMin = fullMinX;
+        xLockMax = fullMaxX;
+    }
+
+    AxisZoomRange prevAxis;
+
+    if (isVertical) {
+        if (PopAxisHistoryY(chartNumber, prevAxis)) {
+            if (prevAxis.isCustom) {
+                zoom->minY = prevAxis.min;
+                zoom->maxY = prevAxis.max;
+                zoom->isYCustom = true;
+                zoom->minYRight = prevAxis.minRight;
+                zoom->maxYRight = prevAxis.maxRight;
+                zoom->hasRightAxisCustomRange = prevAxis.hasRightAxisRange;
+            } else {
+                zoom->isYCustom = false;
+                ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
+                if (uiModule->IsSurfEnabled(chartNumber)) {
+                    UpdateSurfRange(chartNumber);
+                } else {
+                    AutoFitYForCurrentX(chartNumber);
+                }
+            }
+        } else {
+            zoom->isYCustom = false;
+            ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
+            if (uiModule->IsSurfEnabled(chartNumber)) {
+                UpdateSurfRange(chartNumber);
+            } else {
+                AutoFitYForCurrentX(chartNumber);
+            }
+        }
+    } else {
+        if (PopAxisHistoryX(chartNumber, prevAxis)) {
+            if (prevAxis.isCustom) {
+                zoom->minX = prevAxis.min;
+                zoom->maxX = prevAxis.max;
+                zoom->isXCustom = true;
+                zoom->hasXRangeLock = prevAxis.hasXRangeLock;
+            } else if (dataModule && dataModule->HasData()) {
+                zoom->minX = xLockMin;
+                zoom->maxX = xLockMax;
+                zoom->isXCustom = false;
+                zoom->hasXRangeLock = false;
+                zoom->isXToLatest = false;
+            }
+        } else if (dataModule && dataModule->HasData()) {
+            zoom->minX = xLockMin;
+            zoom->maxX = xLockMax;
+            zoom->isXCustom = false;
+            zoom->hasXRangeLock = false;
+            zoom->isXToLatest = false;
+        }
+
+        if (!zoom->isYCustom) {
+            AutoFitYForCurrentX(chartNumber);
+        }
+    }
+
+    UpdateZoomActiveState(chartNumber);
+    UpdateScrollBars(hWnd);
+    UpdateXRangeUI(hWnd);
+    InvalidateChart(hWnd, chartNumber);
+}
+
 void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     HWND hScrollBar = (HWND)lParam;
     int scrollCode = LOWORD(wParam);
@@ -2782,83 +2877,16 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         xLockMax = fullMaxX;
     }
 
-    // Осевой undo: кнопка "-" на скроллбаре откатывает zoom только по соответствующей оси.
-    // Для H-скролла это левая стрелка, для V-скролла — верхняя стрелка.
-    if ((!isVertical && scrollCode == SB_LINELEFT) || (isVertical && scrollCode == SB_LINEUP)) {
-        AxisZoomRange prevAxis;
-
-        if (isVertical) {
-            if (PopAxisHistoryY(chartNumber, prevAxis)) {
-                if (prevAxis.isCustom) {
-                    zoom->minY = prevAxis.min;
-                    zoom->maxY = prevAxis.max;
-                    zoom->isYCustom = true;
-                    zoom->minYRight = prevAxis.minRight;
-                    zoom->maxYRight = prevAxis.maxRight;
-                    zoom->hasRightAxisCustomRange = prevAxis.hasRightAxisRange;
-                } else {
-                    zoom->isYCustom = false;
-                    ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
-                    if (uiModule->IsSurfEnabled(chartNumber)) {
-                        UpdateSurfRange(chartNumber);
-                    } else {
-                        AutoFitYForCurrentX(chartNumber);
-                    }
-                }
-            } else {
-                zoom->isYCustom = false;
-                ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
-                if (uiModule->IsSurfEnabled(chartNumber)) {
-                    UpdateSurfRange(chartNumber);
-                } else {
-                    AutoFitYForCurrentX(chartNumber);
-                }
-            }
-        } else {
-            if (PopAxisHistoryX(chartNumber, prevAxis)) {
-                if (prevAxis.isCustom) {
-                    zoom->minX = prevAxis.min;
-                    zoom->maxX = prevAxis.max;
-                    zoom->isXCustom = true;
-                    zoom->hasXRangeLock = prevAxis.hasXRangeLock;
-                } else if (dataModule && dataModule->HasData()) {
-                    // Для non-custom состояния откатываемся к разрешенному X-диапазону
-                    // (полный диапазон или пользовательский X Range, если он был задан).
-                    zoom->minX = xLockMin;
-                    zoom->maxX = xLockMax;
-                    zoom->isXCustom = false;
-                    zoom->hasXRangeLock = false;
-                    zoom->isXToLatest = false;
-                }
-            } else if (dataModule && dataModule->HasData()) {
-                zoom->minX = xLockMin;
-                zoom->maxX = xLockMax;
-                zoom->isXCustom = false;
-                zoom->hasXRangeLock = false;
-                zoom->isXToLatest = false;
-            }
-
-            if (!zoom->isYCustom) {
-                AutoFitYForCurrentX(chartNumber);
-            }
-        }
-
-        UpdateZoomActiveState(chartNumber);
-        UpdateScrollBars(hWnd);
-        UpdateXRangeUI(hWnd);
-        InvalidateChart(hWnd, chartNumber);
-        return;
-    }
-    
     // Получаем текущую информацию о скроллбаре
     SCROLLINFO si = {};
     si.cbSize = sizeof(SCROLLINFO);
     si.fMask = SIF_ALL;
-    GetScrollInfo(hScrollBar, SB_CTL, &si);
-    
+    BOOL siResult = GetScrollInfo(hScrollBar, SB_CTL, &si);
+
     int newPos = si.nPos;
     
     // Обрабатываем различные команды скроллинга
+    int oldPos = newPos;
     switch (scrollCode) {
         case SB_LINEUP:
             newPos = (std::max)(si.nMin, si.nPos - 1);
@@ -2879,7 +2907,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         default:
             return;
     }
-    
+
     // Обновляем позицию скроллбара
     si.nPos = newPos;
     SetScrollInfo(hScrollBar, SB_CTL, &si, TRUE);
@@ -3063,7 +3091,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
     UpdateZoomActiveState(chartNumber);
     UpdateScrollBars(hWnd);
     UpdateXRangeUI(hWnd);
-    
+
     // Перерисовываем только нужный график (избегаем мигания)
     InvalidateChart(hWnd, chartNumber);
 }
@@ -3134,10 +3162,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             if (pageSize > 100) pageSize = 100;
             int maxScrollPos = 100 - pageSize + 1;
             
-            // Вычисляем позицию скроллбара пропорционально
+            // Вычисляем позицию скроллбара пропорционально.
+            // std::lround (округление к ближайшему) вместо усечения предотвращает петлю
+            // обратной связи: усечение приводило к потере шага при обратном преобразовании
+            // pos -> minX -> pos, из-за чего прокрутка стрелками "застревала".
             double scrollableRange = totalDataRange - viewRangeX;
             int hScrollPos = (scrollableRange > 0)
-                ? static_cast<int>(((chart1Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos)
+                ? static_cast<int>(std::lround(((chart1Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos))
                 : 0;
             uiModule->SetScrollBarRange(1, 0, 100, pageSize, hScrollPos);
         }
@@ -3191,14 +3222,19 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             int vScrollPos = 50;
             int vScrollPage = 100;
             if (totalYRange > viewRangeY && totalYRange > 0) {
+                // Клампинг page к [1,100] согласует поведение с горизонтальным скроллбаром
+                // и исключает вырожденный case page=0 (нефункциональный бегунок).
                 vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+                if (vScrollPage < 1) vScrollPage = 1;
+                if (vScrollPage > 100) vScrollPage = 100;
                 int maxScrollPos = 100 - vScrollPage + 1;
                 
-                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY)
+                // Вычисляем позицию: 0 = верх (maxY), maxScrollPos = низ (minY).
+                // std::lround предотвращает потерю шага при обратном преобразовании.
                 double scrollableRange = totalYRange - viewRangeY;
                 double currentMinY = useRightAxis1 ? chart1Zoom.minYRight : chart1Zoom.minY;
                 double scrollRatio = (currentMinY - minYFull) / scrollableRange;
-                vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                vScrollPos = static_cast<int>(std::lround((1.0 - scrollRatio) * maxScrollPos));
                 if (vScrollPos < 0) vScrollPos = 0;
                 if (vScrollPos > maxScrollPos) vScrollPos = maxScrollPos;
             }
@@ -3273,10 +3309,11 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 if (pageSize > 100) pageSize = 100;
                 int maxScrollPos = 100 - pageSize + 1;
                 
-                // Вычисляем позицию скроллбара пропорционально
+                // Вычисляем позицию скроллбара пропорционально.
+                // std::lround вместо усечения предотвращает петлю обратной связи pos -> minX -> pos.
                 double scrollableRange = totalDataRange - viewRangeX;
                 int hScrollPos = (scrollableRange > 0)
-                    ? static_cast<int>(((chart2Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos)
+                    ? static_cast<int>(std::lround(((chart2Zoom.minX - xLockMin) / scrollableRange) * maxScrollPos))
                     : 0;
                 uiModule->SetScrollBarRange(2, 0, 100, pageSize, hScrollPos);
             }
@@ -3325,13 +3362,17 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 int vScrollPos = 50;
                 int vScrollPage = 100;
                 if (totalYRange > viewRangeY && totalYRange > 0) {
+                    // Клампинг page к [1,100] согласует поведение с горизонтальным скроллбаром.
                     vScrollPage = static_cast<int>((viewRangeY / totalYRange) * 100);
+                    if (vScrollPage < 1) vScrollPage = 1;
+                    if (vScrollPage > 100) vScrollPage = 100;
                     int maxScrollPos = 100 - vScrollPage + 1;
                     
+                    // std::lround предотвращает потерю шага при обратном преобразовании.
                     double scrollableRange = totalYRange - viewRangeY;
                     double currentMinY = useRightAxis2 ? chart2Zoom.minYRight : chart2Zoom.minY;
                     double scrollRatio = (currentMinY - minYFull) / scrollableRange;
-                    vScrollPos = static_cast<int>((1.0 - scrollRatio) * maxScrollPos);
+                    vScrollPos = static_cast<int>(std::lround((1.0 - scrollRatio) * maxScrollPos));
                     if (vScrollPos < 0) vScrollPos = 0;
                     if (vScrollPos > maxScrollPos) vScrollPos = maxScrollPos;
                 }
