@@ -3687,16 +3687,14 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         }
     }
 
-    // Если график 2 в независимом режиме и файл ещё не загружен,
-    // рисуем пустой график с сеткой и осями, а не оставляем белое пространство.
-    if (chartNumber == 2 && chart2IndependentMode && chartData && !chartData->HasData()) {
+    if (!chartData->HasData()) {
         chartModule->DrawDualAxisBackground(hdc, chartRect);
         chartModule->DrawChartBorder(hdc, chartRect);
         chartModule->DrawChartTitle(hdc, chartRect, title);
         RECT plotRect = chartModule->CalculateDualAxisPlotRect(chartRect);
         chartModule->DrawChartAxes(hdc, plotRect, true);
         chartModule->DrawGridOnly(hdc, plotRect);
-        chartModule->DrawNoDataMessage(hdc, chartRect, L"Загрузите файл данных");
+        chartModule->DrawNoDataMessage(hdc, chartRect, L"Сначала откройте файл данных");
         return;
     }
 
@@ -3870,10 +3868,7 @@ void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumb
     // Рисуем оси
     chartModule->DrawChartAxes(hdc, plotRect, true);
     
-    // Если данные загружены, рисуем только сетку БЕЗ подписей осей
-    if (hasData) {
-        chartModule->DrawGridOnly(hdc, plotRect);
-    }
+    chartModule->DrawGridOnly(hdc, plotRect);
     
     // Рисуем текст с инструкцией
     SetBkMode(hdc, TRANSPARENT);
