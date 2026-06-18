@@ -12,6 +12,7 @@
 #include "NotesModule.h"
 #include "AsyncTaskQueue.h"
 #include <commdlg.h>
+#include <cstdint>
 #include <memory>
 #include <vector>
 
