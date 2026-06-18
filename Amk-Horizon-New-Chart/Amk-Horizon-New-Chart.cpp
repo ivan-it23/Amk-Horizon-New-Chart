@@ -2670,7 +2670,7 @@ INT_PTR CALLBACK SerialStatusDialogProc(HWND hDlg, UINT message, WPARAM wParam, 
                 if (hBgRecordStatus) ShowWindow(hBgRecordStatus, SW_HIDE);
                 if (hReturnToComBtn) ShowWindow(hReturnToComBtn, SW_HIDE);
                 // Обновляем статус
-                SetWindowText(hStatusLabel, L"Опрос...");
+                SetWindowText(hStatusLabel, g_chartManager->IsSerialPolling() ? L"Опрос..." : L"Подключено");
             }
             return (INT_PTR)TRUE;
             

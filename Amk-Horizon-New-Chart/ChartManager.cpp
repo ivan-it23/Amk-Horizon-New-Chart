@@ -1693,12 +1693,18 @@ void ChartManager::DrawChart2(HDC hdc)
 
 void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
 {
-    // v2.19.0: Если COM-порт активно записывает данные, не разрываем соединение.
+    // v2.19.0: Если есть активная COM-сессия с файлом записи, не разрываем соединение.
     // Вместо этого сохраняем контекст COM-сессии и переключаемся в FILE_VIEW.
-    // COM polling и запись в файл продолжаются в фоне.
-    const bool comIsActive = serialModule && serialModule->IsConnected() && serialModule->IsPolling();
+    // COM polling может быть как активен, так и поставлен на паузу.
+    const bool hasComDisplaySession =
+        serialModule &&
+        serialModule->IsConnected() &&
+        serialModule->IsRecordingEnabled() &&
+        (serialModule->IsRecordingActive() ||
+         !serialModule->GetRecordFilePath().empty() ||
+         serialModule->GetRecordedFrames() > 0);
 
-    if (comIsActive && serialModule->IsRecordingEnabled()) {
+    if (hasComDisplaySession) {
         // Сохраняем контекст COM-сессии для будущего возврата
         comSessionSnapshot.chart1Zoom = chart1Zoom;
         comSessionSnapshot.chart2Zoom = chart2Zoom;
@@ -1718,6 +1724,7 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
         // Переключаем кнопку "Включить/Отключить" в режим "→К прибору"
         if (uiModule) {
             uiModule->SetConnectToggleReturnMode(true);
+            uiModule->UpdateConnectToggleState(true, true);
         }
 
         // DEBUG v2.19.0: Логируем момент переключения в FILE_VIEW
@@ -1740,6 +1747,11 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
         comSessionSnapshot.hasSnapshot = false;
         displayCallbackPaused = false;
         dataSourceMode = DataSourceMode::COM_LIVE;
+        if (uiModule && serialModule && !serialModule->IsConnected()) {
+            uiModule->SetConnectToggleReturnMode(false);
+            uiModule->SetSerialConnected(false);
+            uiModule->SetSerialPolling(false);
+        }
     }
 
     if (!dataModule || !asyncTaskQueue) {
@@ -5228,6 +5240,19 @@ void ChartManager::HandleSerialDisconnect(HWND hWnd) {
 
 void ChartManager::HandleSerialStart(HWND hWnd) {
     if (!serialModule || !serialModule->IsConnected()) return;
+
+    // Если пользователь смотрит внешний файл, сначала возвращаем на экран
+    // файл/буфер приборной сессии, затем возобновляем опрос.
+    if (dataSourceMode == DataSourceMode::FILE_VIEW) {
+        ReturnToComLive(hWnd);
+        if (!serialModule || !serialModule->IsConnected()) {
+            return;
+        }
+    }
+
+    if (serialModule->IsPolling()) {
+        return;
+    }
     
     // Запускаем периодический опрос (каждые 2 секунды)
     // Примечание: Очистка данных происходит в диалоге SerialStatusDialogProc
@@ -5441,8 +5466,10 @@ bool ChartManager::IsComRecordingInBackground() const {
     return dataSourceMode == DataSourceMode::FILE_VIEW
         && serialModule
         && serialModule->IsConnected()
-        && serialModule->IsPolling()
-        && serialModule->IsRecordingEnabled();
+        && serialModule->IsRecordingEnabled()
+        && (serialModule->IsRecordingActive()
+            || !serialModule->GetRecordFilePath().empty()
+            || serialModule->GetRecordedFrames() > 0);
 }
 
 void ChartManager::ReturnToComLive(HWND hWnd) {
