@@ -176,6 +176,7 @@ private:
 
     struct CachedCurveSnapshot {
         bool valid = false;
+        uintptr_t dataSourceKey = 0;
         uint64_t dataVersion = 0;
         uint64_t configHash = 0;
         bool isZoomed = false;
@@ -195,6 +196,7 @@ private:
 
     struct CachedTemperatureAxisData {
         bool valid = false;
+        uintptr_t dataSourceKey = 0;
         uint64_t dataVersion = 0;
         bool isZoomed = false;
         double zoomMinX = 0.0;
@@ -214,6 +216,7 @@ private:
     struct AsyncSnapshotWarmupState {
         uint64_t requestId = 0;
         bool inFlight = false;
+        uintptr_t dataSourceKey = 0;
         uint64_t dataVersion = 0;
         uint64_t configHash = 0;
         bool isZoomed = false;

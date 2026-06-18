@@ -747,16 +747,19 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
     AsyncSnapshotWarmupState* warmupState = (chartNumber == 1) ? &chart1SnapshotWarmup : &chart2SnapshotWarmup;
     const CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
     const CachedTemperatureAxisData* temperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
+    const uintptr_t dataSourceKey = reinterpret_cast<uintptr_t>(chartData);
     const uint64_t dataVersion = chartData->GetDataVersion();
     const uint64_t configHash = BuildChartConfigurationHash(config);
     const bool needsTemperatureAxis = (config.xAxisType == XAxisType::TEMPERATURE);
     const bool hasMatchingTemperatureCache = !needsTemperatureAxis ||
         (temperatureCache->valid &&
+         temperatureCache->dataSourceKey == dataSourceKey &&
          temperatureCache->dataVersion == dataVersion &&
          temperatureCache->isZoomed == zoom.isZoomed &&
          temperatureCache->zoomMinX == zoom.minX &&
          temperatureCache->zoomMaxX == zoom.maxX);
     if (cache->valid &&
+        cache->dataSourceKey == dataSourceKey &&
         cache->dataVersion == dataVersion &&
         cache->configHash == configHash &&
         cache->isZoomed == zoom.isZoomed &&
@@ -766,6 +769,7 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
         return;
     }
     if (warmupState->inFlight &&
+        warmupState->dataSourceKey == dataSourceKey &&
         warmupState->dataVersion == dataVersion &&
         warmupState->configHash == configHash &&
         warmupState->isZoomed == zoom.isZoomed &&
@@ -777,13 +781,14 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
     const uint64_t requestId = nextSnapshotWarmupRequestId++;
     warmupState->requestId = requestId;
     warmupState->inFlight = true;
+    warmupState->dataSourceKey = dataSourceKey;
     warmupState->dataVersion = dataVersion;
     warmupState->configHash = configHash;
     warmupState->isZoomed = zoom.isZoomed;
     warmupState->zoomMinX = zoom.minX;
     warmupState->zoomMaxX = zoom.maxX;
 
-    asyncTaskQueue->PostWorkerTask([this, hWnd, chartNumber, requestId, dataVersion, configHash, config, zoom, chartData]() {
+    asyncTaskQueue->PostWorkerTask([this, hWnd, chartNumber, requestId, dataSourceKey, dataVersion, configHash, config, zoom, chartData]() {
         CurveDataSnapshot builtSnapshot = {};
         TemperatureAxisRenderData builtTemperatureAxis = {};
         BuildCurveDataSnapshot(*curveSelectionModule, *chartData, *chartModule, config,
@@ -792,7 +797,7 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
             TryBuildTemperatureAxisRenderData(*chartData, zoom.isZoomed, zoom.minX, zoom.maxX, builtTemperatureAxis);
         }
 
-        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, chartNumber, requestId, dataVersion, configHash, zoom,
+        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, chartNumber, requestId, dataSourceKey, dataVersion, configHash, zoom,
                                          builtSnapshot = std::move(builtSnapshot),
                                          builtTemperatureAxis = std::move(builtTemperatureAxis)]() mutable {
             AsyncSnapshotWarmupState* warmup = (chartNumber == 1) ? &chart1SnapshotWarmup : &chart2SnapshotWarmup;
@@ -809,7 +814,8 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 
             const ZoomRange currentZoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
             const ChartConfiguration currentConfig = curveSelectionModule->GetChartConfiguration(chartNumber);
-            if (currentData->GetDataVersion() != dataVersion ||
+            if (reinterpret_cast<uintptr_t>(currentData) != dataSourceKey ||
+                currentData->GetDataVersion() != dataVersion ||
                 BuildChartConfigurationHash(currentConfig) != configHash ||
                 currentZoom.isZoomed != zoom.isZoomed ||
                 currentZoom.minX != zoom.minX ||
@@ -819,6 +825,7 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 
             CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
             cache->valid = true;
+            cache->dataSourceKey = dataSourceKey;
             cache->dataVersion = dataVersion;
             cache->configHash = configHash;
             cache->isZoomed = zoom.isZoomed;
@@ -838,6 +845,7 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
             if (!builtTemperatureAxis.temperatureData.empty()) {
                 CachedTemperatureAxisData* temperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
                 temperatureCache->valid = true;
+                temperatureCache->dataSourceKey = dataSourceKey;
                 temperatureCache->dataVersion = dataVersion;
                 temperatureCache->isZoomed = zoom.isZoomed;
                 temperatureCache->zoomMinX = zoom.minX;
@@ -879,9 +887,11 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
     }
 
     CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
+    const uintptr_t dataSourceKey = reinterpret_cast<uintptr_t>(chartData);
     const uint64_t dataVersion = chartData->GetDataVersion();
     const uint64_t configHash = BuildChartConfigurationHash(config);
     if (cache->valid &&
+        cache->dataSourceKey == dataSourceKey &&
         cache->dataVersion == dataVersion &&
         cache->configHash == configHash &&
         cache->isZoomed == zoom.isZoomed &&
@@ -900,6 +910,7 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
                            zoom.isZoomed, zoom.minX, zoom.maxX, builtSnapshot);
 
     cache->valid = true;
+    cache->dataSourceKey = dataSourceKey;
     cache->dataVersion = dataVersion;
     cache->configHash = configHash;
     cache->isZoomed = zoom.isZoomed;
@@ -930,8 +941,10 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
     }
 
     CachedTemperatureAxisData* cache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
+    const uintptr_t dataSourceKey = reinterpret_cast<uintptr_t>(chartData);
     const uint64_t dataVersion = chartData->GetDataVersion();
     if (cache->valid &&
+        cache->dataSourceKey == dataSourceKey &&
         cache->dataVersion == dataVersion &&
         cache->isZoomed == zoom.isZoomed &&
         cache->zoomMinX == zoom.minX &&
@@ -951,6 +964,7 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
     }
 
     cache->valid = true;
+    cache->dataSourceKey = dataSourceKey;
     cache->dataVersion = dataVersion;
     cache->isZoomed = zoom.isZoomed;
     cache->zoomMinX = zoom.minX;
@@ -3646,6 +3660,7 @@ void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
 void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber) {
     DataModule* chartData = GetDataModuleForChart(chartNumber);
     if (!curveSelectionModule || !chartData) return;
+    const uintptr_t dataSourceKey = reinterpret_cast<uintptr_t>(chartData);
     
     // Получаем конфигурацию кривых
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
@@ -3686,7 +3701,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
     }
 
     if (!TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(chartNumber), curveSnapshot)) {
-        if (ShouldUseAsyncCurveWarmup(chartNumber) && staleCurveCache->valid) {
+        if (ShouldUseAsyncCurveWarmup(chartNumber) &&
+            staleCurveCache->valid &&
+            staleCurveCache->dataSourceKey == dataSourceKey) {
             curveSnapshot = staleCurveCache;
         } else {
             chartModule->DrawDualAxisBackground(hdc, chartRect);
@@ -3708,7 +3725,9 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         const CachedTemperatureAxisData* temperatureAxis = nullptr;
         const CachedTemperatureAxisData* staleTemperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
         if (!TryGetTemperatureAxisData(chartNumber, *zoom, !ShouldUseAsyncCurveWarmup(chartNumber), temperatureAxis)) {
-            if (ShouldUseAsyncCurveWarmup(chartNumber) && staleTemperatureCache->valid) {
+            if (ShouldUseAsyncCurveWarmup(chartNumber) &&
+                staleTemperatureCache->valid &&
+                staleTemperatureCache->dataSourceKey == dataSourceKey) {
                 temperatureAxis = staleTemperatureCache;
             } else {
                 chartModule->DrawDualAxisBackground(hdc, chartRect);
@@ -5926,5 +5945,3 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
     UpdateScrollBars(hWnd);
     InvalidateRect(hWnd, nullptr, TRUE);
 }
-
-

@@ -1888,8 +1888,6 @@ void UIModule::DrawToolbarGroupBackgrounds(HDC hdc) {
             bool first = true;
             unionRect(bounds, getControlRect(hChart2SurfCheck), first);
             unionRect(bounds, getControlRect(hChart2SurfEdit), first);
-            unionRect(bounds, getControlRect(hChart2SettingsBtn), first);
-            unionRect(bounds, getControlRect(hChart2OpenFileBtn), first);
             if (!first) drawZone(bounds);
         }
 
@@ -2168,16 +2166,7 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
     // === Специальная отрисовка кнопки «Открыть файл для графика 2» (системная иконка папки) ===
     if (ctrlId == IDC_CHART2_OPEN_FILE_BTN) {
         // Фон кнопки
-        COLORREF bgColor;
-        if (state & ODS_SELECTED) {
-            bgColor = RGB(200, 200, 200);
-        } else if (state & ODS_DISABLED) {
-            bgColor = RGB(240, 240, 240);
-        } else {
-            bgColor = GetSysColor(COLOR_BTNFACE);
-        }
-
-        HBRUSH hBrush = CreateSolidBrush(bgColor);
+        HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
         FillRect(hdc, &rc, hBrush);
         DeleteObject(hBrush);
 
@@ -2230,6 +2219,38 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
     }
 
     // Цвет текста — стандартный системный
+    if (ctrlId == IDC_CHART2_SETTINGS_BTN) {
+        HBRUSH hBrush = CreateSolidBrush(RGB(255, 255, 255));
+        FillRect(hdc, &rc, hBrush);
+        DeleteObject(hBrush);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, (state & ODS_DISABLED) ? RGB(160, 160, 160) : RGB(35, 45, 55));
+
+        const int offsetX = (state & ODS_SELECTED) ? 1 : 0;
+        const int offsetY = (state & ODS_SELECTED) ? 1 : 0;
+
+        HFONT hIconFont = CreateFont(
+            22, 0, 0, 0, FW_BOLD, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET,
+            OUT_DEFAULT_PRECIS,
+            CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY,
+            DEFAULT_PITCH | FF_DONTCARE,
+            L"Segoe UI Symbol");
+        HFONT hOldFont = (HFONT)SelectObject(hdc, hIconFont);
+
+        RECT iconRect = rc;
+        iconRect.left += offsetX;
+        iconRect.top += offsetY;
+        DrawText(hdc, iconText, -1, &iconRect, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+
+        SelectObject(hdc, hOldFont);
+        DeleteObject(hIconFont);
+
+        return;
+    }
+
     COLORREF textColor = GetSysColor(COLOR_BTNTEXT);
     
     // Фон кнопки
