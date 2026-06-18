@@ -14,7 +14,7 @@
 #include <cstdio>
 #include <functional>
 
-// === Заметки: диалог просмотра/удаления (v2.16.x) ===
+// Заметки: диалог просмотра/удаления (v2.16.x)
 namespace {
     struct NoteViewDialogContext {
         std::wstring text;
@@ -620,6 +620,7 @@ namespace {
 
 ChartManager::ChartManager() 
     : dataModule(std::make_unique<DataModule>())
+    , chart2IndependentDataModule(std::make_unique<DataModule>())
     , chartModule(std::make_unique<ChartModule>())
     , uiModule(std::make_unique<UIModule>())
     , layoutModule(std::make_unique<LayoutModule>())
@@ -652,7 +653,8 @@ ChartManager::ChartManager()
             HWND hMainWnd = GetParent(hSchematicDlg);
             if (hMainWnd) {
                 // Сброс полей X Range при смене функции или пресета
-                if (dataModule && dataModule->HasData()) {
+                DataModule* chartData = GetDataModuleForChart(chartNumber);
+                if (chartData && chartData->HasData()) {
                     uiModule->ResetXRangeControls(chartNumber);
                     
                     // Сброс масштаба и истории для соответствующего графика
@@ -705,22 +707,47 @@ void ChartManager::ResetCoordinateTracking() {
     lastChart2CoordinatePoint = { -1, -1 };
 }
 
-bool ChartManager::ShouldUseAsyncCurveWarmup() const {
-    return asyncTaskQueue && dataModule && dataModule->GetDataSize() >= 50000;
+DataModule* ChartManager::GetDataModuleForChart(int chartNumber) const {
+    if (chartNumber == 2 && chart2IndependentMode) {
+        return chart2IndependentDataModule.get();
+    }
+    return dataModule.get();
+}
+
+std::wstring ChartManager::GetDataFileLabelForChart(int chartNumber) const {
+    const DataModule* source = GetDataModuleForChart(chartNumber);
+    if (!source || !source->HasData()) {
+        return L"";
+    }
+
+    std::wstring fileName = source->GetLoadedFileName();
+    if (fileName.empty() && chartNumber == 1 && serialModule && serialModule->IsRecordingActive()) {
+        std::wstring recPath = serialModule->GetRecordFilePath();
+        size_t lastSlash = recPath.find_last_of(L"\\/");
+        fileName = (lastSlash != std::wstring::npos) ? recPath.substr(lastSlash + 1) : recPath;
+    }
+    return fileName;
+}
+
+bool ChartManager::ShouldUseAsyncCurveWarmup(int chartNumber) const {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    return asyncTaskQueue && chartData && chartData->GetDataSize() >= 50000;
 }
 
 void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
                                                     int chartNumber,
                                                     const ChartConfiguration& config,
                                                     const ZoomRange& zoom) {
-    if (!ShouldUseAsyncCurveWarmup() || !hWnd || !curveSelectionModule || !dataModule || !chartModule || config.curves.empty()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!asyncTaskQueue || !chartData || chartData->GetDataSize() < 50000 ||
+        !hWnd || !curveSelectionModule || !chartModule || config.curves.empty()) {
         return;
     }
 
     AsyncSnapshotWarmupState* warmupState = (chartNumber == 1) ? &chart1SnapshotWarmup : &chart2SnapshotWarmup;
     const CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
     const CachedTemperatureAxisData* temperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
-    const uint64_t dataVersion = dataModule->GetDataVersion();
+    const uint64_t dataVersion = chartData->GetDataVersion();
     const uint64_t configHash = BuildChartConfigurationHash(config);
     const bool needsTemperatureAxis = (config.xAxisType == XAxisType::TEMPERATURE);
     const bool hasMatchingTemperatureCache = !needsTemperatureAxis ||
@@ -756,13 +783,13 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
     warmupState->zoomMinX = zoom.minX;
     warmupState->zoomMaxX = zoom.maxX;
 
-    asyncTaskQueue->PostWorkerTask([this, hWnd, chartNumber, requestId, dataVersion, configHash, config, zoom]() {
+    asyncTaskQueue->PostWorkerTask([this, hWnd, chartNumber, requestId, dataVersion, configHash, config, zoom, chartData]() {
         CurveDataSnapshot builtSnapshot = {};
         TemperatureAxisRenderData builtTemperatureAxis = {};
-        BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+        BuildCurveDataSnapshot(*curveSelectionModule, *chartData, *chartModule, config,
                                zoom.isZoomed, zoom.minX, zoom.maxX, builtSnapshot);
         if (config.xAxisType == XAxisType::TEMPERATURE) {
-            TryBuildTemperatureAxisRenderData(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, builtTemperatureAxis);
+            TryBuildTemperatureAxisRenderData(*chartData, zoom.isZoomed, zoom.minX, zoom.maxX, builtTemperatureAxis);
         }
 
         AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, chartNumber, requestId, dataVersion, configHash, zoom,
@@ -775,13 +802,14 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 
             warmup->inFlight = false;
 
-            if (!dataModule || !curveSelectionModule) {
+            DataModule* currentData = GetDataModuleForChart(chartNumber);
+            if (!currentData || !curveSelectionModule) {
                 return;
             }
 
             const ZoomRange currentZoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
             const ChartConfiguration currentConfig = curveSelectionModule->GetChartConfiguration(chartNumber);
-            if (dataModule->GetDataVersion() != dataVersion ||
+            if (currentData->GetDataVersion() != dataVersion ||
                 BuildChartConfigurationHash(currentConfig) != configHash ||
                 currentZoom.isZoomed != zoom.isZoomed ||
                 currentZoom.minX != zoom.minX ||
@@ -828,7 +856,7 @@ void ChartManager::ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
 }
 
 void ChartManager::ScheduleVisibleChartsWarmup(HWND hWnd) {
-    if (!ShouldUseAsyncCurveWarmup() || !curveSelectionModule || !dataModule || !dataModule->HasData()) {
+    if (!curveSelectionModule) {
         return;
     }
 
@@ -845,12 +873,13 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
                                        const ZoomRange& zoom,
                                        bool allowSynchronousBuild,
                                        const CachedCurveSnapshot*& outSnapshot) const {
-    if (!curveSelectionModule || !dataModule || !chartModule || config.curves.empty()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!curveSelectionModule || !chartData || !chartModule || config.curves.empty()) {
         return false;
     }
 
     CachedCurveSnapshot* cache = (chartNumber == 1) ? &chart1SnapshotCache : &chart2SnapshotCache;
-    const uint64_t dataVersion = dataModule->GetDataVersion();
+    const uint64_t dataVersion = chartData->GetDataVersion();
     const uint64_t configHash = BuildChartConfigurationHash(config);
     if (cache->valid &&
         cache->dataVersion == dataVersion &&
@@ -867,7 +896,7 @@ bool ChartManager::TryGetCurveSnapshot(int chartNumber,
     }
 
     CurveDataSnapshot builtSnapshot = {};
-    BuildCurveDataSnapshot(*curveSelectionModule, *dataModule, *chartModule, config,
+    BuildCurveDataSnapshot(*curveSelectionModule, *chartData, *chartModule, config,
                            zoom.isZoomed, zoom.minX, zoom.maxX, builtSnapshot);
 
     cache->valid = true;
@@ -895,12 +924,13 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
                                              const ZoomRange& zoom,
                                              bool allowSynchronousBuild,
                                              const CachedTemperatureAxisData*& outData) const {
-    if (!dataModule) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData) {
         return false;
     }
 
     CachedTemperatureAxisData* cache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
-    const uint64_t dataVersion = dataModule->GetDataVersion();
+    const uint64_t dataVersion = chartData->GetDataVersion();
     if (cache->valid &&
         cache->dataVersion == dataVersion &&
         cache->isZoomed == zoom.isZoomed &&
@@ -915,7 +945,7 @@ bool ChartManager::TryGetTemperatureAxisData(int chartNumber,
     }
 
     TemperatureAxisRenderData renderData = {};
-    if (!TryBuildTemperatureAxisRenderData(*dataModule, zoom.isZoomed, zoom.minX, zoom.maxX, renderData)) {
+    if (!TryBuildTemperatureAxisRenderData(*chartData, zoom.isZoomed, zoom.minX, zoom.maxX, renderData)) {
         *cache = {};
         return false;
     }
@@ -956,9 +986,13 @@ double ChartManager::ResolveTemperatureAxisDataX(int chartNumber,
 void ChartManager::PushAxisHistory(int chartNumber) {
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     std::vector<ZoomRange>* zoomHistory = (chartNumber == 1) ? &chart1ZoomHistory : &chart2ZoomHistory;
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
+        return;
+    }
 
     const double fullMinX = 0.0;
-    const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    const double fullMaxX = static_cast<double>(chartData->GetDataSize() - 1);
     double xLockMin = fullMinX;
     double xLockMax = fullMaxX;
 
@@ -1034,7 +1068,8 @@ void ChartManager::UpdateZoomActiveState(int chartNumber) {
 }
 
 void ChartManager::AutoFitYForCurrentX(int chartNumber) {
-    if (!dataModule || !curveSelectionModule || !chartModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !curveSelectionModule || !chartModule || !chartData->HasData()) {
         return;
     }
 
@@ -1044,7 +1079,7 @@ void ChartManager::AutoFitYForCurrentX(int chartNumber) {
     std::vector<std::vector<float>> leftAxisData, rightAxisData;
     std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
 
-    curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+    curveSelectionModule->CalculateCurveData(config, chartData,
                                              leftAxisData, rightAxisData,
                                              leftAxisCurves, rightAxisCurves,
                                              zoom->minX, zoom->maxX, -1e10, 1e10);
@@ -1270,7 +1305,8 @@ bool ChartManager::UpdateNoteTextById(HWND hWnd, const std::string& noteId, cons
 }
 
 bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wstring& text) {
-    if (!notesModule || !dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!notesModule || !chartData || !chartData->HasData()) {
         MessageBox(hWnd, L"Нет данных для создания заметки.", L"Заметки", MB_OK | MB_ICONWARNING);
         return false;
     }
@@ -1335,8 +1371,8 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
 
     int xIndex = static_cast<int>(llround(resolvedDataX));
     if (xIndex < 0) xIndex = 0;
-    if (dataModule->HasData()) {
-        int maxIdx = static_cast<int>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
+    if (chartData->HasData()) {
+        int maxIdx = static_cast<int>(chartData->GetDataSize() > 0 ? (chartData->GetDataSize() - 1) : 0);
         if (xIndex > maxIdx) xIndex = maxIdx;
     }
 
@@ -1347,7 +1383,7 @@ bool ChartManager::AddNoteAtCrosshair(HWND hWnd, int chartNumber, const std::wst
     if (hasDualAxis) {
         ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
         const CachedCurveSnapshot* visibleSnapshot = nullptr;
-        if (TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), visibleSnapshot)) {
+        if (TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(chartNumber), visibleSnapshot)) {
             const bool hasRightAxisData = !visibleSnapshot->rightAxisData.empty();
             if (!hasRightAxisData) {
                 hasDualAxis = false;
@@ -1678,7 +1714,7 @@ void ChartManager::DrawChart2(HDC hdc)
     }
 
     // v2.16.x: маркеры заметок поверх графика (если включено)
-    if (uiModule->IsNotesVisible(2)) {
+    if (!chart2IndependentMode && uiModule->IsNotesVisible(2)) {
         DrawNoteMarkers(hdc, chart2Rect, 2);
     }
 
@@ -1812,20 +1848,22 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
             UpdateStatusBarFileInfo();
 
             chart1Zoom.isZoomed = false;
-            chart2Zoom.isZoomed = false;
             chart1Zoom.isXCustom = false;
-            chart2Zoom.isXCustom = false;
             chart1Zoom.hasXRangeLock = false;
-            chart2Zoom.hasXRangeLock = false;
             chart1Zoom.isXToLatest = false;
-            chart2Zoom.isXToLatest = false;
             chart1Zoom.isYCustom = false;
-            chart2Zoom.isYCustom = false;
 
             chart1ZoomHistory.clear();
-            chart2ZoomHistory.clear();
             ClearAxisHistory(1);
-            ClearAxisHistory(2);
+            if (!chart2IndependentMode) {
+                chart2Zoom.isZoomed = false;
+                chart2Zoom.isXCustom = false;
+                chart2Zoom.hasXRangeLock = false;
+                chart2Zoom.isXToLatest = false;
+                chart2Zoom.isYCustom = false;
+                chart2ZoomHistory.clear();
+                ClearAxisHistory(2);
+            }
 
             if (dataModule->HasData()) {
                 if (uiModule->IsSurfEnabled(1)) {
@@ -1834,10 +1872,12 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
                     uiModule->ResetXRangeControls(1);
                 }
 
-                if (uiModule->IsSurfEnabled(2)) {
-                    UpdateSurfRange(2);
-                } else {
-                    uiModule->ResetXRangeControls(2);
+                if (!chart2IndependentMode) {
+                    if (uiModule->IsSurfEnabled(2)) {
+                        UpdateSurfRange(2);
+                    } else {
+                        uiModule->ResetXRangeControls(2);
+                    }
                 }
 
                 UpdateSurfStatusBar();
@@ -1856,6 +1896,150 @@ void ChartManager::LoadDataFromFile(HWND hWnd, const std::wstring& filename)
     if (hWnd) {
         InvalidateRect(hWnd, nullptr, FALSE);
     }
+}
+
+void ChartManager::ShowChart2DataModeMenu(HWND hWnd) {
+    if (!uiModule || !uiModule->GetChart2SettingsBtn()) {
+        return;
+    }
+
+    HMENU menu = CreatePopupMenu();
+    if (!menu) {
+        return;
+    }
+
+    AppendMenu(menu, MF_STRING | (!chart2IndependentMode ? MF_CHECKED : 0),
+               IDM_CHART2_MODE_LINKED, L"Стандартный режим");
+    AppendMenu(menu, MF_STRING | (chart2IndependentMode ? MF_CHECKED : 0),
+               IDM_CHART2_MODE_INDEPENDENT, L"Отдельный файл");
+
+    RECT btnRect = {};
+    GetWindowRect(uiModule->GetChart2SettingsBtn(), &btnRect);
+    int command = TrackPopupMenu(menu,
+                                 TPM_RETURNCMD | TPM_LEFTALIGN | TPM_TOPALIGN,
+                                 btnRect.left,
+                                 btnRect.bottom,
+                                 0,
+                                 hWnd,
+                                 nullptr);
+    DestroyMenu(menu);
+
+    if (command == IDM_CHART2_MODE_LINKED) {
+        SetChart2IndependentMode(hWnd, false);
+    } else if (command == IDM_CHART2_MODE_INDEPENDENT) {
+        SetChart2IndependentMode(hWnd, true);
+    }
+}
+
+void ChartManager::SetChart2IndependentMode(HWND hWnd, bool independent) {
+    if (chart2IndependentMode == independent) {
+        if (uiModule) {
+            uiModule->SetChart2IndependentModeUi(independent);
+        }
+        return;
+    }
+
+    chart2IndependentMode = independent;
+
+    chart2Zoom = ZoomRange();
+    chart2ZoomHistory.clear();
+    ClearAxisHistory(2);
+    chart2Crosshair.isVisible = false;
+    chart2SnapshotCache = {};
+    chart2TemperatureCache = {};
+    chart2SnapshotWarmup = {};
+
+    if (!independent && schematicModule && schematicModule->targetChartNumber == 2) {
+        schematicModule->SetDataModule(dataModule.get());
+    }
+
+    if (uiModule) {
+        uiModule->SetChart2IndependentModeUi(independent);
+        uiModule->ResetXRangeControls(2);
+    }
+
+    UpdateStatusBarFileInfo();
+    UpdateYZoomTargetVisibility(2);
+    UpdateScrollBars(hWnd);
+    InvalidateChart(hWnd, 2);
+}
+
+void ChartManager::OpenChart2DataFile(HWND hWnd) {
+    if (!chart2IndependentDataModule || !asyncTaskQueue) {
+        return;
+    }
+
+    OPENFILENAME ofn = {};
+    WCHAR szFile[260] = { 0 };
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = hWnd;
+    ofn.lpstrFile = szFile;
+    ofn.nMaxFile = _countof(szFile);
+    ofn.lpstrFilter = L"All Data Files\0*.bin;*.biv;*.DEV\0Binary Files (*.bin)\0*.bin\0BIV Files (*.biv)\0*.biv\0DEV Files (*.DEV)\0*.DEV\0All Files\0*.*\0";
+    ofn.nFilterIndex = 1;
+    ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+    if (!GetOpenFileName(&ofn)) {
+        return;
+    }
+
+    SetChart2IndependentMode(hWnd, true);
+    const std::wstring filename = szFile;
+
+    if (uiModule) {
+        uiModule->UpdateStatusBar(L"Loading Chart 2 data file...");
+    }
+
+    asyncTaskQueue->PostWorkerTask([this, hWnd, filename]() {
+        DataLoadResult loadedData;
+        std::wstring loadError;
+        const bool loaded = DataModule::LoadDataFromFileResult(filename, loadedData, loadError);
+
+        AsyncTaskQueue::PostUiTask(hWnd, [this, hWnd, filename, loaded,
+                                          loadedData = std::move(loadedData),
+                                          loadError = std::move(loadError)]() mutable {
+            if (!loaded) {
+                const wchar_t* message = loadError.empty()
+                    ? L"Не удалось открыть файл данных для графика 2"
+                    : loadError.c_str();
+                MessageBox(hWnd, message, L"Ошибка открытия файла", MB_OK | MB_ICONERROR);
+                if (uiModule) {
+                    uiModule->UpdateStatusBar(L"Готов");
+                }
+                return;
+            }
+
+            chart2IndependentDataModule->ApplyLoadedData(std::move(loadedData));
+            chart2IndependentFilePath = filename;
+            chart2IndependentMode = true;
+
+            chart2Zoom = ZoomRange();
+            chart2ZoomHistory.clear();
+            ClearAxisHistory(2);
+            chart2Crosshair.isVisible = false;
+            chart2SnapshotCache = {};
+            chart2TemperatureCache = {};
+            chart2SnapshotWarmup = {};
+
+            if (schematicModule && schematicModule->targetChartNumber == 2) {
+                schematicModule->CloseSchematicDialog();
+            }
+
+            if (uiModule) {
+                uiModule->SetChart2IndependentModeUi(true);
+                uiModule->ResetXRangeControls(2);
+                if (uiModule->IsSurfEnabled(2)) {
+                    UpdateSurfRange(2);
+                }
+            }
+
+            UpdateStatusBarFileInfo();
+            UpdateYZoomTargetVisibility(2);
+            ScheduleAsyncCurveSnapshotWarmup(hWnd, 2, curveSelectionModule->GetChartConfiguration(2), chart2Zoom);
+            UpdateScrollBars(hWnd);
+            InvalidateChart(hWnd, 2);
+        });
+    });
 }
 
 bool ChartManager::PrepareSerialDisplayData(HWND hWnd, bool showFullFile, const std::wstring& filePathForPreload) {
@@ -1910,17 +2094,19 @@ bool ChartManager::ApplyPreparedSerialDisplayData(HWND hWnd,
     }
 
     chart1Zoom.isZoomed = false;
-    chart2Zoom.isZoomed = false;
     chart1Zoom.isXCustom = false;
-    chart2Zoom.isXCustom = false;
     chart1Zoom.isXToLatest = false;
-    chart2Zoom.isXToLatest = false;
     chart1Zoom.isYCustom = false;
-    chart2Zoom.isYCustom = false;
     chart1ZoomHistory.clear();
-    chart2ZoomHistory.clear();
     ClearAxisHistory(1);
-    ClearAxisHistory(2);
+    if (!chart2IndependentMode) {
+        chart2Zoom.isZoomed = false;
+        chart2Zoom.isXCustom = false;
+        chart2Zoom.isXToLatest = false;
+        chart2Zoom.isYCustom = false;
+        chart2ZoomHistory.clear();
+        ClearAxisHistory(2);
+    }
 
     if (dataModule->HasData() && uiModule) {
         if (uiModule->IsSurfEnabled(1)) {
@@ -1929,10 +2115,12 @@ bool ChartManager::ApplyPreparedSerialDisplayData(HWND hWnd,
             uiModule->ResetXRangeControls(1);
         }
 
-        if (uiModule->IsSurfEnabled(2)) {
-            UpdateSurfRange(2);
-        } else {
-            uiModule->ResetXRangeControls(2);
+        if (!chart2IndependentMode) {
+            if (uiModule->IsSurfEnabled(2)) {
+                UpdateSurfRange(2);
+            } else {
+                uiModule->ResetXRangeControls(2);
+            }
         }
 
         UpdateSurfStatusBar();
@@ -2135,9 +2323,6 @@ void ChartManager::HandleLegendCheckboxClick(HWND hWnd, int x, int y, int chartI
 
 // Обработчики событий мыши
 void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
-    if (!dataModule->HasData())
-        return;
-
     RECT chart1Rect = layoutModule->GetChart1Rect();
     RECT chart2Rect = layoutModule->GetChart2Rect();
 
@@ -2145,6 +2330,11 @@ void ChartManager::HandleMouseDown(HWND hWnd, int x, int y) {
 
     // Выделение области — только по области графика
     if (clickedChart == 0) {
+        return;
+    }
+
+    DataModule* chartData = GetDataModuleForChart(clickedChart);
+    if (!chartData || !chartData->HasData()) {
         return;
     }
 
@@ -2345,7 +2535,7 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
             ChartConfiguration frozenConfig = GetChartConfiguration(activeChart);
             const CachedCurveSnapshot* frozenSnap = nullptr;
             if (!frozenConfig.curves.empty() &&
-                TryGetCurveSnapshot(activeChart, frozenConfig, *currentZoom, !ShouldUseAsyncCurveWarmup(), frozenSnap)) {
+                TryGetCurveSnapshot(activeChart, frozenConfig, *currentZoom, !ShouldUseAsyncCurveWarmup(activeChart), frozenSnap)) {
 
                 if (yTarget == YZoomTarget::LEFT_ONLY && !frozenSnap->rightAxisData.empty()) {
                     // Вычисляем текущий отображаемый диапазон правой оси и замораживаем его
@@ -2376,7 +2566,8 @@ void ChartManager::HandleMouseUp(HWND hWnd, int x, int y)
         // Surf ON: zoom только по оси Y, X всегда фиксирован на окне Surf (последние N точек).
         if (surfEnabled) {
             // Фиксируем X диапазон на окно Surf (последние N точек)
-            size_t dataSize = dataModule->GetDataSize();
+            DataModule* chartData = GetDataModuleForChart(activeChart);
+            size_t dataSize = chartData ? chartData->GetDataSize() : 0;
             int surfWindow = uiModule->GetSurfWindowSize(activeChart);
             double surfMinX = (dataSize > static_cast<size_t>(surfWindow))
                 ? static_cast<double>(dataSize - surfWindow) : 0.0;
@@ -2569,6 +2760,7 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
 
     CrosshairPosition* crosshair = (chartNumber == 1) ? &chart1Crosshair : &chart2Crosshair;
     const bool hasCrosshair = crosshair && crosshair->isVisible && crosshair->chartNumber == chartNumber;
+    const bool canAddNote = hasCrosshair && !(chartNumber == 2 && chart2IndependentMode);
 
     HMENU hMenu = CreatePopupMenu();
     if (!hMenu) {
@@ -2578,7 +2770,7 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
     AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_FROM, L"Установить как X начальное");
     AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_SET_X_TO, L"Установить как X конечное");
     AppendMenuW(hMenu, MF_SEPARATOR, 0, NULL);
-    AppendMenuW(hMenu, MF_STRING | (hasCrosshair ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
+    AppendMenuW(hMenu, MF_STRING | (canAddNote ? MF_ENABLED : MF_GRAYED), IDM_CHART_ADD_NOTE, L"Создать заметку");
 
     POINT screenPoint = { x, y };
     ClientToScreen(hWnd, &screenPoint);
@@ -2600,8 +2792,9 @@ void ChartManager::HandleRightClick(HWND hWnd, int x, int y)
 
     if (selected == IDM_CHART_SET_X_FROM || selected == IDM_CHART_SET_X_TO) {
         double selectedX = crosshair->dataX;
-        if (dataModule && dataModule->HasData()) {
-            const double maxX = static_cast<double>(dataModule->GetDataSize() > 0 ? (dataModule->GetDataSize() - 1) : 0);
+        DataModule* chartData = GetDataModuleForChart(chartNumber);
+        if (chartData && chartData->HasData()) {
+            const double maxX = static_cast<double>(chartData->GetDataSize() > 0 ? (chartData->GetDataSize() - 1) : 0);
             if (selectedX < 0.0) selectedX = 0.0;
             if (selectedX > maxX) selectedX = maxX;
         }
@@ -2644,6 +2837,7 @@ int ChartManager::GetChartAtPoint(int x, int y) const {
 void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const {
     const RECT* chartRect = nullptr;
     const ZoomRange* zoom = nullptr;
+    DataModule* chartData = GetDataModuleForChart(chartNum);
 
     if (chartNum == 1) {
         chartRect = &layoutModule->GetChart1Rect();
@@ -2687,12 +2881,13 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 
     // v2.10.0: Для кроссплота (температура на оси X) нужно преобразовать координаты по-другому
     VisibleFrameAxisRange visibleXRange = {};
-    BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
+    BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX,
+                               chartData ? chartData->GetDataSize() : 0, visibleXRange);
     const double linearDataX = visibleXRange.minX + xRatio * (visibleXRange.maxX - visibleXRange.minX);
     if (config.xAxisType == XAxisType::TEMPERATURE) {
         // В режиме кроссплота экранная X координата соответствует температуре
         // Но zoom всё равно работает с индексами кадров
-        dataX = ResolveTemperatureAxisDataX(chartNum, *zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
+        dataX = ResolveTemperatureAxisDataX(chartNum, *zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup(chartNum));
     } else {
         // Обычный режим: номер кадра на оси X
         dataX = linearDataX;
@@ -2703,7 +2898,7 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
     ChartConfiguration config2 = curveSelectionModule->GetChartConfiguration(chartNum);
     const CachedCurveSnapshot* curveSnapshot = nullptr;
     ZoomRange fullRangeSnapshot = {};
-    if (!TryGetCurveSnapshot(chartNum, config2, fullRangeSnapshot, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+    if (!TryGetCurveSnapshot(chartNum, config2, fullRangeSnapshot, !ShouldUseAsyncCurveWarmup(chartNum), curveSnapshot)) {
         dataY = 0.0;
         return;
     }
@@ -2729,9 +2924,13 @@ void ChartManager::ConvertScreenToDataCoords(int chartNum, int screenX, int scre
 // Осевой undo zoom (для кнопок "-" на скроллбарах). Отдельный метод, чтобы не смешивать с прокруткой стрелками скроллбара.
 void ChartManager::HandleAxisUndoZoomStep(HWND hWnd, int chartNumber, bool isVertical) {
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
+        return;
+    }
 
     const double fullMinX = 0.0;
-    const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    const double fullMaxX = static_cast<double>(chartData->GetDataSize() - 1);
     double xLockMin = fullMinX;
     double xLockMax = fullMaxX;
 
@@ -2794,14 +2993,14 @@ void ChartManager::HandleAxisUndoZoomStep(HWND hWnd, int chartNumber, bool isVer
                 zoom->maxX = prevAxis.max;
                 zoom->isXCustom = true;
                 zoom->hasXRangeLock = prevAxis.hasXRangeLock;
-            } else if (dataModule && dataModule->HasData()) {
+            } else if (chartData && chartData->HasData()) {
                 zoom->minX = xLockMin;
                 zoom->maxX = xLockMax;
                 zoom->isXCustom = false;
                 zoom->hasXRangeLock = false;
                 zoom->isXToLatest = false;
             }
-        } else if (dataModule && dataModule->HasData()) {
+        } else if (chartData && chartData->HasData()) {
             zoom->minX = xLockMin;
             zoom->maxX = xLockMax;
             zoom->isXCustom = false;
@@ -2851,9 +3050,13 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
 
     ZoomRange* zoom = (chartNumber == 1) ? &chart1Zoom : &chart2Zoom;
     std::vector<ZoomRange>* zoomHistory = (chartNumber == 1) ? &chart1ZoomHistory : &chart2ZoomHistory;
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
+        return;
+    }
 
     const double fullMinX = 0.0;
-    const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+    const double fullMaxX = static_cast<double>(chartData->GetDataSize() - 1);
     double xLockMin = fullMinX;
     double xLockMax = fullMaxX;
 
@@ -2930,7 +3133,7 @@ void ChartManager::HandleScrollEvent(HWND hWnd, WPARAM wParam, LPARAM lParam) {
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
         
         // Получаем данные для текущего X диапазона
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(), leftAxisData, rightAxisData,
+        curveSelectionModule->CalculateCurveData(config, chartData, leftAxisData, rightAxisData,
                                                  leftAxisCurves, rightAxisCurves,
                                                  zoom->minX, zoom->maxX, -1e10, 1e10);
         
@@ -3123,7 +3326,10 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         } else {
             std::vector<ZoomRange>* zoomHistory = &chart1ZoomHistory;
             const double fullMinX = 0.0;
-            const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+            DataModule* chart1Data = GetDataModuleForChart(1);
+            const double fullMaxX = (chart1Data && chart1Data->HasData())
+                ? static_cast<double>(chart1Data->GetDataSize() - 1)
+                : 0.0;
             double xLockMin = fullMinX;
             double xLockMax = fullMaxX;
 
@@ -3177,7 +3383,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
         if (showVScroll1) {
         ChartConfiguration config = curveSelectionModule->GetChartConfiguration(1);
         const CachedCurveSnapshot* curveSnapshot = nullptr;
-        if (!TryGetCurveSnapshot(1, config, chart1Zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+        if (!TryGetCurveSnapshot(1, config, chart1Zoom, !ShouldUseAsyncCurveWarmup(1), curveSnapshot)) {
             ScheduleAsyncCurveSnapshotWarmup(hWnd, 1, config, chart1Zoom);
             uiModule->SetVScrollBarRange(1, 0, 100, 100, 50);
         } else {
@@ -3269,8 +3475,13 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
                 }
             } else {
                 std::vector<ZoomRange>* zoomHistory = &chart2ZoomHistory;
+                DataModule* chart2Data = GetDataModuleForChart(2);
+                if (!chart2Data || !chart2Data->HasData()) {
+                    uiModule->ShowScrollBars(2, false);
+                    return;
+                }
                 const double fullMinX = 0.0;
-                const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
+                const double fullMaxX = static_cast<double>(chart2Data->GetDataSize() - 1);
                 double xLockMin = fullMinX;
                 double xLockMax = fullMaxX;
 
@@ -3322,7 +3533,7 @@ void ChartManager::UpdateScrollBars(HWND hWnd) {
             if (showVScroll2) {
             ChartConfiguration config = curveSelectionModule->GetChartConfiguration(2);
             const CachedCurveSnapshot* curveSnapshot = nullptr;
-            if (!TryGetCurveSnapshot(2, config, chart2Zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+            if (!TryGetCurveSnapshot(2, config, chart2Zoom, !ShouldUseAsyncCurveWarmup(2), curveSnapshot)) {
                 ScheduleAsyncCurveSnapshotWarmup(hWnd, 2, config, chart2Zoom);
                 uiModule->SetVScrollBarRange(2, 0, 100, 100, 50);
             } else {
@@ -3420,6 +3631,8 @@ void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
     if (!schematicModule || !curveSelectionModule) {
         return;
     }
+
+    schematicModule->SetDataModule(GetDataModuleForChart(chartNumber));
     
     // Показываем немодальное диалоговое окно схемы прибора
     // Окно остаётся открытым после Apply, поэтому не нужно обрабатывать возвращаемое значение
@@ -3431,7 +3644,8 @@ void ChartManager::ShowSchematicDialog(HWND hWnd, int chartNumber) {
 
 // Методы для новой системы кривых
 void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chartNumber) {
-    if (!curveSelectionModule || !dataModule) return;
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!curveSelectionModule || !chartData) return;
     
     // Получаем конфигурацию кривых
     ChartConfiguration config = curveSelectionModule->GetChartConfiguration(chartNumber);
@@ -3451,9 +3665,28 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         FrequencyBand frequency = config.curves[0].frequency;
         title += (frequency == FrequencyBand::FREQ_400_KHZ) ? L" (400 kHz)" : L" (2000 kHz)";
     }
+    if (chart2IndependentMode) {
+        std::wstring fileLabel = GetDataFileLabelForChart(chartNumber);
+        if (!fileLabel.empty()) {
+            title += L" - " + fileLabel;
+        }
+    }
 
-    if (!TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
-        if (ShouldUseAsyncCurveWarmup() && staleCurveCache->valid) {
+    // Если график 2 в независимом режиме и файл ещё не загружен,
+    // рисуем пустой график с сеткой и осями, а не оставляем белое пространство.
+    if (chartNumber == 2 && chart2IndependentMode && chartData && !chartData->HasData()) {
+        chartModule->DrawDualAxisBackground(hdc, chartRect);
+        chartModule->DrawChartBorder(hdc, chartRect);
+        chartModule->DrawChartTitle(hdc, chartRect, title);
+        RECT plotRect = chartModule->CalculateDualAxisPlotRect(chartRect);
+        chartModule->DrawChartAxes(hdc, plotRect, true);
+        chartModule->DrawGridOnly(hdc, plotRect);
+        chartModule->DrawNoDataMessage(hdc, chartRect, L"Загрузите файл данных");
+        return;
+    }
+
+    if (!TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(chartNumber), curveSnapshot)) {
+        if (ShouldUseAsyncCurveWarmup(chartNumber) && staleCurveCache->valid) {
             curveSnapshot = staleCurveCache;
         } else {
             chartModule->DrawDualAxisBackground(hdc, chartRect);
@@ -3474,8 +3707,8 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 
         const CachedTemperatureAxisData* temperatureAxis = nullptr;
         const CachedTemperatureAxisData* staleTemperatureCache = (chartNumber == 1) ? &chart1TemperatureCache : &chart2TemperatureCache;
-        if (!TryGetTemperatureAxisData(chartNumber, *zoom, !ShouldUseAsyncCurveWarmup(), temperatureAxis)) {
-            if (ShouldUseAsyncCurveWarmup() && staleTemperatureCache->valid) {
+        if (!TryGetTemperatureAxisData(chartNumber, *zoom, !ShouldUseAsyncCurveWarmup(chartNumber), temperatureAxis)) {
+            if (ShouldUseAsyncCurveWarmup(chartNumber) && staleTemperatureCache->valid) {
                 temperatureAxis = staleTemperatureCache;
             } else {
                 chartModule->DrawDualAxisBackground(hdc, chartRect);
@@ -3530,7 +3763,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
         const double minYData = curveSnapshot->minY1;
         const double maxYData = curveSnapshot->maxY1;
         VisibleFrameAxisRange visibleXRange = {};
-        BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, dataModule->GetDataSize(), visibleXRange);
+        BuildVisibleFrameAxisRange(zoom->isZoomed, zoom->minX, zoom->maxX, chartData->GetDataSize(), visibleXRange);
         
         // Проверяем, нужны ли двойные оси
         if (config.hasDualAxis && !rightAxisData.empty()) {
@@ -3560,7 +3793,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 
             DrawFrameAxisChart(*chartModule, hdc, chartRect, config.curves,
                                leftAxisData, rightAxisData,
-                               title, dataModule->HasData(), visibleXRange,
+                               title, chartData->HasData(), visibleXRange,
                                displayMinY, displayMaxY,
                                config, showAxes,
                                useExplicitRightAxisRange,
@@ -3579,7 +3812,7 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 
                 DrawFrameAxisChart(*chartModule, hdc, chartRect, leftAxisCurves,
                                    leftAxisData, std::vector<std::vector<float>>(),
-                                   title, dataModule->HasData(), visibleXRange,
+                                   title, chartData->HasData(), visibleXRange,
                                    displayMinY, displayMaxY,
                                    config, showAxes,
                                    false, 0.0, 0.0);
@@ -3590,10 +3823,17 @@ void ChartManager::DrawChartWithCurves(HDC hdc, const RECT& chartRect, int chart
 
 void ChartManager::DrawChartLegacy(HDC hdc, const RECT& chartRect, int chartNumber) {
     // Проверяем, загружены ли данные
-    bool hasData = dataModule && dataModule->HasData();
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    bool hasData = chartData && chartData->HasData();
     
     // "График " в Unicode escape
     std::wstring title = L"\x0413\x0440\x0430\x0444\x0438\x043A " + std::to_wstring(chartNumber);
+    if (chart2IndependentMode) {
+        std::wstring fileLabel = GetDataFileLabelForChart(chartNumber);
+        if (!fileLabel.empty()) {
+            title += L" - " + fileLabel;
+        }
+    }
     
     // Отрисовываем фон и рамку графика вручную (без подписей осей)
     chartModule->DrawChartBackground(hdc, chartRect);
@@ -3805,7 +4045,8 @@ void ChartManager::HandlePresetCommand(HWND hWnd, int chartNumber, int presetId,
             return; // Неизвестный пресет
     }
 
-    if (!dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
         MessageBox(hWnd,
                    L"Невозможно вывести кривые на график: данные отсутствуют.\nОткройте файл данных или подключите прибор к COM-порту.",
                    L"Нет данных для отображения",
@@ -3864,7 +4105,8 @@ void ChartManager::HandleLegacyUIChange(HWND hWnd, int chartNumber) {
 
 // Методы для обработки X Range
 void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
-    if (!dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
         wchar_t message[256];
         swprintf_s(message, L"No data loaded for Chart %d", chartNumber);
         MessageBox(hWnd, message, L"X Range", MB_OK | MB_ICONWARNING);
@@ -3881,7 +4123,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     }
     
     // Получаем максимальное значение данных
-    double dataSize = static_cast<double>(dataModule->GetDataSize() - 1);
+    double dataSize = static_cast<double>(chartData->GetDataSize() - 1);
     
     // Получаем значения из полей ввода для указанного графика
     double fromX, toX;
@@ -3937,7 +4179,7 @@ void ChartManager::HandleXRangeApply(HWND hWnd, int chartNumber) {
     ClearExplicitRightAxisRange(zoom->minYRight, zoom->maxYRight, zoom->hasRightAxisCustomRange);
 
     const CachedCurveSnapshot* curveSnapshot = nullptr;
-    if (TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+    if (TryGetCurveSnapshot(chartNumber, config, *zoom, !ShouldUseAsyncCurveWarmup(chartNumber), curveSnapshot)) {
         const double yRange = curveSnapshot->maxY1 - curveSnapshot->minY1;
         const double padding = yRange * 0.05;
         zoom->minY = curveSnapshot->minY1 - padding;
@@ -4056,11 +4298,12 @@ void ChartManager::HandleUndoZoomStep(HWND hWnd, int chartNumber) {
     PopAxisHistoryX(chartNumber, axisState);
     PopAxisHistoryY(chartNumber, axisState);
 
-    if (uiModule->IsSurfEnabled(chartNumber) && dataModule && dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (uiModule->IsSurfEnabled(chartNumber) && chartData && chartData->HasData()) {
         if (!zoom->isYCustom) {
             UpdateSurfRange(chartNumber);
         } else {
-            size_t dataSize = dataModule->GetDataSize();
+            size_t dataSize = chartData->GetDataSize();
             int surfWindow = uiModule->GetSurfWindowSize(chartNumber);
             zoom->minX = (dataSize > static_cast<size_t>(surfWindow))
                 ? static_cast<double>(dataSize - surfWindow) : 0.0;
@@ -4076,16 +4319,16 @@ void ChartManager::HandleUndoZoomStep(HWND hWnd, int chartNumber) {
 }
 
 void ChartManager::UpdateXRangeUI(HWND hWnd) {
-    if (!dataModule || !dataModule->HasData()) {
-        uiModule->ResetXRangeControls(1);
-        uiModule->ResetXRangeControls(2);
-        return;
-    }
-
     const bool isSerialRealtime = serialModule && serialModule->IsPolling();
-    const double fullMaxX = static_cast<double>(dataModule->GetDataSize() - 1);
 
-    auto updateChartXRange = [this, isSerialRealtime, fullMaxX](int chartNumber, ZoomRange& zoom) {
+    auto updateChartXRange = [this, isSerialRealtime](int chartNumber, ZoomRange& zoom) {
+        DataModule* chartData = GetDataModuleForChart(chartNumber);
+        if (!chartData || !chartData->HasData()) {
+            uiModule->ResetXRangeControls(chartNumber);
+            return;
+        }
+
+        const double fullMaxX = static_cast<double>(chartData->GetDataSize() - 1);
         const bool surfEnabled = uiModule->IsSurfEnabled(chartNumber);
 
         if (surfEnabled) {
@@ -4443,7 +4686,8 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
                                               double& dataX, double& dataY1, double& dataY2,
                                               std::wstring& y1Unit, std::wstring& y2Unit,
                                               bool& hasDualAxis) const {
-    if (!dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNum);
+    if (!chartData || !chartData->HasData()) {
         return false;
     }
 
@@ -4472,7 +4716,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
 
         // Получаем данные для кривых с учетом zoom по X (как в DrawChartWithCurves)
         const CachedCurveSnapshot* curveSnapshot = nullptr;
-        if (!TryGetCurveSnapshot(chartNum, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+        if (!TryGetCurveSnapshot(chartNum, config, zoom, !ShouldUseAsyncCurveWarmup(chartNum), curveSnapshot)) {
             return false;
         }
         auto& leftAxisData = curveSnapshot->leftAxisData;
@@ -4535,7 +4779,7 @@ bool ChartManager::ConvertScreenToChartCoords(int chartNum, int screenX, int scr
         // поэтому нужна привязка к ближайшему индексу по температуре.
         const double linearDataX = minX + xRatio * (maxX - minX);
         if (config.xAxisType == XAxisType::TEMPERATURE) {
-            dataX = ResolveTemperatureAxisDataX(chartNum, zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup());
+            dataX = ResolveTemperatureAxisDataX(chartNum, zoom, xRatio, linearDataX, !ShouldUseAsyncCurveWarmup(chartNum));
         } else {
             dataX = linearDataX;
         }
@@ -4651,6 +4895,33 @@ void ChartManager::OpenContainingFolderForCurrentData(HWND hWnd) {
 // Обновление информации о файле в статусной строке
 void ChartManager::UpdateStatusBarFileInfo() {
     if (!uiModule) return;
+
+    if (chart2IndependentMode) {
+        DataModule* chart1Data = GetDataModuleForChart(1);
+        DataModule* chart2Data = GetDataModuleForChart(2);
+        std::wstring chart1File = GetDataFileLabelForChart(1);
+        std::wstring chart2File = GetDataFileLabelForChart(2);
+        if (chart1File.empty()) chart1File = L"нет файла";
+        if (chart2File.empty()) chart2File = L"нет файла";
+
+        const size_t chart1Frames = chart1Data && chart1Data->HasData() ? chart1Data->GetDataSize() : 0;
+        const size_t chart2Frames = chart2Data && chart2Data->HasData() ? chart2Data->GetDataSize() : 0;
+        std::wstring fileInfo = L"Г1: " + chart1File + L" (" + std::to_wstring(chart1Frames) +
+            L") | Г2: " + chart2File + L" (" + std::to_wstring(chart2Frames) + L")";
+        SendMessage(uiModule->GetStatusBar(), SB_SETTEXT, 4, (LPARAM)fileInfo.c_str());
+        SyncStatusBarFolderIcon();
+
+        if (IsComRecordingInBackground()) {
+            std::wstring port = serialModule ? serialModule->GetConnectedPort() : L"COM?";
+            uint32_t recFrames = serialModule ? serialModule->GetRecordedFrames() : 0;
+            wchar_t bgInfo[128];
+            swprintf_s(bgInfo, L"Фон. запись: %s (%u)", port.c_str(), recFrames);
+            uiModule->UpdateStatusBar(bgInfo);
+        } else {
+            uiModule->UpdateStatusBar(L"Готов");
+        }
+        return;
+    }
     
     if (dataModule && dataModule->HasData()) {
         std::wstring fileName = dataModule->GetLoadedFileName();
@@ -4746,7 +5017,8 @@ void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
 }
 
 void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumber) {
-    if (!hdc || !notesModule || !notesModule->IsLoaded() || !dataModule || !dataModule->HasData() || !curveSelectionModule || !chartModule) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!hdc || !notesModule || !notesModule->IsLoaded() || !chartData || !chartData->HasData() || !curveSelectionModule || !chartModule) {
         return;
     }
 
@@ -4769,7 +5041,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     // Zoom & X range
     ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
     VisibleFrameAxisRange visibleXRange = {};
-    BuildVisibleFrameAxisRange(zoom.isZoomed, zoom.minX, zoom.maxX, dataModule->GetDataSize(), visibleXRange);
+    BuildVisibleFrameAxisRange(zoom.isZoomed, zoom.minX, zoom.maxX, chartData->GetDataSize(), visibleXRange);
     const double minXData = visibleXRange.minX;
     const double maxXData = visibleXRange.maxX;
     const double xRange = (maxXData - minXData);
@@ -4777,7 +5049,7 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
 
     // Получаем диапазоны Y (как в ConvertScreenToChartCoords / DrawChartWithCurves)
     const CachedCurveSnapshot* curveSnapshot = nullptr;
-    if (!TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(), curveSnapshot)) {
+    if (!TryGetCurveSnapshot(chartNumber, config, zoom, !ShouldUseAsyncCurveWarmup(chartNumber), curveSnapshot)) {
         return;
     }
     auto& leftAxisData = curveSnapshot->leftAxisData;
@@ -4824,10 +5096,10 @@ void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumb
     // Для TEMPERATURE нужны minTemp/maxTemp по видимому диапазону индексов
     float minTemp = 0.0f, maxTemp = 0.0f;
     bool hasTempRange = false;
-    const size_t dataSize = dataModule->GetDataSize();
+    const size_t dataSize = chartData->GetDataSize();
     if (config.xAxisType == XAxisType::TEMPERATURE && dataSize > 0) {
         const CachedTemperatureAxisData* temperatureAxis = nullptr;
-        if (TryGetTemperatureAxisData(chartNumber, zoom, !ShouldUseAsyncCurveWarmup(), temperatureAxis) && !temperatureAxis->temperatureData.empty()) {
+        if (TryGetTemperatureAxisData(chartNumber, zoom, !ShouldUseAsyncCurveWarmup(chartNumber), temperatureAxis) && !temperatureAxis->temperatureData.empty()) {
             auto tempRange = std::minmax_element(temperatureAxis->temperatureData.begin(), temperatureAxis->temperatureData.end());
             minTemp = *tempRange.first;
             maxTemp = *tempRange.second;
@@ -5305,25 +5577,29 @@ void ChartManager::HandleSerialClear(HWND hWnd) {
     
     // Сбрасываем zoom
     chart1Zoom.isZoomed = false;
-    chart2Zoom.isZoomed = false;
     chart1Zoom.isXCustom = false;
-    chart2Zoom.isXCustom = false;
     chart1Zoom.hasXRangeLock = false;
-    chart2Zoom.hasXRangeLock = false;
     chart1Zoom.isXToLatest = false;
-    chart2Zoom.isXToLatest = false;
     chart1Zoom.isYCustom = false;
-    chart2Zoom.isYCustom = false;
     chart1ZoomHistory.clear();
-    chart2ZoomHistory.clear();
     ClearAxisHistory(1);
-    ClearAxisHistory(2);
+    if (!chart2IndependentMode) {
+        chart2Zoom.isZoomed = false;
+        chart2Zoom.isXCustom = false;
+        chart2Zoom.hasXRangeLock = false;
+        chart2Zoom.isXToLatest = false;
+        chart2Zoom.isYCustom = false;
+        chart2ZoomHistory.clear();
+        ClearAxisHistory(2);
+    }
     
     // Обновляем UI
     if (uiModule) {
         uiModule->UpdateSerialFrameInfo(0, 0, 0);
         uiModule->ResetXRangeControls(1);
-        uiModule->ResetXRangeControls(2);
+        if (!chart2IndependentMode) {
+            uiModule->ResetXRangeControls(2);
+        }
     }
     
     // Перерисовываем графики
@@ -5360,7 +5636,8 @@ bool ChartManager::IsSerialPolling() const {
 // === Методы для режима Surf (v2.14.0) ===
 
 void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
-    if (!dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
         return;
     }
     
@@ -5398,7 +5675,8 @@ void ChartManager::HandleSurfToggle(HWND hWnd, int chartNumber) {
 }
 
 void ChartManager::UpdateSurfRange(int chartNumber) {
-    if (!dataModule || !dataModule->HasData()) {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!chartData || !chartData->HasData()) {
         return;
     }
     
@@ -5406,7 +5684,7 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
         return;
     }
     
-    size_t dataSize = dataModule->GetDataSize();
+    size_t dataSize = chartData->GetDataSize();
     int surfWindow = uiModule->GetSurfWindowSize(chartNumber);
     
     double surfMinX = (dataSize > static_cast<size_t>(surfWindow)) 
@@ -5431,7 +5709,7 @@ void ChartManager::UpdateSurfRange(int chartNumber) {
         std::vector<CurveDefinition> leftAxisCurves, rightAxisCurves;
         
         // Передаём большой диапазон Y, чтобы не фильтровать по Y
-        curveSelectionModule->CalculateCurveData(config, dataModule.get(),
+        curveSelectionModule->CalculateCurveData(config, chartData,
                                                 leftAxisData, rightAxisData,
                                                 leftAxisCurves, rightAxisCurves,
                                                 surfMinX, surfMaxX, -1e30, 1e30);
@@ -5578,24 +5856,28 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
     // Восстанавливаем контекст COM-сессии если есть снапшот
     if (comSessionSnapshot.hasSnapshot) {
         chart1Zoom = comSessionSnapshot.chart1Zoom;
-        chart2Zoom = comSessionSnapshot.chart2Zoom;
         chart1ZoomHistory = comSessionSnapshot.chart1ZoomHistory;
-        chart2ZoomHistory = comSessionSnapshot.chart2ZoomHistory;
         chart1XZoomHistory = comSessionSnapshot.chart1XZoomHistory;
         chart1YZoomHistory = comSessionSnapshot.chart1YZoomHistory;
-        chart2XZoomHistory = comSessionSnapshot.chart2XZoomHistory;
-        chart2YZoomHistory = comSessionSnapshot.chart2YZoomHistory;
+        if (!chart2IndependentMode) {
+            chart2Zoom = comSessionSnapshot.chart2Zoom;
+            chart2ZoomHistory = comSessionSnapshot.chart2ZoomHistory;
+            chart2XZoomHistory = comSessionSnapshot.chart2XZoomHistory;
+            chart2YZoomHistory = comSessionSnapshot.chart2YZoomHistory;
+        }
         if (notesModule && !comSessionSnapshot.notesPath.empty()) {
             EnsureNotesLoadedForPath(comSessionSnapshot.notesPath);
         }
     } else {
         // Сбрасываем zoom
         chart1Zoom = ZoomRange();
-        chart2Zoom = ZoomRange();
         chart1ZoomHistory.clear();
-        chart2ZoomHistory.clear();
         ClearAxisHistory(1);
-        ClearAxisHistory(2);
+        if (!chart2IndependentMode) {
+            chart2Zoom = ZoomRange();
+            chart2ZoomHistory.clear();
+            ClearAxisHistory(2);
+        }
     }
 
     comSessionSnapshot.hasSnapshot = false;
@@ -5630,10 +5912,12 @@ void ChartManager::ReturnToComLive(HWND hWnd) {
         } else {
             uiModule->ResetXRangeControls(1);
         }
-        if (uiModule->IsSurfEnabled(2)) {
-            UpdateSurfRange(2);
-        } else {
-            uiModule->ResetXRangeControls(2);
+        if (!chart2IndependentMode) {
+            if (uiModule->IsSurfEnabled(2)) {
+                UpdateSurfRange(2);
+            } else {
+                uiModule->ResetXRangeControls(2);
+            }
         }
         UpdateSurfStatusBar();
     }

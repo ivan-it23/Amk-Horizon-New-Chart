@@ -100,10 +100,13 @@ UIModule::UIModule()
     , hCursor2Y2Edit(nullptr)
     , hStatusBar(nullptr)
     , hStatusBarFolderIcon(nullptr)
+    , hChart2OpenFileIcon(nullptr)
     , hChart1SurfCheck(nullptr)
     , hChart1SurfEdit(nullptr)
     , hChart2SurfCheck(nullptr)
     , hChart2SurfEdit(nullptr)
+    , hChart2SettingsBtn(nullptr)
+    , hChart2OpenFileBtn(nullptr)
     , hChart1UndoZoomBtn(nullptr)
     , hChart2UndoZoomBtn(nullptr)
     , hChart1ShowNotesCheck(nullptr)
@@ -129,6 +132,10 @@ UIModule::~UIModule() {
     if (hStatusBarFolderIcon) {
         DestroyIcon(hStatusBarFolderIcon);
         hStatusBarFolderIcon = nullptr;
+    }
+    if (hChart2OpenFileIcon) {
+        DestroyIcon(hChart2OpenFileIcon);
+        hChart2OpenFileIcon = nullptr;
     }
     if (hAppFont) {
         DeleteObject(hAppFont);
@@ -404,6 +411,14 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
         WS_CHILD | WS_BORDER | ES_NUMBER | ES_CENTER,
         surf2StartX + 63, 298, 45, 22, hWnd, (HMENU)IDC_CHART2_SURF_EDIT, hInst, NULL);
 
+    hChart2SettingsBtn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW,
+        surf2StartX + 113, 298, 24, 22, hWnd, (HMENU)IDC_CHART2_SETTINGS_BTN, hInst, NULL);
+
+    hChart2OpenFileBtn = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | BS_OWNERDRAW,
+        surf2StartX + 140, 298, 24, 22, hWnd, (HMENU)IDC_CHART2_OPEN_FILE_BTN, hInst, NULL);
+
     // === Переключатель цели Y-zoom для Chart 2 (v2.18.0) ===
     // Размещаем рядом с кнопкой undo zoom на графике, изначально скрыт (показывается только при dual-axis)
     hChart2YZoomLabel = CreateWindow(L"STATIC", L"Zoom \x043E\x0441\x0438 Y:",
@@ -430,7 +445,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     // Элементы отображения координат курсора для Chart 2 (компактный дизайн v2.15.1, изначально скрыты)
     // ПЕРЕМЕЩЕНО: Cursor теперь КРАЙНИЙ СПРАВА (v2.15.1)
     // Формат: 📍 [X] : [Y1 unit] | [Y2 unit]
-    int cursor2StartX = surf2StartX + 113;  // После «Поток» и поля N
+    int cursor2StartX = surf2StartX + 169;  // После «Поток», поля N и кнопок режима Chart 2
     
     // Иконка маркера (Owner-Draw для красного цвета)
     // v2.14.2: Добавлен SS_NOTIFY для обработки клика (сброс перекрестия)
@@ -501,6 +516,8 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
     CreateTooltip(hWnd, hXRange2ResetBtn, L"Сбросить");
     CreateTooltip(hWnd, hResetZoom2Btn, L"Сбросить Zoom");
     CreateTooltip(hWnd, hChart2UndoZoomBtn, L"Отменить последний zoom");
+    CreateTooltip(hWnd, hChart2SettingsBtn, L"Режим данных графика 2");
+    CreateTooltip(hWnd, hChart2OpenFileBtn, L"Открыть файл для графика 2");
 
     // Tooltips для осевого undo
     CreateTooltip(hWnd, hChart1HUndoBtn, L"Undo X zoom step");
@@ -525,6 +542,7 @@ void UIModule::CreateControls(HWND hWnd, HINSTANCE hInst) {
             hXRange2ApplyBtn, hXRange2ResetBtn,
             hChart1SurfCheck, hChart1SurfEdit,
             hChart2SurfCheck, hChart2SurfEdit,
+            hChart2SettingsBtn, hChart2OpenFileBtn,
             hChart1HUndoBtn, hChart1VUndoBtn,
             hChart2HUndoBtn, hChart2VUndoBtn,
             hChart1YZoomLabel, hChart1YZoomTargetCombo,
@@ -590,6 +608,10 @@ void UIModule::UpdateControlsVisibility(bool showChart2Controls) {
     // Показываем/скрываем элементы Surf для Chart 2 (v2.14.0)
     ShowWindow(hChart2SurfCheck, showFlag);
     ShowWindow(hChart2SurfEdit, showFlag);
+    ShowWindow(hChart2SettingsBtn, showFlag);
+    if (!showChart2Controls) {
+        ShowWindow(hChart2OpenFileBtn, SW_HIDE);
+    }
 
     // Показываем/скрываем чекбокс отображения заметок для Chart 2
     ShowWindow(hChart2UndoZoomBtn, showFlag);
@@ -625,9 +647,11 @@ void UIModule::PositionChart2Controls(int panel2Y) {
     int surf2StartX = xRange2StartX + 263;
     SetWindowPos(hChart2SurfCheck, HWND_TOP, surf2StartX, yPos, 58, 20, SWP_NOSIZE);
     SetWindowPos(hChart2SurfEdit, HWND_TOP, surf2StartX + 63, yPos - 2, 45, 22, SWP_NOSIZE);
+    SetWindowPos(hChart2SettingsBtn, HWND_TOP, surf2StartX + 113, yPos - 2, 24, 22, SWP_NOSIZE);
+    SetWindowPos(hChart2OpenFileBtn, HWND_TOP, surf2StartX + 140, yPos - 2, 24, 22, SWP_NOSIZE);
     
     // Позиционируем элементы координат курсора для Chart 2 (v2.15.1 - Cursor КРАЙНИЙ СПРАВА)
-    int cursor2StartX = surf2StartX + 113;  // После «Поток» + поле N (YZoom combo на графике)
+    int cursor2StartX = surf2StartX + 169;  // После «Поток», поля N и кнопок режима Chart 2
     SetWindowPos(hCursor2Icon, HWND_TOP, cursor2StartX, yPos, 20, 20, SWP_NOSIZE);
     SetWindowPos(hCursor2XEdit, HWND_TOP, cursor2StartX + 22, yPos - 2, 45, 22, SWP_NOSIZE);
     SetWindowPos(hCursor2Separator, HWND_TOP, cursor2StartX + 69, yPos, 10, 20, SWP_NOSIZE);
@@ -1539,6 +1563,10 @@ void UIModule::UpdateSurfControlsVisibility(bool showChart2Controls) {
     int showFlag = showChart2Controls ? SW_SHOW : SW_HIDE;
     ShowWindow(hChart2SurfCheck, showFlag);
     ShowWindow(hChart2SurfEdit, showFlag);
+    ShowWindow(hChart2SettingsBtn, showFlag);
+    if (!showChart2Controls) {
+        ShowWindow(hChart2OpenFileBtn, SW_HIDE);
+    }
 }
 
 void UIModule::PositionSurfControls(int chart2PanelY) {
@@ -1604,6 +1632,28 @@ void UIModule::SetSurfWindowSize(int chartNumber, int windowSize) {
         wchar_t text[32];
         swprintf_s(text, L"%d", windowSize);
         SetWindowText(hEdit, text);
+    }
+}
+
+void UIModule::SetChart2IndependentModeUi(bool independent) {
+    if (hChart2OpenFileBtn) {
+        ShowWindow(hChart2OpenFileBtn, independent && dualMode ? SW_SHOW : SW_HIDE);
+    }
+    if (hChart2SettingsBtn) {
+        InvalidateRect(hChart2SettingsBtn, NULL, TRUE);
+    }
+    if (hChart2OpenFileBtn) {
+        // Перерисовываем область родителя, занимаемую кнопкой, чтобы убрать
+        // остатки рамки после её скрытия. Саму скрытую кнопку InvalidateRect
+        // не приведёт к обновлению фона под ней.
+        HWND hParent = GetParent(hChart2OpenFileBtn);
+        if (hParent) {
+            RECT rc;
+            GetWindowRect(hChart2OpenFileBtn, &rc);
+            ScreenToClient(hParent, (POINT*)&rc.left);
+            ScreenToClient(hParent, (POINT*)&rc.right);
+            InvalidateRect(hParent, &rc, TRUE);
+        }
     }
 }
 
@@ -1685,6 +1735,8 @@ bool UIModule::IsIconButton(UINT ctrlId) const {
         case IDC_XRANGE2_APPLY_BTN:
         case IDC_XRANGE2_RESET_BTN:
         case IDC_RESET_ZOOM2_BTN:
+        case IDC_CHART2_SETTINGS_BTN:
+        case IDC_CHART2_OPEN_FILE_BTN:
         case IDC_CURSOR1_ICON:  // Иконка маркера для Chart 1
         case IDC_CURSOR2_ICON:  // Иконка маркера для Chart 2
         case IDC_POLLING_TOGGLE_BTN:  // Кнопка-переключатель Старт/Стоп опроса
@@ -1836,6 +1888,8 @@ void UIModule::DrawToolbarGroupBackgrounds(HDC hdc) {
             bool first = true;
             unionRect(bounds, getControlRect(hChart2SurfCheck), first);
             unionRect(bounds, getControlRect(hChart2SurfEdit), first);
+            unionRect(bounds, getControlRect(hChart2SettingsBtn), first);
+            unionRect(bounds, getControlRect(hChart2OpenFileBtn), first);
             if (!first) drawZone(bounds);
         }
 
@@ -2101,10 +2155,80 @@ void UIModule::DrawIconButton(LPDRAWITEMSTRUCT lpDrawItem) {
             iconText = L"\u21BA";          // ↺
             labelText = L"Zoom";
             break;
+        case IDC_CHART2_SETTINGS_BTN:
+            iconText = L"\u2699";          // ⚙
+            break;
+        case IDC_CHART2_OPEN_FILE_BTN:
+            // Иконка папки рисуется отдельно через GDI ниже (специальный блок).
+            break;
         default:
             return;
     }
-    
+
+    // === Специальная отрисовка кнопки «Открыть файл для графика 2» (системная иконка папки) ===
+    if (ctrlId == IDC_CHART2_OPEN_FILE_BTN) {
+        // Фон кнопки
+        COLORREF bgColor;
+        if (state & ODS_SELECTED) {
+            bgColor = RGB(200, 200, 200);
+        } else if (state & ODS_DISABLED) {
+            bgColor = RGB(240, 240, 240);
+        } else {
+            bgColor = GetSysColor(COLOR_BTNFACE);
+        }
+
+        HBRUSH hBrush = CreateSolidBrush(bgColor);
+        FillRect(hdc, &rc, hBrush);
+        DeleteObject(hBrush);
+
+        // Иконка в статусной строке плоская, поэтому рамку не рисуем.
+        // Фон уже залит системным цветом кнопки, чтобы визуально вписаться в панель.
+
+        // Загружаем системную иконку папки (такую же, как в статусной строке)
+        if (!hChart2OpenFileIcon) {
+            SHSTOCKICONINFO sii = {};
+            sii.cbSize = sizeof(sii);
+            if (SUCCEEDED(SHGetStockIconInfo(SIID_FOLDER, SHGFI_ICON | SHGFI_SMALLICON, &sii))) {
+                hChart2OpenFileIcon = sii.hIcon;
+            }
+        }
+
+        // Рисуем иконку по центру кнопки
+        if (hChart2OpenFileIcon) {
+            const int offsetX = (state & ODS_SELECTED) ? 1 : 0;
+            const int offsetY = (state & ODS_SELECTED) ? 1 : 0;
+
+            ICONINFO ii = {};
+            int iconWidth = 16;
+            int iconHeight = 16;
+            if (GetIconInfo(hChart2OpenFileIcon, &ii)) {
+                if (ii.hbmColor) {
+                    BITMAP bm = {};
+                    if (GetObject(ii.hbmColor, sizeof(bm), &bm)) {
+                        iconWidth = bm.bmWidth;
+                        iconHeight = bm.bmHeight;
+                    }
+                    DeleteObject(ii.hbmColor);
+                }
+                if (ii.hbmMask) {
+                    DeleteObject(ii.hbmMask);
+                }
+            }
+
+            const int x = rc.left + ((rc.right - rc.left) - iconWidth) / 2 + offsetX;
+            const int y = rc.top + ((rc.bottom - rc.top) - iconHeight) / 2 + offsetY;
+            DrawIconEx(hdc, x, y, hChart2OpenFileIcon, iconWidth, iconHeight, 0, nullptr, DI_NORMAL);
+        }
+
+        // Фокус
+        if (state & ODS_FOCUS) {
+            RECT focusRect = rc;
+            InflateRect(&focusRect, -3, -3);
+            DrawFocusRect(hdc, &focusRect);
+        }
+        return;
+    }
+
     // Цвет текста — стандартный системный
     COLORREF textColor = GetSysColor(COLOR_BTNTEXT);
     

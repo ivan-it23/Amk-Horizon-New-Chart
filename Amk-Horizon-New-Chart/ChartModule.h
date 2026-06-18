@@ -223,10 +223,12 @@ public:
     // Жирный вариант для подписей осей
     HFONT hDrawFontBold = nullptr;
 
+    // Расчёт области построения графика (public, используется ChartManager)
+    RECT CalculateDualAxisPlotRect(const RECT& chartRect) const;
+
 private:
     // Вспомогательные методы для расчетов
     RECT CalculatePlotRect(const RECT& chartRect) const;
-    RECT CalculateDualAxisPlotRect(const RECT& chartRect) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal) const;
     void FindMinMaxValues(const std::vector<std::vector<float>>& chartData, float& minVal, float& maxVal, double minYPlot, double maxYPlot) const;
     void GetAxisValueRange(const std::vector<std::vector<float>>& axisData,

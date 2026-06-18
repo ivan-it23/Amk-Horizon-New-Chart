@@ -178,6 +178,10 @@
 
 // Кнопка-переключатель Подключить/Отключить прибор (панель Chart 1)
 #define IDC_CONNECT_TOGGLE_BTN         1120
+#define IDC_CHART2_SETTINGS_BTN        1130
+#define IDC_CHART2_OPEN_FILE_BTN       1131
+#define IDM_CHART2_MODE_LINKED         1132
+#define IDM_CHART2_MODE_INDEPENDENT    1133
 
 // Сообщение главному окну: открыть диалог «Подключение к прибору» (ПКМ по кнопке «Включить»)
 #define WM_APP_OPEN_SERIAL_CONNECTION    (WM_APP + 27)

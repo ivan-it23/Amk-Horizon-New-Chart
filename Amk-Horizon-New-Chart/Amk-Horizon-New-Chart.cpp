@@ -1800,6 +1800,18 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                     InvalidateRect(hWnd, NULL, FALSE);
                 }
                 break;
+            case IDC_CHART2_SETTINGS_BTN:
+                if (g_chartManager)
+                {
+                    g_chartManager->ShowChart2DataModeMenu(hWnd);
+                }
+                break;
+            case IDC_CHART2_OPEN_FILE_BTN:
+                if (g_chartManager)
+                {
+                    g_chartManager->OpenChart2DataFile(hWnd);
+                }
+                break;
             // Обработка кнопки сохранения диапазона
             case IDC_SAVE_RANGE1_BTN:
                 if (g_chartManager)

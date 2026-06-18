@@ -69,6 +69,7 @@ private:
     // Статусная строка
     HWND hStatusBar;         // Статусная строка для отображения координат курсора
     HICON hStatusBarFolderIcon; // SIID_FOLDER для части «открыть папку» (освобождается в ~UIModule)
+    HICON hChart2OpenFileIcon;  // SIID_FOLDER для кнопки открытия файла графика 2 (освобождается в ~UIModule)
 
     // === Элементы управления COM-портом (v2.13.0) ===
     HWND hSerialPortCombo;   // Выпадающий список COM-портов
@@ -85,6 +86,8 @@ private:
     HWND hChart1SurfEdit;    // Поле ввода количества точек для Chart 1
     HWND hChart2SurfCheck;   // Checkbox «Поток» (режим Surf) для Chart 2
     HWND hChart2SurfEdit;    // Поле ввода количества точек для Chart 2
+    HWND hChart2SettingsBtn; // Настройки режима источника данных Chart 2
+    HWND hChart2OpenFileBtn; // Открыть отдельный файл для Chart 2
 
     // === Элементы управления отображением заметок на графике ===
     HWND hChart1UndoZoomBtn;
@@ -215,6 +218,9 @@ public:
     void SetSurfEnabled(int chartNumber, bool enabled);
     int GetSurfWindowSize(int chartNumber) const;
     void SetSurfWindowSize(int chartNumber, int windowSize);
+    void SetChart2IndependentModeUi(bool independent);
+    HWND GetChart2SettingsBtn() const { return hChart2SettingsBtn; }
+    HWND GetChart2OpenFileBtn() const { return hChart2OpenFileBtn; }
     
     // Обновление статусной строки с информацией о Surf
     void UpdateStatusBarSurfInfo(bool surf1Enabled, int surf1Window, bool surf2Enabled, int surf2Window);

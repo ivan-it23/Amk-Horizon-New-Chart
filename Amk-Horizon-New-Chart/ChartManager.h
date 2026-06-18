@@ -47,6 +47,7 @@ class ChartManager {
 private:
     // Модули приложения
     std::unique_ptr<DataModule> dataModule;
+    std::unique_ptr<DataModule> chart2IndependentDataModule;
     std::unique_ptr<ChartModule> chartModule;
     std::unique_ptr<UIModule> uiModule;
     std::unique_ptr<LayoutModule> layoutModule;
@@ -64,6 +65,8 @@ private:
     DataSourceMode dataSourceMode = DataSourceMode::COM_LIVE;
     bool displayCallbackPaused = false;          // true когда display callback приостановлен (FILE_VIEW)
     int dbgResumeCallbackCounter = 0;            // DEBUG: счётчик для логирования первых кадров после resume
+    bool chart2IndependentMode = false;
+    std::wstring chart2IndependentFilePath;
 
     // Структура для хранения диапазона масштабирования
     struct ZoomRange {
@@ -238,6 +241,10 @@ public:
     void DrawChart1(HDC hdc);
     void DrawChart2(HDC hdc);
     void LoadDataFromFile(HWND hWnd, const std::wstring& filename);
+    void OpenChart2DataFile(HWND hWnd);
+    void ShowChart2DataModeMenu(HWND hWnd);
+    void SetChart2IndependentMode(HWND hWnd, bool independent);
+    bool IsChart2IndependentMode() const { return chart2IndependentMode; }
     void UpdateStatusBarFileInfo(); // Обновление информации о файле в статусной строке
     void OpenContainingFolderForCurrentData(HWND hWnd); // Проводник: папка текущего файла данных
     bool HandleCommand(WPARAM wParam, LPARAM lParam);
@@ -367,6 +374,8 @@ private:
     void ConvertScreenToDataCoords(int chartNum, int screenX, int screenY, double& dataX, double& dataY) const;
     void EnsureNotesLoadedForPath(const std::wstring& notesPath);
     std::wstring ResolveCurrentNotesPath() const;
+    DataModule* GetDataModuleForChart(int chartNumber) const;
+    std::wstring GetDataFileLabelForChart(int chartNumber) const;
     
     // Методы для работы с координатами курсора
     bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY, 
@@ -415,7 +424,7 @@ private:
                                        double xRatio,
                                        double fallbackDataX,
                                        bool allowSynchronousBuild) const;
-    bool ShouldUseAsyncCurveWarmup() const;
+    bool ShouldUseAsyncCurveWarmup(int chartNumber) const;
     void ScheduleAsyncCurveSnapshotWarmup(HWND hWnd,
                                           int chartNumber,
                                           const ChartConfiguration& config,
