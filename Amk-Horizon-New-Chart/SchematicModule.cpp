@@ -809,8 +809,22 @@ bool SchematicModule::HandleElementClick(int x, int y) {
         return false;
     }
     
+    const bool switchingFromPreset =
+        currentSelection.dataFilter != DataTypeFilter::ALL ||
+        currentPreset != PresetType::NONE;
+    if (switchingFromPreset) {
+        const FrequencyBand savedFrequency = currentSelection.frequency;
+        currentSelection.Clear();
+        currentSelection.frequency = savedFrequency;
+        currentAvailableCurves.clear();
+
+        for (auto& schematicElement : schematicElements) {
+            schematicElement.selected = false;
+        }
+    }
+
     // ОТЛАДКА: Выводим информацию о клике
-    
+
     // Проверяем логику выбора элементов
     bool newState = !element->selected;
     
@@ -1891,14 +1905,19 @@ void SchematicModule::HandlePresetButton(HWND hDlg, int presetId) {
     
     // Для пресетов НЕ синхронизируем элементы схемы (они должны оставаться неактивными)
     // Просто очищаем выбор всех элементов схемы
+    hoveredElement = nullptr;
     for (auto& element : schematicElements) {
         element.selected = false;
+        element.hovered = false;
     }
     
     // Перерисовываем схему
     HWND hSchematicArea = GetDlgItem(hDlg, IDC_SCHEMATIC_AREA);
     if (hSchematicArea) {
-        InvalidateRect(hSchematicArea, NULL, TRUE);
+        RECT schematicRect;
+        GetClientRect(hSchematicArea, &schematicRect);
+        MapWindowPoints(hSchematicArea, hDlg, (POINT*)&schematicRect, 2);
+        RedrawWindow(hDlg, &schematicRect, NULL, RDW_INVALIDATE | RDW_ERASE | RDW_UPDATENOW);
     }
     
     // Обновляем список кривых

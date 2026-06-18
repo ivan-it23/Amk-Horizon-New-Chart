@@ -134,7 +134,7 @@ public:
     std::wstring GetLoadedFileName() const;
     uint64_t GetDataVersion() const { return dataVersion; }
     
-    // Сохранение диапазона данных
+    // Сохранение диапазона данных 
     bool SaveDataRange(const std::wstring& filename, size_t startIndex, size_t endIndex) const;
     static bool SaveFileExcludingRange(const std::wstring& sourceFilename, const std::wstring& targetFilename, size_t startIndex, size_t endIndex);
 
