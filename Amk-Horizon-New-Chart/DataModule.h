@@ -6,7 +6,6 @@
 #include <fstream>
 #include "ToolDataAccess.h"
 
-// Forward declarations
 struct CurveDefinition;
 struct ChartConfiguration;
 
