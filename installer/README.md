@@ -3,15 +3,14 @@
 Этот каталог содержит Inno Setup скрипт для сборки самодостаточного
 установщика приложения **AMK Horizon New Chart**.
 
-## Зачем нужен установщик
+## Назначение установщика
 
-Раньше exe передавался коллегам как одиночный файл. Из-за зависимости от
-Visual C++ Redistributable приложение не запускалось на чистых машинах
-Windows 10 Pro (процесс появлялся в Диспетчере задач и сразу пропадал).
+Установщик предназначен для корпоративного распространения приложения на
+рабочие станции Windows 10/11 x64.
 
-После перевода Release-сборки на статический C++ runtime (`/MT`) exe
-больше не зависит от VCRedist и работает на любой чистой Windows 10/11 x64.
-Установщик добавляет к этому удобства корпоративной дистрибуции:
+Release-сборка использует статический C++ runtime (`/MT`), поэтому
+исполняемый файл не требует установки Visual C++ Redistributable на целевой
+машине. Установщик добавляет стандартные механизмы дистрибуции:
 
 - единый файл для распространения;
 - стандартный мастер установки с выбором папки;
@@ -29,27 +28,26 @@ Windows 10 Pro (процесс появлялся в Диспетчере зад
 
 ## Пошаговая сборка установщика
 
-### 1. Установите Inno Setup (один раз на машину)
+### 1. Установка Inno Setup
 
-Скачайте `innosetup-6.x.x.exe` с официального сайта и установите.
-По умолчанию ставится в `C:\Program Files (x86)\Inno Setup 6\`.
+На машине сборки должен быть установлен Inno Setup 6.0 или новее. По
+умолчанию Inno Setup устанавливается в `C:\Program Files (x86)\Inno Setup 6\`.
 
-### 2. Соберите Release|x64 exe
+### 2. Сборка Release|x64 exe
 
-1. Откройте `Amk-Horizon-New-Chart.sln` в Visual Studio.
-2. Выберите конфигурацию **Release** и платформу **x64**.
-3. Запустите сборку: **Build → Build Solution** (или `F7`).
-4. Убедитесь, что появился файл:
+1. В Visual Studio открывается `Amk-Horizon-New-Chart.sln`.
+2. Выбирается конфигурация **Release** и платформа **x64**.
+3. Выполняется сборка решения: **Build → Build Solution** (`F7`).
+4. После сборки должен существовать файл:
    `Amk-Horizon-New-Chart\x64\Release\Amk-Horizon-New-Chart.exe`
 
-### 3. Скомпилируйте установщик
+### 3. Компиляция установщика
 
 **Вариант A — через GUI:**
 
-1. Откройте `installer\setup.iss` двойным кликом в проводнике.
-   Inno Setup Compiler откроется автоматически.
-2. Нажмите **Build → Compile** (или `F9`).
-3. Дождитесь сообщения `Compile completed successfully`.
+1. Открывается `installer\setup.iss` в Inno Setup Compiler.
+2. Выполняется команда **Build → Compile** (`F9`).
+3. Успешная сборка завершается сообщением `Compile completed successfully`.
 
 **Вариант B — через командную строку:**
 
@@ -57,15 +55,16 @@ Windows 10 Pro (процесс появлялся в Диспетчере зад
 & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" .\setup.iss
 ```
 
-### 4. Заберите готовый установщик
+### 4. Артефакт установщика
 
-После успешной сборки появится файл:
+После успешной сборки создаётся файл:
 
 ```
-installer\Output\AMK-Horizon-New-Chart-Setup-2.21.9.exe
+installer\Output\AMK-Horizon-New-Chart-Setup-<version>.exe
 ```
 
-Этот файл — единственный артефакт, который нужно передавать коллегам.
+`<version>` соответствует значению `MyAppVersion` в `installer\setup.iss`.
+Этот файл является основным артефактом для распространения.
 
 ## Как обновить версию приложения
 
@@ -75,33 +74,34 @@ installer\Output\AMK-Horizon-New-Chart-Setup-2.21.9.exe
 1. **Источник правды** — `Amk-Horizon-New-Chart\AppVersion.h`:
    ```cpp
    #define APP_VERSION_MAJOR   2
-   #define APP_VERSION_MINOR   21
-   #define APP_VERSION_PATCH   10        // увеличиваем
-   #define APP_VERSION_STR     "2.21.10" // обновляем
-   #define APP_VERSION_WSTR    L"2.21.10"
+   #define APP_VERSION_MINOR   X
+   #define APP_VERSION_PATCH   Y
+   #define APP_VERSION_STR     "2.X.Y"
+   #define APP_VERSION_WSTR    L"2.X.Y"
    ```
 
 2. **Установщик** — `installer\setup.iss`, строка с `MyAppVersion`:
    ```pascal
-   #define MyAppVersion       "2.21.10"
+   #define MyAppVersion       "2.X.Y"
    ```
 
 3. **VERSIONINFO в `.rc`** — обновляется автоматически. Никаких ручных правок
    не требуется: `Amk-Horizon-New-Chart.rc` подключает `AppVersion.h` и
    подставляет значения через preprocessor.
 
-Обе ручные строки (1 и 2) должны совпадать. После изменения:
+Значения `APP_VERSION_STR`, `APP_VERSION_WSTR` и `MyAppVersion` должны
+совпадать перед выпуском сборки. После изменения версии выполняются:
 
-1. Пересоберите Release|x64 в Visual Studio.
-2. Перекомпилируйте `setup.iss`.
+1. пересборка Release|x64 в Visual Studio;
+2. повторная компиляция `setup.iss`.
 
 ## Метаданные exe-файла
 
 Скомпилированный `.exe` содержит VERSIONINFO ресурс, видимый в:
 
 - **Проводник Windows** → Properties → Details:
-  - Product version: `2.21.9`
-  - File version: `2.21.9.0`
+  - Product version: значение `APP_VERSION_STR`
+  - File version: значение `APP_VERSION_STR` с четвертым компонентом `.0`
   - Company: `ООО НПФ "АМК ГОРИЗОНТ"`
   - Copyright: `Copyright (C) 2026 ООО НПФ "АМК ГОРИЗОНТ"`
 - **PowerShell** для аудита:
@@ -154,12 +154,12 @@ Amk-Horizon-New-Chart/                 <- корень репозитория
 - **Ярлык на рабочем столе**: опциональный (по умолчанию **снят**).
 - **Привилегии**: per-user, без UAC.
 
-### Пользователь может изменить
+### Настраиваемые пользователем параметры
 
 - Папку установки — любая user-writable папка.
 - Группу меню Пуск.
 - Создавать ли ярлык на рабочем столе.
-- При выборе системной папки (Program Files) установщик попросит
+- При выборе системной папки (Program Files) установщик запрашивает
   административных прав.
 
 ### Что делает Uninstaller
@@ -184,17 +184,18 @@ Amk-Horizon-New-Chart/                 <- корень репозитория
 
 ### `File "..\Amk-Horizon-New-Chart\x64\Release\Amk-Horizon-New-Chart.exe" not found`
 
-Не собран Release|x64. Выполните пункт 2 раздела "Пошаговая сборка".
+Причина: Release|x64 не собран. Требуется выполнить пункт 2 раздела
+"Пошаговая сборка установщика".
 
 ### `Compiler error: Unknown identifier "ArchitecturesAllowed"`
 
-Установлена устаревшая версия Inno Setup. Требуется минимум 6.0.
-Переустановите Inno Setup с официального сайта.
+Причина: установлена устаревшая версия Inno Setup. Требуется Inno Setup 6.0
+или новее.
 
 ### `Setup is already running` при повторном запуске
 
-Корректно — Inno Setup защищает от параллельной установки одного и того же
-приложения. Дождитесь завершения предыдущего установщика.
+Это штатное поведение Inno Setup: параллельная установка одного и того же
+приложения блокируется до завершения предыдущего процесса установки.
 
 ### Антивирус ругается на собранный setup.exe
 
