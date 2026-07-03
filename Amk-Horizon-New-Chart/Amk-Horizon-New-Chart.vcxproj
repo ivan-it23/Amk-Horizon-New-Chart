@@ -175,6 +175,7 @@
     <ClInclude Include="DeviceExchangeLog.h" />
     <ClInclude Include="DeviceLogPanel.h" />
     <ClInclude Include="DeviceLogPayloadFormat.h" />
+    <ClInclude Include="FileConstructorModule.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="LayoutModule.h" />
     <ClInclude Include="MetrologyModule.h" />
@@ -198,6 +199,7 @@
     <ClCompile Include="DeviceExchangeLog.cpp" />
     <ClCompile Include="DeviceLogPanel.cpp" />
     <ClCompile Include="DeviceLogPayloadFormat.cpp" />
+    <ClCompile Include="FileConstructorModule.cpp" />
     <ClCompile Include="LayoutModule.cpp" />
     <ClCompile Include="NotesModule.cpp" />
     <ClCompile Include="SchematicModule.cpp" />

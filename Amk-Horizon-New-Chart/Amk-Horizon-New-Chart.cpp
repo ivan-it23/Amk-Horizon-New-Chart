@@ -8,6 +8,7 @@
 #include "DeviceExchangeLog.h"
 #include "DeviceLogPanel.h"
 #include "AutoUpdateModule.h"
+#include "FileConstructorModule.h"
 #include "resource.h"
 #include <algorithm>
 #include <fstream>
@@ -1691,6 +1692,17 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 break;
             
             // v2.15.0: Команды записи в файл
+            case IDM_FILE_CONSTRUCTOR:
+                {
+                    std::wstring savedFilePath;
+                    if (FileConstructor::ShowFileConstructorDialog(hWnd, savedFilePath) &&
+                        g_chartManager &&
+                        !savedFilePath.empty()) {
+                        g_chartManager->LoadDataFromFile(hWnd, savedFilePath);
+                    }
+                }
+                break;
+
             case IDM_DEVICE_RECORD_FOLDER:
                 if (g_chartManager) {
                     SerialModule* serial = g_chartManager->GetSerialModule();

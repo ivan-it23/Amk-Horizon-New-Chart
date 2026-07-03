@@ -2,6 +2,7 @@
 #include "ChartManager.h"
 #include "DeviceExchangeLog.h"
 #include "DeviceLogPanel.h"
+#include "FileConstructorModule.h"
 #include "SchematicModule.h"
 #include "CurveSelectionModule.h"
 #include <shellapi.h>
@@ -13,6 +14,7 @@
 #include <cstdarg>
 #include <cstdio>
 #include <functional>
+#include <limits>
 
 // Заметки: диалог просмотра/удаления (v2.16.x)
 namespace {
@@ -166,6 +168,135 @@ namespace {
         }
 
         return message;
+    }
+
+    enum class SaveRangeAction {
+        Cancel,
+        SaveSeparateFile,
+        AppendToExistingFile
+    };
+
+    enum class CutRangeAction {
+        Cancel,
+        SaveCurrentWithoutRange,
+        SaveCopyWithoutRange,
+        AppendCutSegmentToFile
+    };
+
+    SaveRangeAction ShowSaveRangeActionDialog(HWND hWnd) {
+        const TASKDIALOG_BUTTON buttons[] = {
+            { 101, L"Сохранить отдельным файлом" },
+            { 102, L"Добавить к существующему файлу" }
+        };
+
+        TASKDIALOGCONFIG config = {};
+        config.cbSize = sizeof(config);
+        config.hwndParent = hWnd;
+        config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
+        config.pszWindowTitle = L"Сохранение отрезка";
+        config.pszMainInstruction = L"Выберите, что сделать с выбранным отрезком";
+        config.pszContent = L"Добавление возможно только в канонический .bin файл с такой же сигнатурой прибора.";
+        config.cButtons = _countof(buttons);
+        config.pButtons = buttons;
+        config.nDefaultButton = 101;
+
+        int pressedButton = 0;
+        if (FAILED(TaskDialogIndirect(&config, &pressedButton, nullptr, nullptr))) {
+            return SaveRangeAction::Cancel;
+        }
+
+        if (pressedButton == 101) return SaveRangeAction::SaveSeparateFile;
+        if (pressedButton == 102) return SaveRangeAction::AppendToExistingFile;
+        return SaveRangeAction::Cancel;
+    }
+
+    CutRangeAction ShowCutRangeActionDialog(HWND hWnd) {
+        const TASKDIALOG_BUTTON buttons[] = {
+            { 201, L"Сохранить файл с вырезанным отрезком" },
+            { 202, L"Сохранить копию текущего файла" },
+            { 203, L"Добавить вырезанный отрезок к другому файлу" }
+        };
+
+        TASKDIALOGCONFIG config = {};
+        config.cbSize = sizeof(config);
+        config.hwndParent = hWnd;
+        config.dwCommonButtons = TDCBF_CANCEL_BUTTON;
+        config.pszWindowTitle = L"Вырезание отрезка";
+        config.pszMainInstruction = L"Выберите действие для выбранного отрезка";
+        config.pszContent = L"Добавление к другому файлу не изменяет текущий файл.";
+        config.cButtons = _countof(buttons);
+        config.pButtons = buttons;
+        config.nDefaultButton = 201;
+
+        int pressedButton = 0;
+        if (FAILED(TaskDialogIndirect(&config, &pressedButton, nullptr, nullptr))) {
+            return CutRangeAction::Cancel;
+        }
+
+        if (pressedButton == 201) return CutRangeAction::SaveCurrentWithoutRange;
+        if (pressedButton == 202) return CutRangeAction::SaveCopyWithoutRange;
+        if (pressedButton == 203) return CutRangeAction::AppendCutSegmentToFile;
+        return CutRangeAction::Cancel;
+    }
+
+    bool BrowseAppendTargetBinFile(HWND hWnd, std::wstring& outPath) {
+        outPath.clear();
+        wchar_t buffer[1024] = {};
+
+        OPENFILENAMEW ofn = {};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = hWnd;
+        ofn.lpstrFile = buffer;
+        ofn.nMaxFile = _countof(buffer);
+        ofn.lpstrFilter = L"BIN (*.bin)\0*.bin\0Все файлы\0*.*\0";
+        ofn.nFilterIndex = 1;
+        ofn.lpstrTitle = L"Выберите существующий файл для добавления отрезка";
+        ofn.Flags = OFN_PATHMUSTEXIST | OFN_FILEMUSTEXIST;
+
+        if (GetOpenFileNameW(&ofn) != TRUE) {
+            return false;
+        }
+
+        outPath = buffer;
+        return true;
+    }
+
+    bool AreSameWindowsPath(const std::wstring& left, const std::wstring& right) {
+        if (left.empty() || right.empty()) {
+            return false;
+        }
+        return CompareStringOrdinal(left.c_str(), -1, right.c_str(), -1, TRUE) == CSTR_EQUAL;
+    }
+
+    bool CollectRecordsFromRange(const DataModule& source,
+                                 size_t startIndex,
+                                 size_t endIndex,
+                                 std::vector<GP_TOOL_DATA>& outRecords) {
+        outRecords.clear();
+        if (!source.HasData() || startIndex > endIndex || endIndex >= source.GetDataSize()) {
+            return false;
+        }
+
+        outRecords.reserve(endIndex - startIndex + 1);
+        for (size_t index = startIndex; index <= endIndex; ++index) {
+            const GP_TOOL_DATA* record = source.TryGetRecord(index);
+            if (!record) {
+                outRecords.clear();
+                return false;
+            }
+            outRecords.push_back(*record);
+        }
+
+        return true;
+    }
+
+    std::wstring BuildRangeSegmentLabel(const std::wstring& baseFileName,
+                                        size_t startIndex,
+                                        size_t endIndex,
+                                        const wchar_t* prefix) {
+        const std::wstring base = baseFileName.empty() ? L"Файл данных" : baseFileName;
+        return std::wstring(prefix) + L": " + base + L" [" +
+            std::to_wstring(startIndex) + L".." + std::to_wstring(endIndex) + L"]";
     }
 
     bool TryFindClosestTemperatureIndex(const std::vector<float>& temperatureData,
@@ -727,6 +858,13 @@ std::wstring ChartManager::GetDataFileLabelForChart(int chartNumber) const {
         fileName = (lastSlash != std::wstring::npos) ? recPath.substr(lastSlash + 1) : recPath;
     }
     return fileName;
+}
+
+std::wstring ChartManager::GetDataFilePathForChart(int chartNumber) const {
+    if (chartNumber == 2 && chart2IndependentMode) {
+        return chart2IndependentFilePath;
+    }
+    return currentDataFilePath;
 }
 
 bool ChartManager::ShouldUseAsyncCurveWarmup(int chartNumber) const {
@@ -1697,6 +1835,8 @@ void ChartManager::DrawChart1(HDC hdc)
         DrawChartLegacy(hdc, chart1Rect, 1);
     }
 
+    DrawFileSegmentBoundaries(hdc, chart1Rect, 1);
+
     // v2.16.x: маркеры заметок поверх графика (если включено)
     if (uiModule->IsNotesVisible(1)) {
         DrawNoteMarkers(hdc, chart1Rect, 1);
@@ -1726,6 +1866,8 @@ void ChartManager::DrawChart2(HDC hdc)
         // Старая система (обратная совместимость)
         DrawChartLegacy(hdc, chart2Rect, 2);
     }
+
+    DrawFileSegmentBoundaries(hdc, chart2Rect, 2);
 
     // v2.16.x: маркеры заметок поверх графика (если включено)
     if (!chart2IndependentMode && uiModule->IsNotesVisible(2)) {
@@ -4436,6 +4578,45 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
         MessageBox(hWnd, L"'From' value must be less than or equal to 'To' value!", L"Error", MB_OK | MB_ICONERROR);
         return;
     }
+
+    const SaveRangeAction action = ShowSaveRangeActionDialog(hWnd);
+    if (action == SaveRangeAction::Cancel) {
+        return;
+    }
+
+    if (action == SaveRangeAction::AppendToExistingFile) {
+        std::wstring targetPath;
+        if (!BrowseAppendTargetBinFile(hWnd, targetPath)) {
+            return;
+        }
+
+        std::vector<GP_TOOL_DATA> selectedRecords;
+        if (!CollectRecordsFromRange(*dataModule, startIndex, endIndex, selectedRecords)) {
+            MessageBoxW(hWnd, L"Не удалось подготовить выбранный отрезок для добавления.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        std::wstring appendError;
+        const std::wstring segmentLabel = BuildRangeSegmentLabel(dataModule->GetLoadedFileName(), startIndex, endIndex, L"Сохранённый отрезок");
+        if (!FileConstructor::AppendRecordsToExistingFile(targetPath,
+                                                          selectedRecords,
+                                                          currentDataFilePath,
+                                                          startIndex,
+                                                          segmentLabel,
+                                                          appendError)) {
+            MessageBoxW(hWnd, appendError.c_str(), L"Ошибка добавления отрезка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        if (AreSameWindowsPath(targetPath, currentDataFilePath)) {
+            LoadDataFromFile(hWnd, targetPath);
+        }
+
+        std::wstring message = L"Отрезок [" + std::to_wstring(startIndex) + L".." +
+            std::to_wstring(endIndex) + L"] добавлен к файлу:\n" + targetPath;
+        MessageBoxW(hWnd, message.c_str(), L"Готово", MB_OK | MB_ICONINFORMATION);
+        return;
+    }
     
     // Открываем диалог сохранения файла
     OPENFILENAME ofn;
@@ -4471,6 +4652,7 @@ void ChartManager::HandleSaveRange(HWND hWnd, int chartNumber) {
 
         // Сохраняем диапазон данных
         if (dataModule->SaveDataRange(szFile, startIndex, endIndex)) {
+            FileConstructor::DeleteSegmentLayout(szFile);
             // Формируем сообщение об успехе
             size_t recordCount = endIndex - startIndex + 1;
             const std::wstring successMessage = BuildRangeExportSuccessMessage(recordCount, startIndex, endIndex, szFile, hasExportAnalysis, exportAnalysis);
@@ -4531,16 +4713,47 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
         return;
     }
 
-    const int cutMode = MessageBox(
-        hWnd,
-        L"Выберите действие для вырезанного отрезка:\n\n"
-        L"Да — Сохранить файл с вырезанным отрезком\n"
-        L"Нет — Создать копию текущего файла с вырезанным отрезком\n"
-        L"Отмена — отменить операцию.",
-        L"Вырезание отрезка",
-        MB_YESNOCANCEL | MB_ICONQUESTION);
+    const CutRangeAction cutAction = ShowCutRangeActionDialog(hWnd);
+    if (cutAction == CutRangeAction::Cancel) {
+        return;
+    }
 
-    if (cutMode == IDCANCEL) {
+    if (cutAction == CutRangeAction::AppendCutSegmentToFile) {
+        std::wstring targetPath;
+        if (!BrowseAppendTargetBinFile(hWnd, targetPath)) {
+            return;
+        }
+
+        if (AreSameWindowsPath(targetPath, currentDataFilePath)) {
+            MessageBoxW(hWnd,
+                        L"Для этого действия выберите другой файл. Текущий файл не должен изменяться при добавлении вырезанного отрезка.",
+                        L"Вырезание отрезка",
+                        MB_OK | MB_ICONINFORMATION);
+            return;
+        }
+
+        std::vector<GP_TOOL_DATA> selectedRecords;
+        if (!CollectRecordsFromRange(*dataModule, startIndex, endIndex, selectedRecords)) {
+            MessageBoxW(hWnd, L"Не удалось подготовить вырезанный отрезок для добавления.", L"Ошибка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        std::wstring appendError;
+        const std::wstring segmentLabel = BuildRangeSegmentLabel(dataModule->GetLoadedFileName(), startIndex, endIndex, L"Вырезанный отрезок");
+        if (!FileConstructor::AppendRecordsToExistingFile(targetPath,
+                                                          selectedRecords,
+                                                          currentDataFilePath,
+                                                          startIndex,
+                                                          segmentLabel,
+                                                          appendError)) {
+            MessageBoxW(hWnd, appendError.c_str(), L"Ошибка добавления отрезка", MB_OK | MB_ICONERROR);
+            return;
+        }
+
+        std::wstring message = L"Вырезанный отрезок [" + std::to_wstring(startIndex) + L".." +
+            std::to_wstring(endIndex) + L"] добавлен к файлу:\n" + targetPath +
+            L"\n\nТекущий файл не изменён.";
+        MessageBoxW(hWnd, message.c_str(), L"Готово", MB_OK | MB_ICONINFORMATION);
         return;
     }
 
@@ -4562,7 +4775,7 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
         defExt = L"DEV";
     }
 
-    if (cutMode == IDYES) {
+    if (cutAction == CutRangeAction::SaveCurrentWithoutRange) {
         const size_t extensionPos = currentDataFilePath.find_last_of(L'.');
         const std::wstring tempPath = (extensionPos != std::wstring::npos)
             ? (currentDataFilePath.substr(0, extensionPos) + L".cut_tmp" + currentDataFilePath.substr(extensionPos))
@@ -4589,6 +4802,17 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
             DeleteFileW(tempPath.c_str());
             MessageBox(hWnd, L"Не удалось заменить исходный файл обновлённой версией.", L"Ошибка", MB_OK | MB_ICONERROR);
             return;
+        }
+
+        std::wstring layoutError;
+        if (!FileConstructor::SaveLayoutExcludingRange(currentDataFilePath,
+                                                       currentDataFilePath,
+                                                       startIndex,
+                                                       endIndex,
+                                                       dataSize,
+                                                       layoutError) &&
+            !layoutError.empty()) {
+            MessageBoxW(hWnd, layoutError.c_str(), L"Границы сегментов", MB_OK | MB_ICONWARNING);
         }
 
         if (!ApplyPreparedSerialDisplayData(hWnd, currentDataFilePath, std::move(reloadedData))) {
@@ -4629,6 +4853,17 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
     if (!DataModule::SaveFileExcludingRange(currentDataFilePath, szFile, startIndex, endIndex)) {
         MessageBox(hWnd, L"Не удалось создать копию файла без выбранного отрезка.", L"Ошибка", MB_OK | MB_ICONERROR);
         return;
+    }
+
+    std::wstring layoutError;
+    if (!FileConstructor::SaveLayoutExcludingRange(currentDataFilePath,
+                                                   szFile,
+                                                   startIndex,
+                                                   endIndex,
+                                                   dataSize,
+                                                   layoutError) &&
+        !layoutError.empty()) {
+        MessageBoxW(hWnd, layoutError.c_str(), L"Границы сегментов", MB_OK | MB_ICONWARNING);
     }
 
     wchar_t message[768] = {0};
@@ -5028,6 +5263,151 @@ void ChartManager::ClearCrosshair(HWND hWnd, int chartNumber) {
     
     // Перерисовываем окно
     InvalidateRect(hWnd, NULL, TRUE);
+}
+
+void ChartManager::DrawFileSegmentBoundaries(HDC hdc, const RECT& chartRect, int chartNumber) const {
+    DataModule* chartData = GetDataModuleForChart(chartNumber);
+    if (!hdc || !chartData || !chartData->HasData() || !curveSelectionModule || !chartModule) {
+        return;
+    }
+
+    const std::wstring dataFilePath = GetDataFilePathForChart(chartNumber);
+    if (dataFilePath.empty()) {
+        return;
+    }
+
+    std::vector<FileConstructor::SegmentBoundary> segments;
+    if (!FileConstructor::LoadSegmentLayout(dataFilePath, segments) || segments.size() < 2) {
+        return;
+    }
+
+    ChartConfiguration config = GetChartConfiguration(chartNumber);
+    if (config.curves.empty()) {
+        return;
+    }
+
+    DualAxisChartGeometry geometry = {};
+    if (!TryBuildDualAxisChartGeometry(chartRect, geometry)) {
+        return;
+    }
+
+    const RECT& plotRect = geometry.plotRect;
+    const int plotWidth = geometry.plotWidth;
+    if (plotWidth <= 0) {
+        return;
+    }
+
+    ZoomRange zoom = (chartNumber == 1) ? chart1Zoom : chart2Zoom;
+    VisibleFrameAxisRange visibleXRange = {};
+    BuildVisibleFrameAxisRange(zoom.isZoomed, zoom.minX, zoom.maxX, chartData->GetDataSize(), visibleXRange);
+
+    const double minXData = visibleXRange.minX;
+    const double maxXData = visibleXRange.maxX;
+    const double xRange = maxXData - minXData;
+    if (!(xRange > 0.0)) {
+        return;
+    }
+
+    float minTemp = 0.0f;
+    float maxTemp = 0.0f;
+    bool hasTempRange = false;
+    const size_t dataSize = chartData->GetDataSize();
+    if (config.xAxisType == XAxisType::TEMPERATURE && dataSize > 0) {
+        const CachedTemperatureAxisData* temperatureAxis = nullptr;
+        if (TryGetTemperatureAxisData(chartNumber, zoom, !ShouldUseAsyncCurveWarmup(chartNumber), temperatureAxis) &&
+            temperatureAxis &&
+            !temperatureAxis->temperatureData.empty()) {
+            auto tempRange = std::minmax_element(temperatureAxis->temperatureData.begin(), temperatureAxis->temperatureData.end());
+            minTemp = *tempRange.first;
+            maxTemp = *tempRange.second;
+            if (maxTemp <= minTemp) {
+                maxTemp = minTemp + 1.0f;
+            }
+            hasTempRange = true;
+        }
+    }
+
+    const int savedDc = SaveDC(hdc);
+    IntersectClipRect(hdc, plotRect.left, plotRect.top, plotRect.right, plotRect.bottom);
+
+    HPEN boundaryPen = CreatePen(PS_SOLID, 3, RGB(0, 0, 0));
+    HPEN oldPen = (HPEN)SelectObject(hdc, boundaryPen);
+
+    size_t boundaryIndex = 0;
+    for (size_t i = 0; i + 1 < segments.size(); ++i) {
+        boundaryIndex += segments[i].recordCount;
+        if (boundaryIndex == 0 || boundaryIndex >= dataSize) {
+            continue;
+        }
+
+        if (boundaryIndex > static_cast<size_t>((std::numeric_limits<int>::max)())) {
+            continue;
+        }
+
+        const int frameIndex = static_cast<int>(boundaryIndex);
+        if (frameIndex < static_cast<int>(floor(minXData)) - 1 ||
+            frameIndex > static_cast<int>(ceil(maxXData)) + 1) {
+            continue;
+        }
+
+        auto resolveScreenX = [&](int index, int& outScreenX) -> bool {
+            return TryResolveNoteMarkerScreenX(*chartData,
+                                               config.xAxisType,
+                                               index,
+                                               minXData,
+                                               maxXData,
+                                               xRange,
+                                               minTemp,
+                                               maxTemp,
+                                               hasTempRange,
+                                               dataSize,
+                                               plotRect,
+                                               plotWidth,
+                                               outScreenX);
+        };
+
+        int screenX = 0;
+        if (config.xAxisType == XAxisType::TEMPERATURE) {
+            int previousScreenX = 0;
+            int nextScreenX = 0;
+            const bool hasPreviousX = resolveScreenX(frameIndex - 1, previousScreenX);
+            const bool hasNextX = resolveScreenX(frameIndex, nextScreenX);
+
+            if (hasPreviousX && hasNextX) {
+                screenX = previousScreenX + (nextScreenX - previousScreenX) / 2;
+            } else if (hasNextX) {
+                screenX = nextScreenX;
+            } else if (hasPreviousX) {
+                screenX = previousScreenX;
+            } else {
+                continue;
+            }
+
+            constexpr int boundaryEdgePadding = 4;
+            screenX = (std::max)(static_cast<int>(plotRect.left) + boundaryEdgePadding,
+                                 (std::min)(static_cast<int>(plotRect.right) - boundaryEdgePadding, screenX));
+        } else if (!resolveScreenX(frameIndex, screenX)) {
+            continue;
+        }
+
+        if (screenX < plotRect.left || screenX > plotRect.right) {
+            continue;
+        }
+
+        constexpr int dashLength = 10;
+        constexpr int gapLength = 7;
+        for (int y = plotRect.top; y < plotRect.bottom; y += dashLength + gapLength) {
+            const int y2 = (std::min)(static_cast<int>(plotRect.bottom), y + dashLength);
+            MoveToEx(hdc, screenX, y, nullptr);
+            LineTo(hdc, screenX, y2);
+        }
+    }
+
+    SelectObject(hdc, oldPen);
+    DeleteObject(boundaryPen);
+    if (savedDc != 0) {
+        RestoreDC(hdc, savedDc);
+    }
 }
 
 void ChartManager::DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumber) {

@@ -380,6 +380,7 @@ private:
     std::wstring ResolveCurrentNotesPath() const;
     DataModule* GetDataModuleForChart(int chartNumber) const;
     std::wstring GetDataFileLabelForChart(int chartNumber) const;
+    std::wstring GetDataFilePathForChart(int chartNumber) const;
     
     // Методы для работы с координатами курсора
     bool ConvertScreenToChartCoords(int chartNum, int screenX, int screenY, 
@@ -393,6 +394,7 @@ private:
 
     // v2.16.x: Отрисовка точек-заметок
     void DrawNoteMarkers(HDC hdc, const RECT& chartRect, int chartNumber);
+    void DrawFileSegmentBoundaries(HDC hdc, const RECT& chartRect, int chartNumber) const;
 
     // Вспомогательные методы для быстрого выделения области zoom
     void BeginSelectionOverlay(HWND hWnd, const RECT& chartRect);
