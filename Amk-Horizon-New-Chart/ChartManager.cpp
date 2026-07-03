@@ -180,7 +180,7 @@ namespace {
         Cancel,
         SaveCurrentWithoutRange,
         SaveCopyWithoutRange,
-        AppendCutSegmentToFile
+        AppendFileWithoutCutRange
     };
 
     SaveRangeAction ShowSaveRangeActionDialog(HWND hWnd) {
@@ -214,7 +214,7 @@ namespace {
         const TASKDIALOG_BUTTON buttons[] = {
             { 201, L"Сохранить файл с вырезанным отрезком" },
             { 202, L"Сохранить копию текущего файла" },
-            { 203, L"Добавить вырезанный отрезок к другому файлу" }
+            { 203, L"Добавить файл с вырезанным отрезком к другому файлу" }
         };
 
         TASKDIALOGCONFIG config = {};
@@ -235,7 +235,7 @@ namespace {
 
         if (pressedButton == 201) return CutRangeAction::SaveCurrentWithoutRange;
         if (pressedButton == 202) return CutRangeAction::SaveCopyWithoutRange;
-        if (pressedButton == 203) return CutRangeAction::AppendCutSegmentToFile;
+        if (pressedButton == 203) return CutRangeAction::AppendFileWithoutCutRange;
         return CutRangeAction::Cancel;
     }
 
@@ -279,6 +279,34 @@ namespace {
 
         outRecords.reserve(endIndex - startIndex + 1);
         for (size_t index = startIndex; index <= endIndex; ++index) {
+            const GP_TOOL_DATA* record = source.TryGetRecord(index);
+            if (!record) {
+                outRecords.clear();
+                return false;
+            }
+            outRecords.push_back(*record);
+        }
+
+        return true;
+    }
+
+    // Собирает все кадры, кроме указанного диапазона [startIndex, endIndex].
+    // Используется в операции "Добавить файл с вырезанным отрезком к другому файлу".
+    bool CollectRecordsExcludingRange(const DataModule& source,
+                                      size_t startIndex,
+                                      size_t endIndex,
+                                      std::vector<GP_TOOL_DATA>& outRecords) {
+        outRecords.clear();
+        if (!source.HasData() || startIndex > endIndex || endIndex >= source.GetDataSize()) {
+            return false;
+        }
+
+        const size_t keptCount = source.GetDataSize() - (endIndex - startIndex + 1);
+        outRecords.reserve(keptCount);
+        for (size_t index = 0; index < source.GetDataSize(); ++index) {
+            if (index >= startIndex && index <= endIndex) {
+                continue;
+            }
             const GP_TOOL_DATA* record = source.TryGetRecord(index);
             if (!record) {
                 outRecords.clear();
@@ -4718,7 +4746,7 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
         return;
     }
 
-    if (cutAction == CutRangeAction::AppendCutSegmentToFile) {
+    if (cutAction == CutRangeAction::AppendFileWithoutCutRange) {
         std::wstring targetPath;
         if (!BrowseAppendTargetBinFile(hWnd, targetPath)) {
             return;
@@ -4726,31 +4754,31 @@ void ChartManager::HandleCutRange(HWND hWnd, int chartNumber) {
 
         if (AreSameWindowsPath(targetPath, currentDataFilePath)) {
             MessageBoxW(hWnd,
-                        L"Для этого действия выберите другой файл. Текущий файл не должен изменяться при добавлении вырезанного отрезка.",
+                        L"Для этого действия выберите другой файл. Текущий файл не изменяется.",
                         L"Вырезание отрезка",
                         MB_OK | MB_ICONINFORMATION);
             return;
         }
 
         std::vector<GP_TOOL_DATA> selectedRecords;
-        if (!CollectRecordsFromRange(*dataModule, startIndex, endIndex, selectedRecords)) {
-            MessageBoxW(hWnd, L"Не удалось подготовить вырезанный отрезок для добавления.", L"Ошибка", MB_OK | MB_ICONERROR);
+        if (!CollectRecordsExcludingRange(*dataModule, startIndex, endIndex, selectedRecords)) {
+            MessageBoxW(hWnd, L"Не удалось подготовить файл с вырезанным отрезком для добавления.", L"Ошибка", MB_OK | MB_ICONERROR);
             return;
         }
 
         std::wstring appendError;
-        const std::wstring segmentLabel = BuildRangeSegmentLabel(dataModule->GetLoadedFileName(), startIndex, endIndex, L"Вырезанный отрезок");
+        const std::wstring segmentLabel = BuildRangeSegmentLabel(dataModule->GetLoadedFileName(), startIndex, endIndex, L"Файл с вырезанным отрезком");
         if (!FileConstructor::AppendRecordsToExistingFile(targetPath,
                                                           selectedRecords,
                                                           currentDataFilePath,
-                                                          startIndex,
+                                                          0,
                                                           segmentLabel,
                                                           appendError)) {
-            MessageBoxW(hWnd, appendError.c_str(), L"Ошибка добавления отрезка", MB_OK | MB_ICONERROR);
+            MessageBoxW(hWnd, appendError.c_str(), L"Ошибка добавления файла", MB_OK | MB_ICONERROR);
             return;
         }
 
-        std::wstring message = L"Вырезанный отрезок [" + std::to_wstring(startIndex) + L".." +
+        std::wstring message = L"Файл с вырезанным отрезком [" + std::to_wstring(startIndex) + L".." +
             std::to_wstring(endIndex) + L"] добавлен к файлу:\n" + targetPath +
             L"\n\nТекущий файл не изменён.";
         MessageBoxW(hWnd, message.c_str(), L"Готово", MB_OK | MB_ICONINFORMATION);

@@ -34,6 +34,10 @@ struct ConstructorDialogContext {
     int dialogResult = IDCANCEL;
 };
 
+// Один экземпляр диалога конструктора файлов. Повторный вызов меню активирует
+// уже открытое окно вместо создания второго.
+HWND g_constructorDialog = nullptr;
+
 std::wstring GetFileNameOnly(const std::wstring& path) {
     const size_t slashPos = path.find_last_of(L"\\/");
     return (slashPos == std::wstring::npos) ? path : path.substr(slashPos + 1);
@@ -326,6 +330,14 @@ void RefreshConstructorDialog(HWND hDlg, ConstructorDialogContext& ctx, int sele
     HWND list = GetDlgItem(hDlg, IDC_FILE_CONSTRUCTOR_LIST);
     SendMessageW(list, LB_RESETCONTENT, 0, 0);
 
+    HDC hdc = GetDC(list);
+    HFONT listFont = reinterpret_cast<HFONT>(SendMessageW(list, WM_GETFONT, 0, 0));
+    HGDIOBJ oldFont = nullptr;
+    if (hdc && listFont) {
+        oldFont = SelectObject(hdc, listFont);
+    }
+
+    int maxItemWidth = 0;
     size_t totalRecords = 0;
     for (size_t i = 0; i < ctx.segments.size(); ++i) {
         const ConstructorSegment& segment = ctx.segments[i];
@@ -336,8 +348,27 @@ void RefreshConstructorDialog(HWND hDlg, ConstructorDialogContext& ctx, int sele
             L" | " + std::to_wstring(segment.records.size()) + L" кадров" +
             L" | sig=" + FormatSignature(segment.signature) +
             L" | " + segment.label;
+
+        if (hdc && listFont) {
+            SIZE textSize = {};
+            if (GetTextExtentPoint32W(hdc, item.c_str(), static_cast<int>(item.size()), &textSize)) {
+                if (textSize.cx > maxItemWidth) {
+                    maxItemWidth = textSize.cx;
+                }
+            }
+        }
+
         SendMessageW(list, LB_ADDSTRING, 0, reinterpret_cast<LPARAM>(item.c_str()));
     }
+
+    if (hdc && listFont && oldFont) {
+        SelectObject(hdc, oldFont);
+    }
+    if (hdc) {
+        ReleaseDC(list, hdc);
+    }
+
+    SendMessageW(list, LB_SETHORIZONTALEXTENT, (maxItemWidth > 0) ? maxItemWidth + 4 : 0, 0);
 
     if (!ctx.segments.empty()) {
         if (selectedIndex < 0) {
@@ -616,6 +647,7 @@ INT_PTR CALLBACK FileConstructorDialogProc(HWND hDlg, UINT message, WPARAM wPara
         case WM_INITDIALOG: {
             SetWindowLongPtrW(hDlg, GWLP_USERDATA, static_cast<LONG_PTR>(lParam));
             ConstructorDialogContext* ctx = reinterpret_cast<ConstructorDialogContext*>(lParam);
+            g_constructorDialog = hDlg;
             LONG_PTR exStyle = GetWindowLongPtrW(hDlg, GWL_EXSTYLE);
             SetWindowLongPtrW(hDlg, GWL_EXSTYLE, (exStyle & ~WS_EX_TOOLWINDOW) | WS_EX_APPWINDOW);
             SetWindowPos(hDlg, nullptr, 0, 0, 0, 0,
@@ -624,6 +656,13 @@ INT_PTR CALLBACK FileConstructorDialogProc(HWND hDlg, UINT message, WPARAM wPara
             if (ctx) {
                 CenterDialogOnOwner(hDlg, ctx->owner);
                 RefreshConstructorDialog(hDlg, *ctx);
+            }
+            return TRUE;
+        }
+
+        case WM_DESTROY: {
+            if (g_constructorDialog == hDlg) {
+                g_constructorDialog = nullptr;
             }
             return TRUE;
         }
@@ -1019,6 +1058,11 @@ bool SaveLayoutExcludingRange(const std::wstring& sourceDataFilePath,
 bool ShowFileConstructorDialog(HWND parent, std::wstring& outSavedFilePath) {
     outSavedFilePath.clear();
 
+    if (g_constructorDialog && IsWindow(g_constructorDialog)) {
+        SetForegroundWindow(g_constructorDialog);
+        return false;
+    }
+
     ConstructorDialogContext ctx;
     ctx.owner = parent;
 
@@ -1031,10 +1075,6 @@ bool ShowFileConstructorDialog(HWND parent, std::wstring& outSavedFilePath) {
         return false;
     }
 
-    if (parent && IsWindow(parent)) {
-        EnableWindow(parent, FALSE);
-    }
-
     ShowWindow(dialog, SW_SHOW);
     SetForegroundWindow(dialog);
 
@@ -1045,11 +1085,6 @@ bool ShowFileConstructorDialog(HWND parent, std::wstring& outSavedFilePath) {
             TranslateMessage(&msg);
             DispatchMessageW(&msg);
         }
-    }
-
-    if (parent && IsWindow(parent)) {
-        EnableWindow(parent, TRUE);
-        SetForegroundWindow(parent);
     }
 
     if (getMessageResult == 0) {
